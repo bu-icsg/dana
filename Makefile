@@ -18,7 +18,7 @@ default: all
 
 $(DIR_BUILD)/%.out: %.scala
 	set -e -o pipefail; \
-	$(SBT) $(SBT_FLAGS) "run $(basename $(notdir $<)) --genHarness --compile --test --backend c --vcd --targetDir $(DIR_BUILD)"
+	$(SBT) $(SBT_FLAGS) "run $(basename $(notdir $<)) --genHarness --compile --test --backend c --debug --vcd --targetDir $(DIR_BUILD)"
 
 $(DIR_BUILD)/%.v: %.scala
 	set -e -o pipefail; \
@@ -28,7 +28,7 @@ emulator: $(EMULATORS)
 
 verilog: $(HDLS)
 
-all: verilog emulator
+all: emulator
 
 clean:
 	rm $(DIR_BUILD)/*
