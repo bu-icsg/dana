@@ -27,7 +27,7 @@ class ProcessingElement(
   val decimalPointWidth: Int = 3,
   val steepnessWidth: Int = 3,
   val activationFunctionWidth: Int = 5
-) extends Module {
+) extends DanaModule {
   val io = new ProcessingElementInterface(
     elementWidth = elementWidth,
     elementsPerBlock = elementsPerBlock,
@@ -41,6 +41,7 @@ class ProcessingElement(
   // Initial version, just a multiplier
   val s_unallocated :: s_mul :: s_af :: s_af_wait :: s_done :: Nil =
     Enum(UInt(), 5)
+
   val state = Reg(init = s_unallocated)
 
   // Default values
@@ -109,7 +110,7 @@ class ProcessingElement(
 }
 
 class ProcessingElementTests(uut: ProcessingElement, isTrace: Boolean = true)
-    extends Tester(uut, isTrace) {
+    extends DanaTester(uut, isTrace) {
   // Helper functions
   def getDecimal(): Int = {
     peek(uut.io.decimalPoint).intValue + uut.decimalPointOffset }

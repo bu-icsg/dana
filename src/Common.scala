@@ -16,3 +16,12 @@ object Testbench {
       }
   }
 }
+
+// Contains things common to all DANA modules
+abstract class DanaModule extends Module {
+}
+
+// Contains things common to all DANA testbenches
+abstract class DanaTester[+T <: Module](c: T, isTrace: Boolean = true)
+    extends Tester(c, isTrace) {
+}

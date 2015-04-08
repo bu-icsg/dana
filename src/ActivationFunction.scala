@@ -43,7 +43,7 @@ class ActivationFunction(
   val decimalPointOffset: Int = 7,
   val decimalPointWidth: Int = 3,
   val steepnessWidth: Int = 3
-) extends Module {
+) extends DanaModule {
   val io = new ActivationFunctionInterface(
     elementWidth = elementWidth,
     decimalPointWidth = decimalPointWidth,
@@ -201,7 +201,7 @@ class ActivationFunction(
 }
 
 class ActivationFunctionTests(uut: ActivationFunction)
-    extends Tester(uut) {
+    extends DanaTester(uut) {
   printf("[INFO] Threshold Activation Function Test\n")
   // Threshold Test
   val numRuns = 1000
