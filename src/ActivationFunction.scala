@@ -39,10 +39,10 @@ class ActivationFunctionInterface(
 }
 
 class ActivationFunction(
-  val elementWidth: Int,
-  val decimalPointOffset: Int,
-  val decimalPointWidth: Int,
-  val steepnessWidth: Int
+  val elementWidth: Int = 32,
+  val decimalPointOffset: Int = 7,
+  val decimalPointWidth: Int = 3,
+  val steepnessWidth: Int = 3
 ) extends Module {
   val io = new ActivationFunctionInterface(
     elementWidth = elementWidth,
@@ -202,7 +202,6 @@ class ActivationFunction(
 
 class ActivationFunctionTests(uut: ActivationFunction)
     extends Tester(uut) {
-  isTrace = true
   printf("[INFO] Threshold Activation Function Test\n")
   // Threshold Test
   val numRuns = 1000
@@ -240,7 +239,6 @@ class ActivationFunctionTests(uut: ActivationFunction)
     assert(expect(uut.io.resp.bits.out, out), "Failed Threshold Symmetric Test")
   }
   // Sigmoid Test
-  isTrace = true
   printf("[INFO] Sigmoid Activation Function Test\n")
   // printf("[INFO]   decimalEnc steepness aF in inSteep out exact\n")
   for (t <- 0 until numRuns) {

@@ -14,19 +14,19 @@ class ProcessingElementInterface(
   val steepness = UInt(INPUT, steepnessWidth)
   val activationFunction = UInt(INPUT, activationFunctionWidth)
   val validIn = Bool(INPUT)
-  val dataIn = Vec.fill(elementsPerBlock){UInt(INPUT, elementWidth)}
-  val weight = Vec.fill(elementsPerBlock){UInt(INPUT, elementWidth)}
+  val dataIn = Vec.fill(elementsPerBlock){SInt(INPUT, elementWidth)}
+  val weight = Vec.fill(elementsPerBlock){SInt(INPUT, elementWidth)}
   val dataOut = SInt(OUTPUT, elementWidth)
   val validOut = Bool(OUTPUT)
 }
 
 class ProcessingElement(
-  val elementWidth: Int,
-  val elementsPerBlock: Int,
-  val decimalPointOffset: Int,
-  val decimalPointWidth: Int,
-  val steepnessWidth: Int,
-  val activationFunctionWidth: Int
+  val elementWidth: Int = 32,
+  val elementsPerBlock: Int = 4,
+  val decimalPointOffset: Int = 7,
+  val decimalPointWidth: Int = 3,
+  val steepnessWidth: Int = 3,
+  val activationFunctionWidth: Int = 5
 ) extends Module {
   val io = new ProcessingElementInterface(
     elementWidth = elementWidth,
@@ -35,16 +35,16 @@ class ProcessingElement(
     steepnessWidth = steepnessWidth,
     activationFunctionWidth = activationFunctionWidth)
   val index = Reg(init = UInt(10))
-  val acc = Reg(init = SInt(0))
-  val dataOut = Reg(init = SInt(0))
+  val acc = Reg(init = SInt(0, width = elementWidth))
+  val dataOut = Reg(init = SInt(0, width = elementWidth))
 
   // Initial version, just a multiplier
-  val s_unallocated :: s_mul :: s_activation_function :: s_done :: Nil =
-    Enum(UInt(), 4)
+  val s_unallocated :: s_mul :: s_af :: s_af_wait :: s_done :: Nil =
+    Enum(UInt(), 5)
   val state = Reg(init = s_unallocated)
 
   // Default values
-  io.dataOut := UInt(0)
+  io.dataOut := UInt(0, width = elementWidth)
   io.validOut := Bool(false)
   acc := acc
 
@@ -56,10 +56,17 @@ class ProcessingElement(
   }
   when (state === s_mul) {
     when (index === UInt(elementsPerBlock - 1)) {
-      state := s_activation_function
+      state := s_af
     }
   }
-  when (state === s_activation_function) {
+  when (state === s_af) {
+    state := s_af_wait
+  }
+  // [TODO] Kludge: The activation function is currently a 1-cycle
+  // operation, but this is intended to use a decoupled interface.
+  // When this switches to the decoupled interface, this will need to
+  // be modified.
+  when (state === s_af_wait) {
     state := s_done
   }
   when (state === s_done) {
@@ -68,16 +75,20 @@ class ProcessingElement(
 
   // Non-state sequential logic
   when (state === s_unallocated) {
-    acc := SInt(0)
+    acc := SInt(0, width = elementWidth)
     index := UInt(0)
   }
   when (state === s_mul) {
-    acc := acc + io.dataIn(index) * io.weight(index)
+    acc := acc + ((io.dataIn(index) * io.weight(index)) >>
+      (io.decimalPoint) >> UInt(decimalPointOffset))
     index := index + UInt(1)
   }
-  when (state === s_activation_function) {
+  when (state === s_af) {
     acc := acc
   }
+  // when (state === s_af_wait) {
+  //   acc :=
+  // }
   when (state === s_done) {
     io.dataOut := dataOut
     io.validOut := Bool(true)
@@ -85,10 +96,10 @@ class ProcessingElement(
 
   // Submodule instantiation
   val af = Module(new ActivationFunction(
-    elementWidth,
-    decimalPointOffset,
-    decimalPointWidth,
-    steepnessWidth))
+    elementWidth = elementWidth,
+    decimalPointOffset = decimalPointOffset,
+    decimalPointWidth = decimalPointWidth,
+    steepnessWidth = steepnessWidth))
   af.io.req.bits.in := acc
   af.io.req.bits.decimal := io.decimalPoint
   af.io.req.bits.steepness := io.steepness
@@ -97,20 +108,59 @@ class ProcessingElement(
 
 }
 
-class ProcessingElementTests(uut: ProcessingElement) extends Tester(uut) {
+class ProcessingElementTests(uut: ProcessingElement, isTrace: Boolean = true)
+    extends Tester(uut, isTrace) {
+  // Helper functions
+  def getDecimal(): Int = {
+    peek(uut.io.decimalPoint).intValue + uut.decimalPointOffset }
+  def getSteepness(): Int = {
+    peek(uut.io.steepness).intValue - 4 }
+  def fixedConvert(data: Bits): Double = {
+    peek(data).floatValue() / Math.pow(2, getDecimal) }
+  def fixedConvert(data: Int): Double = {
+    data.floatValue() / Math.pow(2, getDecimal) }
+  def activationFunction(af: Int, data: Bits, steepness: Int = 1): Double = {
+    val x = fixedConvert(data)
+    // printf("[INFO]   af:   %d\n", af)
+    // printf("[INFO]   data: %f\n", x)
+    // printf("[INFO]   stee: %d\n", steepness)
+    af match {
+      // FANN_THRESHOLD
+      case 1 => if (x > 0) 1 else 0
+      // FANN_THRESHOLD_SYMMETRIC
+      case 2 => if (x > 0) 1 else if (x == 0) 0 else -1
+      // FANN_SIGMOID
+      case 3 => 1 / (1 + Math.exp(-Math.pow(2, steepness.toFloat) * x / 0.5))
+      case 4 => 1 / (1 + Math.exp(-Math.pow(2, steepness.toFloat) * x / 0.5))
+      // FANN_SIGMOID_SYMMETRIC
+      case 5 => 2 / (1 + Math.exp(-Math.pow(2, steepness.toFloat) * x / 0.5)) - 1
+      case 6 => 2 / (1 + Math.exp(-Math.pow(2, steepness.toFloat) * x / 0.5)) - 1
+      case _ => 0
+    }
+  }
+
   val dataIn = Array.fill(uut.elementsPerBlock){0}
   val weight = Array.fill(uut.elementsPerBlock){0}
   var correct = 0
-  for (t <- 0 until 4) {
+  printf("[INFO] Sigmoid Activation Function Test\n")
+  for (t <- 0 until 10000) {
+    // poke(uut.io.decimalPoint, 3)
+    poke(uut.io.decimalPoint, rnd.nextInt(8))
+    // poke(uut.io.steepness, 4)
+    poke(uut.io.steepness, rnd.nextInt(8))
+    // poke(uut.io.activationFunction, 5)
+    poke(uut.io.activationFunction, rnd.nextInt(5) + 1)
     correct = 0
     for (i <- 0 until uut.elementsPerBlock) {
-      dataIn(i) = rnd.nextInt(Math.pow(2, uut.elementWidth).toInt - 1)
-      weight(i) = rnd.nextInt(Math.pow(2, uut.elementWidth).toInt - 1)
-      // dataIn(i) = 2 * i
-      // weight(i) = 2 * i
-      correct = correct + dataIn(i) * weight(i)
+      dataIn(i) = rnd.nextInt(Math.pow(2, getDecimal + 2).toInt) -
+        Math.pow(2, getDecimal + 1).toInt
+      weight(i) = rnd.nextInt(Math.pow(2, getDecimal + 2).toInt) -
+        Math.pow(2, getDecimal + 1).toInt
+      correct = correct + (dataIn(i) * weight(i) >> getDecimal)
+      // printf("[INFO] In(%d): %f, %f\n", i, fixedConvert(dataIn(i)),
+      //   fixedConvert(weight(i)))
     }
-    println(s"Correct: $correct")
+    // printf("[INFO] Correct Acc: %f\n", fixedConvert(correct))
     for (i <- 0 until uut.elementsPerBlock) {
       poke(uut.io.dataIn(i), dataIn(i))
       poke(uut.io.weight(i), weight(i))
@@ -120,9 +170,17 @@ class ProcessingElementTests(uut: ProcessingElement) extends Tester(uut) {
     poke(uut.io.validIn, 0)
     while(peek(uut.io.validOut) == 0) {
       step(1)
+      // printf("[INFO]   acc: %f\n", fixedConvert(uut.acc))
     }
-    expect(uut.io.dataOut, correct)
+    // printf("[INFO] Acc:         %f\n", fixedConvert(uut.acc))
+    // printf("[INFO] Output:      %f\n", fixedConvert(uut.io.dataOut))
+    // printf("[INFO] AF Good:     %f\n",
+    //   activationFunction(peek(uut.io.activationFunction).toInt, uut.acc,
+    //     getSteepness))
+    expect(uut.acc, correct)
+    expect(Math.abs(fixedConvert(uut.io.dataOut) -
+      activationFunction(peek(uut.io.activationFunction).toInt, uut.acc,
+        getSteepness)) < 0.1, "Activation Function Check")
     step(1)
-    // expect(uut.io.dataOut, dataIn * weight)
   }
 }

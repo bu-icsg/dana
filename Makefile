@@ -6,7 +6,7 @@ DIR_BUILD = build
 CHISEL_FLAGS :=
 
 # EXECUTABLES = $(notdir $(basename $(wildcard $(srcdir/*.scala))))
-EXECUTABLES = ActivationFunction
+EXECUTABLES = ProcessingElement
 EMULATORS = $(EXECUTABLES:%=$(DIR_BUILD)/%.out)
 HDLS = $(EXECUTABLES:%=$(DIR_BUILD)/%.v)
 
@@ -24,11 +24,11 @@ $(DIR_BUILD)/%.v: %.scala
 	set -e -o pipefail; \
 	$(SBT) $(SBT_FLAGS) "run $(basename $(notdir $<)) --genHarness --compile --backend v --targetDir $(DIR_BUILD)"
 
-emulator: $(EMULATORS)
+test: $(EMULATORS)
 
 verilog: $(HDLS)
 
-all: emulator
+all: test
 
 clean:
 	rm $(DIR_BUILD)/*
