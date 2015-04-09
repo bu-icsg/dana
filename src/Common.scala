@@ -13,6 +13,9 @@ object Testbench {
         case "ActivationFunction" =>
           chiselMainTest(cliArgs, () => Module(new ActivationFunction())){
             c => new ActivationFunctionTests(c)}
+        case "TransactionTable" =>
+          chiselMainTest(cliArgs, () => Module(new TransactionTable())){
+            c => new TransactionTableTests(c)}
       }
   }
 }

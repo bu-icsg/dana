@@ -2,6 +2,37 @@ package dana
 
 import Chisel._
 
+class ProcessingElementReq(
+  val activationFunctionWidth: Int,
+  val steepnessWidth: Int,
+  val decimalPointWidth: Int,
+  val elementWidth: Int,
+  val elementsPerBlock: Int
+) extends Bundle {
+  // I'm excluding, potentially temporarily:
+  //   * state
+  //   * pe_selected
+  //   * is_first
+  //   * reg_file_ready
+  val numWeights = UInt(INPUT, 8) // [TODO] fragile
+  val activationFunction = UInt(INPUT, activationFunctionWidth)
+  val steepness = UInt(INPUT, steepnessWidth)
+  val decimalPoint = UInt(INPUT, decimalPointWidth)
+  val neuronPointer = UInt(INPUT, 12) // [TODO] fragile
+  val bias = UInt(INPUT, elementWidth)
+  val data = Vec.fill(elementsPerBlock){SInt(INPUT, elementWidth)}
+  val weights = Vec.fill(elementsPerBlock){SInt(INPUT, elementWidth)}
+}
+
+class ProcessingElementResp(
+  val elementWidth: Int
+) extends Bundle {
+  // Not included:
+  //   * next_state
+  //   * invalidate_inputs
+  val data = UInt(OUTPUT, elementWidth)
+}
+
 class ProcessingElementInterface(
   val elementWidth: Int,
   val elementsPerBlock: Int,
@@ -144,7 +175,7 @@ class ProcessingElementTests(uut: ProcessingElement, isTrace: Boolean = true)
   val weight = Array.fill(uut.elementsPerBlock){0}
   var correct = 0
   printf("[INFO] Sigmoid Activation Function Test\n")
-  for (t <- 0 until 10000) {
+  for (t <- 0 until 100) {
     // poke(uut.io.decimalPoint, 3)
     poke(uut.io.decimalPoint, rnd.nextInt(8))
     // poke(uut.io.steepness, 4)
