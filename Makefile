@@ -6,7 +6,7 @@ DIR_BUILD = build
 CHISEL_FLAGS :=
 
 # EXECUTABLES = $(notdir $(basename $(wildcard $(srcdir/*.scala))))
-EXECUTABLES = ProcessingElement
+EXECUTABLES = TransactionTable
 EMULATORS = $(EXECUTABLES:%=$(DIR_BUILD)/%.out)
 HDLS = $(EXECUTABLES:%=$(DIR_BUILD)/%.v)
 

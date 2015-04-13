@@ -105,21 +105,16 @@ class TransactionTable(
     nnidWidth = nnidWidth,
     decimalPointWidth = decimalPointWidth,
     feedbackWidth = feedbackWidth)()}
+  // An entry is free if it is not valid and not reserved
+  def isFree(x: TransactionState): Bool = { !x.valid && !x.reserved }
 
-  // Compute the next available free entry
-  val nextFree = Reg(UInt(0, width = transactionTableNumEntries))
-  // val hasFree = Reg(Bool())
+  // Determine if there exits a free entry in the table and the index
+  // of the next availble free entry
   val hasFree = Bool()
-  // hasFree := Bool(false)
-  // nextFree := UInt(0)
-  // for (i <- 0 until table.length)
-  //   when (!table(i).valid && !table(i).reserved) {
-  //     nextFree := UInt(i)
-  //     hasFree := Bool(true)
-  //   }
-  table.indexWhere(_.valid)
+  val nextFree = UInt()
+  hasFree := table.exists(isFree)
+  nextFree := table.indexWhere(isFree)
   io.arbiter.req.ready := hasFree
-
   when (io.arbiter.req.valid) {
     table(nextFree).reserved := Bool(true)
   }
@@ -131,7 +126,7 @@ class TransactionTable(
 
 class TransactionTableTests(uut: TransactionTable, isTrace: Boolean = true)
     extends DanaTester(uut, isTrace) {
-  for (t <- 0 until 4) {
+  for (t <- 0 until 6) {
     peek(uut.hasFree)
     peek(uut.nextFree)
     val tid = rnd.nextInt(16)
