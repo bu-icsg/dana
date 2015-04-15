@@ -12,10 +12,18 @@ object Testbench {
             c => new ProcessingElementTests(c, false)}
         case "ActivationFunction" =>
           chiselMainTest(cliArgs, () => Module(new ActivationFunction())){
-            c => new ActivationFunctionTests(c)}
+            c => new ActivationFunctionTests(c, false)}
         case "TransactionTable" =>
           chiselMainTest(cliArgs, () => Module(new TransactionTable())){
-            c => new TransactionTableTests(c)}
+            c => new TransactionTableTests(c, false)}
+        case "SRAM" =>
+          chiselMainTest(cliArgs, () => Module(new SRAM(
+            numReadPorts = 0,
+            numWritePorts = 0,
+            numReadWritePorts = 2,
+            dataWidth = 8,
+            sramDepth = 8))){
+            c => new SRAMTests(c, false)}
       }
   }
 }
