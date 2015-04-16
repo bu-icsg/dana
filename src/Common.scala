@@ -14,7 +14,7 @@ object Testbench {
           chiselMainTest(cliArgs, () => Module(new ActivationFunction())){
             c => new ActivationFunctionTests(c, false)}
         case "TransactionTable" =>
-          chiselMainTest(cliArgs, () => Module(new TransactionTable())){
+          chiselMainTest(cliArgs, () => Module(new TransactionTable()())){
             c => new TransactionTableTests(c, false)}
         case "SRAM" =>
           chiselMainTest(cliArgs, () => Module(new SRAM(
@@ -24,6 +24,13 @@ object Testbench {
             dataWidth = 8,
             sramDepth = 8))){
             c => new SRAMTests(c, false)}
+        case "SRAMElement" =>
+          chiselMainTest(cliArgs, () => Module(new SRAMElement(
+            elementWidth = 16,
+            dataWidth = 32,
+            numPorts = 1,
+            sramDepth = 8))){
+            c => new SRAMElementTests(c, false)}
       }
   }
 }

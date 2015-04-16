@@ -6,13 +6,13 @@ DIR_BUILD = build
 CHISEL_FLAGS :=
 
 # EXECUTABLES = $(notdir $(basename $(wildcard $(srcdir/*.scala))))
-EXECUTABLES = TransactionTable
+EXECUTABLES = SRAM SRAMElement ProcessingElement
 EMULATORS = $(EXECUTABLES:%=$(DIR_BUILD)/%.out)
 HDLS = $(EXECUTABLES:%=$(DIR_BUILD)/%.v)
 
 vpath %.scala src
 
-.PHONY: all emulator phony clean
+.PHONY: all emulator phony clean test verilog
 
 default: all
 
