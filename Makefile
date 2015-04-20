@@ -1,16 +1,17 @@
 SBT          ?= sbt
 _SBT_FLAGS   ?= -Dsbt.log.noformat=true
 SBT_FLAGS    ?=
+DIR_SRC = src
 DIR_BUILD = build
 
 CHISEL_FLAGS :=
 
-# EXECUTABLES = $(notdir $(basename $(wildcard $(srcdir/*.scala))))
-EXECUTABLES = SRAM SRAMElement ProcessingElement
+# EXECUTABLES = $(notdir $(basename $(wildcard $(DIR_SRC/*.scala))))
+EXECUTABLES = TransactionTable
 EMULATORS = $(EXECUTABLES:%=$(DIR_BUILD)/%.out)
 HDLS = $(EXECUTABLES:%=$(DIR_BUILD)/%.v)
 
-vpath %.scala src
+vpath %.scala $(DIR_SRC)
 
 .PHONY: all emulator phony clean test verilog
 
