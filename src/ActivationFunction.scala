@@ -200,107 +200,135 @@ class ActivationFunction(
 
 }
 
-class ActivationFunctionTests(uut: ActivationFunction)
-    extends DanaTester(uut) {
+class ActivationFunctionTests(uut: ActivationFunction, isTrace: Boolean = true)
+    extends DanaTester(uut, isTrace) {
+  def printOutputs() {
+    printf("%d %d %d %d\n", peek(uut.io.req.bits.steepness),
+      peek(uut.io.req.bits.activationFunction),
+      peek(uut.io.req.bits.in),
+      peek(uut.io.resp.bits.out))
+  }
+
   printf("[INFO] Threshold Activation Function Test\n")
   // Threshold Test
-  val numRuns = 1000
-  for (t <- 0 until numRuns) {
-    val decimalEncoded = rnd.nextInt(8)
-    val decimal = uut.decimalPointOffset + decimalEncoded
-    val in = rnd.nextInt(Math.pow(2, decimal+3).toInt) -
-      Math.pow(2, decimal+2).toInt
-    val steepness = rnd.nextInt(8)
-    val out = if (in > 0) 1 << decimal else 0
-    poke(uut.io.req.bits.in, in)
-    poke(uut.io.req.bits.decimal, decimalEncoded)
-    poke(uut.io.req.bits.steepness, steepness)
-    poke(uut.io.req.bits.activationFunction, 1)
-    step(1)
-    assert(expect(uut.io.resp.bits.out, out), "Failed Threshold Test")
+  val numRuns = 128
+  printf("steepness activationFunction acc out\n")
+  for (s <- 0 until 8) {
+    for (t <- 0 until numRuns) {
+      // val decimalEncoded = rnd.nextInt(8)
+      val decimalEncoded = 4
+      val decimal = uut.decimalPointOffset + decimalEncoded
+      // val in = rnd.nextInt(Math.pow(2, decimal+3).toInt) -
+      // Math.pow(2, decimal+2).toInt
+      val in = ( - Math.pow(2, decimal + 1) + Math.pow(2, decimal + 2) / numRuns.toFloat * t).toInt
+      val steepness = s
+      val out = if (in > 0) 1 << decimal else 0
+      poke(uut.io.req.bits.in, in)
+      poke(uut.io.req.bits.decimal, decimalEncoded)
+      poke(uut.io.req.bits.steepness, s)
+      poke(uut.io.req.bits.activationFunction, 1)
+      step(1)
+      printOutputs()
+      assert(expect(uut.io.resp.bits.out, out), "Failed Threshold Test")
+    }
   }
   // Symmetric Threshold Test
   printf("[INFO] Threshold Symmetric Activation Function Test\n")
-  for (t <- 0 until numRuns) {
-    val decimalEncoded = rnd.nextInt(8)
-    val decimal = uut.decimalPointOffset + decimalEncoded
-    val in = rnd.nextInt(Math.pow(2, decimal+3).toInt) -
+  for (s <- 0 until 8) {
+    for (t <- 0 until numRuns) {
+      // val decimalEncoded = rnd.nextInt(8)
+      val decimalEncoded = 4
+      val decimal = uut.decimalPointOffset + decimalEncoded
+      // val in = rnd.nextInt(Math.pow(2, decimal+3).toInt) -
+      val in = ( - Math.pow(2, decimal + 1) + Math.pow(2, decimal + 2) / numRuns.toFloat * t).toInt
       Math.pow(2, decimal+2).toInt
-    val steepness = rnd.nextInt(8)
-    var out = 0
-    if (in > 0) out = 1 << decimal
-    else if (in == 0) out = 0
-    else out = -1 << decimal
-    poke(uut.io.req.bits.in, in)
-    poke(uut.io.req.bits.decimal, decimalEncoded)
-    poke(uut.io.req.bits.steepness, steepness)
-    poke(uut.io.req.bits.activationFunction, 2)
-    step(1)
-    assert(expect(uut.io.resp.bits.out, out), "Failed Threshold Symmetric Test")
+      val steepness = s
+      var out = 0
+      if (in > 0) out = 1 << decimal
+      else if (in == 0) out = 0
+      else out = -1 << decimal
+      poke(uut.io.req.bits.in, in)
+      poke(uut.io.req.bits.decimal, decimalEncoded)
+      poke(uut.io.req.bits.steepness, steepness)
+      poke(uut.io.req.bits.activationFunction, 2)
+      step(1)
+      printOutputs()
+      assert(expect(uut.io.resp.bits.out, out), "Failed Threshold Sym. Test")
+    }
   }
   // Sigmoid Test
   printf("[INFO] Sigmoid Activation Function Test\n")
   // printf("[INFO]   decimalEnc steepness aF in inSteep out exact\n")
-  for (t <- 0 until numRuns) {
-    val decimalEncoded = rnd.nextInt(8)
-    // val decimalEncoded = 3
-    val decimal = uut.decimalPointOffset + decimalEncoded
-    val in = rnd.nextInt(Math.pow(2, decimal+3).toInt) -
+  for (s <- 0 until 8) {
+    for (t <- 0 until numRuns) {
+      // val decimalEncoded = rnd.nextInt(8)
+      val decimalEncoded = 4
+      // val decimalEncoded = 3
+      val decimal = uut.decimalPointOffset + decimalEncoded
+      // val in = rnd.nextInt(Math.pow(2, decimal+3).toInt) -
+      val in = ( - Math.pow(2, decimal + 1) + Math.pow(2, decimal + 2) / numRuns.toFloat * t).toInt
       Math.pow(2, decimal+2).toInt
-    // val in = ( -Math.pow(2, decimal + 2) +
-    //   Math.pow(2, decimal + 3) / 100 * t).toInt
-    val steepness = rnd.nextInt(8)
-    // val steepness = 4
-    poke(uut.io.req.bits.in, in)
-    poke(uut.io.req.bits.decimal, decimalEncoded)
-    poke(uut.io.req.bits.steepness, steepness)
-    poke(uut.io.req.bits.activationFunction, 3)
-    step(1)
-    // Print out all the internally derived parameters
-    val x: Double = peek(uut.inD0).floatValue() / Math.pow(2,decimal)
-    // printf("[INFO]   %d %d %d %f %f %f %f\n",
-    //   peek(uut.io.req.bits.decimal),
-    //   peek(uut.io.req.bits.steepness),
-    //   peek(uut.io.req.bits.activationFunction),
-    //   peek(uut.io.req.bits.in).floatValue() / Math.pow(2,decimal),
-    //   x,
-    //   peek(uut.out).floatValue() / Math.pow(2, decimal),
-    //   1 / (1 + Math.exp(-x/0.5)))
-    // Weak check to ensure the output is close to what it should be:
-    assert(expect(Math.abs(peek(uut.out).floatValue() / Math.pow(2, decimal) -
-      1 / (1 + Math.exp(-x/0.5))) < 0.1, "Simgoid within 0.1 of correct?"))
+      // val in = ( -Math.pow(2, decimal + 2) +
+      //   Math.pow(2, decimal + 3) / 100 * t).toInt
+      val steepness = s
+      // val steepness = 4
+      poke(uut.io.req.bits.in, in)
+      poke(uut.io.req.bits.decimal, decimalEncoded)
+      poke(uut.io.req.bits.steepness, steepness)
+      poke(uut.io.req.bits.activationFunction, 3)
+      step(1)
+      // Print out all the internally derived parameters
+      printOutputs()
+      val x: Double = peek(uut.inD0).floatValue() / Math.pow(2,decimal)
+      // printf("[INFO]   %d %d %d %f %f %f %f\n",
+      //   peek(uut.io.req.bits.decimal),
+      //   peek(uut.io.req.bits.steepness),
+      //   peek(uut.io.req.bits.activationFunction),
+      //   peek(uut.io.req.bits.in).floatValue() / Math.pow(2,decimal),
+      //   x,
+      //   peek(uut.out).floatValue() / Math.pow(2, decimal),
+      //   1 / (1 + Math.exp(-x/0.5)))
+      // Weak check to ensure the output is close to what it should be:
+      assert(expect(Math.abs(peek(uut.out).floatValue() / Math.pow(2, decimal) -
+        1 / (1 + Math.exp(-x/0.5))) < 0.1, "Simgoid within 0.1 of correct?"))
+    }
   }
   // Symmetric Sigmoid Test
   printf("[INFO] Sigmoid Symmetric Activation Function Test\n")
   // printf("[INFO]   decimalEnc steepness aF in inSteep out exact\n")
-  for (t <- 0 until numRuns) {
-    val decimalEncoded = rnd.nextInt(8)
-    // val decimalEncoded = 0
-    val decimal = uut.decimalPointOffset + decimalEncoded
-    val in = rnd.nextInt(Math.pow(2, decimal+3).toInt) -
+  for (s <- 0 until 8) {
+    for (t <- 0 until numRuns) {
+      // val decimalEncoded = rnd.nextInt(8)
+      val decimalEncoded = 4
+      // val decimalEncoded = 0
+      val decimal = uut.decimalPointOffset + decimalEncoded
+      // val in = rnd.nextInt(Math.pow(2, decimal+3).toInt) -
+      val in = ( - Math.pow(2, decimal + 1) + Math.pow(2, decimal + 2) / numRuns.toFloat * t).toInt
       Math.pow(2, decimal+2).toInt
-    // val in = ( -Math.pow(2, decimal + 2) +
-    //   Math.pow(2, decimal + 3) / numRuns * t).toInt
-    val steepness = rnd.nextInt(8)
-    // val steepness = 2
-    poke(uut.io.req.bits.in, in)
-    poke(uut.io.req.bits.decimal, decimalEncoded)
-    poke(uut.io.req.bits.steepness, steepness)
-    poke(uut.io.req.bits.activationFunction, 5)
-    step(1)
-    // Print out all the internally derived parameters
-    val x: Double = peek(uut.inD0).floatValue() / Math.pow(2,decimal)
-    // printf("[INFO]   %d %d %d %f %f %f %f\n",
-    //   peek(uut.io.req.bits.decimal),
-    //   peek(uut.io.req.bits.steepness),
-    //   peek(uut.io.req.bits.activationFunction),
-    //   peek(uut.io.req.bits.in).floatValue() / Math.pow(2,decimal),
-    //   x,
-    //   peek(uut.out).floatValue() / Math.pow(2, decimal),
-    //   2 / (1 + Math.exp(-x/0.5)) - 1)
-    // Weak check to ensure the output is close to what it should be:
-    assert(expect(Math.abs((peek(uut.out).floatValue() / Math.pow(2, decimal)) -
-      (2 / (1 + Math.exp(-x/0.5)) -1)) <0.1,
-      "Symmetric simgoid within 0.1 of correct?"))
+      // val in = ( -Math.pow(2, decimal + 2) +
+      //   Math.pow(2, decimal + 3) / numRuns * t).toInt
+      val steepness = s
+      // val steepness = 2
+      poke(uut.io.req.bits.in, in)
+      poke(uut.io.req.bits.decimal, decimalEncoded)
+      poke(uut.io.req.bits.steepness, steepness)
+      poke(uut.io.req.bits.activationFunction, 5)
+      printOutputs()
+      step(1)
+      // Print out all the internally derived parameters
+      val x: Double = peek(uut.inD0).floatValue() / Math.pow(2,decimal)
+      // printf("[INFO]   %d %d %d %f %f %f %f\n",
+      //   peek(uut.io.req.bits.decimal),
+      //   peek(uut.io.req.bits.steepness),
+      //   peek(uut.io.req.bits.activationFunction),
+      //   peek(uut.io.req.bits.in).floatValue() / Math.pow(2,decimal),
+      //   x,
+      //   peek(uut.out).floatValue() / Math.pow(2, decimal),
+      //   2 / (1 + Math.exp(-x/0.5)) - 1)
+      // Weak check to ensure the output is close to what it should be:
+      assert(expect(Math.abs((peek(uut.out).floatValue() / Math.pow(2,decimal))-
+        (2 / (1 + Math.exp(-x/0.5)) -1)) <0.1,
+        "Symmetric simgoid within 0.1 of correct?"))
+    }
   }
 }
