@@ -132,7 +132,7 @@ class XFilesArbiterInterface(
     bitsFeedback = bitsFeedback)).flip
 }
 
-class DanaInterface(
+class TTableDanaInterface(
   val elementsPerBlock: Int,
   val tidWidth: Int,
   val nnidWidth: Int,
@@ -171,7 +171,7 @@ class TransactionTableInterface(
     tidWidth = tidWidth,
     nnidWidth = nnidWidth,
     bitsFeedback = bitsFeedback)
-  val dana = new DanaInterface(
+  val dana = new TTableDanaInterface(
     elementsPerBlock = elementsPerBlock,
     tidWidth = tidWidth,
     nnidWidth = nnidWidth,
@@ -180,23 +180,7 @@ class TransactionTableInterface(
     decimalPointWidth = decimalPointWidth)
 }
 
-class TransactionTable(
-  val elementWidth: Int = 32,
-  val elementsPerBlock: Int = 4,
-  val tidWidth: Int = 16,
-  val transactionTableNumEntries: Int = 4,
-  val transactionTableSramElements: Int = 8,
-  val cacheNumEntries: Int = 4,
-  val nnidWidth: Int = 16,
-  val decimalPointWidth: Int = 3,
-  val feedbackWidth: Int = 12,
-  val bitsFeedback: Int = 12,
-  val regFileNumElements: Int = 256
-)(
-  val transactionTableSramBlocks: Int = transactionTableSramElements /
-    elementsPerBlock,
-  val regFileNumBlocks: Int = regFileNumElements / elementsPerBlock
-) extends DanaModule {
+class TransactionTable extends DanaModule()() {
   // Communication with the X-FILES arbiter
   val io = new TransactionTableInterface(
     elementsPerBlock = elementsPerBlock,
@@ -404,7 +388,7 @@ class TransactionTableTests(uut: TransactionTable, isTrace: Boolean = true)
     peek(uut.hasFree)
     peek(uut.nextFree)
     val tid = t
-    val nnid = t + l15 * 16
+    val nnid = t + 15 * 16
     newWriteRequest(tid, nnid)
     writeRndData(tid, nnid, 5, 10)
     info()

@@ -38,12 +38,7 @@ class ActivationFunctionInterface(
     ActivationFunctionResp(elementWidth))
 }
 
-class ActivationFunction(
-  val elementWidth: Int = 32,
-  val decimalPointOffset: Int = 7,
-  val decimalPointWidth: Int = 3,
-  val steepnessWidth: Int = 3
-) extends DanaModule {
+class ActivationFunction extends DanaModule()() {
   val io = new ActivationFunctionInterface(
     elementWidth = elementWidth,
     decimalPointWidth = decimalPointWidth,

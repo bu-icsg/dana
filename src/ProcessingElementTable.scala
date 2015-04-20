@@ -8,7 +8,7 @@ class ProcessingElementState(
   val elementsPerBlock: Int = 4,
   val tidWidth: Int = 16,
   val transactionTableNumEntries: Int = 2,
-  val transactionTableNumElements: Int = 32,
+  val transactionTableSramElements: Int = 32,
   val regFileNumElements: Int = 80,
   val cacheNumEntries: Int = 4,
   val decimalPointWidth: Int = 3,
@@ -17,11 +17,11 @@ class ProcessingElementState(
   val cacheDataSize: Int = 32 * 1024
 ) (
   // Derived parameters
-  val transactionTableNumBlocks: Int = transactionTableNumElements /
+  val transactionTableNumBlocks: Int = transactionTableSramElements /
     elementsPerBlock,
   val cacheNumBlocks: Int = cacheDataSize / elementsPerBlock / elementWidth * 8,
-  val ioIdxWidth: Int = if (transactionTableNumElements > regFileNumElements)
-    log2Up(transactionTableNumElements * elementWidth) else
+  val ioIdxWidth: Int = if (transactionTableSramElements > regFileNumElements)
+    log2Up(transactionTableSramElements * elementWidth) else
       log2Up(regFileNumElements * elementWidth)
 )extends Bundle {
   val tid = UInt(width = tidWidth) // pid
@@ -49,23 +49,7 @@ class ProcessingElementState(
   val inValid = Bool() // input_valid
 }
 
-abstract class ProcessingElementTable(
-  val peTableNumEntries: Int = 2,
-  // Specific to the processing elements
-  val decimalPointOffset: Int = 7,
-  // Specific to the state vector
-  val elementWidth: Int = 32,
-  val elementsPerBlock: Int = 4,
-  val tidWidth: Int = 16,
-  val transactionTableNumEntries: Int = 2,
-  val transactionTableNumElements: Int = 32,
-  val regFileNumElements: Int = 80,
-  val cacheNumEntries: Int = 4,
-  val decimalPointWidth: Int = 3,
-  val activationFunctionWidth: Int = 5,
-  val steepnessWidth: Int = 3,
-  val cacheDataSize: Int = 32 * 1024
-) extends DanaModule {
+abstract class ProcessingElementTable extends DanaModule()() {
   // Create the table with the specified top-level parameters. Derived
   // parameters should not be touched.
   val table = Vec.fill(peTableNumEntries){new ProcessingElementState(
@@ -73,7 +57,7 @@ abstract class ProcessingElementTable(
     elementsPerBlock = elementsPerBlock,
     tidWidth = tidWidth,
     transactionTableNumEntries = transactionTableNumEntries,
-    transactionTableNumElements = transactionTableNumElements,
+    transactionTableSramElements = transactionTableSramElements,
     regFileNumElements = regFileNumElements,
     cacheNumEntries = cacheNumEntries,
     decimalPointWidth = decimalPointWidth,
@@ -81,13 +65,7 @@ abstract class ProcessingElementTable(
     steepnessWidth = steepnessWidth,
     cacheDataSize = cacheDataSize)()}
   // Create the processing elements
-  val pes = Range(0, peTableNumEntries).map(i => Module(new ProcessingElement(
-    elementWidth = elementWidth,
-    elementsPerBlock = elementsPerBlock,
-    decimalPointOffset = decimalPointOffset,
-    decimalPointWidth = decimalPointWidth,
-    steepnessWidth = steepnessWidth,
-    activationFunctionWidth = activationFunctionWidth)))
+  val pes = Range(0, peTableNumEntries).map(i => Module(new ProcessingElement))
 
   // Wire up all the processing elements
   for (i <- 0 until peTableNumEntries) {

@@ -51,14 +51,7 @@ class ProcessingElementInterface(
   val validOut = Bool(OUTPUT)
 }
 
-class ProcessingElement(
-  val elementWidth: Int = 32,
-  val elementsPerBlock: Int = 4,
-  val decimalPointOffset: Int = 7,
-  val decimalPointWidth: Int = 3,
-  val steepnessWidth: Int = 3,
-  val activationFunctionWidth: Int = 5
-) extends DanaModule {
+class ProcessingElement extends DanaModule()() {
   val io = new ProcessingElementInterface(
     elementWidth = elementWidth,
     elementsPerBlock = elementsPerBlock,
@@ -127,11 +120,7 @@ class ProcessingElement(
   }
 
   // Submodule instantiation
-  val af = Module(new ActivationFunction(
-    elementWidth = elementWidth,
-    decimalPointOffset = decimalPointOffset,
-    decimalPointWidth = decimalPointWidth,
-    steepnessWidth = steepnessWidth))
+  val af = Module(new ActivationFunction)
   af.io.req.bits.in := acc
   af.io.req.bits.decimal := io.decimalPoint
   af.io.req.bits.steepness := io.steepness
