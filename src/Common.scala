@@ -36,7 +36,7 @@ object Testbench {
 }
 
 // An abstract base class for anything associated with DANA (and the
-// X-FILES framework?)
+// X-FILES framework?). This defines all shared DANA parameters.
 abstract class DanaModule(
   val elementWidth: Int = 32,
   val elementsPerBlock: Int = 4,
@@ -69,6 +69,43 @@ abstract class DanaModule(
     log2Up(transactionTableSramElements * elementWidth) else
       log2Up(regFileNumElements * elementWidth)
 ) extends Module {
+}
+
+// Base class for all Bundle classes used in DANA. This sets all the
+// parameters that should be shared. All parameters defined here
+// should be the same as in DanaModule.
+abstract class DanaBundle(
+  val elementWidth: Int = 32,
+  val elementsPerBlock: Int = 4,
+  val tidWidth: Int = 16,
+  val activationFunctionWidth: Int = 5,
+  val nnidWidth: Int = 16,
+  val decimalPointOffset: Int = 7,
+  val decimalPointWidth: Int = 3,
+  val steepnessWidth: Int = 3,
+  val feedbackWidth: Int = 12,
+  val bitsFeedback: Int = 12,
+  // Processing Element Table
+  val peTableNumEntries: Int = 2,
+  // Transaction Table
+  val transactionTableNumEntries: Int = 4,
+  val transactionTableSramElements: Int = 32,
+  // Register File
+  val regFileNumElements: Int = 80,
+  // Cache
+  val cacheNumEntries: Int = 4,
+  val cacheDataSize: Int = 32 * 1024
+)(
+  // Derived parameters. These should not be overwritten unless you
+  // have a good reason!
+  val transactionTableSramBlocks: Int = transactionTableSramElements /
+    elementsPerBlock,
+  val regFileNumBlocks: Int = regFileNumElements / elementsPerBlock,
+  val cacheNumBlocks: Int = cacheDataSize / elementsPerBlock / elementWidth * 8,
+  val ioIdxWidth: Int = if (transactionTableSramElements > regFileNumElements)
+    log2Up(transactionTableSramElements * elementWidth) else
+      log2Up(regFileNumElements * elementWidth)
+) extends Bundle{
 }
 
 // Contains things common to all DANA testbenches

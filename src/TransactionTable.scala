@@ -2,28 +2,7 @@ package dana
 
 import Chisel._
 
-class TransactionState(
-  val elementsPerBlock: Int,
-  val cacheNumEntries: Int,
-  val tidWidth: Int,
-  val nnidWidth: Int,
-  val decimalPointWidth: Int,
-  val feedbackWidth: Int,
-  val regFileNumElements: Int,
-  val transactionTableSramElements: Int
-)(
-  val regFileNumBlocks: Int = regFileNumElements / elementsPerBlock
-) extends Bundle {
-  override def clone = new TransactionState(
-    elementsPerBlock = elementsPerBlock,
-    cacheNumEntries = cacheNumEntries,
-    tidWidth = tidWidth,
-    nnidWidth = nnidWidth,
-    decimalPointWidth = decimalPointWidth,
-    feedbackWidth = feedbackWidth,
-    regFileNumElements = regFileNumElements,
-    transactionTableSramElements = transactionTableSramElements
-  )().asInstanceOf[this.type]
+class TransactionState extends DanaBundle()() {
   val valid = Reg(Bool(), init = Bool(false))
   val reserved = Reg(Bool(), init = Bool(false))
   val cacheValid = Reg(Bool())
@@ -57,24 +36,7 @@ class TransactionState(
   val indexElement = Reg(UInt(width = log2Up(transactionTableSramElements)))
 }
 
-class DanaReq(
-  val elementsPerBlock: Int,
-  val cacheNumEntries: Int,
-  val nnidWidth: Int,
-  val tidWidth: Int,
-  val regFileNumElements: Int,
-  val decimalPointWidth: Int
-)(
-  val regFileNumBlocks: Int = regFileNumElements / elementsPerBlock
-)extends Bundle {
-  override def clone = new DanaReq(
-    elementsPerBlock = elementsPerBlock,
-    cacheNumEntries = cacheNumEntries,
-    nnidWidth = nnidWidth,
-    tidWidth = tidWidth,
-    regFileNumElements = regFileNumElements,
-    decimalPointWidth = decimalPointWidth
-  )().asInstanceOf[this.type]
+class DanaReq extends DanaBundle()() {
   // Bools
   val cacheValid = Bool()
   val waitingForCache = Bool()
@@ -100,19 +62,9 @@ class DanaReq(
   val decimalPoint = UInt(width = decimalPointWidth)
 }
 
-class DanaResp(
-) extends Bundle {
-}
+class DanaResp extends DanaBundle()() {}
 
-class XFilesArbiterReq(
-  val tidWidth: Int,
-  val nnidWidth: Int,
-  val bitsFeedback: Int
-) extends Bundle {
-  override def clone = new XFilesArbiterReq(
-    tidWidth = tidWidth,
-    nnidWidth = nnidWidth,
-    bitsFeedback = bitsFeedback).asInstanceOf[this.type]
+class XFilesArbiterReq extends DanaBundle()() {
   val tid = UInt(width = tidWidth)
   val readOrWrite = Bool()
   val countFeedback = UInt(width = bitsFeedback)
@@ -121,88 +73,25 @@ class XFilesArbiterReq(
   val data = UInt(width = 32) // [TODO] fragile
 }
 
-class XFilesArbiterInterface(
-  val tidWidth: Int,
-  val nnidWidth: Int,
-  val bitsFeedback: Int
-) extends Bundle {
-  val req = Decoupled(new XFilesArbiterReq(
-    tidWidth = tidWidth,
-    nnidWidth = nnidWidth,
-    bitsFeedback = bitsFeedback)).flip
+class XFilesArbiterInterface extends DanaBundle()() {
+  val req = Decoupled(new XFilesArbiterReq).flip
 }
 
-class TTableDanaInterface(
-  val elementsPerBlock: Int,
-  val tidWidth: Int,
-  val nnidWidth: Int,
-  val cacheNumEntries: Int,
-  val regFileNumElements: Int,
-  val decimalPointWidth: Int
-) extends Bundle {
-  val danaReq = Decoupled(new DanaReq(
-    elementsPerBlock = elementsPerBlock,
-    tidWidth = tidWidth,
-    nnidWidth = nnidWidth,
-    cacheNumEntries = cacheNumEntries,
-    regFileNumElements = regFileNumElements,
-    decimalPointWidth = decimalPointWidth)())
+class TTableDanaInterface extends DanaBundle()() {
+  val danaReq = Decoupled(new DanaReq)
 }
 
-class TransactionTableInterface(
-  val elementsPerBlock: Int,
-  val tidWidth: Int,
-  val nnidWidth: Int,
-  val bitsFeedback: Int,
-  val cacheNumEntries: Int,
-  val regFileNumElements: Int,
-  val decimalPointWidth: Int
-) extends Bundle {
-  override def clone = new TransactionTableInterface(
-    elementsPerBlock = elementsPerBlock,
-    tidWidth = tidWidth,
-    nnidWidth = nnidWidth,
-    bitsFeedback = bitsFeedback,
-    cacheNumEntries = cacheNumEntries,
-    regFileNumElements = regFileNumElements,
-    decimalPointWidth = decimalPointWidth
-  ).asInstanceOf[this.type]
-  val arbiter = new XFilesArbiterInterface(
-    tidWidth = tidWidth,
-    nnidWidth = nnidWidth,
-    bitsFeedback = bitsFeedback)
-  val dana = new TTableDanaInterface(
-    elementsPerBlock = elementsPerBlock,
-    tidWidth = tidWidth,
-    nnidWidth = nnidWidth,
-    cacheNumEntries = cacheNumEntries,
-    regFileNumElements = regFileNumElements,
-    decimalPointWidth = decimalPointWidth)
+class TransactionTableInterface extends DanaBundle()() {
+  val arbiter = new XFilesArbiterInterface
+  val dana = new TTableDanaInterface
 }
 
 class TransactionTable extends DanaModule()() {
   // Communication with the X-FILES arbiter
-  val io = new TransactionTableInterface(
-    elementsPerBlock = elementsPerBlock,
-    tidWidth = tidWidth,
-    nnidWidth = nnidWidth,
-    bitsFeedback = bitsFeedback,
-    cacheNumEntries = cacheNumEntries,
-    regFileNumElements = regFileNumElements,
-    decimalPointWidth = decimalPointWidth
-  )
+  val io = new TransactionTableInterface
 
   // Vector of all the table entries
-  val table = Vec.fill(transactionTableNumEntries){new TransactionState(
-    elementsPerBlock = elementsPerBlock,
-    cacheNumEntries = cacheNumEntries,
-    tidWidth = tidWidth,
-    nnidWidth = nnidWidth,
-    decimalPointWidth = decimalPointWidth,
-    feedbackWidth = feedbackWidth,
-    regFileNumElements = regFileNumElements,
-    transactionTableSramElements = transactionTableSramElements
-  )()}
+  val table = Vec.fill(transactionTableNumEntries){new TransactionState}
   // Vector of the table entry memories
   val mem = Vec.fill(transactionTableNumEntries){
     Module(new SRAMElement(
@@ -278,13 +167,7 @@ class TransactionTable extends DanaModule()() {
 
   // Round Robin Arbitration of Transaction Table entries. One of
   // these is passed out over an interface to DANA's control module.
-  val entryArbiter = Module(new RRArbiter( new DanaReq(
-    elementsPerBlock = elementsPerBlock,
-    tidWidth = tidWidth,
-    nnidWidth = nnidWidth,
-    cacheNumEntries = cacheNumEntries,
-    regFileNumElements = regFileNumElements,
-    decimalPointWidth = decimalPointWidth)(),
+  val entryArbiter = Module(new RRArbiter( new DanaReq,
     transactionTableNumEntries))
   // All of these need to be wired up manually as the internal
   // connections aren't IO

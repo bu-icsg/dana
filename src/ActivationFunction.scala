@@ -4,45 +4,24 @@ import Chisel._
 
 // The steepness is currently
 
-class ActivationFunctionReq(
-  val elementWidth: Int,
-  val decimalPointWidth: Int,
-  val steepnessWidth: Int
-) extends Bundle {
-  override def clone = new ActivationFunctionReq(
-    elementWidth = elementWidth,
-    decimalPointWidth = decimalPointWidth,
-    steepnessWidth = steepnessWidth).asInstanceOf[this.type]
+class ActivationFunctionReq extends DanaBundle()() {
   val decimal = UInt(width = decimalPointWidth)
   val steepness = UInt(width = steepnessWidth)
   val activationFunction = UInt(width = log2Up(18)) // [TODO] fragile
   val in = SInt(INPUT, elementWidth)
 }
 
-class ActivationFunctionResp(
-  val elementWidth: Int
-) extends Bundle {
-  override def clone = new ActivationFunctionResp(
-    elementWidth = elementWidth).asInstanceOf[this.type]
+class ActivationFunctionResp extends DanaBundle()() {
   val out = SInt(OUTPUT, elementWidth)
 }
 
-class ActivationFunctionInterface(
-  val elementWidth: Int,
-  val decimalPointWidth: Int,
-  val steepnessWidth: Int
-) extends Bundle {
-  val req = Decoupled(new
-    ActivationFunctionReq(elementWidth, decimalPointWidth, steepnessWidth)).flip
-  val resp = Valid(new
-    ActivationFunctionResp(elementWidth))
+class ActivationFunctionInterface extends DanaBundle()() {
+  val req = Decoupled(new ActivationFunctionReq).flip
+  val resp = Valid(new ActivationFunctionResp)
 }
 
 class ActivationFunction extends DanaModule()() {
-  val io = new ActivationFunctionInterface(
-    elementWidth = elementWidth,
-    decimalPointWidth = decimalPointWidth,
-    steepnessWidth = steepnessWidth)
+  val io = new ActivationFunctionInterface
 
   // Temporary values
   val inD0 = SInt(width = elementWidth)

@@ -2,13 +2,7 @@ package dana
 
 import Chisel._
 
-class ProcessingElementReq(
-  val activationFunctionWidth: Int,
-  val steepnessWidth: Int,
-  val decimalPointWidth: Int,
-  val elementWidth: Int,
-  val elementsPerBlock: Int
-) extends Bundle {
+class ProcessingElementReq extends DanaBundle()() {
   // I'm excluding, potentially temporarily:
   //   * state
   //   * pe_selected
@@ -24,22 +18,14 @@ class ProcessingElementReq(
   val weights = Vec.fill(elementsPerBlock){SInt(INPUT, elementWidth)}
 }
 
-class ProcessingElementResp(
-  val elementWidth: Int
-) extends Bundle {
+class ProcessingElementResp extends DanaBundle()() {
   // Not included:
   //   * next_state
   //   * invalidate_inputs
   val data = UInt(OUTPUT, elementWidth)
 }
 
-class ProcessingElementInterface(
-  val elementWidth: Int,
-  val elementsPerBlock: Int,
-  val decimalPointWidth: Int,
-  val steepnessWidth: Int,
-  val activationFunctionWidth: Int
-) extends Bundle {
+class ProcessingElementInterface extends DanaBundle()() {
   // Parameters
   val decimalPoint = UInt(INPUT, decimalPointWidth)
   val steepness = UInt(INPUT, steepnessWidth)
@@ -52,12 +38,7 @@ class ProcessingElementInterface(
 }
 
 class ProcessingElement extends DanaModule()() {
-  val io = new ProcessingElementInterface(
-    elementWidth = elementWidth,
-    elementsPerBlock = elementsPerBlock,
-    decimalPointWidth = decimalPointWidth,
-    steepnessWidth = steepnessWidth,
-    activationFunctionWidth = activationFunctionWidth)
+  val io = new ProcessingElementInterface
   val index = Reg(init = UInt(10))
   val acc = Reg(init = SInt(0, width = elementWidth))
   val dataOut = Reg(init = SInt(0, width = elementWidth))
