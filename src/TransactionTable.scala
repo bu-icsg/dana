@@ -62,7 +62,10 @@ class DanaReq extends DanaBundle()() {
   val decimalPoint = UInt(width = decimalPointWidth)
 }
 
-class DanaResp extends DanaBundle()() {}
+class DanaResp extends DanaBundle()() {
+  val tTableIdx = UInt(width = log2Up(transactionTableNumEntries))
+  val field = UInt(width = 4) // [TODO] fragile
+}
 
 class XFilesArbiterReq extends DanaBundle()() {
   val tid = UInt(width = tidWidth)
@@ -79,6 +82,7 @@ class XFilesArbiterInterface extends DanaBundle()() {
 
 class TTableDanaInterface extends DanaBundle()() {
   val req = Decoupled(new DanaReq)
+  val resp = Decoupled(new DanaResp).flip
 }
 
 class TransactionTableInterface extends DanaBundle()() {
