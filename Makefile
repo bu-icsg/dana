@@ -10,6 +10,7 @@ CHISEL_FLAGS :=
 EXECUTABLES = TransactionTable
 EMULATORS = $(EXECUTABLES:%=$(DIR_BUILD)/%.out)
 HDLS = $(EXECUTABLES:%=$(DIR_BUILD)/%.v)
+DOTS = $(EXECUTABLES:%=$(DIR_BUILD)/%.dot)
 
 vpath %.scala $(DIR_SRC)
 
@@ -24,6 +25,10 @@ $(DIR_BUILD)/%.out: %.scala
 $(DIR_BUILD)/%.v: %.scala
 	set -e -o pipefail; \
 	$(SBT) $(SBT_FLAGS) "run $(basename $(notdir $<)) --genHarness --compile --backend v --targetDir $(DIR_BUILD)"
+
+$(DIR_BUILD)/%.dot: %.scala
+	set -e -o pipefail; \
+	$(SBT) $(SBT_FLAGS) "run $(basename $(notdir $<)) --compile --backend dot --targetDir $(DIR_BUILD)"
 
 test: $(EMULATORS)
 
