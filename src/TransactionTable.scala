@@ -103,9 +103,6 @@ class TransactionTable extends DanaModule()() {
   def isFree(x: TransactionState): Bool = { !x.valid && !x.reserved }
   def derefTid(x: TransactionState, y: UInt): Bool = { x.tid === y }
 
-  for (i <- 0 until transactionTableNumEntries) {
-  }
-
   // Determine if there exits a free entry in the table and the index
   // of the next availble free entry
   val hasFree = Bool()
@@ -275,7 +272,7 @@ class TransactionTableTests(uut: TransactionTable, isTrace: Boolean = true)
     newWriteRequest(tid, nnid)
     writeRndData(tid, nnid, 5, 10)
     info()
-    poke(uut.io.dana.req.ready, 1)
+     poke(uut.io.dana.req.ready, 1)
     // uut.info()
     // printf("%s", uut.info())
   }
