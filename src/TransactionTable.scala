@@ -46,6 +46,7 @@ class DanaReq extends DanaBundle()() {
   val request = Bool()
   val inLast = Bool()
   // Global info
+  val tableIndex = UInt(width = log2Up(transactionTableNumEntries))
   val cacheIndex = UInt(width = log2Up(cacheNumEntries))
   val nnid = UInt(width = nnidWidth) // formerly nn_hash
   val tid = UInt(width = tidWidth) // formerly pid
@@ -185,6 +186,7 @@ class TransactionTable extends DanaModule()() {
     entryArbiter.io.in(i).bits.request := table(i).request
     entryArbiter.io.in(i).bits.inLast := table(i).inLast
     // Global info
+    entryArbiter.io.in(i).bits.tableIndex := UInt(i)
     entryArbiter.io.in(i).bits.cacheIndex := table(i).cacheIndex
     entryArbiter.io.in(i).bits.nnid := table(i).nnid
     entryArbiter.io.in(i).bits.tid := table(i).tid
@@ -214,8 +216,8 @@ class TransactionTableTests(uut: TransactionTable, isTrace: Boolean = true)
     peek(uut.nextFree)
     val tid = t
     val nnid = t + 15 * 16
-    newWriteRequest(uut, tid, nnid)
-    writeRndData(uut, tid, nnid, 5, 10)
+    newWriteRequest(uut.io.arbiter, tid, nnid)
+    writeRndData(uut.io.arbiter, tid, nnid, 5, 10)
     info(uut)
     poke(uut.io.dana.req.ready, 1)
   }

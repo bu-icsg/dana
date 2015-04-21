@@ -114,37 +114,36 @@ abstract class DanaBundle(
 // Contains things common to all DANA testbenches
 abstract class DanaTester[+T <: Module](c: T, isTrace: Boolean = true)
     extends Tester(c, isTrace) {
-
   // Generate a new request to a Transaction Table module for a
   // specified TID and NNID.
-  def newWriteRequest(dut: TransactionTable, tid: Int, nnid: Int) {
-    poke(dut.io.arbiter.req.valid, 1)
-    poke(dut.io.arbiter.req.bits.isNew, 1)
-    poke(dut.io.arbiter.req.bits.readOrWrite, 1)
-    poke(dut.io.arbiter.req.bits.isLast, 0)
-    poke(dut.io.arbiter.req.bits.tid, tid)
-    poke(dut.io.arbiter.req.bits.data, nnid)
+  def newWriteRequest(x: XFilesArbiterInterface, tid: Int, nnid: Int) {
+    poke(x.req.valid, 1)
+    poke(x.req.bits.isNew, 1)
+    poke(x.req.bits.readOrWrite, 1)
+    poke(x.req.bits.isLast, 0)
+    poke(x.req.bits.tid, tid)
+    poke(x.req.bits.data, nnid)
     step(1)
-    poke(dut.io.arbiter.req.valid, 0)
+    poke(x.req.valid, 0)
   }
 
   // Send `num` amount of random data to a specific Transaction Table
   // instance with the specified TID and NNID.
-  def writeRndData(dut: TransactionTable, tid: Int, nnid: Int, num: Int,
+  def writeRndData(x: XFilesArbiterInterface, tid: Int, nnid: Int, num: Int,
     decimal: Int) {
     // Send `num` data elements to DANA
     for (i <- 0 until num) {
-      poke(dut.io.arbiter.req.valid, 1)
-      poke(dut.io.arbiter.req.bits.isNew, 0)
-      poke(dut.io.arbiter.req.bits.readOrWrite, 1)
+      poke(x.req.valid, 1)
+      poke(x.req.bits.isNew, 0)
+      poke(x.req.bits.readOrWrite, 1)
       if (i == num - 1)
-        poke(dut.io.arbiter.req.bits.isLast, 1)
+        poke(x.req.bits.isLast, 1)
       else
-        poke(dut.io.arbiter.req.bits.isLast, 0)
+        poke(x.req.bits.isLast, 0)
       val data = rnd.nextInt(Math.pow(2, decimal + 2).toInt) -
         Math.pow(2, decimal + 1).toInt
       printf("[INFO] Input data: %d\n", data)
-      poke(dut.io.arbiter.req.bits.data, data)
+      poke(x.req.bits.data, data)
       step(1)
     }
   }
