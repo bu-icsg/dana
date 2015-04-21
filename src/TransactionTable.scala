@@ -78,7 +78,7 @@ class XFilesArbiterInterface extends DanaBundle()() {
 }
 
 class TTableDanaInterface extends DanaBundle()() {
-  val danaReq = Decoupled(new DanaReq)
+  val req = Decoupled(new DanaReq)
 }
 
 class TransactionTableInterface extends DanaBundle()() {
@@ -199,7 +199,7 @@ class TransactionTable extends DanaModule()() {
     entryArbiter.io.in(i).bits.neuronPointer := table(i).neuronPointer
     entryArbiter.io.in(i).bits.decimalPoint := table(i).decimalPoint
   }
-  io.dana.danaReq <> entryArbiter.io.out
+  io.dana.req <> entryArbiter.io.out
 
   // Assertions
   assert(!io.arbiter.req.valid || io.arbiter.req.ready,
@@ -275,7 +275,7 @@ class TransactionTableTests(uut: TransactionTable, isTrace: Boolean = true)
     newWriteRequest(tid, nnid)
     writeRndData(tid, nnid, 5, 10)
     info()
-    poke(uut.io.dana.danaReq.ready, 1)
+    poke(uut.io.dana.req.ready, 1)
     // uut.info()
     // printf("%s", uut.info())
   }
