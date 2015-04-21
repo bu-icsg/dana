@@ -7,7 +7,7 @@ DIR_BUILD = build
 CHISEL_FLAGS :=
 
 # EXECUTABLES = $(notdir $(basename $(wildcard $(DIR_SRC/*.scala))))
-EXECUTABLES = TransactionTable
+EXECUTABLES = Dana
 EMULATORS = $(EXECUTABLES:%=$(DIR_BUILD)/%.out)
 HDLS = $(EXECUTABLES:%=$(DIR_BUILD)/%.v)
 DOTS = $(EXECUTABLES:%=$(DIR_BUILD)/%.dot)

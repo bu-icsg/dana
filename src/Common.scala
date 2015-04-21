@@ -145,6 +145,7 @@ abstract class DanaTester[+T <: Module](c: T, isTrace: Boolean = true)
       printf("[INFO] Input data: %d\n", data)
       poke(x.req.bits.data, data)
       step(1)
+      poke(x.req.valid, 0)
     }
   }
 

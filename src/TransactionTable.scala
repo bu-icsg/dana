@@ -64,7 +64,7 @@ class DanaReq extends DanaBundle()() {
 }
 
 class DanaResp extends DanaBundle()() {
-  val tTableIdx = UInt(width = log2Up(transactionTableNumEntries))
+  val tableIndex = UInt(width = log2Up(transactionTableNumEntries))
   val field = UInt(width = 4) // [TODO] fragile
 }
 
@@ -164,6 +164,19 @@ class TransactionTable extends DanaModule()() {
           table(derefTidIndex).indexElement + UInt(1)
         // table(derefTidIndex).data() :=
       }
+    }
+  }
+  // Update the table when we get a request from DANA
+  when (io.dana.resp.valid) {
+    // table(io.dana.resp.bits.tableIndex).waitingForCache := Bool(true)
+    switch(io.dana.resp.bits.field) {
+      is(TTABLE_WAITING_FOR_CACHE) {
+        table(io.dana.resp.bits.tableIndex).waitingForCache := Bool(true)
+      }
+      is(TTABLE_CACHE_VALID) {
+        table(io.dana.resp.bits.tableIndex).cacheValid := Bool(true) }
+      is(TTABLE_DONE) {
+        table(io.dana.resp.bits.tableIndex).cacheValid := Bool(true) }
     }
   }
 
