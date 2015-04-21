@@ -209,36 +209,6 @@ class TransactionTable extends DanaModule()() {
 
 class TransactionTableTests(uut: TransactionTable, isTrace: Boolean = true)
     extends DanaTester(uut, isTrace) {
-  // Functions
-  def info() {
-    printf("|V|R|CV|WC|NL|NR|D|Tid|Nnid| <- TTable\n")
-    printf("----------------------------\n")
-    for (i <- 0 until uut.table.length) {
-      printf("|%d|%d|%2d|%2d|%2d|%2d|%s|%3d|%4x|",
-        peek(uut.table(i).valid),
-        peek(uut.table(i).reserved),
-        peek(uut.table(i).cacheValid),
-        peek(uut.table(i).waitingForCache),
-        peek(uut.table(i).needsLayerInfo),
-        peek(uut.table(i).needsRegisters),
-        // peek(uut.table(i).done),
-        "X",
-        peek(uut.table(i).tid),
-        peek(uut.table(i).nnid)
-      )
-      // for (j <- 0 until uut.transactionTableSramElements) {
-      //   poke(uut.mem(i).we(0), j)
-      //   poke(uut.mem(i).addr(0), j)
-      //   step(1)
-      //   printf("%6d|", peek(uut.mem(i).dout(0)).toInt)
-      // }
-      printf("\n")
-    }
-    printf("| hasFree: %d | nextFree: %d |\n",
-      peek(uut.hasFree), peek(uut.nextFree))
-    printf("\n");
-  }
-
   for (t <- 0 until 3) {
     peek(uut.hasFree)
     peek(uut.nextFree)
@@ -246,9 +216,7 @@ class TransactionTableTests(uut: TransactionTable, isTrace: Boolean = true)
     val nnid = t + 15 * 16
     newWriteRequest(uut, tid, nnid)
     writeRndData(uut, tid, nnid, 5, 10)
-    info()
-     poke(uut.io.dana.req.ready, 1)
-    // uut.info()
-    // printf("%s", uut.info())
+    info(uut)
+    poke(uut.io.dana.req.ready, 1)
   }
 }

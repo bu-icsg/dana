@@ -114,10 +114,10 @@ abstract class DanaBundle(
 // Contains things common to all DANA testbenches
 abstract class DanaTester[+T <: Module](c: T, isTrace: Boolean = true)
     extends Tester(c, isTrace) {
-  // Common functions
+
+  // Generate a new request to a Transaction Table module for a
+  // specified TID and NNID.
   def newWriteRequest(dut: TransactionTable, tid: Int, nnid: Int) {
-    // Initiate a new request to DANA with the specified `tid` and
-    // `nnid`
     poke(dut.io.arbiter.req.valid, 1)
     poke(dut.io.arbiter.req.bits.isNew, 1)
     poke(dut.io.arbiter.req.bits.readOrWrite, 1)
@@ -127,6 +127,9 @@ abstract class DanaTester[+T <: Module](c: T, isTrace: Boolean = true)
     step(1)
     poke(dut.io.arbiter.req.valid, 0)
   }
+
+  // Send `num` amount of random data to a specific Transaction Table
+  // instance with the specified TID and NNID.
   def writeRndData(dut: TransactionTable, tid: Int, nnid: Int, num: Int,
     decimal: Int) {
     // Send `num` data elements to DANA
@@ -143,6 +146,46 @@ abstract class DanaTester[+T <: Module](c: T, isTrace: Boolean = true)
       printf("[INFO] Input data: %d\n", data)
       poke(dut.io.arbiter.req.bits.data, data)
       step(1)
+    }
+  }
+
+  // Generic info function. This prints out module-specific
+  // information based on the type of module that it sees. The intent
+  // here is that all modules will be defined as cases in this case
+  // statement and the function will print something different based
+  // on the type.
+  def info(dut : Any) {
+    dut match {
+      case _: TransactionTable =>
+        val c = dut.asInstanceOf[TransactionTable]
+        printf("|V|R|CV|WC|NL|NR|D|Tid|Nnid| <- TTable\n")
+        printf("----------------------------\n")
+        for (i <- 0 until c.table.length) {
+          printf("|%d|%d|%2d|%2d|%2d|%2d|%s|%3d|%4x|",
+            peek(c.table(i).valid),
+            peek(c.table(i).reserved),
+            peek(c.table(i).cacheValid),
+            peek(c.table(i).waitingForCache),
+            peek(c.table(i).needsLayerInfo),
+            peek(c.table(i).needsRegisters),
+            // peek(c.table(i).done),
+            "X",
+            peek(c.table(i).tid),
+            peek(c.table(i).nnid)
+          )
+          // for (j <- 0 until c.transactionTableSramElements) {
+          //   poke(c.mem(i).we(0), j)
+          //   poke(c.mem(i).addr(0), j)
+          //   step(1)
+          //   printf("%6d|", peek(c.mem(i).dout(0)).toInt)
+          // }
+          printf("\n")
+        }
+        printf("| hasFree: %d | nextFree: %d |\n",
+          peek(c.hasFree),
+          peek(c.nextFree))
+        printf("\n");
+      case _ => printf("No info() function for specified DUT\n")
     }
   }
 }
