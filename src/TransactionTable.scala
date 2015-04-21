@@ -238,43 +238,14 @@ class TransactionTableTests(uut: TransactionTable, isTrace: Boolean = true)
       peek(uut.hasFree), peek(uut.nextFree))
     printf("\n");
   }
-  def newWriteRequest(tid: Int, nnid: Int) {
-    // Initiate a new request to DANA with the specified `tid` and
-    // `nnid`
-    poke(uut.io.arbiter.req.valid, 1)
-    poke(uut.io.arbiter.req.bits.isNew, 1)
-    poke(uut.io.arbiter.req.bits.readOrWrite, 1)
-    poke(uut.io.arbiter.req.bits.isLast, 0)
-    poke(uut.io.arbiter.req.bits.tid, tid)
-    poke(uut.io.arbiter.req.bits.data, nnid)
-    step(1)
-    poke(uut.io.arbiter.req.valid, 0)
-  }
-  def writeRndData(tid: Int, nnid: Int, num: Int, decimal: Int) {
-    // Send `num` data elements to DANA
-    for (i <- 0 until num) {
-      poke(uut.io.arbiter.req.valid, 1)
-      poke(uut.io.arbiter.req.bits.isNew, 0)
-      poke(uut.io.arbiter.req.bits.readOrWrite, 1)
-      if (i == num - 1)
-        poke(uut.io.arbiter.req.bits.isLast, 1)
-      else
-        poke(uut.io.arbiter.req.bits.isLast, 0)
-      val data = rnd.nextInt(Math.pow(2, decimal + 2).toInt) -
-        Math.pow(2, decimal + 1).toInt
-      printf("[INFO] Input data: %d\n", data)
-      poke(uut.io.arbiter.req.bits.data, data)
-      step(1)
-    }
-  }
 
   for (t <- 0 until 3) {
     peek(uut.hasFree)
     peek(uut.nextFree)
     val tid = t
     val nnid = t + 15 * 16
-    newWriteRequest(tid, nnid)
-    writeRndData(tid, nnid, 5, 10)
+    newWriteRequest(uut, tid, nnid)
+    writeRndData(uut, tid, nnid, 5, 10)
     info()
      poke(uut.io.dana.req.ready, 1)
     // uut.info()

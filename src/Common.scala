@@ -31,6 +31,9 @@ object Testbench {
             numPorts = 1,
             sramDepth = 8))){
             c => new SRAMElementTests(c, false)}
+        case "Dana" =>
+          chiselMainTest(cliArgs, () => Module(new Dana)){
+            c => new DanaTests(c, false)}
       }
   }
 }
@@ -111,4 +114,35 @@ abstract class DanaBundle(
 // Contains things common to all DANA testbenches
 abstract class DanaTester[+T <: Module](c: T, isTrace: Boolean = true)
     extends Tester(c, isTrace) {
+  // Common functions
+  def newWriteRequest(dut: TransactionTable, tid: Int, nnid: Int) {
+    // Initiate a new request to DANA with the specified `tid` and
+    // `nnid`
+    poke(dut.io.arbiter.req.valid, 1)
+    poke(dut.io.arbiter.req.bits.isNew, 1)
+    poke(dut.io.arbiter.req.bits.readOrWrite, 1)
+    poke(dut.io.arbiter.req.bits.isLast, 0)
+    poke(dut.io.arbiter.req.bits.tid, tid)
+    poke(dut.io.arbiter.req.bits.data, nnid)
+    step(1)
+    poke(dut.io.arbiter.req.valid, 0)
+  }
+  def writeRndData(dut: TransactionTable, tid: Int, nnid: Int, num: Int,
+    decimal: Int) {
+    // Send `num` data elements to DANA
+    for (i <- 0 until num) {
+      poke(dut.io.arbiter.req.valid, 1)
+      poke(dut.io.arbiter.req.bits.isNew, 0)
+      poke(dut.io.arbiter.req.bits.readOrWrite, 1)
+      if (i == num - 1)
+        poke(dut.io.arbiter.req.bits.isLast, 1)
+      else
+        poke(dut.io.arbiter.req.bits.isLast, 0)
+      val data = rnd.nextInt(Math.pow(2, decimal + 2).toInt) -
+        Math.pow(2, decimal + 1).toInt
+      printf("[INFO] Input data: %d\n", data)
+      poke(dut.io.arbiter.req.bits.data, data)
+      step(1)
+    }
+  }
 }
