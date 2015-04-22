@@ -9,8 +9,10 @@ class DanaInterface extends DanaBundle()() {
 class Dana extends DanaModule()() {
   val io = new DanaInterface
 
+   // Module instantiation
   val tTable = Module(new TransactionTable)
   val control = Module(new DanaControl)
+  val cache = Module(new Cache)
 
   io.arbiter <> tTable.io.arbiter
   tTable.io.dana <> control.io.tTable
