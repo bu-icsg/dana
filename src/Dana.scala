@@ -14,8 +14,10 @@ class Dana extends DanaModule()() {
   val control = Module(new DanaControl)
   val cache = Module(new Cache)
 
+  // Wire everything up. Ordering shouldn't matter here.
   io.arbiter <> tTable.io.arbiter
   tTable.io.dana <> control.io.tTable
+  cache.io.control <> control.io.cache
 }
 
 class DanaTests(uut: Dana, isTrace: Boolean = true)

@@ -20,7 +20,7 @@ class CacheMemInterface extends DanaBundle()() {
   val req = Decoupled(new DanaBundle()() {
     val nnid = UInt(width = nnidWidth)
     // [TODO] I'm not sure if the following is needed
-    val transactionTableIndex = UInt(width = log2Up(transactionTableNumEntries))
+    val tTableIndex = UInt(width = log2Up(transactionTableNumEntries))
     val cacheIndex = UInt(width = log2Up(cacheNumEntries))
   })
   // Response from memory. nnsim-hdl equivalent:
@@ -34,28 +34,8 @@ class CacheMemInterface extends DanaBundle()() {
   }).flip
 }
 
-class ControlCacheInterface extends DanaBundle()() {
-  // Inbound request. nnsim-hdl equivalent:
-  //   cach_types::ctl2storage_struct
-  val req = Decoupled(new DanaBundle()() {
-    val request = UInt(width = log2Up(3)) // [TODO] fragile on Constants.scala
-    val nnid = UInt(width = nnidWidth)
-    val tableIndex = UInt(width = log2Up(transactionTableNumEntries))
-    val layer = UInt(width = 16) // [TODO] fragile
-  }).flip
-  // Outbound response. nnsim-hdl equivalent:
-  //   cache_types::cache2ctl_struct
-  val resp = Decoupled(new DanaBundle()() {
-    val fetch = Bool()
-    val tableIndex = UInt(width = log2Up(transactionTableNumEntries))
-    val tableMask = UInt(width = transactionTableNumEntries)
-    val cacheIndex = UInt(width = log2Up(cacheNumEntries))
-    val data = Vec.fill(3){UInt(width = 16)} // [TODO] possibly fragile
-    val decimalPoint = UInt(INPUT, decimalPointWidth)
-    val field = UInt(width = log2Up(4)) // [TODO] fragile on Constants.scala
-  })
-}
-
+// [TODO] This needs to be moved to the PE or PE Table once those are
+// ready
 class PECacheInterface extends DanaBundle()() {
   // Inbound request from the PEs. nnsim-hdl equivalent:
   //   pe_types::pe2storage_struct
@@ -81,7 +61,7 @@ class CacheInterface extends Bundle {
   // when this gets added), the control unit, and to the processing
   // elements
   val mem = new CacheMemInterface
-  val control = new ControlCacheInterface
+  val control = (new ControlCacheInterface).flip
   val pe = new PECacheInterface
 }
 
@@ -99,4 +79,55 @@ class Cache extends DanaModule()() {
       numReadWritePorts = 2,
       sramDepth = cacheNumBlocks // [TODO] I think this is the correct parameter
     )).io}
+
+  // Helper functions for examing the cache entries
+  def isFree(x: CacheState): Bool = {!x.valid}
+  def isUnused(x: CacheState): Bool = {x.inUseCount === UInt(0)}
+  def derefNnid(x: CacheState, y: UInt): Bool = {x.nnid === y}
+
+  // State that we need to derive from the cache
+  val hasFree = Bool()
+  val hasUnused = Bool()
+  val nextFree = UInt()
+  val foundNnid = Bool()
+  hasFree := table.exists(isFree)
+  hasUnused := table.exists(isUnused)
+  nextFree := table.indexWhere(isFree)
+  foundNnid := table.exists(derefNnid(_, io.control.req.bits.nnid))
+
+  io.control.req.ready := hasFree | hasUnused
+
+  // Default values
+  io.mem.req.valid := Bool(false)
+  io.mem.req.bits.nnid := UInt(0)
+  io.mem.req.bits.tTableIndex := UInt(0)
+  io.mem.req.bits.cacheIndex := UInt(0)
+
+  // Handle requests from the control module
+  when (io.control.req.valid) {
+    switch (io.control.req.bits.request) {
+      is (CACHE_LOAD) {
+        when (!foundNnid) {
+          // Reserve the new cache entry
+          table(nextFree).valid := Bool(true)
+          table(nextFree).nnid := io.control.req.bits.nnid
+          table(nextFree).notifyIndex := io.control.req.bits.tableIndex
+
+          // Generate a request to memory
+          io.mem.req.valid := Bool(true)
+          io.mem.req.bits.nnid := io.control.req.bits.nnid
+          io.mem.req.bits.tTableIndex := io.control.req.bits.tableIndex
+          io.mem.req.bits.cacheIndex := nextFree
+        }
+          .otherwise {
+        }
+      }
+      is (CACHE_LAYER_INFO) {
+
+      }
+      is (CACHE_DECREMENT_IN_USE_COUNT) {
+
+      }
+    }
+  }
 }
