@@ -37,7 +37,8 @@ verilog: $(HDLS)
 all: test
 
 clean:
-	rm $(DIR_BUILD)/*
+	rm -f $(DIR_BUILD)/*
+	rm -rf target
 
 # To build and run C++
 #   run ProcessingElement --genHarness --compile --test --backend c --vcd
