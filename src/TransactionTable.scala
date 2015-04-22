@@ -65,7 +65,7 @@ class DanaReq extends DanaBundle()() {
 
 class DanaResp extends DanaBundle()() {
   val tableIndex = UInt(width = log2Up(transactionTableNumEntries))
-  val field = UInt(width = 4) // [TODO] fragile
+  val field = UInt(width = 4) // [TODO] fragile on Constants.scala
 }
 
 class XFilesArbiterReq extends DanaBundle()() {
