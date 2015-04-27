@@ -226,6 +226,7 @@ int t_Dana::cache_load(int index, int nnid, const char * file) {
   std::stringstream val("");
   std::stringstream i_s("");
   char buf [16];
+  char tmp [2];
   int i;
 
   // Set the cache table
@@ -245,16 +246,20 @@ int t_Dana::cache_load(int index, int nnid, const char * file) {
   ss << ".mem";
   i = 0;
   // Go through the whole file and dump the data into the SRAM
+  std::cout << "[INFO] Loading Cache SRAM " << index << " with data from\n";
+  std::cout << "[INFO]   " << file << std::endl;
   while (!config.eof()) {
     // The number of characters to read
     config.read(buf, 16);
     // std::cout << i << ":" << std::hex << std::setfill('0') << std::setw(2) << buf << std::endl;
-    std::cout << i << ":";
+    std::cout << "[INFO]   " << std::setw(5) << i << ":";
     val.str("");
+    val << "0x";
     for (int j = 0; j < 16; j++) {
-      printf("%02x", (const unsigned char) buf[j]);
-      val << buf[j];
+      sprintf(tmp, "%02x", (const unsigned char)buf[j]);
+      val << tmp;
     }
+    std::cout << val.str();
     printf("\n");
     i_s.str("");
     i_s << i;
