@@ -1,3 +1,4 @@
+#include <iomanip>
 #include "Dana.h"
 
 class t_Dana : public Dana_api_t {
@@ -41,6 +42,12 @@ public:
 
   // Print out information about the Transaction Table
   int info_ttable();
+
+  // Print out information about the Cache Table
+  int info_cache_table();
+
+  // Load the cache so that memory requests aren't necessary
+  int cache_load(int index, int nnid, const char *);
 };
 
 t_Dana::t_Dana() {
@@ -119,12 +126,15 @@ int t_Dana::write_rnd_data(int tid, int nnid, int num, int decimal) {
 }
 
 int t_Dana::info() {
+  std::cout << "[INFO] Dumping tables at cycle " << cycle << std::endl;
   info_ttable();
+  info_cache_table();
 }
 
 int t_Dana::info_ttable() {
+  std::cout << "-----------------------------\n";
   std::cout << "|V|R|CV|WC|NL|NR|D| Tid|Nnid| <- TTable\n";
-  std::cout << "----------------------------\n";
+  std::cout << "-----------------------------\n";
   std::string string_table("Dana.tTable.table_");
   std::stringstream string_field("");
   for (int i = 0; i < 4; i++) { // [TODO] fragile, should be transactionTableNumEntries
@@ -164,6 +174,88 @@ int t_Dana::info_ttable() {
     std::cout << "|" << get_dat_by_name(string_field.str())->get_value().erase(0,2);
     std::cout << "|" << std::endl;
   }
+  std::cout << std::endl;
+}
+
+int t_Dana::info_cache_table() {
+  std::cout << "---------------------------\n";
+  std::cout << "|V|N|F|NIdx|NMask|Nnid|IUC| <- Cache Table\n";
+  std::cout << "---------------------------\n";
+  std::string string_table("Dana.cache.table_");
+  std::stringstream string_field("");
+  for (int i = 0; i < 4; i++) { // [TODO] fragile, should be transactionTableNumEntries
+    // Valid
+    string_field.str("");
+    string_field << string_table << i << "_valid";
+    std::cout << "|" << get_dat_by_name(string_field.str())->get_value().erase(0,2);
+    // Notify Flag
+    string_field.str("");
+    string_field << string_table << i << "_notifyFlag";
+    // std::cout << "|" << get_dat_by_name(string_field.str())->get_value().erase(0,2);
+    std::cout << "| ";
+    // Fetch
+    string_field.str("");
+    string_field << string_table << i << "_fetch";
+    // std::cout << "|" << get_dat_by_name(string_field.str())->get_value().erase(0,2);
+    std::cout << "| ";
+    // Notify Index
+    string_field.str("");
+    string_field << string_table << i << "_notifyIndex";
+    // std::cout << "|" << get_dat_by_name(string_field.str())->get_value().erase(0,2);
+    std::cout << "|    ";
+    // Notify Mask
+    string_field.str("");
+    string_field << string_table << i << "_notifyMask";
+    // std::cout << "|" << get_dat_by_name(string_field.str())->get_value().erase(0,2);
+    std::cout << "|     ";
+    // NNID
+    string_field.str("");
+    string_field << string_table << i << "_nnid";
+    std::cout << "|" << get_dat_by_name(string_field.str())->get_value().erase(0,2);
+    // In Use Count
+    string_field.str("");
+    string_field << string_table << i << "_inUseCount";
+    std::cout << "|  " << get_dat_by_name(string_field.str())->get_value().erase(0,2);
+    std::cout << "|" << std::endl;
+  }
+  std::cout << std::endl;
+}
+
+int t_Dana::cache_load(int index, int nnid, const char * file) {
+  std::stringstream ss("");
+  std::stringstream val("");
+  char buf [16];
+  int i;
+
+  // Set the cache table
+  ss << "Dana.cache.table_" << index << "_valid";
+  get_dat_by_name(ss.str())->set_value("1");
+  ss.str("");
+  ss << "Dana.cache.table_" << index << "_nnid";
+  val << nnid;
+  get_dat_by_name(ss.str())->set_value(val.str());
+
+  // Set the cache SRAM
+  ifstream config;
+  config.open(file, ios::in | ios::binary);
+  ss.str("");
+  ss << "Dana.cache.SRAM";
+  if (index > 0) ss << "_" << index;
+  ss << ".mem";
+  i = 0;
+  // Go through the whole file and dump the data into the SRAM
+  while (!config.eof()) {
+    // The number of characters to read
+    config.read(buf, 16);
+    // std::cout << i << ":" << std::hex << std::setfill('0') << std::setw(2) << buf << std::endl;
+    std::cout << i << ":";
+    for (int j = 0; j < 16; j++)
+      printf("%02x", (const unsigned char) buf[j]);
+    printf("\n");
+    i += 16;
+  }
+  // get_mem_by_name(ss)->set_value(,);
+  config.close();
 }
 
 int main (int argc, char* argv[]) {
@@ -171,8 +263,13 @@ int main (int argc, char* argv[]) {
   FILE *tee = NULL;
   api->set_teefile(tee);
 
-  // Run the actual tests
+  // Reset
   api->reset(8);
+
+  // Preload the cache
+  api->cache_load(0, 17, "../workloads/data/sobel-fixed.16bin");
+
+  // Run the actual tests
   api->info();
   api->new_write_request(1, 17);
   api->info();
