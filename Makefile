@@ -10,11 +10,11 @@ GPP = g++
 
 # EXECUTABLES = $(notdir $(basename $(wildcard $(DIR_SRC/*.scala))))
 EXECUTABLES = Dana
-SOURCES = Dana.cpp
 TESTS = t_Dana.cpp
-OBJECTS = $(SOURCES:%.cpp=$(DIR_BUILD)/%.o) $(TESTS:%.cpp=$(DIR_BUILD)/%.o)
-EMULATORS = $(EXECUTABLES:%=$(DIR_BUILD)/%.out)
-TESTBENCHES_CPP = $(TESTS:%.cpp=$(DIR_BUILD)/%)
+OUTS = $(EXECUTABLES:%=$(DIR_BUILD)/%.out)
+TEST_EXECUTABLES = $(TESTS:%.cpp=$(DIR_BUILD)/%)
+TEST_OBJECTS = $(TESTS:%.cpp=$(DIR_BUILD)/%.o)
+OBJECTS = $(TEST_OBJECTS) $(EXECUTABLES:%=$(DIR_BUILD)/%.o)
 HDLS = $(EXECUTABLES:%=$(DIR_BUILD)/%.v)
 DOTS = $(EXECUTABLES:%=$(DIR_BUILD)/%.dot)
 
@@ -22,13 +22,14 @@ vpath %.scala $(DIR_SRC)
 vpath %.cpp $(DIR_SRC)
 vpath %.cpp $(DIR_BUILD)
 
-.PHONY: all emulator phony clean test verilog
+.PHONY: all phony clean test verilog
 
 default: all
 
+#------------------- Build targets depending on scala sources
 $(DIR_BUILD)/%.out: %.scala
 	set -e -o pipefail; \
-	$(SBT) $(SBT_FLAGS) "run $(basename $(notdir $<)) --genHarness --compile --test --backend c --debug --vcd --targetDir $(DIR_BUILD)"
+	$(SBT) $(SBT_FLAGS) "run $(basename $(notdir $<)) --genHarness --compile --test --backend c --debug --vcd --targetDir $(DIR_BUILD)" | tee $@
 
 $(DIR_BUILD)/%.v: %.scala
 	set -e -o pipefail; \
@@ -38,21 +39,17 @@ $(DIR_BUILD)/%.dot: %.scala
 	set -e -o pipefail; \
 	$(SBT) $(SBT_FLAGS) "run $(basename $(notdir $<)) --compile --backend dot --targetDir $(DIR_BUILD)"
 
-$(DIR_BUILD)/%.o: %.cpp test
+#------------------- Other build targets
+$(DIR_BUILD)/%.o: %.cpp
 	$(GPP) -c $(GPP_FLAGS) $< -o $@
 
-$(DIR_BUILD)/%: $(OBJECTS) test
-	$(GPP) $(GPP_FLAGS) $(OBJECTS) -o $@
-
-test: $(EMULATORS)
+build/t_Dana: $(OUTS) $(TEST_OBJECTS)
+	$(GPP) $(GPP_FLAGS) $(OBJECTS) $(EMULATOR_OBJECTS) -o $@
 
 verilog: $(HDLS)
 
-all: test $(OBJECTS) $(TESTBENCHES_CPP)
+all: $(TEST_EXECUTABLES)
 
 clean:
 	rm -f $(DIR_BUILD)/*
 	rm -rf target
-
-# To build and run C++
-#   run ProcessingElement --genHarness --compile --test --backend c --vcd
