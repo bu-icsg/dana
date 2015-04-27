@@ -123,7 +123,7 @@ int t_Dana::info() {
 }
 
 int t_Dana::info_ttable() {
-  std::cout << "|  V|  R| CV| WC| NL| NR|  D|Tid|Nnid| <- TTable\n";
+  std::cout << "|V|R|CV|WC|NL|NR|D| Tid|Nnid| <- TTable\n";
   std::cout << "----------------------------\n";
   std::string string_table("Dana.tTable.table_");
   std::stringstream string_field("");
@@ -131,42 +131,39 @@ int t_Dana::info_ttable() {
     // Valid
     string_field.str("");
     string_field << string_table << i << "_valid";
-    std::cout << "|" << get_dat_by_name(string_field.str())->get_value();
+    std::cout << "|" << get_dat_by_name(string_field.str())->get_value().erase(0,2);
     // Reserved
     string_field.str("");
     string_field << string_table << i << "_reserved";
-    std::cout << "|" << get_dat_by_name(string_field.str())->get_value();
+    std::cout << "|" << get_dat_by_name(string_field.str())->get_value().erase(0,2);
     // Cache Valid
     string_field.str("");
     string_field << string_table << i << "_cacheValid";
-    std::cout << "|" << get_dat_by_name(string_field.str())->get_value();
+    std::cout << "| " << get_dat_by_name(string_field.str())->get_value().erase(0,2);
     // Waiting For Cache
     string_field.str("");
     string_field << string_table << i << "_waitingForCache";
-    std::cout << "|" << get_dat_by_name(string_field.str())->get_value();
+    std::cout << "| " << get_dat_by_name(string_field.str())->get_value().erase(0,2);
     // Needs Layer Info
     string_field.str("");
     string_field << string_table << i << "_needsLayerInfo";
-    std::cout << "|" << get_dat_by_name(string_field.str())->get_value();
+    std::cout << "| " << get_dat_by_name(string_field.str())->get_value().erase(0,2);
     // Needs Registers
     string_field.str("");
     string_field << string_table << i << "_needsRegisters";
-    std::cout << "|" << get_dat_by_name(string_field.str())->get_value();
+    std::cout << "| " << get_dat_by_name(string_field.str())->get_value().erase(0,2);
     // Done [TODO] this is a placeholder until done is actually set/used
-    std::cout << "|  ?";
+    std::cout << "| ";
     // TID
     string_field.str("");
     string_field << string_table << i << "_tid";
-    std::cout << "|" << get_dat_by_name(string_field.str())->get_value();
+    std::cout << "|" << get_dat_by_name(string_field.str())->get_value().erase(0,2);
     // NNID
     string_field.str("");
     string_field << string_table << i << "_nnid";
-    std::cout << "|" << get_dat_by_name(string_field.str())->get_value();
-    std::cout << "\n";
+    std::cout << "|" << get_dat_by_name(string_field.str())->get_value().erase(0,2);
+    std::cout << "|" << std::endl;
   }
-  // printf("|%0d\n", dana->Dana_tTable__table_1_valid->get_value());
-  // printf("|%0d\n", dana->Dana_tTable__table_2_valid->get_value());
-  // printf("|%0d\n", dana->Dana_tTable__table_3_valid->get_value());
 }
 
 int main (int argc, char* argv[]) {
