@@ -8,7 +8,7 @@ CHISEL_FLAGS :=
 GPP_FLAGS = -I $(DIR_BUILD)
 GPP = g++
 
-# EXECUTABLES = $(notdir $(basename $(wildcard $(DIR_SRC/*.scala))))
+# EXECUTABLES = $(notdir $(basename $(wildcard $(DIR_SRC)/*.scala)))
 EXECUTABLES = Dana
 TESTS = t_Dana.cpp
 OUTS = $(EXECUTABLES:%=$(DIR_BUILD)/%.out)
