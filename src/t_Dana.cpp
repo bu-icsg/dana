@@ -267,6 +267,7 @@ int t_Dana::cache_load(int index, int nnid, const char * file) {
     i += 16;
   }
   config.close();
+  std::cout << "[INFO]   Done!" << std::endl;
 }
 
 int main (int argc, char* argv[]) {
@@ -279,6 +280,7 @@ int main (int argc, char* argv[]) {
 
   // Preload the cache
   api->cache_load(0, 17, "../workloads/data/sobel-fixed.16bin");
+  api->tick(1,0);
 
   // Run the actual tests
   api->info();
