@@ -224,6 +224,7 @@ int t_Dana::info_cache_table() {
 int t_Dana::cache_load(int index, int nnid, const char * file) {
   std::stringstream ss("");
   std::stringstream val("");
+  std::stringstream i_s("");
   char buf [16];
   int i;
 
@@ -249,12 +250,17 @@ int t_Dana::cache_load(int index, int nnid, const char * file) {
     config.read(buf, 16);
     // std::cout << i << ":" << std::hex << std::setfill('0') << std::setw(2) << buf << std::endl;
     std::cout << i << ":";
-    for (int j = 0; j < 16; j++)
+    val.str("");
+    for (int j = 0; j < 16; j++) {
       printf("%02x", (const unsigned char) buf[j]);
+      val << buf[j];
+    }
     printf("\n");
+    i_s.str("");
+    i_s << i;
+    get_mem_by_name(ss.str())->set_element(i_s.str(), val.str());
     i += 16;
   }
-  // get_mem_by_name(ss)->set_value(,);
   config.close();
 }
 
@@ -274,12 +280,9 @@ int main (int argc, char* argv[]) {
   api->new_write_request(1, 17);
   api->info();
   api->write_rnd_data(1, 17, 10, 6);
-  api->info();
   api->tick(1, 0);
   api->info();
-  api->tick(1, 0);
-  api->info();
-  api->tick(10, 0);
+  api->tick(100, 0);
   // api->new_write_request(2, 18);
   // api->write_rnd_data(2, 18, 2, 6);
   // api->tick(10, 0);

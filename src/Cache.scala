@@ -90,10 +90,12 @@ class Cache extends DanaModule()() {
   val hasUnused = Bool()
   val nextFree = UInt()
   val foundNnid = Bool()
+  val derefNnid = UInt()
   hasFree := table.exists(isFree)
   hasUnused := table.exists(isUnused)
   nextFree := table.indexWhere(isFree)
   foundNnid := table.exists(derefNnid(_, io.control.req.bits.nnid))
+  derefNnid := table.indexWhere(derefNnid(_, io.control.req.bits.nnid))
 
   io.control.req.ready := hasFree | hasUnused
 
@@ -102,6 +104,15 @@ class Cache extends DanaModule()() {
   io.mem.req.bits.nnid := UInt(0)
   io.mem.req.bits.tTableIndex := UInt(0)
   io.mem.req.bits.cacheIndex := UInt(0)
+
+  io.control.resp.valid := Bool(false)
+  io.control.resp.bits.fetch := Bool(false)
+  io.control.resp.bits.tableIndex := UInt(0)
+  io.control.resp.bits.tableMask := UInt(0)
+  io.control.resp.bits.cacheIndex := UInt(0)
+  io.control.resp.bits.data := Vec.fill(3){UInt(0)}
+  io.control.resp.bits.decimalPoint := UInt(0)
+  io.control.resp.bits.field := UInt(0)
 
   // Handle requests from the control module
   when (io.control.req.valid) {
@@ -120,6 +131,14 @@ class Cache extends DanaModule()() {
           io.mem.req.bits.cacheIndex := nextFree
         }
           .otherwise {
+          // [TODO] Need to specify what this is doing if its found in
+          // the cache, but it's currently being fetched
+
+          // Normal response, found in cache and not fetching
+          table(derefNnid).inUseCount := table(derefNnid).inUseCount + UInt(1)
+          io.control.resp.valid := Bool(true)
+          io.control.resp.bits.tableIndex := io.control.req.bits.tableIndex
+          // Not everything is set here
         }
       }
       is (CACHE_LAYER_INFO) {

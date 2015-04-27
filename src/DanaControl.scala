@@ -47,6 +47,7 @@ class DanaControl extends DanaModule()() {
   io.tTable.resp.valid := Bool(false)
   io.tTable.resp.bits.tableIndex := UInt(0)
   io.tTable.resp.bits.field := UInt(0)
+  io.cache.resp.ready := Bool(true) // [TODO] not correct
   // io.cache defaults
   reqCache(Bool(false), UInt(0), UInt(0), UInt(0), UInt(0))
 
