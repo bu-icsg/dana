@@ -5,11 +5,12 @@ DIR_SRC = src
 DIR_BUILD = build
 
 CHISEL_FLAGS :=
-GPP_FLAGS = -I $(DIR_BUILD)
+GPP_FLAGS = -I $(DIR_BUILD) -g
 GPP = g++
 
 # EXECUTABLES = $(notdir $(basename $(wildcard $(DIR_SRC)/*.scala)))
 EXECUTABLES = Dana
+ALL_MODULES = $(notdir $(wildcard $(DIR_SRC)/*.scala))
 TESTS = t_Dana.cpp
 OUTS = $(EXECUTABLES:%=$(DIR_BUILD)/%.out)
 TEST_EXECUTABLES = $(TESTS:%.cpp=$(DIR_BUILD)/%)
@@ -27,20 +28,20 @@ vpath %.cpp $(DIR_BUILD)
 default: all
 
 #------------------- Build targets depending on scala sources
-$(DIR_BUILD)/%.out: %.scala
+$(DIR_BUILD)/%.out: %.scala $(ALL_MODULES)
 	set -e -o pipefail; \
 	$(SBT) $(SBT_FLAGS) "run $(basename $(notdir $<)) --genHarness --compile --test --backend c --debug --vcd --targetDir $(DIR_BUILD)" | tee $@
 
-$(DIR_BUILD)/%.v: %.scala
+$(DIR_BUILD)/%.v: %.scala $(ALL_MODULES)
 	set -e -o pipefail; \
 	$(SBT) $(SBT_FLAGS) "run $(basename $(notdir $<)) --genHarness --compile --backend v --targetDir $(DIR_BUILD)"
 
-$(DIR_BUILD)/%.dot: %.scala
+$(DIR_BUILD)/%.dot: %.scala $(ALL_MODULES)
 	set -e -o pipefail; \
 	$(SBT) $(SBT_FLAGS) "run $(basename $(notdir $<)) --compile --backend dot --targetDir $(DIR_BUILD)"
 
 #------------------- Other build targets
-$(DIR_BUILD)/%.o: %.cpp
+$(DIR_BUILD)/%.o: %.cpp Makefile
 	$(GPP) -c $(GPP_FLAGS) $< -o $@
 
 build/t_Dana: $(OUTS) $(TEST_OBJECTS)
