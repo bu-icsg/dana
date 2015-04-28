@@ -28,4 +28,5 @@ lazy val root = (project in file(".")).
   settings(
     name := "dana",
     libraryDependencies += chisel
+    // scalacOptions ++= Seq("-feature", "-deprecation")
   )
