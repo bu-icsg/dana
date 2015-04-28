@@ -72,6 +72,22 @@ abstract class DanaModule(
     log2Up(transactionTableSramElements * elementWidth) else
       log2Up(regFileNumElements * elementWidth)
 ) extends Module {
+  // Transaction Table State Entries. nnsim-hdl equivalent:
+  //   controL_types::field_enum
+  val (e_TTABLE_VALID :: e_TTABLE_RESERVED :: e_TTABLE_CACHE_VALID ::
+    e_TTABLE_LAYER :: e_TTABLE_WAITING_FOR_CACHE :: e_TTABLE_DONE ::
+    e_TTABLE_OUTPUT_LAYER :: e_TTABLE_INCREMENT_NODE ::
+    e_TTABLE_REGISTER_INFO :: e_TTABLE_REGISTER_NEXT :: Nil) = Enum(UInt(), 10)
+  // Cache Request Type
+  val (e_CACHE_LOAD :: e_CACHE_LAYER_INFO :: e_CACHE_DECREMENT_IN_USE_COUNT ::
+    Nil) = Enum(UInt(), 3)
+  // Cache to control field enum. nnsim-hdl equivalent:
+  //   cache_types::field_enum
+  val (e_CACHE_INFO :: e_CACHE_LAYER :: e_CACHE_NEURON :: e_CACHE_WEIGHT ::
+    Nil) = Enum(UInt(), 4)
+  // Cache / PE access type enum. nnsim-hdl equivalent:
+  //   pe_types::pe2storage_enum
+  val (e_PE_NEURON :: e_PE_WEIGHT :: Nil) = Enum(UInt(), 2)
 }
 
 // Base class for all Bundle classes used in DANA. This sets all the

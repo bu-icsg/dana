@@ -249,6 +249,7 @@ int t_Dana::cache_load(int index, int nnid, const char * file) {
   std::cout << "[INFO] Loading Cache SRAM " << index << " with data from\n";
   std::cout << "[INFO]   " << file << std::endl;
   while (!config.eof()) {
+    // [TODO] The endinannes may need to be swapped here
     // The number of characters to read
     config.read(buf, 16);
     // std::cout << i << ":" << std::hex << std::setfill('0') << std::setw(2) << buf << std::endl;
@@ -264,7 +265,7 @@ int t_Dana::cache_load(int index, int nnid, const char * file) {
     i_s.str("");
     i_s << i;
     get_mem_by_name(ss.str())->set_element(i_s.str(), val.str());
-    i += 16;
+    i++;
   }
   config.close();
   std::cout << "[INFO]   Done!" << std::endl;
@@ -280,7 +281,7 @@ int main (int argc, char* argv[]) {
 
   // Preload the cache
   api->cache_load(0, 17, "../workloads/data/sobel-fixed.16bin");
-  api->tick(1,0);
+  // api->cache_load(1, 18, "../workloads/data/rsa-fixed.16bin");
 
   // Run the actual tests
   api->info();

@@ -80,6 +80,9 @@ class Cache extends DanaModule()() {
       sramDepth = cacheNumBlocks // [TODO] I think this is the correct parameter
     )).io}
 
+  // Control Response Pipeline
+  val controlRespPipe = Vec.fill(3){Decoupled(new ControlCacheInterfaceResp)}
+
   // Helper functions for examing the cache entries
   def isFree(x: CacheState): Bool = {!x.valid}
   def isUnused(x: CacheState): Bool = {x.inUseCount === UInt(0)}
@@ -114,39 +117,71 @@ class Cache extends DanaModule()() {
   io.control.resp.bits.decimalPoint := UInt(0)
   io.control.resp.bits.field := UInt(0)
 
+  controlRespPipe(0).valid := Bool(false)
+  controlRespPipe(0).bits.fetch := Bool(false)
+  controlRespPipe(0).bits.tableIndex := UInt(0)
+  controlRespPipe(0).bits.tableMask := UInt(0)
+  controlRespPipe(0).bits.cacheIndex := UInt(0)
+  controlRespPipe(0).bits.data := Vec.fill(3){UInt(0)}
+  controlRespPipe(0).bits.decimalPoint := UInt(0)
+  controlRespPipe(0).bits.field := UInt(0)
+
+  for (i <- 0 until cacheNumEntries) {
+    mem(i).din(0) := UInt(0)
+    mem(i).addr(0) := UInt(0)
+    mem(i).we(0) := Bool(false)
+  }
+
   // Handle requests from the control module
   when (io.control.req.valid) {
     switch (io.control.req.bits.request) {
-      is (CACHE_LOAD) {
+      is (e_CACHE_LOAD) {
         when (!foundNnid) {
+          // The NNID was not found, so we need to generate a memory
+          // request to load it in.
+
           // Reserve the new cache entry
           table(nextFree).valid := Bool(true)
           table(nextFree).nnid := io.control.req.bits.nnid
           table(nextFree).notifyIndex := io.control.req.bits.tableIndex
+          table(nextFree).inUseCount := UInt(1)
 
           // Generate a request to memory
           io.mem.req.valid := Bool(true)
           io.mem.req.bits.nnid := io.control.req.bits.nnid
           io.mem.req.bits.tTableIndex := io.control.req.bits.tableIndex
           io.mem.req.bits.cacheIndex := nextFree
-        }
-          .otherwise {
-          // [TODO] Need to specify what this is doing if its found in
-          // the cache, but it's currently being fetched
-
-          // Normal response, found in cache and not fetching
+        } .elsewhen (table(derefNnid).fetch) {
+          // The nnid was found, but the data is currently being
+          // loaded from memory. This happens if a second request for
+          // the same data shows up while this guy is being fetched.
           table(derefNnid).inUseCount := table(derefNnid).inUseCount + UInt(1)
-          io.control.resp.valid := Bool(true)
-          io.control.resp.bits.tableIndex := io.control.req.bits.tableIndex
-          // Not everything is set here
+          table(derefNnid).notifyMask := table(derefNnid).notifyMask |
+          UIntToOH(io.control.req.bits.tableIndex)
+        } .otherwise {
+          // The NNID was found and the data has already been loaded
+          table(derefNnid).inUseCount := table(derefNnid).inUseCount + UInt(1)
+
+          // Start a response to the control unit
+          controlRespPipe(0).valid := Bool(true)
+          controlRespPipe(0).bits.tableIndex := io.control.req.bits.tableIndex
+          controlRespPipe(0).bits.tableMask :=
+            UIntToOH(io.control.req.bits.tableIndex)
+          controlRespPipe(0).bits.cacheIndex := derefNnid
+          controlRespPipe(0).bits.field := e_CACHE_INFO
+
+          // Read the requested information from the cache
+          mem(derefNnid).addr(0) := UInt(0) // Info is in first block
         }
       }
-      is (CACHE_LAYER_INFO) {
+      is (e_CACHE_LAYER_INFO) {
 
       }
-      is (CACHE_DECREMENT_IN_USE_COUNT) {
+      is (e_CACHE_DECREMENT_IN_USE_COUNT) {
 
       }
     }
   }
+
+  // Pipeline Second Stage
 }

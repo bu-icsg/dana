@@ -2,6 +2,16 @@ package dana
 
 import Chisel._
 
+class ControlCacheInterfaceResp extends DanaBundle()() {
+  val fetch = Bool()
+  val tableIndex = UInt(width = log2Up(transactionTableNumEntries))
+  val tableMask = UInt(width = transactionTableNumEntries)
+  val cacheIndex = UInt(width = log2Up(cacheNumEntries))
+  val data = Vec.fill(3){UInt(width = 16)} // [TODO] possibly fragile
+  val decimalPoint = UInt(INPUT, decimalPointWidth)
+  val field = UInt(width = log2Up(4)) // [TODO] fragile on Constants.scala
+}
+
 class ControlCacheInterface extends DanaBundle()() {
   // Outbound request. nnsim-hdl equivalent:
   //   cach_types::ctl2storage_struct
@@ -13,15 +23,7 @@ class ControlCacheInterface extends DanaBundle()() {
   })
   // Inbound response. nnsim-hdl equivalent:
   //   cache_types::cache2ctl_struct
-  val resp = Decoupled(new DanaBundle()() {
-    val fetch = Bool()
-    val tableIndex = UInt(width = log2Up(transactionTableNumEntries))
-    val tableMask = UInt(width = transactionTableNumEntries)
-    val cacheIndex = UInt(width = log2Up(cacheNumEntries))
-    val data = Vec.fill(3){UInt(width = 16)} // [TODO] possibly fragile
-    val decimalPoint = UInt(INPUT, decimalPointWidth)
-    val field = UInt(width = log2Up(4)) // [TODO] fragile on Constants.scala
-  }).flip
+  val resp = Decoupled(new ControlCacheInterfaceResp).flip
 }
 
 class DanaControlInterface extends DanaBundle()() {
@@ -51,6 +53,22 @@ class DanaControl extends DanaModule()() {
   // io.cache defaults
   reqCache(Bool(false), UInt(0), UInt(0), UInt(0), UInt(0))
 
+  // This is where we handle responses
+  when (io.cache.resp.valid) {
+    switch (io.cache.resp.bits.field) {
+      is (e_CACHE_INFO) {
+        io.tTable.resp.valid := Bool(true)
+        // io.tTable.resp.bits.field :=
+      }
+      is (e_CACHE_LAYER) {
+      }
+      is (e_CACHE_NEURON) {
+      }
+      is (e_CACHE_WEIGHT) {
+      }
+    }
+  }
+
   // No inbound requests, so we just handle whatever is valid coming
   // from the Transaction Table
   when (io.tTable.req.valid) {
@@ -59,13 +77,13 @@ class DanaControl extends DanaModule()() {
     when (!io.tTable.req.bits.cacheValid &&
       !io.tTable.req.bits.waitingForCache) {
       // Send a request to the cache
-      reqCache(Bool(true), CACHE_LOAD, io.tTable.req.bits.nnid,
+      reqCache(Bool(true), e_CACHE_LOAD, io.tTable.req.bits.nnid,
         io.tTable.req.bits.tableIndex, UInt(0))
 
       // Send a response to the tTable
       io.tTable.resp.valid := Bool(true)
       io.tTable.resp.bits.tableIndex := io.tTable.req.bits.tableIndex
-      io.tTable.resp.bits.field := TTABLE_WAITING_FOR_CACHE
+      io.tTable.resp.bits.field := e_TTABLE_WAITING_FOR_CACHE
     }
     when (io.tTable.req.bits.needsLayerInfo) {
       // Send a request to the storage module

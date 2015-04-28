@@ -170,12 +170,12 @@ class TransactionTable extends DanaModule()() {
   when (io.dana.resp.valid) {
     // table(io.dana.resp.bits.tableIndex).waitingForCache := Bool(true)
     switch(io.dana.resp.bits.field) {
-      is(TTABLE_WAITING_FOR_CACHE) {
+      is(e_TTABLE_WAITING_FOR_CACHE) {
         table(io.dana.resp.bits.tableIndex).waitingForCache := Bool(true)
       }
-      is(TTABLE_CACHE_VALID) {
+      is(e_TTABLE_CACHE_VALID) {
         table(io.dana.resp.bits.tableIndex).cacheValid := Bool(true) }
-      is(TTABLE_DONE) {
+      is(e_TTABLE_DONE) {
         table(io.dana.resp.bits.tableIndex).cacheValid := Bool(true) }
     }
   }
