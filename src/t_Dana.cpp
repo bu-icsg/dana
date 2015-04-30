@@ -121,7 +121,12 @@ int t_Dana::write_rnd_data(int tid, int nnid, int num, int decimal) {
     dana->Dana__io_arbiter_req_bits_isLast = (i == num - 1);
     dana->Dana__io_arbiter_req_bits_data = i;
     tick_hi(0);
+
   }
+  tick_lo(0);
+  dana->Dana__io_arbiter_req_valid = 0;
+  dana->Dana__io_arbiter_req_bits_isLast = 0;
+  tick_hi(0);
   return 1;
 }
 
@@ -132,9 +137,9 @@ int t_Dana::info() {
 }
 
 int t_Dana::info_ttable() {
-  std::cout << "-----------------------------\n";
-  std::cout << "|V|R|CV|WC|NL|NR|D| Tid|Nnid| <- TTable\n";
-  std::cout << "-----------------------------\n";
+  std::cout << "-----------------------------------------------\n";
+  std::cout << "|V|R|CV|WC|NL|NR|D| Tid|Nnid|  #L|  #N|Cidx|DP| <- TTable\n";
+  std::cout << "-----------------------------------------------\n";
   std::string string_table("Dana.tTable.table_");
   std::stringstream string_field("");
   for (int i = 0; i < 4; i++) { // [TODO] fragile, should be transactionTableNumEntries
@@ -172,6 +177,26 @@ int t_Dana::info_ttable() {
     string_field.str("");
     string_field << string_table << i << "_nnid";
     std::cout << "|" << get_dat_by_name(string_field.str())->get_value().erase(0,2);
+    // Number of Layers
+    string_field.str("");
+    string_field << string_table << i << "_numLayers";
+    std::cout << "|" << get_dat_by_name(string_field.str())->get_value().erase(0,2);
+    // std::cout << "|  ";
+    // Number of Neurons (referred to as nodes)
+    string_field.str("");
+    string_field << string_table << i << "_numNodes";
+    std::cout << "|" << get_dat_by_name(string_field.str())->get_value().erase(0,2);
+    // std::cout << "|  ";
+    // Cache Index
+    string_field.str("");
+    string_field << string_table << i << "_cacheIndex";
+    std::cout << "|" << std::setw(4) << std::setfill(' ')
+              << get_dat_by_name(string_field.str())->get_value().erase(0,2);
+    // Decimal Point
+    string_field.str("");
+    string_field << string_table << i << "_decimalPoint";
+    std::cout << "|" << std::setw(2) << std::setfill(' ')
+              << get_dat_by_name(string_field.str())->get_value().erase(0,2);
     std::cout << "|" << std::endl;
   }
   std::cout << std::endl;
@@ -256,7 +281,9 @@ int t_Dana::cache_load(int index, int nnid, const char * file) {
     std::cout << "[INFO]   " << std::setw(5) << i << ":";
     val.str("");
     val << "0x";
-    for (int j = 0; j < 16; j++) {
+    // This needs to go in reverse order to do an endianness
+    // conversion
+    for (int j = 15; j >= 0; j--) {
       sprintf(tmp, "%02x", (const unsigned char)buf[j]);
       val << tmp;
     }
@@ -290,7 +317,8 @@ int main (int argc, char* argv[]) {
   api->write_rnd_data(1, 17, 10, 6);
   api->tick(1, 0);
   api->info();
-  api->tick(100, 0);
+  api->tick(10, 0);
+  api->info();
   // api->new_write_request(2, 18);
   // api->write_rnd_data(2, 18, 2, 6);
   // api->tick(10, 0);

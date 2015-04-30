@@ -66,6 +66,8 @@ class DanaReq extends DanaBundle()() {
 class DanaResp extends DanaBundle()() {
   val tableIndex = UInt(width = log2Up(transactionTableNumEntries))
   val field = UInt(width = 4) // [TODO] fragile on Constants.scala
+  val data = Vec.fill(3){UInt(width = 16)} // [TODO] fragile
+  val decimalPoint = UInt(width = decimalPointWidth)
 }
 
 class XFilesArbiterReq extends DanaBundle()() {
@@ -97,6 +99,12 @@ class TransactionTable extends DanaModule()() {
 
   // Vector of all the table entries
   val table = Vec.fill(transactionTableNumEntries){new TransactionState}
+  // Temporary debug enforcement
+  for (i <- 0 until transactionTableNumEntries) {
+    debug(table(i).numLayers)
+    debug(table(i).numNodes)
+    debug(table(i).cacheIndex)
+  }
   // Vector of the table entry memories
   val mem = Vec.fill(transactionTableNumEntries){
     Module(new SRAMElement(
@@ -166,6 +174,7 @@ class TransactionTable extends DanaModule()() {
       }
     }
   }
+
   // Update the table when we get a request from DANA
   when (io.dana.resp.valid) {
     // table(io.dana.resp.bits.tableIndex).waitingForCache := Bool(true)
@@ -174,9 +183,19 @@ class TransactionTable extends DanaModule()() {
         table(io.dana.resp.bits.tableIndex).waitingForCache := Bool(true)
       }
       is(e_TTABLE_CACHE_VALID) {
-        table(io.dana.resp.bits.tableIndex).cacheValid := Bool(true) }
+        table(io.dana.resp.bits.tableIndex).cacheValid := Bool(true)
+        table(io.dana.resp.bits.tableIndex).numLayers :=
+          io.dana.resp.bits.data(0)
+        table(io.dana.resp.bits.tableIndex).numNodes :=
+          io.dana.resp.bits.data(1)
+        table(io.dana.resp.bits.tableIndex).cacheIndex :=
+          io.dana.resp.bits.data(2)
+        table(io.dana.resp.bits.tableIndex).decimalPoint :=
+          io.dana.resp.bits.decimalPoint
+      }
       is(e_TTABLE_DONE) {
-        table(io.dana.resp.bits.tableIndex).cacheValid := Bool(true) }
+        table(io.dana.resp.bits.tableIndex).cacheValid := Bool(true)
+      }
     }
   }
 
@@ -218,8 +237,14 @@ class TransactionTable extends DanaModule()() {
   io.dana.req <> entryArbiter.io.out
 
   // Assertions
+
+  // The arbiter should only receive a request if it is asserting its
+  // ready signal.
   assert(!io.arbiter.req.valid || io.arbiter.req.ready,
     "Inbound arbiter request when Transaction Table not ready")
+  // Only one inbound request or response can currently be handled
+  assert(!io.arbiter.req.valid || !io.dana.resp.valid,
+    "Received simultaneous requests on the TransactionTable")
 }
 
 class TransactionTableTests(uut: TransactionTable, isTrace: Boolean = true)

@@ -49,6 +49,8 @@ class DanaControl extends DanaModule()() {
   io.tTable.resp.valid := Bool(false)
   io.tTable.resp.bits.tableIndex := UInt(0)
   io.tTable.resp.bits.field := UInt(0)
+  io.tTable.resp.bits.data := Vec.fill(3){UInt(0)}
+  io.tTable.resp.bits.decimalPoint := UInt(0)
   io.cache.resp.ready := Bool(true) // [TODO] not correct
   // io.cache defaults
   reqCache(Bool(false), UInt(0), UInt(0), UInt(0), UInt(0))
@@ -58,13 +60,21 @@ class DanaControl extends DanaModule()() {
     switch (io.cache.resp.bits.field) {
       is (e_CACHE_INFO) {
         io.tTable.resp.valid := Bool(true)
-        // io.tTable.resp.bits.field :=
+        io.tTable.resp.bits.field := e_TTABLE_CACHE_VALID
+        io.tTable.resp.bits.data := io.cache.resp.bits.data
+        io.tTable.resp.bits.decimalPoint := io.cache.resp.bits.decimalPoint
       }
       is (e_CACHE_LAYER) {
+        io.tTable.resp.valid := Bool(true)
+        io.tTable.resp.bits.field := e_TTABLE_LAYER // [TODO] may be wrong
       }
       is (e_CACHE_NEURON) {
+        io.tTable.resp.valid := Bool(true)
+        io.tTable.resp.bits.field := e_CACHE_NEURON // [TODO] wrong
       }
       is (e_CACHE_WEIGHT) {
+        io.tTable.resp.valid := Bool(true)
+        io.tTable.resp.bits.field := e_CACHE_WEIGHT // [TODO] wrong
       }
     }
   }

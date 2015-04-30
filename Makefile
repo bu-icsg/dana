@@ -59,7 +59,7 @@ build/t_Dana: $(OUTS) $(OBJECTS) $(TEST_OBJECTS)
 	$(GPP) $(GPP_FLAGS) $(OBJECTS) $(EMULATOR_OBJECTS) -o $@
 
 vcd: $(DIR_BUILD)/t_Dana.vcd Makefile
-	scripts/gtkwave $< &
+	scripts/gtkwave $<
 
 verilog: $(HDLS)
 

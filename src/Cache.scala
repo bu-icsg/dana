@@ -81,7 +81,8 @@ class Cache extends DanaModule()() {
     )).io}
 
   // Control Response Pipeline
-  val controlRespPipe = Vec.fill(3){Decoupled(new ControlCacheInterfaceResp)}
+  val controlRespPipe =
+    Vec.fill(3){Reg(Valid(new ControlCacheInterfaceResp))}
 
   // Helper functions for examing the cache entries
   def isFree(x: CacheState): Bool = {!x.valid}
@@ -125,6 +126,10 @@ class Cache extends DanaModule()() {
   controlRespPipe(0).bits.data := Vec.fill(3){UInt(0)}
   controlRespPipe(0).bits.decimalPoint := UInt(0)
   controlRespPipe(0).bits.field := UInt(0)
+  for (i <- 1 until 3)
+    controlRespPipe(i) := controlRespPipe(i-1)
+
+  // debug(controlRespPipe)
 
   for (i <- 0 until cacheNumEntries) {
     mem(i).din(0) := UInt(0)
@@ -183,5 +188,41 @@ class Cache extends DanaModule()() {
     }
   }
 
-  // Pipeline Second Stage
+  // Pipeline third stage (SRAM read)
+  switch (controlRespPipe(1).bits.field) {
+    is (e_CACHE_INFO) {
+      controlRespPipe(2).bits.decimalPoint :=
+      mem(controlRespPipe(1).bits.cacheIndex).dout(0)(UInt(decimalPointWidth),
+        UInt(0))
+      // Edges [TODO] fragile
+      controlRespPipe(2).bits.data(0) :=
+      mem(controlRespPipe(1).bits.cacheIndex).dout(0)(48+16, 48)
+      // Nodes [TODO] fragile
+      controlRespPipe(2).bits.data(1) :=
+      mem(controlRespPipe(1).bits.cacheIndex).dout(0)(32+16, 32)
+      controlRespPipe(2).bits.data(2) := UInt(0) // Unused
+    }
+    is (e_CACHE_LAYER_INFO) {
+      controlRespPipe(2).bits.data(0) :=
+      mem(controlRespPipe(1).bits.cacheIndex).dout(0)(
+        (UInt(elementWidth) * controlRespPipe(1).bits.data(0))+UInt(12)+UInt(10),
+        (UInt(elementWidth) * controlRespPipe(1).bits.data(0))+UInt(12))
+      controlRespPipe(2).bits.data(1) :=
+      mem(controlRespPipe(1).bits.cacheIndex).dout(0)(
+        (UInt(elementWidth) * controlRespPipe(1).bits.data(0))+UInt(22)+UInt(10),
+        (UInt(elementWidth) * controlRespPipe(1).bits.data(0))+UInt(22))
+      controlRespPipe(2).bits.data(2) :=
+      mem(controlRespPipe(1).bits.cacheIndex).dout(0)(
+        (UInt(elementWidth) * controlRespPipe(1).bits.data(0))+UInt(0)+UInt(12),
+        (UInt(elementWidth) * controlRespPipe(1).bits.data(0))+UInt(0))
+    }
+  }
+
+  // Set the response to the control unit
+  io.control.resp.valid := controlRespPipe(2).valid
+  io.control.resp.bits := controlRespPipe(2).bits
+
+  // Assertions
+  assert(!io.control.resp.valid || io.control.resp.ready,
+    "Cache trying to send response to Control when Control not ready")
 }
