@@ -15,6 +15,7 @@ TESTS = t_Dana.cpp
 OUTS = $(EXECUTABLES:%=$(DIR_BUILD)/%.out)
 TEST_EXECUTABLES = $(TESTS:%.cpp=$(DIR_BUILD)/%)
 TEST_OBJECTS = $(TESTS:%.cpp=$(DIR_BUILD)/%.o)
+VCDS = $(TESTS:%.cpp=$(DIR_BUILD)/%.vcd)
 OBJECTS = $(TEST_OBJECTS) $(EXECUTABLES:%=$(DIR_BUILD)/%.o)
 HDLS = $(EXECUTABLES:%=$(DIR_BUILD)/%.v)
 DOTS = $(EXECUTABLES:%=$(DIR_BUILD)/%.dot)
@@ -23,7 +24,7 @@ vpath %.scala $(DIR_SRC)
 vpath %.cpp $(DIR_SRC)
 vpath %.cpp $(DIR_BUILD)
 
-.PHONY: all phony clean test verilog
+.PHONY: all phony clean test verilog vcd
 
 default: all
 
@@ -44,8 +45,14 @@ $(DIR_BUILD)/%.dot: %.scala $(ALL_MODULES)
 $(DIR_BUILD)/%.o: %.cpp Makefile
 	$(GPP) -c $(GPP_FLAGS) $< -o $@
 
+$(DIR_BUILD)/%.vcd: $(DIR_BUILD)/% Makefile
+	$<
+
 build/t_Dana: $(OUTS) $(TEST_OBJECTS)
 	$(GPP) $(GPP_FLAGS) $(OBJECTS) $(EMULATOR_OBJECTS) -o $@
+
+vcd: $(DIR_BUILD)/t_Dana.vcd Makefile
+	scripts/gtkwave $<
 
 verilog: $(HDLS)
 
