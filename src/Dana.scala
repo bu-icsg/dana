@@ -9,7 +9,13 @@ class DanaInterface extends DanaBundle()() {
 class Dana extends DanaModule()() {
   val io = new DanaInterface
 
-   // Module instantiation
+  // Half clock hack
+  // val halfClock = new Clock(reset) / 2
+  // val clockInternal = Reg(init=UInt(0), clock = halfClock)
+  // debug(clockInternal)
+  // clockInternal := ~clockInternal
+
+  // Module instantiation
   val tTable = Module(new TransactionTable)
   val control = Module(new DanaControl)
   val cache = Module(new Cache)

@@ -16,7 +16,9 @@ OUTS = $(EXECUTABLES:%=$(DIR_BUILD)/%.out)
 TEST_EXECUTABLES = $(TESTS:%.cpp=$(DIR_BUILD)/%)
 TEST_OBJECTS = $(TESTS:%.cpp=$(DIR_BUILD)/%.o)
 VCDS = $(TESTS:%.cpp=$(DIR_BUILD)/%.vcd)
-OBJECTS = $(TEST_OBJECTS) $(EXECUTABLES:%=$(DIR_BUILD)/%.o)
+STRIPPED = $(EXECUTABLES:%=$(DIR_BUILD)/%-emulator-nomain.o)
+OBJECTS = $(TEST_OBJECTS) \
+	$(EXECUTABLES:%=$(DIR_BUILD)/%.o)
 HDLS = $(EXECUTABLES:%=$(DIR_BUILD)/%.v)
 DOTS = $(EXECUTABLES:%=$(DIR_BUILD)/%.dot)
 
@@ -42,17 +44,22 @@ $(DIR_BUILD)/%.dot: %.scala $(ALL_MODULES)
 	$(SBT) $(SBT_FLAGS) "run $(basename $(notdir $<)) --compile --backend dot --targetDir $(DIR_BUILD)"
 
 #------------------- Other build targets
+$(DIR_BUILD)/%-nomain.o: $(DIR_BUILD)/%.o Makefile
+	strip -N main $< -o $@
+
+$(DIR_BUILD)/Dana.o: $(DIR_BUILD)/Dana.out
+
 $(DIR_BUILD)/%.o: %.cpp Makefile
 	$(GPP) -c $(GPP_FLAGS) $< -o $@
 
 $(DIR_BUILD)/%.vcd: $(DIR_BUILD)/% Makefile
 	$<
 
-build/t_Dana: $(OUTS) $(TEST_OBJECTS)
+build/t_Dana: $(OUTS) $(OBJECTS) $(TEST_OBJECTS)
 	$(GPP) $(GPP_FLAGS) $(OBJECTS) $(EMULATOR_OBJECTS) -o $@
 
 vcd: $(DIR_BUILD)/t_Dana.vcd Makefile
-	scripts/gtkwave $<
+	scripts/gtkwave $< &
 
 verilog: $(HDLS)
 
