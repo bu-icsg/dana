@@ -1,0 +1,44 @@
+#! /usr/bin/perl
+
+sub usage() {
+    print <<END
+Usage: $0 [file]
+END
+}
+
+if ($#ARGV != 0) {
+    usage() and die "$0: Incorrect usage\n";
+}
+
+open FILE, "<$ARGV[0]" or die "Unable to open $ARGV[0]\n";
+
+my %y;
+while (<FILE>) {
+    if ($_ !~ m/^(\d) (\d) ([-\d]+) ([-?\d]+)/) {
+        next;
+    }
+    $y{$3}{$1}{$2} = $4;
+}
+
+close FILE;
+
+print "x ";
+foreach my $x (sort {$a <=> $b} keys %y) {
+    foreach my $steepness (sort {$a <=> $b} keys %{$y{$x}}) {
+        foreach my $af (sort {$a <=> $b} keys %{$y{$x}{$steepness}}) {
+            print "af-$steepness-$af "
+        }
+    }
+    print "\n";
+    last;
+}
+
+foreach my $x (sort {$a <=> $b} keys %y) {
+    print $x." ";
+    foreach my $steepness (sort {$a <=> $b} keys %{$y{$x}}) {
+        foreach my $af (sort {$a <=> $b} keys %{$y{$x}{$steepness}}) {
+            print $y{$x}{$steepness}{$af}." ";
+        }
+    }
+    print "\n";
+}
