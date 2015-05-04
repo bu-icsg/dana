@@ -137,9 +137,9 @@ int t_Dana::info() {
 }
 
 int t_Dana::info_ttable() {
-  std::cout << "-----------------------------------------------\n";
-  std::cout << "|V|R|CV|WC|NL|NR|D| Tid|Nnid|  #L|  #N|Cidx|DP| <- TTable\n";
-  std::cout << "-----------------------------------------------\n";
+  std::cout << "----------------------------------------------------------\n";
+  std::cout << "|V|R|CV|WC|NL|NR|D| Tid|Nnid|  #L|  #N|  CL|  CN|Cache|DP| <- TTable\n";
+  std::cout << "----------------------------------------------------------\n";
   std::string string_table("Dana.tTable.table_");
   std::stringstream string_field("");
   for (int i = 0; i < 4; i++) { // [TODO] fragile, should be transactionTableNumEntries
@@ -186,11 +186,19 @@ int t_Dana::info_ttable() {
     string_field.str("");
     string_field << string_table << i << "_numNodes";
     std::cout << "|" << get_dat_by_name(string_field.str())->get_value().erase(0,2);
+    // The current layer
+    string_field.str("");
+    string_field << string_table << i << "_currentLayer";
+    std::cout << "|" << get_dat_by_name(string_field.str())->get_value().erase(0,2);
+    // The current node
+    string_field.str("");
+    string_field << string_table << i << "_currentNode";
+    std::cout << "|" << get_dat_by_name(string_field.str())->get_value().erase(0,2);
     // std::cout << "|  ";
     // Cache Index
     string_field.str("");
     string_field << string_table << i << "_cacheIndex";
-    std::cout << "|" << std::setw(4) << std::setfill(' ')
+    std::cout << "|" << std::setw(5) << std::setfill(' ')
               << get_dat_by_name(string_field.str())->get_value().erase(0,2);
     // Decimal Point
     string_field.str("");

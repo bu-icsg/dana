@@ -104,6 +104,8 @@ class TransactionTable extends DanaModule()() {
     debug(table(i).numLayers)
     debug(table(i).numNodes)
     debug(table(i).cacheIndex)
+    debug(table(i).currentNode)
+    debug(table(i).currentLayer)
   }
   // Vector of the table entry memories
   val mem = Vec.fill(transactionTableNumEntries){
