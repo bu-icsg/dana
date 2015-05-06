@@ -67,15 +67,16 @@ class DanaControl extends DanaModule()() {
       is (e_CACHE_LAYER) {
         io.tTable.resp.valid := Bool(true)
         io.tTable.resp.bits.field := e_TTABLE_LAYER // [TODO] may be wrong
+        io.tTable.resp.bits.data := io.cache.resp.bits.data
       }
-      is (e_CACHE_NEURON) {
-        io.tTable.resp.valid := Bool(true)
-        io.tTable.resp.bits.field := e_CACHE_NEURON // [TODO] wrong
-      }
-      is (e_CACHE_WEIGHT) {
-        io.tTable.resp.valid := Bool(true)
-        io.tTable.resp.bits.field := e_CACHE_WEIGHT // [TODO] wrong
-      }
+      // is (e_CACHE_NEURON) {
+      //   io.tTable.resp.valid := Bool(true)
+      //   io.tTable.resp.bits.field := e_CACHE_NEURON // [TODO] wrong
+      // }
+      // is (e_CACHE_WEIGHT) {
+      //   io.tTable.resp.valid := Bool(true)
+      //   io.tTable.resp.bits.field := e_CACHE_WEIGHT // [TODO] wrong
+      // }
     }
   }
 
@@ -85,7 +86,7 @@ class DanaControl extends DanaModule()() {
     // Cache state is unknown and we're not waiting for the cache to
     // respond
     when (!io.tTable.req.bits.cacheValid &&
-      !io.tTable.req.bits.waitingForCache) {
+      !io.tTable.req.bits.waiting) {
       // Send a request to the cache
       reqCache(Bool(true), e_CACHE_LOAD, io.tTable.req.bits.nnid,
         io.tTable.req.bits.tableIndex, UInt(0))
@@ -93,19 +94,40 @@ class DanaControl extends DanaModule()() {
       // Send a response to the tTable
       io.tTable.resp.valid := Bool(true)
       io.tTable.resp.bits.tableIndex := io.tTable.req.bits.tableIndex
-      io.tTable.resp.bits.field := e_TTABLE_WAITING_FOR_CACHE
+      io.tTable.resp.bits.field := e_TTABLE_WAITING
     }
-    when (io.tTable.req.bits.needsLayerInfo) {
+    when (io.tTable.req.bits.cacheValid &&
+      io.tTable.req.bits.needsLayerInfo) {
       // Send a request to the storage module
+      reqCache(Bool(true), e_CACHE_LAYER_INFO, io.tTable.req.bits.nnid,
+        io.tTable.req.bits.tableIndex, io.tTable.req.bits.currentLayer)
+
+      // Tell the tTable to wait
+      io.tTable.resp.valid := Bool(true)
+      io.tTable.resp.bits.tableIndex := io.tTable.req.bits.tableIndex
+      io.tTable.resp.bits.field := e_TTABLE_WAITING
+      // io.tTable.resp.valid := Bool(true)
+      // io.tTable.resp.bits.tableIndex := io.tTable.req.bits.tableIndex
+      // io.tTable.resp.bits.field := e_TTABLE_
     }
     when (io.tTable.req.bits.cacheValid &&
       io.tTable.req.bits.needsRegisters) {
+
+      // Tell the tTable to wait
+      io.tTable.resp.valid := Bool(true)
+      io.tTable.resp.bits.tableIndex := io.tTable.req.bits.tableIndex
+      io.tTable.resp.bits.field := e_TTABLE_WAITING
       // Send a request to the register file
     }
     when (io.tTable.req.bits.cacheValid &&
       io.tTable.req.bits.needsNextRegister) {
-      // Send a request to the register file
+
+      // Tell the tTable to wait
       io.tTable.resp.valid := Bool(true)
+      io.tTable.resp.bits.tableIndex := io.tTable.req.bits.tableIndex
+      io.tTable.resp.bits.field := e_TTABLE_WAITING
+      // Send a request to the register file
+      // io.tTable.resp.valid := Bool(true)
     }
     // when (io.tTable.req.bits.cacheValid &&
     //   !io.tTable.req.bits.needsRegisters &&

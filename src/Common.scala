@@ -75,7 +75,7 @@ abstract class DanaModule(
   // Transaction Table State Entries. nnsim-hdl equivalent:
   //   controL_types::field_enum
   val (e_TTABLE_VALID :: e_TTABLE_RESERVED :: e_TTABLE_CACHE_VALID ::
-    e_TTABLE_LAYER :: e_TTABLE_WAITING_FOR_CACHE :: e_TTABLE_DONE ::
+    e_TTABLE_LAYER :: e_TTABLE_WAITING :: e_TTABLE_DONE ::
     e_TTABLE_OUTPUT_LAYER :: e_TTABLE_INCREMENT_NODE ::
     e_TTABLE_REGISTER_INFO :: e_TTABLE_REGISTER_NEXT :: Nil) = Enum(UInt(), 10)
   // Cache Request Type
@@ -181,7 +181,7 @@ abstract class DanaTester[+T <: Module](c: T, isTrace: Boolean = true)
             peek(c.table(i).valid),
             peek(c.table(i).reserved),
             peek(c.table(i).cacheValid),
-            peek(c.table(i).waitingForCache),
+            peek(c.table(i).waiting),
             peek(c.table(i).needsLayerInfo),
             peek(c.table(i).needsRegisters),
             // peek(c.table(i).done),

@@ -82,7 +82,9 @@ class Cache extends DanaModule()() {
 
   // Control Response Pipeline
   val controlRespPipe =
-    Vec.fill(3){Reg(Valid(new ControlCacheInterfaceResp))}
+    Vec.fill(2){Reg(Valid(new ControlCacheInterfaceResp))}
+  val cacheRead = Vec.fill(cacheNumEntries){
+    (Reg(UInt(width=log2Up(cacheNumBlocks)))) }
 
   // Helper functions for examing the cache entries
   def isFree(x: CacheState): Bool = {!x.valid}
@@ -126,15 +128,17 @@ class Cache extends DanaModule()() {
   controlRespPipe(0).bits.data := Vec.fill(3){UInt(0)}
   controlRespPipe(0).bits.decimalPoint := UInt(0)
   controlRespPipe(0).bits.field := UInt(0)
-  for (i <- 1 until 3)
-    controlRespPipe(i) := controlRespPipe(i-1)
+  // Assignment to the output pipe
+  controlRespPipe(1) := controlRespPipe(0)
 
   // debug(controlRespPipe)
 
   for (i <- 0 until cacheNumEntries) {
     mem(i).din(0) := UInt(0)
     mem(i).addr(0) := UInt(0)
+    // mem(i).addr(0) := cacheRead(i)
     mem(i).we(0) := Bool(false)
+    // cacheRead(i) := UInt(0)
   }
 
   // Handle requests from the control module
@@ -176,11 +180,25 @@ class Cache extends DanaModule()() {
           controlRespPipe(0).bits.field := e_CACHE_INFO
 
           // Read the requested information from the cache
-          mem(derefNnid).addr(0) := UInt(0) // Info is in first block
+          // mem(derefNnid).addr(0) := UInt(0) // Info is in first blocks
+          // cacheRead(derefNnid) := UInt(0)
         }
       }
       is (e_CACHE_LAYER_INFO) {
+        controlRespPipe(0).valid := Bool(true)
+        controlRespPipe(0).bits.tableIndex := io.control.req.bits.tableIndex
+        controlRespPipe(0).bits.field := e_CACHE_LAYER_INFO
+        controlRespPipe(0).bits.data(0) := io.control.req.bits.layer
 
+        // Read the layer information from the correct block. A layer
+        // occupies one block, so we need to pull the block address
+        // out of the layer number.
+        mem(derefNnid).addr(0) := UInt(1) + // Offset from info region
+          io.control.req.bits.layer(io.control.req.bits.layer.getWidth-1,
+            log2Up(elementsPerBlock))
+        // cacheRead(derefNnid) := UInt(1) + // Offset from info region
+        //   io.control.req.bits.layer(io.control.req.bits.layer.getWidth-1,
+        //     log2Up(elementsPerBlock))
       }
       is (e_CACHE_DECREMENT_IN_USE_COUNT) {
 
@@ -189,38 +207,59 @@ class Cache extends DanaModule()() {
   }
 
   // Pipeline third stage (SRAM read)
-  switch (controlRespPipe(1).bits.field) {
+  switch (controlRespPipe(0).bits.field) {
     is (e_CACHE_INFO) {
-      controlRespPipe(2).bits.decimalPoint :=
-      mem(controlRespPipe(1).bits.cacheIndex).dout(0)(UInt(decimalPointWidth),
+      controlRespPipe(1).bits.decimalPoint :=
+      mem(controlRespPipe(0).bits.cacheIndex).dout(0)(UInt(decimalPointWidth),
         UInt(0))
       // Edges [TODO] fragile
-      controlRespPipe(2).bits.data(0) :=
-      mem(controlRespPipe(1).bits.cacheIndex).dout(0)(48+16, 48)
+      controlRespPipe(1).bits.data(0) :=
+      mem(controlRespPipe(0).bits.cacheIndex).dout(0)(48+16, 48)
       // Nodes [TODO] fragile
-      controlRespPipe(2).bits.data(1) :=
-      mem(controlRespPipe(1).bits.cacheIndex).dout(0)(32+16, 32)
-      controlRespPipe(2).bits.data(2) := UInt(0) // Unused
+      controlRespPipe(1).bits.data(1) :=
+      mem(controlRespPipe(0).bits.cacheIndex).dout(0)(32+16, 32)
+      controlRespPipe(1).bits.data(2) := UInt(0) // Unused
     }
     is (e_CACHE_LAYER_INFO) {
-      controlRespPipe(2).bits.data(0) :=
-      mem(controlRespPipe(1).bits.cacheIndex).dout(0)(
-        (UInt(elementWidth) * controlRespPipe(1).bits.data(0))+UInt(12)+UInt(10),
-        (UInt(elementWidth) * controlRespPipe(1).bits.data(0))+UInt(12))
-      controlRespPipe(2).bits.data(1) :=
-      mem(controlRespPipe(1).bits.cacheIndex).dout(0)(
-        (UInt(elementWidth) * controlRespPipe(1).bits.data(0))+UInt(22)+UInt(10),
-        (UInt(elementWidth) * controlRespPipe(1).bits.data(0))+UInt(22))
-      controlRespPipe(2).bits.data(2) :=
-      mem(controlRespPipe(1).bits.cacheIndex).dout(0)(
-        (UInt(elementWidth) * controlRespPipe(1).bits.data(0))+UInt(0)+UInt(12),
-        (UInt(elementWidth) * controlRespPipe(1).bits.data(0))+UInt(0))
+      // Number of neurons in this layer
+      controlRespPipe(1).bits.data(0) :=
+      mem(controlRespPipe(0).bits.cacheIndex).dout(0)(
+        (UInt(elementWidth) *
+          controlRespPipe(0).bits.data(0)(log2Up(elementsPerBlock)-1,0)) +
+          UInt(12) + UInt(9),
+        (UInt(elementWidth) *
+          controlRespPipe(0).bits.data(0)(log2Up(elementsPerBlock)-1,0)) +
+          UInt(12))
+      controlRespPipe(1).bits.data(0) :=
+        mem(controlRespPipe(0).bits.cacheIndex).dout(0)(12 + 9, 12)
+      // Number of neurons in the next layer
+      controlRespPipe(1).bits.data(1) :=
+      mem(controlRespPipe(0).bits.cacheIndex).dout(0)(
+        (UInt(elementWidth) *
+          controlRespPipe(0).bits.data(0)(log2Up(elementsPerBlock)-1,0)) +
+          UInt(22)+UInt(9),
+        (UInt(elementWidth) *
+          controlRespPipe(0).bits.data(0)(log2Up(elementsPerBlock)-1,0)) +
+          UInt(22))
+      controlRespPipe(1).bits.data(1) :=
+        mem(controlRespPipe(0).bits.cacheIndex).dout(0)(22 + 9, 22)
+      // Pointer to the first neuron
+      controlRespPipe(1).bits.data(2) :=
+      mem(controlRespPipe(0).bits.cacheIndex).dout(0)(
+        (UInt(elementWidth) *
+          controlRespPipe(0).bits.data(0)(log2Up(elementsPerBlock)-1,0)) +
+          UInt(0)+UInt(11),
+        (UInt(elementWidth) *
+          controlRespPipe(0).bits.data(0)(log2Up(elementsPerBlock)-1,0)) +
+          UInt(0))
+      controlRespPipe(1).bits.data(2) :=
+        mem(controlRespPipe(0).bits.cacheIndex).dout(0)(11, 0)
     }
   }
 
   // Set the response to the control unit
-  io.control.resp.valid := controlRespPipe(2).valid
-  io.control.resp.bits := controlRespPipe(2).bits
+  io.control.resp.valid := controlRespPipe(1).valid
+  io.control.resp.bits := controlRespPipe(1).bits
 
   // Assertions
   assert(!io.control.resp.valid || io.control.resp.ready,

@@ -137,9 +137,9 @@ int t_Dana::info() {
 }
 
 int t_Dana::info_ttable() {
-  std::cout << "----------------------------------------------------------\n";
-  std::cout << "|V|R|CV|WC|NL|NR|D| Tid|Nnid|  #L|  #N|  CL|  CN|Cache|DP| <- TTable\n";
-  std::cout << "----------------------------------------------------------\n";
+  std::cout << "-----------------------------------------------------------------------------\n";
+  std::cout << "|V|R|W|CV|NL|NR|D| Tid|Nnid|  #L|  #N|  CL|  CN|CNinL|#NcL|#NnL| &N|Cache|DP| <- TTable\n";
+  std::cout << "-----------------------------------------------------------------------------\n";
   std::string string_table("Dana.tTable.table_");
   std::stringstream string_field("");
   for (int i = 0; i < 4; i++) { // [TODO] fragile, should be transactionTableNumEntries
@@ -151,13 +151,13 @@ int t_Dana::info_ttable() {
     string_field.str("");
     string_field << string_table << i << "_reserved";
     std::cout << "|" << get_dat_by_name(string_field.str())->get_value().erase(0,2);
+    // Waiting for a response
+    string_field.str("");
+    string_field << string_table << i << "_waiting";
+    std::cout << "|" << get_dat_by_name(string_field.str())->get_value().erase(0,2);
     // Cache Valid
     string_field.str("");
     string_field << string_table << i << "_cacheValid";
-    std::cout << "| " << get_dat_by_name(string_field.str())->get_value().erase(0,2);
-    // Waiting For Cache
-    string_field.str("");
-    string_field << string_table << i << "_waitingForCache";
     std::cout << "| " << get_dat_by_name(string_field.str())->get_value().erase(0,2);
     // Needs Layer Info
     string_field.str("");
@@ -181,7 +181,6 @@ int t_Dana::info_ttable() {
     string_field.str("");
     string_field << string_table << i << "_numLayers";
     std::cout << "|" << get_dat_by_name(string_field.str())->get_value().erase(0,2);
-    // std::cout << "|  ";
     // Number of Neurons (referred to as nodes)
     string_field.str("");
     string_field << string_table << i << "_numNodes";
@@ -194,7 +193,22 @@ int t_Dana::info_ttable() {
     string_field.str("");
     string_field << string_table << i << "_currentNode";
     std::cout << "|" << get_dat_by_name(string_field.str())->get_value().erase(0,2);
-    // std::cout << "|  ";
+    // The current node in the current layer
+    string_field.str("");
+    string_field << string_table << i << "_currentNodeInLayer";
+    std::cout << "| " << get_dat_by_name(string_field.str())->get_value().erase(0,2);
+    // The total nodes in the current layer
+    string_field.str("");
+    string_field << string_table << i << "_nodesInCurrentLayer";
+    std::cout << "|" << get_dat_by_name(string_field.str())->get_value().erase(0,2);
+    // Number of nodes in the next layer
+    string_field.str("");
+    string_field << string_table << i << "_nodesInNextLayer";
+    std::cout << "|" << get_dat_by_name(string_field.str())->get_value().erase(0,2);
+    // Neuron Pointer
+    string_field.str("");
+    string_field << string_table << i << "_neuronPointer";
+    std::cout << "|" << get_dat_by_name(string_field.str())->get_value().erase(0,2);
     // Cache Index
     string_field.str("");
     string_field << string_table << i << "_cacheIndex";
@@ -323,7 +337,7 @@ int main (int argc, char* argv[]) {
   api->new_write_request(1, 17);
   api->info();
   api->write_rnd_data(1, 17, 10, 6);
-  for (int i = 0; i < 10; i++) {
+  for (int i = 0; i < 20; i++) {
     api->tick(1, 0);
     api->info();
   }

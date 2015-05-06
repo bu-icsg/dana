@@ -6,13 +6,12 @@ class TransactionState extends DanaBundle()() {
   val valid = Reg(Bool(), init = Bool(false))
   val reserved = Reg(Bool(), init = Bool(false))
   val cacheValid = Reg(Bool())
-  val waitingForCache = Reg(Bool())
+  val waiting = Reg(Bool())
   val needsLayerInfo = Reg(Bool())
   val needsRegisters = Reg(Bool())
   val needsNextRegister = Reg(Bool())
   val done = Reg(Bool())
   val request = Reg(Bool())
-  val workToDo = Reg(Bool())
   val inLast = Reg(Bool())
   // output_layer should be unused according to types.vh
   val cacheIndex = Reg(UInt(width = log2Up(cacheNumEntries)))
@@ -39,7 +38,7 @@ class TransactionState extends DanaBundle()() {
 class DanaReq extends DanaBundle()() {
   // Bools
   val cacheValid = Bool()
-  val waitingForCache = Bool()
+  val waiting = Bool()
   val needsLayerInfo = Bool()
   val needsRegisters = Bool()
   val needsNextRegister = Bool()
@@ -142,11 +141,10 @@ class TransactionTable extends DanaModule()() {
       when (io.arbiter.req.bits.isNew) {
         table(nextFree).reserved := Bool(true)
         table(nextFree).cacheValid := Bool(false)
-        table(nextFree).waitingForCache := Bool(false)
+        table(nextFree).waiting := Bool(false)
         table(nextFree).needsLayerInfo := Bool(true)
         table(nextFree).needsRegisters := Bool(true)
         table(nextFree).needsNextRegister := Bool(false)
-        table(nextFree).workToDo := Bool(false)
         table(nextFree).tid := io.arbiter.req.bits.tid
         table(nextFree).nnid := io.arbiter.req.bits.data
         table(nextFree).currentNode := SInt(-1)
@@ -163,7 +161,6 @@ class TransactionTable extends DanaModule()() {
         table(derefTidIndex).indexElement :=
           table(derefTidIndex).indexElement + UInt(1)
         table(derefTidIndex).valid := Bool(true)
-        table(derefTidIndex).workToDo := Bool(true)
       }
         // This is an input packet
         .otherwise {
@@ -179,10 +176,10 @@ class TransactionTable extends DanaModule()() {
 
   // Update the table when we get a request from DANA
   when (io.dana.resp.valid) {
-    // table(io.dana.resp.bits.tableIndex).waitingForCache := Bool(true)
+    // table(io.dana.resp.bits.tableIndex).waiting := Bool(true)
     switch(io.dana.resp.bits.field) {
-      is(e_TTABLE_WAITING_FOR_CACHE) {
-        table(io.dana.resp.bits.tableIndex).waitingForCache := Bool(true)
+      is(e_TTABLE_WAITING) {
+        table(io.dana.resp.bits.tableIndex).waiting := Bool(true)
       }
       is(e_TTABLE_CACHE_VALID) {
         table(io.dana.resp.bits.tableIndex).cacheValid := Bool(true)
@@ -194,6 +191,27 @@ class TransactionTable extends DanaModule()() {
           io.dana.resp.bits.data(2)
         table(io.dana.resp.bits.tableIndex).decimalPoint :=
           io.dana.resp.bits.decimalPoint
+        // Once we know the cache is valid, this entry is no longer waiting
+        table(io.dana.resp.bits.tableIndex).waiting := Bool(false)
+      }
+      is(e_TTABLE_LAYER) {
+        table(io.dana.resp.bits.tableIndex).needsLayerInfo := Bool(false)
+        table(io.dana.resp.bits.tableIndex).needsRegisters :=
+          table(io.dana.resp.bits.tableIndex).currentNode +
+         io.dana.resp.bits.data(0) ===
+          table(io.dana.resp.bits.tableIndex).numNodes - UInt(1)
+        table(io.dana.resp.bits.tableIndex).currentNodeInLayer := SInt(-1)
+        table(io.dana.resp.bits.tableIndex).nodesInCurrentLayer := io.dana.resp.bits.data(0)
+        table(io.dana.resp.bits.tableIndex).nodesInNextLayer := io.dana.resp.bits.data(1)
+        table(io.dana.resp.bits.tableIndex).neuronPointer := io.dana.resp.bits.data(2)
+        // **
+        // [TODO] I think that isLast isn't used
+        // [TODO] This right shift is probably fucked
+        table(io.dana.resp.bits.tableIndex).regBlockIndexIn :=
+          table(io.dana.resp.bits.tableIndex).regBlockInNext << UInt(log2Up(elementsPerBlock))
+        table(io.dana.resp.bits.tableIndex).countUsedRegisters := UInt(0)
+        // The tTable is no longer waiting after receiving layer info
+        table(io.dana.resp.bits.tableIndex).waiting := Bool(false)
       }
       is(e_TTABLE_DONE) {
         table(io.dana.resp.bits.tableIndex).cacheValid := Bool(true)
@@ -208,12 +226,12 @@ class TransactionTable extends DanaModule()() {
   // All of these need to be wired up manually as the internal
   // connections aren't IO
   for (i <- 0 until transactionTableNumEntries) {
-    // A request is valid if it has work to do
-    entryArbiter.io.in(i).valid := table(i).workToDo
+    // A request is valid if it is valid and is not waiting
+    entryArbiter.io.in(i).valid := table(i).valid & !table(i).waiting
     // The other data connections are just aliases to the contents of
     // the specific table entry
     entryArbiter.io.in(i).bits.cacheValid := table(i).cacheValid
-    entryArbiter.io.in(i).bits.waitingForCache := table(i).waitingForCache
+    entryArbiter.io.in(i).bits.waiting := table(i).waiting
     entryArbiter.io.in(i).bits.needsLayerInfo := table(i).needsLayerInfo
     entryArbiter.io.in(i).bits.needsRegisters := table(i).needsRegisters
     entryArbiter.io.in(i).bits.needsNextRegister := table(i).needsNextRegister
