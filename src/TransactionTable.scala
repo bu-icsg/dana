@@ -197,9 +197,8 @@ class TransactionTable extends DanaModule()() {
       is(e_TTABLE_LAYER) {
         table(io.dana.resp.bits.tableIndex).needsLayerInfo := Bool(false)
         table(io.dana.resp.bits.tableIndex).needsRegisters :=
-          table(io.dana.resp.bits.tableIndex).currentNode +
-         io.dana.resp.bits.data(0) ===
-          table(io.dana.resp.bits.tableIndex).numNodes - UInt(1)
+          table(io.dana.resp.bits.tableIndex).currentLayer !=
+          table(io.dana.resp.bits.tableIndex).numLayers - UInt(1)
         table(io.dana.resp.bits.tableIndex).currentNodeInLayer := SInt(-1)
         table(io.dana.resp.bits.tableIndex).nodesInCurrentLayer := io.dana.resp.bits.data(0)
         table(io.dana.resp.bits.tableIndex).nodesInNextLayer := io.dana.resp.bits.data(1)

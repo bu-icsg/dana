@@ -70,7 +70,8 @@ abstract class DanaModule(
   val cacheNumBlocks: Int = cacheDataSize / elementsPerBlock / elementWidth * 8,
   val ioIdxWidth: Int = if (transactionTableSramElements > regFileNumElements)
     log2Up(transactionTableSramElements * elementWidth) else
-      log2Up(regFileNumElements * elementWidth)
+      log2Up(regFileNumElements * elementWidth),
+  val bitsPerBlock: Int = elementsPerBlock * elementWidth
 ) extends Module {
   // Transaction Table State Entries. nnsim-hdl equivalent:
   //   controL_types::field_enum
@@ -123,7 +124,8 @@ abstract class DanaBundle(
   val cacheNumBlocks: Int = cacheDataSize / elementsPerBlock / elementWidth * 8,
   val ioIdxWidth: Int = if (transactionTableSramElements > regFileNumElements)
     log2Up(transactionTableSramElements * elementWidth) else
-      log2Up(regFileNumElements * elementWidth)
+      log2Up(regFileNumElements * elementWidth),
+  val bitsPerBlock: Int = elementsPerBlock * elementWidth
 ) extends Bundle{
 }
 
