@@ -210,48 +210,48 @@ class Cache extends DanaModule()() {
   switch (controlRespPipe(0).bits.field) {
     is (e_CACHE_INFO) {
       controlRespPipe(1).bits.decimalPoint :=
-      mem(controlRespPipe(0).bits.cacheIndex).dout(0)(UInt(decimalPointWidth),
-        UInt(0))
+        mem(controlRespPipe(0).bits.cacheIndex).dout(0)(UInt(decimalPointWidth),
+          UInt(0))
       // Edges [TODO] fragile
       controlRespPipe(1).bits.data(0) :=
-      mem(controlRespPipe(0).bits.cacheIndex).dout(0)(48+16, 48)
+        mem(controlRespPipe(0).bits.cacheIndex).dout(0)(48+16, 48)
       // Nodes [TODO] fragile
       controlRespPipe(1).bits.data(1) :=
-      mem(controlRespPipe(0).bits.cacheIndex).dout(0)(32+16, 32)
+        mem(controlRespPipe(0).bits.cacheIndex).dout(0)(32+16, 32)
       controlRespPipe(1).bits.data(2) := UInt(0) // Unused
     }
     is (e_CACHE_LAYER_INFO) {
       // Number of neurons in this layer
       controlRespPipe(1).bits.data(0) :=
-      mem(controlRespPipe(0).bits.cacheIndex).dout(0)(
-        (UInt(elementWidth) *
-          controlRespPipe(0).bits.data(0)(log2Up(elementsPerBlock)-1,0)) +
-          UInt(12) + UInt(9),
-        (UInt(elementWidth) *
-          controlRespPipe(0).bits.data(0)(log2Up(elementsPerBlock)-1,0)) +
-          UInt(12))
+        mem(controlRespPipe(0).bits.cacheIndex).dout(0)(
+          (UInt(elementWidth) *
+            controlRespPipe(0).bits.data(0)(log2Up(elementsPerBlock)-1,0)) +
+            UInt(12) + UInt(9),
+          (UInt(elementWidth) *
+            controlRespPipe(0).bits.data(0)(log2Up(elementsPerBlock)-1,0)) +
+            UInt(12))
       controlRespPipe(1).bits.data(0) :=
         mem(controlRespPipe(0).bits.cacheIndex).dout(0)(12 + 9, 12)
       // Number of neurons in the next layer
       controlRespPipe(1).bits.data(1) :=
-      mem(controlRespPipe(0).bits.cacheIndex).dout(0)(
-        (UInt(elementWidth) *
-          controlRespPipe(0).bits.data(0)(log2Up(elementsPerBlock)-1,0)) +
-          UInt(22)+UInt(9),
-        (UInt(elementWidth) *
-          controlRespPipe(0).bits.data(0)(log2Up(elementsPerBlock)-1,0)) +
-          UInt(22))
+        mem(controlRespPipe(0).bits.cacheIndex).dout(0)(
+          (UInt(elementWidth) *
+            controlRespPipe(0).bits.data(0)(log2Up(elementsPerBlock)-1,0)) +
+            UInt(22)+UInt(9),
+          (UInt(elementWidth) *
+            controlRespPipe(0).bits.data(0)(log2Up(elementsPerBlock)-1,0)) +
+            UInt(22))
       controlRespPipe(1).bits.data(1) :=
         mem(controlRespPipe(0).bits.cacheIndex).dout(0)(22 + 9, 22)
       // Pointer to the first neuron
       controlRespPipe(1).bits.data(2) :=
-      mem(controlRespPipe(0).bits.cacheIndex).dout(0)(
-        (UInt(elementWidth) *
-          controlRespPipe(0).bits.data(0)(log2Up(elementsPerBlock)-1,0)) +
-          UInt(0)+UInt(11),
-        (UInt(elementWidth) *
-          controlRespPipe(0).bits.data(0)(log2Up(elementsPerBlock)-1,0)) +
-          UInt(0))
+        mem(controlRespPipe(0).bits.cacheIndex).dout(0)(
+          (UInt(elementWidth) *
+            controlRespPipe(0).bits.data(0)(log2Up(elementsPerBlock)-1,0)) +
+            UInt(0)+UInt(11),
+          (UInt(elementWidth) *
+            controlRespPipe(0).bits.data(0)(log2Up(elementsPerBlock)-1,0)) +
+            UInt(0))
       controlRespPipe(1).bits.data(2) :=
         mem(controlRespPipe(0).bits.cacheIndex).dout(0)(11, 0)
     }
