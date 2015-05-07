@@ -17,7 +17,7 @@ class Dana extends DanaModule()() {
 
   // Module instantiation
   val tTable = Module(new TransactionTable)
-  val control = Module(new DanaControl)
+  val control = Module(new Control)
   val cache = Module(new Cache)
   val mem = Module(new Memory)
 

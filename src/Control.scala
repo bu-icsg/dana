@@ -26,13 +26,13 @@ class ControlCacheInterface extends DanaBundle()() {
   val resp = Decoupled(new ControlCacheInterfaceResp).flip
 }
 
-class DanaControlInterface extends DanaBundle()() {
+class ControlInterface extends DanaBundle()() {
   val tTable = (new TTableDanaInterface).flip
   val cache = new ControlCacheInterface
 }
 
-class DanaControl extends DanaModule()() {
-  val io = new DanaControlInterface
+class Control extends DanaModule()() {
+  val io = new ControlInterface
 
   // IO Driver Functions
   def reqCache(valid: Bool, request: UInt, nnid: UInt, tableIndex: UInt,
