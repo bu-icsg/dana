@@ -100,6 +100,8 @@ class Cache extends DanaModule()() {
     Vec.fill(bitsPerBlock / 32){UInt(width = 32) }}
   val compressedNeurons = Vec.fill(cacheNumEntries){
     Vec.fill(bitsPerBlock / 64){UInt(width = 64) }}
+  val compressedWeights = Vec.fill(cacheNumEntries){
+    Vec.fill(bitsPerBlock / 32){UInt(width = 32)}}
   for (i <- 0 until cacheNumEntries) {
     compressedInfo(i).decimalPoint      := mem(i).dout(0)(decimalPointWidth-1,0)
     compressedInfo(i).unused_0          := mem(i).dout(0)(16-decimalPointWidth-1,
@@ -111,9 +113,11 @@ class Cache extends DanaModule()() {
     compressedInfo(i).weightsPointer    := mem(i).dout(0)(96-1, 80)
     compressedInfo(i).unused_1          := mem(i).dout(0)(bitsPerBlock-1, 96)
     debug(compressedInfo(i))
-    (0 until bitsPerBlock/32).map(j => compressedLayers(i)(j) :=
+    (0 until bitsPerBlock / 32).map(j => compressedLayers(i)(j) :=
       mem(i).dout(0)(32 * (j + 1) - 1, 32 * j))
-    (0 until bitsPerBlock/64).map(j => compressedNeurons(i)(j) :=
+    (0 until bitsPerBlock / 64).map(j => compressedNeurons(i)(j) :=
+      mem(i).dout(0)(64 * (j + 1) - 1, 64 * j))
+    (0 until bitsPerBlock / 32).map(j => compressedWeights(i)(j) :=
       mem(i).dout(0)(64 * (j + 1) - 1, 64 * j))
   }
 
