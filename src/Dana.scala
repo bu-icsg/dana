@@ -20,6 +20,7 @@ class Dana extends DanaModule()() {
   val control = Module(new Control)
   val cache = Module(new Cache)
   val mem = Module(new Memory)
+  val registerFile = Module(new RegisterFile)
 
   // Wire everything up. Ordering shouldn't matter here.
   io.arbiter <> tTable.io.arbiter

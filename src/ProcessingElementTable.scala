@@ -2,6 +2,15 @@ package dana
 
 import Chisel._
 
+class PERegisterFileInterface extends DanaBundle()() {
+  val req = Decoupled(new DanaBundle()() {
+    val foo = Bool()
+  })
+  val resp = Decoupled(new DanaBundle()() {
+    val bar = Bool()
+  }).flip
+}
+
 class ProcessingElementState(
   // Top-level parameters
   val elementWidth: Int = 32,
