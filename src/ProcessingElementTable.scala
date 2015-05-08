@@ -11,6 +11,10 @@ class PERegisterFileInterface extends DanaBundle()() {
   }).flip
 }
 
+class PETableInterface extends DanaBundle()() {
+  val control = (new ControlPETableInterface).flip
+}
+
 class ProcessingElementState(
   // Top-level parameters
   val elementWidth: Int = 32,
@@ -58,7 +62,9 @@ class ProcessingElementState(
   val inValid = Bool() // input_valid
 }
 
-abstract class ProcessingElementTable extends DanaModule()() {
+class ProcessingElementTable extends DanaModule()() {
+  val io = new PETableInterface
+
   // Create the table with the specified top-level parameters. Derived
   // parameters should not be touched.
   val table = Vec.fill(peTableNumEntries){new ProcessingElementState(

@@ -14,7 +14,7 @@ class ControlCacheInterfaceResp extends DanaBundle()() {
 
 class ControlCacheInterface extends DanaBundle()() {
   // Outbound request. nnsim-hdl equivalent:
-  //   cach_types::ctl2storage_struct
+  //   cache_types::ctl2storage_struct
   val req = Decoupled(new DanaBundle()() {
     val request = UInt(width = log2Up(3)) // [TODO] fragile on Constants.scala
     val nnid = UInt(width = nnidWidth)
@@ -26,9 +26,33 @@ class ControlCacheInterface extends DanaBundle()() {
   val resp = Decoupled(new ControlCacheInterfaceResp).flip
 }
 
+class ControlPETableInterface extends DanaBundle()() {
+  // Outbound request. nnsim-hdl equivalent:
+  //   control_types::ctl2pe_table_struct
+  val req = Decoupled(new DanaBundle()() {
+    val peIndex = UInt(width = log2Up(peTableNumEntries))
+    val cacheIndex = UInt(width = log2Up(cacheNumEntries))
+    // new_state -- this should be unnecessary as all we need to do is
+    // give the PE a kick, which should be accomplished with the
+    // decoupled valid signal
+    val tid = UInt(width = tidWidth)
+    val neuronIndex = UInt(width = 10) // [TODO] fragile
+    val locationInput = UInt()
+    val locationOutput = UInt()
+    val inputIndex = UInt(width = ioIdxWidth)
+    val outputIndex = UInt(width = ioIdxWidth)
+    val neuronPointer = UInt(width = 12) // [TODO] fragile
+    val decimalPoint = UInt(width = decimalPointWidth)
+  })
+  // No response is necessary as the Control module needs to know is
+  // if the PE Table has a free entry. This is communicated by means
+  // of the Decoupled `ready` signal.
+}
+
 class ControlInterface extends DanaBundle()() {
   val tTable = (new TTableDanaInterface).flip
   val cache = new ControlCacheInterface
+  val peTable = new ControlPETableInterface
 }
 
 class Control extends DanaModule()() {
@@ -43,6 +67,22 @@ class Control extends DanaModule()() {
     io.cache.req.bits.tableIndex := tableIndex
     io.cache.req.bits.layer := layer
   }
+  def reqPETable(valid: Bool, peIndex: UInt, cacheIndex: UInt, tid: UInt,
+    neuronIndex: UInt, locationInput: UInt, locationOutput: UInt,
+    inputIndex: UInt, outputIndex: UInt, neuronPointer: UInt,
+    decimalPoint: UInt) {
+    io.peTable.req.valid := valid
+    io.peTable.req.bits.peIndex := peIndex
+    io.peTable.req.bits.cacheIndex := cacheIndex
+    io.peTable.req.bits.tid := tid
+    io.peTable.req.bits.neuronIndex := neuronIndex
+    io.peTable.req.bits.locationInput := locationInput
+    io.peTable.req.bits.locationOutput := locationOutput
+    io.peTable.req.bits.inputIndex := inputIndex
+    io.peTable.req.bits.outputIndex := outputIndex
+    io.peTable.req.bits.neuronPointer := neuronPointer
+    io.peTable.req.bits.decimalPoint := decimalPoint
+  }
 
   // io.tTable defaults
   io.tTable.req.ready := Bool(true)   // [TODO] Not correct
@@ -54,6 +94,9 @@ class Control extends DanaModule()() {
   io.cache.resp.ready := Bool(true) // [TODO] not correct
   // io.cache defaults
   reqCache(Bool(false), UInt(0), UInt(0), UInt(0), UInt(0))
+  // io.petable defaults
+  reqPETable(Bool(false), UInt(0), UInt(0), UInt(0), UInt(0), UInt(0), UInt(0),
+    UInt(0), UInt(0), UInt(0), UInt(0))
 
   // This is where we handle responses
   when (io.cache.resp.valid) {
@@ -119,22 +162,23 @@ class Control extends DanaModule()() {
       io.tTable.resp.bits.field := e_TTABLE_WAITING
       // Send a request to the register file
     }
-    when (io.tTable.req.bits.cacheValid &&
-      io.tTable.req.bits.needsNextRegister) {
-
-      // Tell the tTable to wait
-      io.tTable.resp.valid := Bool(true)
-      io.tTable.resp.bits.tableIndex := io.tTable.req.bits.tableIndex
-      io.tTable.resp.bits.field := e_TTABLE_WAITING
-      // Send a request to the register file
-      // io.tTable.resp.valid := Bool(true)
-    }
+    // [TODO] The register file now has dedicated storage for each
+    // transaction, hence the need of this check to allocate registers
+    // in a shared register file is no longer needed
     // when (io.tTable.req.bits.cacheValid &&
-    //   !io.tTable.req.bits.needsRegisters &&
-    //   // The PE Table has at least one free entry:
-    //   // io.peTable.req.ready) {
-    //   // Send a request to the PE Table for an assignment
-    //   // Respond to the tTable
+    //   io.tTable.req.bits.needsNextRegister) {
+    //   // Tell the tTable to wait
+    //   io.tTable.resp.valid := Bool(true)
+    //   io.tTable.resp.bits.tableIndex := io.tTable.req.bits.tableIndex
+    //   io.tTable.resp.bits.field := e_TTABLE_WAITING
+    //   // Send a request to the register file
+    //   // io.tTable.resp.valid := Bool(true)
     // }
+    when (io.tTable.req.bits.cacheValid &&
+      io.peTable.req.ready) {
+      // Go ahead and allocate an entry in the Processing Element
+      // Table
+
+    }
   }
 }
