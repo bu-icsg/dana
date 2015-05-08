@@ -20,13 +20,15 @@ class Dana extends DanaModule()() {
   val control = Module(new Control)
   val cache = Module(new Cache)
   val mem = Module(new Memory)
-  val registerFile = Module(new RegisterFile)
+  // val registerFile = Module(new RegisterFile)
+  val peTable = Module(new ProcessingElementTable)
 
   // Wire everything up. Ordering shouldn't matter here.
   io.arbiter <> tTable.io.arbiter
   tTable.io.dana <> control.io.tTable
   cache.io.control <> control.io.cache
   cache.io.mem <> mem.io.cache
+  control.io.peTable <> peTable.io.control
 }
 
 class DanaTests(uut: Dana, isTrace: Boolean = true)

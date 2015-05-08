@@ -178,7 +178,11 @@ class Control extends DanaModule()() {
       io.peTable.req.ready) {
       // Go ahead and allocate an entry in the Processing Element
       // Table
-
+      // reqPETable(valid: Bool, peIndex: UInt, cacheIndex: UInt, tid: UInt,
+      //   neuronIndex: UInt, locationInput: UInt, locationOutput: UInt,
+      //   inputIndex: UInt, outputIndex: UInt, neuronPointer: UInt,
+      //   decimalPoint: UInt)
+      // [TODO] pickup here....
     }
   }
 }
