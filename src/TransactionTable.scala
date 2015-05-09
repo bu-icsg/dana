@@ -12,6 +12,7 @@ class TransactionState extends DanaBundle()() {
   val needsNextRegister = Reg(Bool())
   val done = Reg(Bool())
   val request = Reg(Bool())
+  val inFirst = Reg(Bool())
   val inLast = Reg(Bool())
   // output_layer should be unused according to types.vh
   val cacheIndex = Reg(UInt(width = log2Up(cacheNumEntries)))
@@ -43,6 +44,7 @@ class DanaReq extends DanaBundle()() {
   val needsRegisters = Bool()
   val needsNextRegister = Bool()
   val request = Bool()
+  val inFirst = Bool()
   val inLast = Bool()
   // Global info
   val tableIndex = UInt(width = log2Up(transactionTableNumEntries))
@@ -103,8 +105,8 @@ class TransactionTable extends DanaModule()() {
     debug(table(i).numLayers)
     debug(table(i).numNodes)
     debug(table(i).cacheIndex)
-    debug(table(i).currentNode)
-    debug(table(i).currentLayer)
+    // debug(table(i).currentNode)
+    // debug(table(i).currentLayer)
   }
   // Vector of the table entry memories
   val mem = Vec.fill(transactionTableNumEntries){
@@ -191,6 +193,8 @@ class TransactionTable extends DanaModule()() {
           io.dana.resp.bits.data(2)
         table(io.dana.resp.bits.tableIndex).decimalPoint :=
           io.dana.resp.bits.decimalPoint
+        table(io.dana.resp.bits.tableIndex).inFirst := Bool(true)
+        table(io.dana.resp.bits.tableIndex).inLast := Bool(false)
         // Once we know the cache is valid, this entry is no longer waiting
         table(io.dana.resp.bits.tableIndex).waiting := Bool(false)
       }
@@ -203,8 +207,14 @@ class TransactionTable extends DanaModule()() {
         table(io.dana.resp.bits.tableIndex).nodesInCurrentLayer := io.dana.resp.bits.data(0)
         table(io.dana.resp.bits.tableIndex).nodesInNextLayer := io.dana.resp.bits.data(1)
         table(io.dana.resp.bits.tableIndex).neuronPointer := io.dana.resp.bits.data(2)
-        // **
-        // [TODO] I think that isLast isn't used
+        // Update the inFirst and inLast Bools. The currentLayer
+        // should have already been updated when the request went out.
+        table(io.dana.resp.bits.tableIndex).inFirst :=
+          table(io.dana.resp.bits.tableIndex).currentLayer !=
+          table(io.dana.resp.bits.tableIndex).numLayers - UInt(1)
+        table(io.dana.resp.bits.tableIndex).inLast :=
+          table(io.dana.resp.bits.tableIndex).currentLayer ===
+          table(io.dana.resp.bits.tableIndex).numLayers - UInt(1)
         // [TODO] This right shift is probably fucked
         table(io.dana.resp.bits.tableIndex).regBlockIndexIn :=
           table(io.dana.resp.bits.tableIndex).regBlockInNext << UInt(log2Up(elementsPerBlock))
@@ -214,6 +224,34 @@ class TransactionTable extends DanaModule()() {
       }
       is(e_TTABLE_DONE) {
         table(io.dana.resp.bits.tableIndex).cacheValid := Bool(true)
+      }
+      is (e_TTABLE_INCREMENT_NODE) {
+        // [TODO] The waiting bit shouldn't always be set...
+        table(io.dana.resp.bits.tableIndex).waiting := Bool(true)
+        table(io.dana.resp.bits.tableIndex).currentNode :=
+          table(io.dana.resp.bits.tableIndex).currentNode + UInt(1)
+        // [TODO] This currentNodeInLayer is always incremented and I
+        // think this is okay as the value will be reset when a Layer
+        // Info request gets serviced.
+        table(io.dana.resp.bits.tableIndex).currentNodeInLayer :=
+          table(io.dana.resp.bits.tableIndex).currentNodeInLayer + UInt(1)
+        table(io.dana.resp.bits.tableIndex).inFirst :=
+          table(io.dana.resp.bits.tableIndex).currentLayer > UInt(0)
+        table(io.dana.resp.bits.tableIndex).inLast :=
+          table(io.dana.resp.bits.tableIndex).currentLayer ===
+          table(io.dana.resp.bits.tableIndex).numLayers - UInt(1)
+        // If we're at the end of a layer, we need new layer
+        // information
+        when(table(io.dana.resp.bits.tableIndex).currentNodeInLayer ===
+          table(io.dana.resp.bits.tableIndex).nodesInCurrentLayer - UInt(2)) {
+          table(io.dana.resp.bits.tableIndex).needsLayerInfo := Bool(true)
+          table(io.dana.resp.bits.tableIndex).currentLayer :=
+            table(io.dana.resp.bits.tableIndex).currentLayer + UInt(1)
+        } .otherwise {
+          table(io.dana.resp.bits.tableIndex).needsLayerInfo := Bool(false)
+          table(io.dana.resp.bits.tableIndex).currentLayer :=
+            table(io.dana.resp.bits.tableIndex).currentLayer
+        }
       }
     }
   }
@@ -235,6 +273,7 @@ class TransactionTable extends DanaModule()() {
     entryArbiter.io.in(i).bits.needsRegisters := table(i).needsRegisters
     entryArbiter.io.in(i).bits.needsNextRegister := table(i).needsNextRegister
     entryArbiter.io.in(i).bits.request := table(i).request
+    entryArbiter.io.in(i).bits.inFirst := table(i).inFirst
     entryArbiter.io.in(i).bits.inLast := table(i).inLast
     // Global info
     entryArbiter.io.in(i).bits.tableIndex := UInt(i)

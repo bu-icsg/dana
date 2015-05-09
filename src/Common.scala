@@ -90,7 +90,11 @@ abstract class DanaModule(
   //   pe_types::pe2storage_enum
   val (e_PE_NEURON :: e_PE_WEIGHT :: Nil) = Enum(UInt(), 2)
   // PE State
-  val (e_PE_UNALLOCATED :: e_PE_GET_INFO :: e_PE_WAIT_FOR_INFO :: e_PE_WAIT_FOR_REG_FILE :: e_PE_REQUEST_INPUTS_AND_WEIGHTS :: e_PE_WAIT_FOR_INPUTS_AND_WEIGHTS :: e_PE_RUN :: e_PE_DONE :: Nil) = Enum(UInt(), 8)
+  val (e_PE_UNALLOCATED :: e_PE_GET_INFO :: e_PE_WAIT_FOR_INFO ::
+    e_PE_WAIT_FOR_REG_FILE :: e_PE_REQUEST_INPUTS_AND_WEIGHTS ::
+    e_PE_WAIT_FOR_INPUTS_AND_WEIGHTS :: e_PE_RUN :: e_PE_DONE :: Nil) = Enum(UInt(), 8)
+  // Location of inputs and outputs
+  val (e_LOCATION_REG_0 :: e_LOCATION_REG_1 :: e_LOCATION_IO ::  Nil) = Enum(UInt(), 3)
 }
 
 // Base class for all Bundle classes used in DANA. This sets all the

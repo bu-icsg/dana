@@ -46,6 +46,9 @@ public:
   // Print out information about the Cache Table
   int info_cache_table();
 
+  // Print out PE Table info
+  int info_petable();
+
   // Load the cache so that memory requests aren't necessary
   int cache_load(int index, int nnid, const char *);
 };
@@ -134,12 +137,13 @@ int t_Dana::info() {
   std::cout << "[INFO] Dumping tables at cycle " << cycle << std::endl;
   info_ttable();
   info_cache_table();
+  info_petable();
 }
 
 int t_Dana::info_ttable() {
-  std::cout << "-----------------------------------------------------------------------------\n";
-  std::cout << "|V|R|W|CV|NL|NR|D| Tid|Nnid|  #L|  #N|  CL|  CN|CNinL|#NcL|#NnL| &N|Cache|DP| <- TTable\n";
-  std::cout << "-----------------------------------------------------------------------------\n";
+  std::cout << "-----------------------------------------------------------------------------------\n";
+  std::cout << "|V|R|W|CV|F?|L?|NL|NR|D| Tid|Nnid|  #L|  #N|  CL|  CN|CNinL|#NcL|#NnL| &N|Cache|DP| <- TTable\n";
+  std::cout << "-----------------------------------------------------------------------------------\n";
   std::string string_table("Dana.tTable.table_");
   std::stringstream string_field("");
   for (int i = 0; i < 4; i++) { // [TODO] fragile, should be transactionTableNumEntries
@@ -158,6 +162,14 @@ int t_Dana::info_ttable() {
     // Cache Valid
     string_field.str("");
     string_field << string_table << i << "_cacheValid";
+    std::cout << "| " << get_dat_by_name(string_field.str())->get_value().erase(0,2);
+    // In the first layer
+    string_field.str("");
+    string_field << string_table << i << "_inFirst";
+    std::cout << "| " << get_dat_by_name(string_field.str())->get_value().erase(0,2);
+    // In the last layer
+    string_field.str("");
+    string_field << string_table << i << "_inLast";
     std::cout << "| " << get_dat_by_name(string_field.str())->get_value().erase(0,2);
     // Needs Layer Info
     string_field.str("");
@@ -263,6 +275,99 @@ int t_Dana::info_cache_table() {
     string_field.str("");
     string_field << string_table << i << "_inUseCount";
     std::cout << "|  " << get_dat_by_name(string_field.str())->get_value().erase(0,2);
+    std::cout << "|" << std::endl;
+  }
+  std::cout << std::endl;
+}
+
+int t_Dana::info_petable() {
+  std::cout << "--------------------------------------------------------------------------------------\n";
+  std::cout << "|S|IV|WV| TID|CIdx|Node|inLoc|outLoc|InIdx|OutIdx|   &N|   &W|DP|LiL|#W|AF|S|    Bias| <- PE Table\n";
+  std::cout << "--------------------------------------------------------------------------------------\n";
+  std::string string_table("Dana.peTable.table_");
+  std::stringstream string_field("");
+  for (int i = 0; i < 2; i++) { // [TODO] fragile, should be number of PEs
+    // State
+    string_field.str("");
+    string_field << string_table << i << "_state";
+    std::cout << "|" << get_dat_by_name(string_field.str())->get_value().erase(0,2);
+    // Weight Valid
+    string_field.str("");
+    string_field << string_table << i << "_weightValid";
+    std::cout << "| " << get_dat_by_name(string_field.str())->get_value().erase(0,2);
+    // Input Valid
+    string_field.str("");
+    string_field << string_table << i << "_inValid";
+    std::cout << "| " << get_dat_by_name(string_field.str())->get_value().erase(0,2);
+    // Transaction ID
+    // string_field.str("");
+    // string_field << string_table << i << "_tid";
+    // std::cout << "|  " << get_dat_by_name(string_field.str())->get_value().erase(0,2);
+    std::cout << "|    ";
+    // Cache Index
+    string_field.str("");
+    string_field << string_table << i << "_cIdx";
+    std::cout << "|   " << get_dat_by_name(string_field.str())->get_value().erase(0,2);
+    // Current Neuron (in this layer)
+    string_field.str("");
+    string_field << string_table << i << "_nnNode";
+    std::cout << "| " << get_dat_by_name(string_field.str())->get_value().erase(0,2);
+    // Input Location (IO Storage or first/second Register File Partition)
+    string_field.str("");
+    string_field << string_table << i << "_inLoc";
+    std::cout << "|    " << get_dat_by_name(string_field.str())->get_value().erase(0,2);
+    // Output Location
+    string_field.str("");
+    string_field << string_table << i << "_outLoc";
+    std::cout << "|     " << get_dat_by_name(string_field.str())->get_value().erase(0,2);
+    // Input Index
+    string_field.str("");
+    string_field << string_table << i << "_inIdx";
+    std::cout << "|  " << get_dat_by_name(string_field.str())->get_value().erase(0,2);
+    // Output Index
+    string_field.str("");
+    string_field << string_table << i << "_outIdx";
+    std::cout << "|   " << get_dat_by_name(string_field.str())->get_value().erase(0,2);
+    // Neuron Pointer
+    string_field.str("");
+    string_field << string_table << i << "_neuronPtr";
+    std::cout << "|" << get_dat_by_name(string_field.str())->get_value().erase(0,2);
+    // Weight Pointer
+    string_field.str("");
+    string_field << string_table << i << "_weightPtr";
+    std::cout << "|" << get_dat_by_name(string_field.str())->get_value().erase(0,2);
+    // Decimal Point
+    string_field.str("");
+    string_field << string_table << i << "_decimalPoint";
+    std::cout << "| " << get_dat_by_name(string_field.str())->get_value().erase(0,2);
+    // Last in Layer
+    string_field.str("");
+    string_field << string_table << i << "_lastInLayer";
+    std::cout << "|  " << get_dat_by_name(string_field.str())->get_value().erase(0,2);
+    // // In Block
+    // string_field.str("");
+    // string_field << string_table << i << "_inBlock";
+    // std::cout << "|  " << get_dat_by_name(string_field.str())->get_value().erase(0,2);
+    // // Weight Block
+    // string_field.str("");
+    // string_field << string_table << i << "_weightBlock";
+    // std::cout << "|  " << get_dat_by_name(string_field.str())->get_value().erase(0,2);
+    // Num Weights
+    string_field.str("");
+    string_field << string_table << i << "_numWeights";
+    std::cout << "|" << get_dat_by_name(string_field.str())->get_value().erase(0,2);
+    // Activation Function
+    string_field.str("");
+    string_field << string_table << i << "_activationFunction";
+    std::cout << "|" << get_dat_by_name(string_field.str())->get_value().erase(0,2);
+    // Steepness
+    string_field.str("");
+    string_field << string_table << i << "_steepness";
+    std::cout << "|" << get_dat_by_name(string_field.str())->get_value().erase(0,2);
+    // Bias
+    string_field.str("");
+    string_field << string_table << i << "_bias";
+    std::cout << "|" << get_dat_by_name(string_field.str())->get_value().erase(0,2);
     std::cout << "|" << std::endl;
   }
   std::cout << std::endl;

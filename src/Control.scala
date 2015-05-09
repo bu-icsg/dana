@@ -30,7 +30,8 @@ class ControlPETableInterface extends DanaBundle()() {
   // Outbound request. nnsim-hdl equivalent:
   //   control_types::ctl2pe_table_struct
   val req = Decoupled(new DanaBundle()() {
-    val peIndex = UInt(width = log2Up(peTableNumEntries))
+    // The PE Index shouldn't be needed if the PE Table is allocating PEs
+    // val peIndex = UInt(width = log2Up(peTableNumEntries))
     val cacheIndex = UInt(width = log2Up(cacheNumEntries))
     // new_state -- this should be unnecessary as all we need to do is
     // give the PE a kick, which should be accomplished with the
@@ -67,12 +68,11 @@ class Control extends DanaModule()() {
     io.cache.req.bits.tableIndex := tableIndex
     io.cache.req.bits.layer := layer
   }
-  def reqPETable(valid: Bool, peIndex: UInt, cacheIndex: UInt, tid: UInt,
+  def reqPETable(valid: Bool, cacheIndex: UInt, tid: UInt,
     neuronIndex: UInt, locationInput: UInt, locationOutput: UInt,
     inputIndex: UInt, outputIndex: UInt, neuronPointer: UInt,
     decimalPoint: UInt) {
     io.peTable.req.valid := valid
-    io.peTable.req.bits.peIndex := peIndex
     io.peTable.req.bits.cacheIndex := cacheIndex
     io.peTable.req.bits.tid := tid
     io.peTable.req.bits.neuronIndex := neuronIndex
@@ -95,7 +95,7 @@ class Control extends DanaModule()() {
   // io.cache defaults
   reqCache(Bool(false), UInt(0), UInt(0), UInt(0), UInt(0))
   // io.petable defaults
-  reqPETable(Bool(false), UInt(0), UInt(0), UInt(0), UInt(0), UInt(0), UInt(0),
+  reqPETable(Bool(false), UInt(0), UInt(0), UInt(0), UInt(0), UInt(0),
     UInt(0), UInt(0), UInt(0), UInt(0))
 
   // This is where we handle responses
@@ -148,41 +148,58 @@ class Control extends DanaModule()() {
       // Tell the tTable to wait
       io.tTable.resp.valid := Bool(true)
       io.tTable.resp.bits.tableIndex := io.tTable.req.bits.tableIndex
-      io.tTable.resp.bits.field := e_TTABLE_WAITING
+      io.tTable.resp.bits.field := e_TTABLE_INCREMENT_NODE
       // io.tTable.resp.valid := Bool(true)
       // io.tTable.resp.bits.tableIndex := io.tTable.req.bits.tableIndex
       // io.tTable.resp.bits.field := e_TTABLE_
     }
     when (io.tTable.req.bits.cacheValid &&
-      io.tTable.req.bits.needsRegisters) {
-
-      // Tell the tTable to wait
-      io.tTable.resp.valid := Bool(true)
-      io.tTable.resp.bits.tableIndex := io.tTable.req.bits.tableIndex
-      io.tTable.resp.bits.field := e_TTABLE_WAITING
-      // Send a request to the register file
-    }
-    // [TODO] The register file now has dedicated storage for each
-    // transaction, hence the need of this check to allocate registers
-    // in a shared register file is no longer needed
-    // when (io.tTable.req.bits.cacheValid &&
-    //   io.tTable.req.bits.needsNextRegister) {
-    //   // Tell the tTable to wait
-    //   io.tTable.resp.valid := Bool(true)
-    //   io.tTable.resp.bits.tableIndex := io.tTable.req.bits.tableIndex
-    //   io.tTable.resp.bits.field := e_TTABLE_WAITING
-    //   // Send a request to the register file
-    //   // io.tTable.resp.valid := Bool(true)
-    // }
-    when (io.tTable.req.bits.cacheValid &&
       io.peTable.req.ready) {
       // Go ahead and allocate an entry in the Processing Element
       // Table
-      // reqPETable(valid: Bool, peIndex: UInt, cacheIndex: UInt, tid: UInt,
-      //   neuronIndex: UInt, locationInput: UInt, locationOutput: UInt,
-      //   inputIndex: UInt, outputIndex: UInt, neuronPointer: UInt,
+      // reqPETable(
+      //   valid: Bool,
+      //   cacheIndex: UInt,
+      //   tid: UInt,
+      //   neuronIndex: UInt,
+      //   locationInput: UInt,
+      //   locationOutput: UInt,
+      //   inputIndex: UInt,
+      //   outputIndex: UInt,
+      //   neuronPointer: UInt,
       //   decimalPoint: UInt)
       // [TODO] pickup here....
+      reqPETable(Bool(true), // valid
+        // The specific cache entry where the NN configuration for
+        // this PE is located
+        io.tTable.req.bits.cacheIndex, // cacheIndex
+        // The transaction ID
+        io.tTable.req.bits.tid, // tid
+        // The neuron index is just the current neuron in the layer
+        // that's being processed. This information is redundant with
+        // the output index
+        io.tTable.req.bits.currentNodeInLayer, // neuronIndex
+        // Clever input/output location determination
+        Mux(io.tTable.req.bits.inFirst, e_LOCATION_IO,
+          io.tTable.req.bits.currentLayer(0)), // locationInput
+        Mux(io.tTable.req.bits.inLast, e_LOCATION_IO,
+          !io.tTable.req.bits.currentLayer(0)), // locationOutput
+        // The input index is always zero as we need to start reading
+        // from the initial position of the IO Storage / Register File
+        UInt(0), // inputIndex is always zero
+        // The output index is simply the index of the current node
+        // being processed
+        io.tTable.req.bits.currentNodeInLayer, // outputIndex
+        // The neuron pointer is going to be the base pointer that
+        // lives in the Transaction Table plus an offset based on the
+        // current node that we're processing. [TODO] I'm unsure why
+        // I'm using the left shift by 3 and need to check how this is
+        // being used for the cache lookup by the PE.
+        io.tTable.req.bits.neuronPointer + // neuronPointer
+          (io.tTable.req.bits.currentNodeInLayer + UInt(1) << UInt(3)),
+        // Pass along the decimal point
+        io.tTable.req.bits.decimalPoint // decimalPoint
+      )
     }
   }
 }
