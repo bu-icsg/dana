@@ -20,7 +20,6 @@ class Dana extends DanaModule()() {
   val control = Module(new Control)
   val cache = Module(new Cache)
   val mem = Module(new Memory)
-  // val registerFile = Module(new RegisterFile)
   val peTable = Module(new ProcessingElementTable)
 
   // Wire everything up. Ordering shouldn't matter here.

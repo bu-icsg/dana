@@ -75,26 +75,49 @@ abstract class DanaModule(
 ) extends Module {
   // Transaction Table State Entries. nnsim-hdl equivalent:
   //   controL_types::field_enum
-  val (e_TTABLE_VALID :: e_TTABLE_RESERVED :: e_TTABLE_CACHE_VALID ::
-    e_TTABLE_LAYER :: e_TTABLE_WAITING :: e_TTABLE_DONE ::
-    e_TTABLE_OUTPUT_LAYER :: e_TTABLE_INCREMENT_NODE ::
-    e_TTABLE_REGISTER_INFO :: e_TTABLE_REGISTER_NEXT :: Nil) = Enum(UInt(), 10)
+  val (e_TTABLE_VALID ::       // 0
+    e_TTABLE_RESERVED ::       // 1
+    e_TTABLE_CACHE_VALID ::    // 2
+    e_TTABLE_LAYER ::          // 3
+    e_TTABLE_WAITING ::        // 4
+    e_TTABLE_DONE ::           // 5
+    e_TTABLE_OUTPUT_LAYER ::   // 6
+    e_TTABLE_INCREMENT_NODE :: // 7
+    e_TTABLE_REGISTER_INFO ::  // 8
+    e_TTABLE_REGISTER_NEXT ::  // 9
+    Nil) = Enum(UInt(), 10)
   // Cache Request Type
-  val (e_CACHE_LOAD :: e_CACHE_LAYER_INFO :: e_CACHE_DECREMENT_IN_USE_COUNT ::
+  val (e_CACHE_LOAD ::                // 0
+    e_CACHE_LAYER_INFO ::             // 1
+    e_CACHE_DECREMENT_IN_USE_COUNT :: // 2
     Nil) = Enum(UInt(), 3)
   // Cache to control field enum. nnsim-hdl equivalent:
   //   cache_types::field_enum
-  val (e_CACHE_INFO :: e_CACHE_LAYER :: e_CACHE_NEURON :: e_CACHE_WEIGHT ::
+  val (e_CACHE_INFO :: // 0
+    e_CACHE_LAYER ::   // 1
+    e_CACHE_NEURON ::  // 2
+    e_CACHE_WEIGHT ::  // 3
     Nil) = Enum(UInt(), 4)
   // Cache / PE access type enum. nnsim-hdl equivalent:
   //   pe_types::pe2storage_enum
-  val (e_PE_NEURON :: e_PE_WEIGHT :: Nil) = Enum(UInt(), 2)
+  val (e_PE_NEURON :: // 0
+    e_PE_WEIGHT ::    // 1
+    Nil) = Enum(UInt(), 2)
   // PE State
-  val (e_PE_UNALLOCATED :: e_PE_GET_INFO :: e_PE_WAIT_FOR_INFO ::
-    e_PE_WAIT_FOR_REG_FILE :: e_PE_REQUEST_INPUTS_AND_WEIGHTS ::
-    e_PE_WAIT_FOR_INPUTS_AND_WEIGHTS :: e_PE_RUN :: e_PE_DONE :: Nil) = Enum(UInt(), 8)
+  val (e_PE_UNALLOCATED ::              // 0
+    e_PE_GET_INFO ::                    // 1
+    e_PE_WAIT_FOR_INFO ::               // 2
+    e_PE_WAIT_FOR_REG_FILE ::           // 3
+    e_PE_REQUEST_INPUTS_AND_WEIGHTS ::  // 4
+    e_PE_WAIT_FOR_INPUTS_AND_WEIGHTS :: // 5
+    e_PE_RUN ::                         // 6
+    e_PE_DONE ::                        // 7
+    Nil) = Enum(UInt(), 8)
   // Location of inputs and outputs
-  val (e_LOCATION_REG_0 :: e_LOCATION_REG_1 :: e_LOCATION_IO ::  Nil) = Enum(UInt(), 3)
+  val (e_LOCATION_REG_0 :: // 0
+    e_LOCATION_REG_1 ::    // 1
+    e_LOCATION_IO ::       // 2
+    Nil) = Enum(UInt(), 3)
 }
 
 // Base class for all Bundle classes used in DANA. This sets all the

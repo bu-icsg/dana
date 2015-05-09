@@ -148,27 +148,15 @@ class Control extends DanaModule()() {
       // Tell the tTable to wait
       io.tTable.resp.valid := Bool(true)
       io.tTable.resp.bits.tableIndex := io.tTable.req.bits.tableIndex
-      io.tTable.resp.bits.field := e_TTABLE_INCREMENT_NODE
+      io.tTable.resp.bits.field := e_TTABLE_WAITING
       // io.tTable.resp.valid := Bool(true)
       // io.tTable.resp.bits.tableIndex := io.tTable.req.bits.tableIndex
       // io.tTable.resp.bits.field := e_TTABLE_
     }
     when (io.tTable.req.bits.cacheValid &&
+      !io.tTable.req.bits.needsLayerInfo &&
       io.peTable.req.ready) {
       // Go ahead and allocate an entry in the Processing Element
-      // Table
-      // reqPETable(
-      //   valid: Bool,
-      //   cacheIndex: UInt,
-      //   tid: UInt,
-      //   neuronIndex: UInt,
-      //   locationInput: UInt,
-      //   locationOutput: UInt,
-      //   inputIndex: UInt,
-      //   outputIndex: UInt,
-      //   neuronPointer: UInt,
-      //   decimalPoint: UInt)
-      // [TODO] pickup here....
       reqPETable(Bool(true), // valid
         // The specific cache entry where the NN configuration for
         // this PE is located
@@ -200,6 +188,12 @@ class Control extends DanaModule()() {
         // Pass along the decimal point
         io.tTable.req.bits.decimalPoint // decimalPoint
       )
+
+      // Increment the Transaction Table Node as we've just initiated*
+      // an assignment
+      io.tTable.resp.valid := Bool(true)
+      io.tTable.resp.bits.tableIndex := io.tTable.req.bits.tableIndex
+      io.tTable.resp.bits.field := e_TTABLE_INCREMENT_NODE
     }
   }
 }

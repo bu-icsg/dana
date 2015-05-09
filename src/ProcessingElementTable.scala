@@ -48,24 +48,21 @@ class ProcessingElementTable extends DanaModule()() {
   // parameters should not be touched.
   val table = Vec.fill(peTableNumEntries){new ProcessingElementState}
   // Create the processing elements
-  val pes = Range(0, peTableNumEntries).map(i => Module(new ProcessingElement))
+  // val pes = Range(0, peTableNumEntries).map(i => Module(new ProcessingElement))
 
   def isFree(x: ProcessingElementState): Bool = { x.state === e_PE_UNALLOCATED }
-  def derefTid(x: ProcessingElementState, y: UInt): Bool = { x.tid === y}
   val hasFree = Bool()
   val nextFree = UInt()
-  val derefTidIndex = UInt()
   hasFree := table.exists(isFree)
   nextFree := table.indexWhere(isFree)
-  derefTidIndex := table.indexWhere(derefTid(_, io.control.req.bits.tid))
 
   io.control.req.ready := hasFree
 
   // Temporary debug shit
   // (0 until peTableNumEntries).map(i => debug(table(i).state))
   for (i <- 0 until peTableNumEntries) {
-    debug(table(i).state)
-    // debug(table(i).tid)
+    // debug(table(i).state)
+    debug(table(i).tid)
     debug(table(i).cIdx)
     debug(table(i).nnNode)
     debug(table(i).inIdx)
@@ -93,26 +90,26 @@ class ProcessingElementTable extends DanaModule()() {
   // Deal with inbound requests from the Control module. If we see a
   // request, it can only mean one thing---we need to allocate a PE.
   when (io.control.req.valid) {
-    table(derefTidIndex).state := e_PE_GET_INFO
-    table(derefTidIndex).tid := io.control.req.bits.tid
-    table(derefTidIndex).cIdx := io.control.req.bits.cacheIndex
-    table(derefTidIndex).nnNode := io.control.req.bits.neuronIndex
-    table(derefTidIndex).inIdx := io.control.req.bits.locationInput
-    table(derefTidIndex).outIdx := io.control.req.bits.locationOutput
-    table(derefTidIndex).neuronPtr := io.control.req.bits.neuronPointer
-    table(derefTidIndex).weightPtr := SInt(-1)
-    table(derefTidIndex).decimalPoint := io.control.req.bits.decimalPoint
-    table(derefTidIndex).inLoc := io.control.req.bits.inputIndex
-    table(derefTidIndex).outLoc := io.control.req.bits.outputIndex
-    table(derefTidIndex).lastInLayer := Bool(false) // [TODO] not sure about this
-    table(derefTidIndex).inBlock := SInt(-1)
-    table(derefTidIndex).weightBlock := SInt(-1)
-    table(derefTidIndex).numWeights := SInt(-1)
-    table(derefTidIndex).activationFunction := SInt(-1)
-    table(derefTidIndex).steepness := SInt(-1)
-    table(derefTidIndex).bias := UInt(0)
-    table(derefTidIndex).weightValid := Bool(false)
-    table(derefTidIndex).inValid := Bool(false)
+    table(nextFree).state := e_PE_GET_INFO
+    table(nextFree).tid := io.control.req.bits.tid
+    table(nextFree).cIdx := io.control.req.bits.cacheIndex
+    table(nextFree).nnNode := io.control.req.bits.neuronIndex
+    table(nextFree).inIdx := io.control.req.bits.locationInput
+    table(nextFree).outIdx := io.control.req.bits.locationOutput
+    table(nextFree).neuronPtr := io.control.req.bits.neuronPointer
+    table(nextFree).weightPtr := SInt(-1)
+    table(nextFree).decimalPoint := io.control.req.bits.decimalPoint
+    table(nextFree).inLoc := io.control.req.bits.inputIndex
+    table(nextFree).outLoc := io.control.req.bits.outputIndex
+    table(nextFree).lastInLayer := Bool(false) // [TODO] not sure about this
+    table(nextFree).inBlock := SInt(-1)
+    table(nextFree).weightBlock := SInt(-1)
+    table(nextFree).numWeights := SInt(-1)
+    table(nextFree).activationFunction := SInt(-1)
+    table(nextFree).steepness := SInt(-1)
+    table(nextFree).bias := UInt(0)
+    table(nextFree).weightValid := Bool(false)
+    table(nextFree).inValid := Bool(false)
   }
 
 }

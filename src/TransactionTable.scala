@@ -21,7 +21,7 @@ class TransactionState extends DanaBundle()() {
   val decimalPoint = Reg(UInt(width = decimalPointWidth))
   val numLayers = Reg(UInt(width = 16)) // [TODO] fragile
   val numNodes = Reg(UInt(width = 16)) // [TODO] fragile
-  val currentNode = Reg(SInt(width = 16)) // [TODO] fragile
+  val currentNode = Reg(UInt(width = 16)) // [TODO] fragile
   val currentNodeInLayer = Reg(UInt(width = 16)) // [TODO] fragile
   val currentLayer = Reg(UInt(width = 16)) // [TODO] fragile
   val nodesInCurrentLayer = Reg(UInt(width = 16)) // [TODO] fragile
@@ -52,7 +52,7 @@ class DanaReq extends DanaBundle()() {
   val nnid = UInt(width = nnidWidth) // formerly nn_hash
   val tid = UInt(width = tidWidth) // formerly pid
   // State info
-  val currentNode = SInt(width = 16) // [TODO] fragile
+  val currentNode = UInt(width = 16) // [TODO] fragile
   val currentNodeInLayer = UInt(width = 16) // [TODO] fragile
   val currentLayer = UInt(width = 16) // [TODO] fragile
   val nodesInCurrentLayer = UInt(width = 16) // [TODO] fragile
@@ -147,9 +147,11 @@ class TransactionTable extends DanaModule()() {
         table(nextFree).needsLayerInfo := Bool(true)
         table(nextFree).needsRegisters := Bool(true)
         table(nextFree).needsNextRegister := Bool(false)
+        table(nextFree).inFirst := Bool(true)
+        table(nextFree).inLast := Bool(false)
         table(nextFree).tid := io.arbiter.req.bits.tid
         table(nextFree).nnid := io.arbiter.req.bits.data
-        table(nextFree).currentNode := SInt(-1)
+        table(nextFree).currentNode := UInt(0)
         table(nextFree).currentLayer := UInt(0)
         table(nextFree).request := Bool(false)
         table(nextFree).countFeedback := io.arbiter.req.bits.countFeedback
@@ -193,8 +195,6 @@ class TransactionTable extends DanaModule()() {
           io.dana.resp.bits.data(2)
         table(io.dana.resp.bits.tableIndex).decimalPoint :=
           io.dana.resp.bits.decimalPoint
-        table(io.dana.resp.bits.tableIndex).inFirst := Bool(true)
-        table(io.dana.resp.bits.tableIndex).inLast := Bool(false)
         // Once we know the cache is valid, this entry is no longer waiting
         table(io.dana.resp.bits.tableIndex).waiting := Bool(false)
       }
@@ -203,7 +203,7 @@ class TransactionTable extends DanaModule()() {
         table(io.dana.resp.bits.tableIndex).needsRegisters :=
           table(io.dana.resp.bits.tableIndex).currentLayer !=
           table(io.dana.resp.bits.tableIndex).numLayers - UInt(1)
-        table(io.dana.resp.bits.tableIndex).currentNodeInLayer := SInt(-1)
+        table(io.dana.resp.bits.tableIndex).currentNodeInLayer := UInt(0)
         table(io.dana.resp.bits.tableIndex).nodesInCurrentLayer := io.dana.resp.bits.data(0)
         table(io.dana.resp.bits.tableIndex).nodesInNextLayer := io.dana.resp.bits.data(1)
         table(io.dana.resp.bits.tableIndex).neuronPointer := io.dana.resp.bits.data(2)
@@ -227,7 +227,6 @@ class TransactionTable extends DanaModule()() {
       }
       is (e_TTABLE_INCREMENT_NODE) {
         // [TODO] The waiting bit shouldn't always be set...
-        table(io.dana.resp.bits.tableIndex).waiting := Bool(true)
         table(io.dana.resp.bits.tableIndex).currentNode :=
           table(io.dana.resp.bits.tableIndex).currentNode + UInt(1)
         // [TODO] This currentNodeInLayer is always incremented and I
@@ -236,7 +235,7 @@ class TransactionTable extends DanaModule()() {
         table(io.dana.resp.bits.tableIndex).currentNodeInLayer :=
           table(io.dana.resp.bits.tableIndex).currentNodeInLayer + UInt(1)
         table(io.dana.resp.bits.tableIndex).inFirst :=
-          table(io.dana.resp.bits.tableIndex).currentLayer > UInt(0)
+          table(io.dana.resp.bits.tableIndex).currentLayer === UInt(0)
         table(io.dana.resp.bits.tableIndex).inLast :=
           table(io.dana.resp.bits.tableIndex).currentLayer ===
           table(io.dana.resp.bits.tableIndex).numLayers - UInt(1)

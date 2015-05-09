@@ -300,10 +300,10 @@ int t_Dana::info_petable() {
     string_field << string_table << i << "_inValid";
     std::cout << "| " << get_dat_by_name(string_field.str())->get_value().erase(0,2);
     // Transaction ID
-    // string_field.str("");
-    // string_field << string_table << i << "_tid";
-    // std::cout << "|  " << get_dat_by_name(string_field.str())->get_value().erase(0,2);
-    std::cout << "|    ";
+    string_field.str("");
+    string_field << string_table << i << "_tid";
+    std::cout << "|" << get_dat_by_name(string_field.str())->get_value().erase(0,2);
+   // std::cout << "|    ";
     // Cache Index
     string_field.str("");
     string_field << string_table << i << "_cIdx";
