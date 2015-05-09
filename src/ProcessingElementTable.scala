@@ -15,8 +15,28 @@ class PETableInterface extends DanaBundle()() {
   val control = (new ControlPETableInterface).flip
 }
 
+class PETable2PEInterface extends DanaBundle()() {
+  val req = Valid(new DanaBundle()() {
+    val decimalPoint = UInt(width = decimalPointWidth)
+    val inBlock = UInt(width = bitsPerBlock)
+    val weightBlock = UInt(width = bitsPerBlock)
+    val numWeights = UInt(width = 8)
+    val activationFunction = UInt(width = activationFunctionWidth)
+    val steepness = UInt(width = steepnessWidth)
+    val bias = UInt(width = elementWidth)
+  })
+  val resp = Decoupled(new DanaBundle()() {
+    val output = UInt(width = elementWidth)
+    val needsData = Bool()
+    val done = Bool()
+  }).flip
+}
+
 class ProcessingElementState extends DanaBundle()() {
   val valid = Reg(Bool(), init = Bool(false))
+  val infoValid = Reg(Bool())
+  val weightValid = Reg(Bool())
+  val inValid = Reg(Bool()) // input_valid
   val tid = Reg(UInt(width = tidWidth), init = SInt(-1)) // pid
   val tIdx = Reg(UInt(width = log2Up(transactionTableNumEntries))) // nn_index
   val cIdx = Reg(UInt(width = log2Up(cacheNumEntries))) // cache_index
@@ -31,14 +51,12 @@ class ProcessingElementState extends DanaBundle()() {
   val inLoc = Reg(UInt(width = 2)) // input_location [TODO] fragile
   val outLoc = Reg(UInt(width = 2)) // output_location [TODO] fragile
   val lastInLayer = Reg(Bool()) // last_in_layer
-  val inBlock = Reg(UInt(width = elementWidth * elementsPerBlock)) // input_block
-  val weightBlock = Reg(UInt(width = elementWidth * elementsPerBlock)) //weight_block
+  val inBlock = Reg(UInt(width = bitsPerBlock)) // input_block
+  val weightBlock = Reg(UInt(width = bitsPerBlock)) //weight_block
   val numWeights = Reg(UInt(width = 8)) // [TODO] fragile
   val activationFunction = Reg(UInt(width = activationFunctionWidth))
   val steepness = Reg(UInt(width = steepnessWidth))
   val bias = Reg(UInt(width = elementWidth))
-  val weightValid = Reg(Bool())
-  val inValid = Reg(Bool()) // input_valid
 }
 
 class ProcessingElementTable extends DanaModule()() {
@@ -48,7 +66,7 @@ class ProcessingElementTable extends DanaModule()() {
   // parameters should not be touched.
   val table = Vec.fill(peTableNumEntries){new ProcessingElementState}
   // Create the processing elements
-  // val pes = Range(0, peTableNumEntries).map(i => Module(new ProcessingElement))
+  val pes = Vec.fill(peTableNumEntries){Module (new ProcessingElement()).io}
 
   def isFree(x: ProcessingElementState): Bool = { !x.valid }
   val hasFree = Bool()
