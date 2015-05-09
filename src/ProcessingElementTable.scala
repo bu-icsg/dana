@@ -16,6 +16,7 @@ class PETableInterface extends DanaBundle()() {
 }
 
 class ProcessingElementState extends DanaBundle()() {
+  val valid = Reg(Bool(), init = Bool(false))
   val tid = Reg(UInt(width = tidWidth), init = SInt(-1)) // pid
   val tIdx = Reg(UInt(width = log2Up(transactionTableNumEntries))) // nn_index
   val cIdx = Reg(UInt(width = log2Up(cacheNumEntries))) // cache_index
@@ -27,7 +28,6 @@ class ProcessingElementState extends DanaBundle()() {
   val weightPtr = Reg(UInt(width = // weight_pointer
     log2Up(elementWidth * elementsPerBlock * cacheNumBlocks)))
   val decimalPoint = Reg(UInt(width = decimalPointWidth)) // decimal_point
-  val state = Reg(UInt(), init = UInt(0)) // [TODO] fragile init
   val inLoc = Reg(UInt(width = 2)) // input_location [TODO] fragile
   val outLoc = Reg(UInt(width = 2)) // output_location [TODO] fragile
   val lastInLayer = Reg(Bool()) // last_in_layer
@@ -50,7 +50,7 @@ class ProcessingElementTable extends DanaModule()() {
   // Create the processing elements
   // val pes = Range(0, peTableNumEntries).map(i => Module(new ProcessingElement))
 
-  def isFree(x: ProcessingElementState): Bool = { x.state === e_PE_UNALLOCATED }
+  def isFree(x: ProcessingElementState): Bool = { !x.valid }
   val hasFree = Bool()
   val nextFree = UInt()
   hasFree := table.exists(isFree)
@@ -59,9 +59,7 @@ class ProcessingElementTable extends DanaModule()() {
   io.control.req.ready := hasFree
 
   // Temporary debug shit
-  // (0 until peTableNumEntries).map(i => debug(table(i).state))
   for (i <- 0 until peTableNumEntries) {
-    // debug(table(i).state)
     debug(table(i).tid)
     debug(table(i).cIdx)
     debug(table(i).nnNode)
@@ -90,7 +88,7 @@ class ProcessingElementTable extends DanaModule()() {
   // Deal with inbound requests from the Control module. If we see a
   // request, it can only mean one thing---we need to allocate a PE.
   when (io.control.req.valid) {
-    table(nextFree).state := e_PE_GET_INFO
+    table(nextFree).valid := Bool(true)
     table(nextFree).tid := io.control.req.bits.tid
     table(nextFree).cIdx := io.control.req.bits.cacheIndex
     table(nextFree).nnNode := io.control.req.bits.neuronIndex
