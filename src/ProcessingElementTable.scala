@@ -11,8 +11,47 @@ class PERegisterFileInterface extends DanaBundle()() {
   }).flip
 }
 
+class PECacheInterfaceResp extends DanaBundle()() {
+  val field = UInt()
+  val data = UInt(width = bitsPerBlock)
+  val peIndex = UInt(width = log2Up(peTableNumEntries))
+  val indexIntoData = UInt(width = elementsPerBlock) // [TODO] too big width?
+}
+
+class PECacheInterface extends DanaBundle()() {
+  // Outbound request / inbound responses. These are roughly
+  // equivalent to:
+  //   * pe_types::pe2storage_struct
+  //   * pe_types::storage2pe_struct
+  val req = Decoupled(new DanaBundle()() {
+    val field = UInt()
+    val peIndex = UInt(width = log2Up(peTableNumEntries))
+    val cacheIndex = UInt(width = log2Up(cacheNumEntries))
+    val cacheAddr = UInt(width =
+      log2Up(cacheNumBlocks * elementsPerBlock * elementWidth))
+  })
+  val resp = Decoupled(new PECacheInterfaceResp).flip
+}
+
+class PERegisterFileInterface extends DanaBundle()() {
+  val req = Decoupled(new DanaBundle()() {
+  })
+  val resp = Decoupled(new DanaBundle()() {
+  }).flip
+}
+
+class PETransactionTableInterface extends DanaBundle()() {
+  val req = Decoupled(new DanaBundle()() {
+  })
+  val resp = Decoupled(new DanaBundle()() {
+  }).flip
+}
+
 class PETableInterface extends DanaBundle()() {
   val control = (new ControlPETableInterface).flip
+  val cache = new PECacheInterface
+  val registerFile = new PERegisterFileInterface
+  val tTable = new PETransactionTableInterface
 }
 
 class PETable2PEInterface extends DanaBundle()() {
@@ -33,7 +72,6 @@ class PETable2PEInterface extends DanaBundle()() {
 }
 
 class ProcessingElementState extends DanaBundle()() {
-  val valid = Reg(Bool(), init = Bool(false))
   val infoValid = Reg(Bool())
   val weightValid = Reg(Bool())
   val inValid = Reg(Bool()) // input_valid
@@ -66,17 +104,30 @@ class ProcessingElementTable extends DanaModule()() {
   // parameters should not be touched.
   val table = Vec.fill(peTableNumEntries){new ProcessingElementState}
   // Create the processing elements
-  val pes = Vec.fill(peTableNumEntries){Module (new ProcessingElement()).io}
+  val pe = Vec.fill(peTableNumEntries){Module (new ProcessingElement()).io}
 
-  def isFree(x: ProcessingElementState): Bool = { !x.valid }
+  // Wire up the PEs
+  for (i <- 0 until peTableNumEntries) {
+    pe(i).io.data.index := UInt(i)
+    pe(i).io.data.decimalPoint := table(i).decimalPoint
+    pe(i).io.data.steepness := table(i).steepness
+    pe(i).io.data.activationFunction := table(i).activationFunction
+    // pe(i).io.validIn
+    for (j <- 0 until elementsPerBlock) {
+      pe(i).io.data.iBlock(j) := inBlock(elementWidth * (j + 1) - 1, elementWidth * j)
+      pe(i).io.data.wBlock(j) := weightBlock(elementWidth * (j + 1) - 1, elementWidth * j)
+    }
+  }
+
+  def isFree(x: ProcessingElementInterface): Bool = { !x.req.ready }
   val hasFree = Bool()
   val nextFree = UInt()
-  hasFree := table.exists(isFree)
-  nextFree := table.indexWhere(isFree)
+  hasFree := pe.exists(isFree)
+  nextFree := pe.indexWhere(isFree)
 
   io.control.req.ready := hasFree
 
-  // Temporary debug shit
+  // Temporary debug shit [TODO] Remove this at some point
   for (i <- 0 until peTableNumEntries) {
     debug(table(i).tid)
     debug(table(i).cIdx)
@@ -106,7 +157,6 @@ class ProcessingElementTable extends DanaModule()() {
   // Deal with inbound requests from the Control module. If we see a
   // request, it can only mean one thing---we need to allocate a PE.
   when (io.control.req.valid) {
-    table(nextFree).valid := Bool(true)
     table(nextFree).tid := io.control.req.bits.tid
     table(nextFree).cIdx := io.control.req.bits.cacheIndex
     table(nextFree).nnNode := io.control.req.bits.neuronIndex
@@ -126,6 +176,41 @@ class ProcessingElementTable extends DanaModule()() {
     table(nextFree).bias := UInt(0)
     table(nextFree).weightValid := Bool(false)
     table(nextFree).inValid := Bool(false)
+  }
+
+  // Round robin arbitration of PE Table entries
+  val peArbiter = Module(new RRArbiter(new ProcessingElementResp),
+    peTableNumEntries)
+  // Wire up the arbiter
+  for (i <- 0 until peTableNumentries)
+    peArbiter(i).io <> pe(i).io.resp
+
+  // If the arbiter is showing a valid output, then we have to
+  // generate some requests based on which PE the arbiter has
+  // determined needs something. The action taken depends on the state
+  // that we're seeing from the chosen PE.
+  when (peArbiter.io.out.valid) {
+    switch (peArbiter.io.out.bits.state) {
+      is (e_PE_GET_INFO) {
+        // Send a request to the cache for information.
+        io.cache.req.valid := Bool(true)
+        io.cache.req.bits.field := e_CACHE_NEURON
+        io.cache.req.bits.peIndex := peArbiter.io.out.bits.index
+        io.cache.req.bits.cacheIndex := table(peArbiter.io.out.bits.index).cIdx
+        io.cache.req.bits.cacheAddr := table(peArbiter.io.out.bits.index).neuronPtr
+      }
+      is (e_PE_REQUEST_INPUTS_AND_WEIGHTS) {
+        // Send a request to the IO storage or the register file for
+        // inputs
+
+        // Send a request to the cache for weights
+      }
+      is (e_PE_DONE) {
+        // Send the output value where it needs to go
+      }
+    }
+    // Kick the PE so that it jumps to a wait state
+    pe.io.req.valid := Bool(true)
   }
 
 }

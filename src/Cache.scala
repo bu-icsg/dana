@@ -34,28 +34,6 @@ class CacheMemInterface extends DanaBundle()() {
   }).flip
 }
 
-// [TODO] This needs to be moved to the PE or PE Table once those are
-// ready
-class PECacheInterface extends DanaBundle()() {
-  // Inbound request from the PEs. nnsim-hdl equivalent:
-  //   pe_types::pe2storage_struct
-  val req = Decoupled(new DanaBundle()() {
-    val accessType = UInt(width = 1) // [TODO] fragile on Constants.scala
-    val peIndex = UInt(width = log2Up(peTableNumEntries))
-    val cacheIndex = UInt(width = log2Up(cacheNumEntries))
-    val cacheAddr = UInt(width =
-      log2Up(cacheNumBlocks * elementsPerBlock * elementWidth))
-  }).flip
-  // Outbound response to PEs. nnsim-hdl equivalent:
-  //   pe_types::storage2pe_struct
-  val resp = Decoupled(new DanaBundle()() {
-    val accessType = UInt(width = 1) // [TODO] fragile on Constants.scala
-    val peIndex = UInt(width = log2Up(peTableNumEntries))
-    val data = UInt(width = elementWidth * elementsPerBlock)
-    val indexIntoData = UInt(width = elementsPerBlock)
-  })
-}
-
 class CacheInterface extends Bundle {
   // The cache is connected to memory (technically via the arbiter
   // when this gets added), the control unit, and to the processing
@@ -124,6 +102,8 @@ class Cache extends DanaModule()() {
   // Control Response Pipeline
   val controlRespPipe =
     Vec.fill(2){Reg(Valid(new ControlCacheInterfaceResp))}
+  val peRespPipe =
+    Vec.fill(2){Reg(Valid(new PECacheInterfaceResp))}
   val cacheRead = Vec.fill(cacheNumEntries){
     (Reg(UInt(width=log2Up(cacheNumBlocks)))) }
 
@@ -169,8 +149,16 @@ class Cache extends DanaModule()() {
   controlRespPipe(0).bits.data := Vec.fill(3){UInt(0)}
   controlRespPipe(0).bits.decimalPoint := UInt(0)
   controlRespPipe(0).bits.field := UInt(0)
+
+  peRespPipe(0).valid := Bool(false)
+  peRespPipe(0).bits.field := UInt(0)
+  peRespPipe(0).bits.data := UInt(0)
+  peRespPipe(0).bits.peIndex := UInt(0)
+  peRespPipe(0).bits.indexIntoData := UInt(0)
+
   // Assignment to the output pipe
   controlRespPipe(1) := controlRespPipe(0)
+  peRespPipe(1) := peRespPipe(0)
 
   // debug(controlRespPipe)
 
@@ -247,7 +235,7 @@ class Cache extends DanaModule()() {
     }
   }
 
-  // Pipeline third stage (SRAM read)
+  // Pipeline second stage (SRAM read)
   switch (controlRespPipe(0).bits.field) {
     is (e_CACHE_INFO) {
       // Decimal Point
@@ -274,6 +262,34 @@ class Cache extends DanaModule()() {
     }
   }
 
+  // Handle requests from the Processing Element Table
+  when (io.pe.req.valid) {
+    // Generate a request to the cache-specific SRAM. We need to
+    // generate a block address from the input cache byte address.
+    // [TODO] This shift may be a source of bugs. Check to make sure
+    // that it's being passed correctly.
+    mem(io.pe.req.cacheIndex).addr(0) :=
+      io.pe.req.cacheAddr >> (UInt(2) + log2Up(elementsPerBlock))
+    // Fill the first stage of the PE pipeline
+    switch (io.pe.req.bits.field) {
+      is (e_CACHE_NEURON) {
+        peRespPipe(0).valid := Bool(true)
+        peRespPipe(0).bits.field := e_CACHE_NEURON
+        peRespPipe(0).indexIntoData :=
+          io.pe.req.bits.cacheIndex(2 + log2Up(elementsPerBlock) - 1, 3)
+      }
+      is (e_CACHE_WEIGHT) {
+        peRespPipe(0).valid := Bool(true)
+        peRespPipe(0).bits.field := e_CACHE_WEIGHT
+        peRespPipe(0).indexIntoData :=
+          io.pe.req.bits.cacheIndex(2 + log2Up(elementsPerBlock) - 1, 2)
+      }
+    }
+  }
+
+  // [TODO] Pick up here. I need to assign the memory data to the
+  // second stage of the PE Resp Pipeline
+
   // Set the response to the control unit
   io.control.resp.valid := controlRespPipe(1).valid
   io.control.resp.bits := controlRespPipe(1).bits
@@ -281,4 +297,6 @@ class Cache extends DanaModule()() {
   // Assertions
   assert(!io.control.resp.valid || io.control.resp.ready,
     "Cache trying to send response to Control when Control not ready")
+  assert(!io.control.req.valid || !io.pe.req.valid || !io.mem.req.valid,
+    "Multiple simultaneous requests on the cache (aliasing possible)")
 }

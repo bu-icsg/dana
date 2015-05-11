@@ -282,15 +282,18 @@ int t_Dana::info_cache_table() {
 
 int t_Dana::info_petable() {
   std::cout << "--------------------------------------------------------------------------------------\n";
-  std::cout << "|V|IV|WV| TID|CIdx|Node|inLoc|outLoc|InIdx|OutIdx|   &N|   &W|DP|LiL|#W|AF|S|    Bias| <- PE Table\n";
+  std::cout << "|S|IV|WV| TID|CIdx|Node|inLoc|outLoc|InIdx|OutIdx|   &N|   &W|DP|LiL|#W|AF|S|    Bias| <- PE Table\n";
   std::cout << "--------------------------------------------------------------------------------------\n";
   std::string string_table("Dana.peTable.table_");
   std::stringstream string_field("");
   for (int i = 0; i < 2; i++) { // [TODO] fragile, should be number of PEs
     // Valid
-    string_field.str("");
-    string_field << string_table << i << "_valid";
-    std::cout << "|" << get_dat_by_name(string_field.str())->get_value().erase(0,2);
+    // string_field.str("");
+    // string_field << string_table << i << "_valid";
+    // std::cout << "|" << get_dat_by_name(string_field.str())->get_value().erase(0,2);
+    // [TODO] This should read out the state of the PE managed by this
+    // PE Table entry
+    std::cout << "|?";
     // Weight Valid
     string_field.str("");
     string_field << string_table << i << "_weightValid";

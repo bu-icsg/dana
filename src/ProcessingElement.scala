@@ -23,18 +23,27 @@ class ProcessingElementResp extends DanaBundle()() {
   //   * next_state
   //   * invalidate_inputs
   val data = UInt(OUTPUT, elementWidth)
+  val state = UInt()
+  val index = UInt()
 }
 
-class ProcessingElementInterface extends DanaBundle()() {
-  // Parameters
+class ProcessingElementData extends DanaBundle()() {
+  val index = UInt()
   val decimalPoint = UInt(INPUT, decimalPointWidth)
   val steepness = UInt(INPUT, steepnessWidth)
   val activationFunction = UInt(INPUT, activationFunctionWidth)
-  val validIn = Bool(INPUT)
-  val dataIn = Vec.fill(elementsPerBlock){SInt(INPUT, elementWidth)}
-  val weight = Vec.fill(elementsPerBlock){SInt(INPUT, elementWidth)}
-  val dataOut = SInt(OUTPUT, elementWidth)
-  val validOut = Bool(OUTPUT)
+  val iBlock = Vec.fill(elementsPerBlock){SInt(INPUT, elementWidth)}
+  val wBlock = Vec.fill(elementsPerBlock){SInt(INPUT, elementWidth)}
+}
+
+class ProcessingElementInterface extends DanaBundle()() {
+  // The Processing Element Interface consists of three main
+  // components: requests from the PE Table (really kicks to do
+  // something), responses to the PE Table, and semi-static data which
+  // th PE Table manages and is used by the PEs for computation.
+  val req = Decoupled(new ProcessingElementReq).flip
+  val resp = Decoupled(new ProcessingElementResp)
+  val data = new ProcessingElementData
 }
 
 class ProcessingElement extends DanaModule()() {
@@ -43,61 +52,43 @@ class ProcessingElement extends DanaModule()() {
   val acc = Reg(init = SInt(0, width = elementWidth))
   val dataOut = Reg(init = SInt(0, width = elementWidth))
 
-  // Initial version, just a multiplier
-  val s_unallocated :: s_mul :: s_af :: s_af_wait :: s_done :: Nil =
-    Enum(UInt(), 5)
-
-  val state = Reg(init = s_unallocated)
+  val state = Reg(init = e_PE_UNALLOCATED)
 
   // Default values
   io.dataOut := UInt(0, width = elementWidth)
   io.validOut := Bool(false)
   acc := acc
+  io.req.ready := Bool(false)
+  io.resp.valid := Bool(false)
+  io.resp.bits.state := state
+  io.resp.bits.index := io.data.index
 
-  // State transitions
-  when (state === s_unallocated) {
-    when (io.validIn) {
-      state := s_mul
-    }
-  }
-  when (state === s_mul) {
-    when (index === UInt(elementsPerBlock - 1)) {
-      state := s_af
-    }
-  }
-  when (state === s_af) {
-    state := s_af_wait
-  }
-  // [TODO] Kludge: The activation function is currently a 1-cycle
-  // operation, but this is intended to use a decoupled interface.
-  // When this switches to the decoupled interface, this will need to
-  // be modified.
-  when (state === s_af_wait) {
-    state := s_done
-  }
-  when (state === s_done) {
-    state := s_unallocated
-  }
-
-  // Non-state sequential logic
-  when (state === s_unallocated) {
-    acc := SInt(0, width = elementWidth)
+  // State-driven logic
+  when (state === e_PE_UNALLOCTED) {
+    state := Mux(io.req.valid, e_PE_GET_INFO, state)
+    io.req.ready := Bool(true)
+    acc := UInt(0)
     index := UInt(0)
-  }
-  when (state === s_mul) {
+  } .elsewhen (state === e_PE_GET_INFO) {
+    state := Mux(io.req.valid, e_PE_WAIT_FOR_INFO, state)
+    io.resp.valid := Bool(true)
+  } .elsewhen (state === e_PE_WAIT_FOR_INFO) {
+    state := Mux(io.req.valid, e_PE_REQUEST_INPUTS_AND_WEIGHTS, state)
+  } .elsewhen (state === e_PE_REQUEST_INPUTS_AND_WEIGHTS) {
+    state := Mux(io.req.valid, e_PE_WAIT_FOR_INPUTS_AND_WEIGHTS, state)
+    io.resp.valid := Bool(true)
+  } .elsewhen (state === e_PE_WAIT_FOR_INPUTS_AND_WEIGHTS) {
+    state := Mux(io.req.valid, e_PE_RUN, state)
+  } .elsewhen (state === e_PE_RUN) {
+    // [TODO] This needs state transition logic
     acc := acc + ((io.dataIn(index) * io.weight(index)) >>
       (io.decimalPoint) >> UInt(decimalPointOffset))
     index := index + UInt(1)
-  }
-  when (state === s_af) {
-    acc := acc
-  }
-  // when (state === s_af_wait) {
-  //   acc :=
-  // }
-  when (state === s_done) {
-    io.dataOut := dataOut
-    io.validOut := Bool(true)
+  } .elsewhen (state === e_PE_DONE) {
+    state := Mux(io.req.valid, e_PE_UNALLOCATED, state)
+  } .otherwise {
+    // [TODO] currently unused, should this fire an assertion or
+    // something?
   }
 
   // Submodule instantiation

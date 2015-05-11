@@ -107,7 +107,6 @@ abstract class DanaModule(
   val (e_PE_UNALLOCATED ::              // 0
     e_PE_GET_INFO ::                    // 1
     e_PE_WAIT_FOR_INFO ::               // 2
-    e_PE_WAIT_FOR_REG_FILE ::           // 3
     e_PE_REQUEST_INPUTS_AND_WEIGHTS ::  // 4
     e_PE_WAIT_FOR_INPUTS_AND_WEIGHTS :: // 5
     e_PE_RUN ::                         // 6
