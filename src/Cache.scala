@@ -40,7 +40,7 @@ class CacheInterface extends Bundle {
   // elements
   val mem = new CacheMemInterface
   val control = (new ControlCacheInterface).flip
-  val pe = new PECacheInterface
+  val pe = (new PECacheInterface).flip
 }
 
 // Helper bundles that we can use for typecasting (I think)
@@ -99,13 +99,21 @@ class Cache extends DanaModule()() {
       mem(i).dout(0)(64 * (j + 1) - 1, 64 * j))
   }
 
-  // Control Response Pipeline
+  // Response Pipelines for Control module and PEs. Responses take multiple
+  // cycles to generate due to the fact that data needs to be read out
+  // of the individual cache SRAMs so we construct a pipeline that
+  // builds up the responses.
   val controlRespPipe =
     Vec.fill(2){Reg(Valid(new ControlCacheInterfaceResp))}
   val peRespPipe =
     Vec.fill(2){Reg(Valid(new PECacheInterfaceResp))}
   val cacheRead = Vec.fill(cacheNumEntries){
     (Reg(UInt(width=log2Up(cacheNumBlocks)))) }
+  // We also need to store the cache index of an inbound request by a
+  // PE so that we can dereference it one cycle later when the cache
+  // line SRAM output is valid. [TODO] Should this be gated by the PE
+  // request being valid?
+  val peCacheIndex_d0 = Reg(UInt(), next = io.pe.req.bits.cacheIndex)
 
   // Helper functions for examing the cache entries
   def isFree(x: CacheState): Bool = {!x.valid}
@@ -155,6 +163,9 @@ class Cache extends DanaModule()() {
   peRespPipe(0).bits.data := UInt(0)
   peRespPipe(0).bits.peIndex := UInt(0)
   peRespPipe(0).bits.indexIntoData := UInt(0)
+
+  // [TODO] This shouldn't always be true
+  io.pe.req.ready := Bool(true)
 
   // Assignment to the output pipe
   controlRespPipe(1) := controlRespPipe(0)
@@ -268,35 +279,42 @@ class Cache extends DanaModule()() {
     // generate a block address from the input cache byte address.
     // [TODO] This shift may be a source of bugs. Check to make sure
     // that it's being passed correctly.
-    mem(io.pe.req.cacheIndex).addr(0) :=
-      io.pe.req.cacheAddr >> (UInt(2) + log2Up(elementsPerBlock))
+    mem(io.pe.req.bits.cacheIndex).addr(0) :=
+      io.pe.req.bits.cacheAddr >> (UInt(2 + log2Up(elementsPerBlock)))
     // Fill the first stage of the PE pipeline
     switch (io.pe.req.bits.field) {
       is (e_CACHE_NEURON) {
         peRespPipe(0).valid := Bool(true)
+        peRespPipe(0).bits.peIndex := io.pe.req.bits.peIndex
         peRespPipe(0).bits.field := e_CACHE_NEURON
-        peRespPipe(0).indexIntoData :=
-          io.pe.req.bits.cacheIndex(2 + log2Up(elementsPerBlock) - 1, 3)
+        peRespPipe(0).bits.indexIntoData :=
+          io.pe.req.bits.cacheAddr(2 + log2Up(elementsPerBlock) - 1, 3)
       }
       is (e_CACHE_WEIGHT) {
         peRespPipe(0).valid := Bool(true)
+        peRespPipe(0).bits.peIndex := io.pe.req.bits.peIndex
         peRespPipe(0).bits.field := e_CACHE_WEIGHT
-        peRespPipe(0).indexIntoData :=
-          io.pe.req.bits.cacheIndex(2 + log2Up(elementsPerBlock) - 1, 2)
+        peRespPipe(0).bits.indexIntoData :=
+          io.pe.req.bits.cacheAddr(2 + log2Up(elementsPerBlock) - 1, 2)
       }
     }
   }
 
-  // [TODO] Pick up here. I need to assign the memory data to the
-  // second stage of the PE Resp Pipeline
+  // The actual data that comes out of the memory is not interpreted
+  // here, i.e., we just pass the full bitsPerBlock-sized data packet
+  // to the PE Table and it deals with the internal indices.
+  peRespPipe(1).bits.data := mem(peCacheIndex_d0).dout(0)
 
-  // Set the response to the control unit
+  // Set the response to the Control module
   io.control.resp.valid := controlRespPipe(1).valid
   io.control.resp.bits := controlRespPipe(1).bits
+  // Set the response to the Processing Element Table
+  io.pe.resp.valid := peRespPipe(1).valid
+  io.pe.resp.bits := peRespPipe(1).bits
 
   // Assertions
   assert(!io.control.resp.valid || io.control.resp.ready,
     "Cache trying to send response to Control when Control not ready")
   assert(!io.control.req.valid || !io.pe.req.valid || !io.mem.req.valid,
-    "Multiple simultaneous requests on the cache (aliasing possible)")
+    "Multiple simultaneous requests on the cache (dropped requests possible)")
 }

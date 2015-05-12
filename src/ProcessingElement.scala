@@ -8,32 +8,24 @@ class ProcessingElementReq extends DanaBundle()() {
   //   * pe_selected
   //   * is_first
   //   * reg_file_ready
-  val numWeights = UInt(INPUT, 8) // [TODO] fragile
-  val activationFunction = UInt(INPUT, activationFunctionWidth)
-  val steepness = UInt(INPUT, steepnessWidth)
+  val numWeights = UInt(INPUT, width = 8) // [TODO] fragile
+  val index = UInt(INPUT)
   val decimalPoint = UInt(INPUT, decimalPointWidth)
-  val neuronPointer = UInt(INPUT, 12) // [TODO] fragile
-  val bias = UInt(INPUT, elementWidth)
-  val data = Vec.fill(elementsPerBlock){SInt(INPUT, elementWidth)}
-  val weights = Vec.fill(elementsPerBlock){SInt(INPUT, elementWidth)}
+  val steepness = UInt(INPUT, steepnessWidth)
+  val activationFunction = UInt(INPUT, activationFunctionWidth)
+  val numElements = UInt(INPUT)
+  val bias = SInt(INPUT, elementWidth)
+  val iBlock = Vec.fill(elementsPerBlock){SInt(INPUT, elementWidth)}
+  val wBlock = Vec.fill(elementsPerBlock){SInt(INPUT, elementWidth)}
 }
 
 class ProcessingElementResp extends DanaBundle()() {
   // Not included:
   //   * next_state
   //   * invalidate_inputs
-  val data = UInt(OUTPUT, elementWidth)
-  val state = UInt()
+  val data = UInt(width = elementWidth)
+  val state = UInt(width = log2Up(7)) // [TODO] fragile on PE state enum
   val index = UInt()
-}
-
-class ProcessingElementData extends DanaBundle()() {
-  val index = UInt()
-  val decimalPoint = UInt(INPUT, decimalPointWidth)
-  val steepness = UInt(INPUT, steepnessWidth)
-  val activationFunction = UInt(INPUT, activationFunctionWidth)
-  val iBlock = Vec.fill(elementsPerBlock){SInt(INPUT, elementWidth)}
-  val wBlock = Vec.fill(elementsPerBlock){SInt(INPUT, elementWidth)}
 }
 
 class ProcessingElementInterface extends DanaBundle()() {
@@ -43,32 +35,37 @@ class ProcessingElementInterface extends DanaBundle()() {
   // th PE Table manages and is used by the PEs for computation.
   val req = Decoupled(new ProcessingElementReq).flip
   val resp = Decoupled(new ProcessingElementResp)
-  val data = new ProcessingElementData
 }
 
 class ProcessingElement extends DanaModule()() {
+  // Interface to the PE Table
   val io = new ProcessingElementInterface
-  val index = Reg(init = UInt(10))
+
+  val index = Reg(init = UInt(0))
+  val indexBlock = Reg(init = UInt(0))
   val acc = Reg(init = SInt(0, width = elementWidth))
   val dataOut = Reg(init = SInt(0, width = elementWidth))
 
-  val state = Reg(init = e_PE_UNALLOCATED)
+  // [TODO] fragile on PE stateu enum (Common.scala)
+  val state = Reg(UInt(width = log2Up(8)), init = e_PE_UNALLOCATED)
 
   // Default values
-  io.dataOut := UInt(0, width = elementWidth)
-  io.validOut := Bool(false)
   acc := acc
   io.req.ready := Bool(false)
   io.resp.valid := Bool(false)
   io.resp.bits.state := state
-  io.resp.bits.index := io.data.index
+  io.resp.bits.index := indexBlock
+  io.resp.bits.data := UInt(0)
+  index := index
+  indexBlock := indexBlock
 
   // State-driven logic
-  when (state === e_PE_UNALLOCTED) {
+  when (state === e_PE_UNALLOCATED) {
     state := Mux(io.req.valid, e_PE_GET_INFO, state)
     io.req.ready := Bool(true)
-    acc := UInt(0)
+    acc := SInt(0)
     index := UInt(0)
+    indexBlock := UInt(0)
   } .elsewhen (state === e_PE_GET_INFO) {
     state := Mux(io.req.valid, e_PE_WAIT_FOR_INFO, state)
     io.resp.valid := Bool(true)
@@ -80,12 +77,20 @@ class ProcessingElement extends DanaModule()() {
   } .elsewhen (state === e_PE_WAIT_FOR_INPUTS_AND_WEIGHTS) {
     state := Mux(io.req.valid, e_PE_RUN, state)
   } .elsewhen (state === e_PE_RUN) {
-    // [TODO] This needs state transition logic
-    acc := acc + ((io.dataIn(index) * io.weight(index)) >>
-      (io.decimalPoint) >> UInt(decimalPointOffset))
+    when (index === (io.req.bits.numElements - UInt(2))) {
+      state := e_PE_DONE
+    } .elsewhen (index === UInt(elementsPerBlock - 2)) {
+      state := e_PE_REQUEST_INPUTS_AND_WEIGHTS
+      indexBlock := indexBlock + UInt(1)
+    } .otherwise {
+      state := state
+    }
+    acc := acc + ((io.req.bits.iBlock(index) * io.req.bits.wBlock(index)) >>
+      (io.req.bits.decimalPoint) >> UInt(decimalPointOffset))
     index := index + UInt(1)
   } .elsewhen (state === e_PE_DONE) {
     state := Mux(io.req.valid, e_PE_UNALLOCATED, state)
+    io.resp.bits.data := dataOut
   } .otherwise {
     // [TODO] currently unused, should this fire an assertion or
     // something?
@@ -94,20 +99,22 @@ class ProcessingElement extends DanaModule()() {
   // Submodule instantiation
   val af = Module(new ActivationFunction)
   af.io.req.bits.in := acc
-  af.io.req.bits.decimal := io.decimalPoint
-  af.io.req.bits.steepness := io.steepness
-  af.io.req.bits.activationFunction := io.activationFunction
+  af.io.req.bits.decimal := io.req.bits.decimalPoint
+  af.io.req.bits.steepness := io.req.bits.steepness
+  af.io.req.bits.activationFunction := io.req.bits.activationFunction
   dataOut := af.io.resp.bits.out
 
 }
 
+// [TODO] This whole testbench is broken due to the integration with
+// the PE Table
 class ProcessingElementTests(uut: ProcessingElement, isTrace: Boolean = true)
     extends DanaTester(uut, isTrace) {
   // Helper functions
   def getDecimal(): Int = {
-    peek(uut.io.decimalPoint).intValue + uut.decimalPointOffset }
+    peek(uut.io.req.bits.decimalPoint).intValue + uut.decimalPointOffset }
   def getSteepness(): Int = {
-    peek(uut.io.steepness).intValue - 4 }
+    peek(uut.io.req.bits.steepness).intValue - 4 }
   def fixedConvert(data: Bits): Double = {
     peek(data).floatValue() / Math.pow(2, getDecimal) }
   def fixedConvert(data: Int): Double = {
@@ -137,12 +144,12 @@ class ProcessingElementTests(uut: ProcessingElement, isTrace: Boolean = true)
   var correct = 0
   printf("[INFO] Sigmoid Activation Function Test\n")
   for (t <- 0 until 100) {
-    // poke(uut.io.decimalPoint, 3)
-    poke(uut.io.decimalPoint, rnd.nextInt(8))
-    // poke(uut.io.steepness, 4)
-    poke(uut.io.steepness, rnd.nextInt(8))
-    // poke(uut.io.activationFunction, 5)
-    poke(uut.io.activationFunction, rnd.nextInt(5) + 1)
+    // poke(uut.io.req.bits.decimalPoint, 3)
+    poke(uut.io.req.bits.decimalPoint, rnd.nextInt(8))
+    // poke(uut.io.req.bits.steepness, 4)
+    poke(uut.io.req.bits.steepness, rnd.nextInt(8))
+    // poke(uut.io.req.bits.activationFunction, 5)
+    poke(uut.io.req.bits.activationFunction, rnd.nextInt(5) + 1)
     correct = 0
     for (i <- 0 until uut.elementsPerBlock) {
       dataIn(i) = rnd.nextInt(Math.pow(2, getDecimal + 2).toInt) -
@@ -155,24 +162,24 @@ class ProcessingElementTests(uut: ProcessingElement, isTrace: Boolean = true)
     }
     // printf("[INFO] Correct Acc: %f\n", fixedConvert(correct))
     for (i <- 0 until uut.elementsPerBlock) {
-      poke(uut.io.dataIn(i), dataIn(i))
-      poke(uut.io.weight(i), weight(i))
+      poke(uut.io.req.bits.iBlock(i), dataIn(i))
+      poke(uut.io.req.bits.wBlock(i), weight(i))
     }
-    poke(uut.io.validIn, 1)
+    poke(uut.io.req.valid, 1)
     step(1)
-    poke(uut.io.validIn, 0)
-    while(peek(uut.io.validOut) == 0) {
+    poke(uut.io.req.valid, 0)
+    while(peek(uut.io.resp.valid) == 0) {
       step(1)
       // printf("[INFO]   acc: %f\n", fixedConvert(uut.acc))
     }
     // printf("[INFO] Acc:         %f\n", fixedConvert(uut.acc))
-    // printf("[INFO] Output:      %f\n", fixedConvert(uut.io.dataOut))
+    // printf("[INFO] Output:      %f\n", fixedConvert(uut.io.req.bitsOut))
     // printf("[INFO] AF Good:     %f\n",
     //   activationFunction(peek(uut.io.activationFunction).toInt, uut.acc,
     //     getSteepness))
     expect(uut.acc, correct)
-    expect(Math.abs(fixedConvert(uut.io.dataOut) -
-      activationFunction(peek(uut.io.activationFunction).toInt, uut.acc,
+    expect(Math.abs(fixedConvert(uut.io.resp.bits.data) -
+      activationFunction(peek(uut.io.req.bits.activationFunction).toInt, uut.acc,
         getSteepness)) < 0.1, "Activation Function Check")
     step(1)
   }

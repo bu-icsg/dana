@@ -2,17 +2,8 @@ package dana
 
 import Chisel._
 
-class PERegisterFileInterface extends DanaBundle()() {
-  val req = Decoupled(new DanaBundle()() {
-    val foo = Bool()
-  })
-  val resp = Decoupled(new DanaBundle()() {
-    val bar = Bool()
-  }).flip
-}
-
 class PECacheInterfaceResp extends DanaBundle()() {
-  val field = UInt()
+  val field = UInt(width = log2Up(3))
   val data = UInt(width = bitsPerBlock)
   val peIndex = UInt(width = log2Up(peTableNumEntries))
   val indexIntoData = UInt(width = elementsPerBlock) // [TODO] too big width?
@@ -24,7 +15,7 @@ class PECacheInterface extends DanaBundle()() {
   //   * pe_types::pe2storage_struct
   //   * pe_types::storage2pe_struct
   val req = Decoupled(new DanaBundle()() {
-    val field = UInt()
+    val field = UInt(width = log2Up(3)) // [TODO] fragile on Cache Req Enum
     val peIndex = UInt(width = log2Up(peTableNumEntries))
     val cacheIndex = UInt(width = log2Up(cacheNumEntries))
     val cacheAddr = UInt(width =
@@ -35,15 +26,19 @@ class PECacheInterface extends DanaBundle()() {
 
 class PERegisterFileInterface extends DanaBundle()() {
   val req = Decoupled(new DanaBundle()() {
+    val foo = Bool()
   })
   val resp = Decoupled(new DanaBundle()() {
+    val bar = Bool()
   }).flip
 }
 
 class PETransactionTableInterface extends DanaBundle()() {
   val req = Decoupled(new DanaBundle()() {
+    val foo = Bool()
   })
   val resp = Decoupled(new DanaBundle()() {
+    val bar = Bool()
   }).flip
 }
 
@@ -52,23 +47,6 @@ class PETableInterface extends DanaBundle()() {
   val cache = new PECacheInterface
   val registerFile = new PERegisterFileInterface
   val tTable = new PETransactionTableInterface
-}
-
-class PETable2PEInterface extends DanaBundle()() {
-  val req = Valid(new DanaBundle()() {
-    val decimalPoint = UInt(width = decimalPointWidth)
-    val inBlock = UInt(width = bitsPerBlock)
-    val weightBlock = UInt(width = bitsPerBlock)
-    val numWeights = UInt(width = 8)
-    val activationFunction = UInt(width = activationFunctionWidth)
-    val steepness = UInt(width = steepnessWidth)
-    val bias = UInt(width = elementWidth)
-  })
-  val resp = Decoupled(new DanaBundle()() {
-    val output = UInt(width = elementWidth)
-    val needsData = Bool()
-    val done = Bool()
-  }).flip
 }
 
 class ProcessingElementState extends DanaBundle()() {
@@ -100,32 +78,56 @@ class ProcessingElementState extends DanaBundle()() {
 class ProcessingElementTable extends DanaModule()() {
   val io = new PETableInterface
 
+  // [TODO] Placeholder values for Transaction Table interface
+  io.tTable.req.valid := Bool(false)
+  io.tTable.req.bits.foo := Bool(false)
+  io.tTable.resp.ready := Bool(false)
+  // [TODO] Placeholder values for Register File interface
+  io.registerFile.req.valid := Bool(false)
+  io.registerFile.req.bits.foo := Bool(false)
+  io.registerFile.resp.ready := Bool(false)
+
   // Create the table with the specified top-level parameters. Derived
   // parameters should not be touched.
   val table = Vec.fill(peTableNumEntries){new ProcessingElementState}
   // Create the processing elements
   val pe = Vec.fill(peTableNumEntries){Module (new ProcessingElement()).io}
 
-  // Wire up the PEs
+  // Wire up the PE data connections
   for (i <- 0 until peTableNumEntries) {
-    pe(i).io.data.index := UInt(i)
-    pe(i).io.data.decimalPoint := table(i).decimalPoint
-    pe(i).io.data.steepness := table(i).steepness
-    pe(i).io.data.activationFunction := table(i).activationFunction
-    // pe(i).io.validIn
+    pe(i).req.bits.index := UInt(i)
+    pe(i).req.bits.decimalPoint := table(i).decimalPoint
+    pe(i).req.bits.steepness := table(i).steepness
+    pe(i).req.bits.activationFunction := table(i).activationFunction
+    pe(i).req.bits.numElements := table(i).numWeights
+    pe(i).req.bits.bias := table(i).bias
+    // pe(i).validIn
     for (j <- 0 until elementsPerBlock) {
-      pe(i).io.data.iBlock(j) := inBlock(elementWidth * (j + 1) - 1, elementWidth * j)
-      pe(i).io.data.wBlock(j) := weightBlock(elementWidth * (j + 1) - 1, elementWidth * j)
+      pe(i).req.bits.iBlock(j) :=
+        table(i).inBlock(elementWidth * (j + 1) - 1, elementWidth * j)
+      pe(i).req.bits.wBlock(j) :=
+        table(i).weightBlock(elementWidth * (j + 1) - 1, elementWidth * j)
     }
   }
 
-  def isFree(x: ProcessingElementInterface): Bool = { !x.req.ready }
+  def isFree(x: ProcessingElementInterface): Bool = { x.req.ready }
   val hasFree = Bool()
   val nextFree = UInt()
   hasFree := pe.exists(isFree)
   nextFree := pe.indexWhere(isFree)
 
   io.control.req.ready := hasFree
+
+  // Default values for Cache interface
+  io.cache.req.valid := Bool(false)
+  io.cache.req.bits.field := UInt(0)
+  io.cache.req.bits.peIndex := UInt(0)
+  io.cache.req.bits.cacheIndex := UInt(0)
+  io.cache.req.bits.cacheAddr := UInt(0)
+  // Default values for PE connections
+  for (i <- 0 until peTableNumEntries) {
+    pe(i).req.valid := Bool(false)
+  }
 
   // Temporary debug shit [TODO] Remove this at some point
   for (i <- 0 until peTableNumEntries) {
@@ -176,14 +178,20 @@ class ProcessingElementTable extends DanaModule()() {
     table(nextFree).bias := UInt(0)
     table(nextFree).weightValid := Bool(false)
     table(nextFree).inValid := Bool(false)
+    // [TODO] Kick the PE
+    pe(nextFree).req.valid := Bool(true)
   }
 
   // Round robin arbitration of PE Table entries
-  val peArbiter = Module(new RRArbiter(new ProcessingElementResp),
-    peTableNumEntries)
+  val peArbiter = Module(new RRArbiter(new ProcessingElementResp,
+    peTableNumEntries))
   // Wire up the arbiter
-  for (i <- 0 until peTableNumentries)
-    peArbiter(i).io <> pe(i).io.resp
+  for (i <- 0 until peTableNumEntries) {
+    peArbiter.io.in(i).valid := pe(i).resp.valid
+    peArbiter.io.in(i).bits.data := pe(i).resp.bits.data
+    peArbiter.io.in(i).bits.state := pe(i).resp.bits.state
+    peArbiter.io.in(i).bits.index := pe(i).resp.bits.index
+  }
 
   // If the arbiter is showing a valid output, then we have to
   // generate some requests based on which PE the arbiter has
@@ -199,18 +207,18 @@ class ProcessingElementTable extends DanaModule()() {
         io.cache.req.bits.cacheIndex := table(peArbiter.io.out.bits.index).cIdx
         io.cache.req.bits.cacheAddr := table(peArbiter.io.out.bits.index).neuronPtr
       }
-      is (e_PE_REQUEST_INPUTS_AND_WEIGHTS) {
-        // Send a request to the IO storage or the register file for
-        // inputs
+      // is (e_PE_REQUEST_INPUTS_AND_WEIGHTS) {
+      //   // Send a request to the IO storage or the register file for
+      //   // inputs
 
-        // Send a request to the cache for weights
-      }
-      is (e_PE_DONE) {
-        // Send the output value where it needs to go
-      }
+      //   // Send a request to the cache for weights
+      // }
+      // is (e_PE_DONE) {
+      //   // Send the output value where it needs to go
+      // }
     }
-    // Kick the PE so that it jumps to a wait state
-    pe.io.req.valid := Bool(true)
+    // Kick the selected PE so that it jumps to a wait state
+    pe(peArbiter.io.out.bits.index).req.valid := Bool(true)
   }
 
 }
