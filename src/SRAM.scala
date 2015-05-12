@@ -37,7 +37,7 @@ class SRAM (
   val numReadPorts: Int = 0,
   val numWritePorts: Int = 0,
   val numReadWritePorts: Int = 2
-) extends Module {
+) extends BlackBox {
   val io = new SRAMInterface(
     numReadPorts = numReadPorts,
     numWritePorts = numWritePorts,
