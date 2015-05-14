@@ -2,7 +2,7 @@ package dana
 
 import Chisel._
 
-class SRAMElementInterface(
+class SRAMElementInterface (
   val dataWidth: Int,
   val sramDepth: Int,
   val numPorts: Int,
@@ -12,13 +12,27 @@ class SRAMElementInterface(
     dataWidth = dataWidth,
     sramDepth = sramDepth,
     numPorts = numPorts,
-    elementWidth = elementWidth
-  ).asInstanceOf[this.type]
+    elementWidth = elementWidth).asInstanceOf[this.type]
   val we = Vec.fill(numPorts){ Bool(OUTPUT) }
   val din = Vec.fill(numPorts){ UInt(OUTPUT, width = elementWidth)}
   val addr = Vec.fill(numPorts){ UInt(OUTPUT,
     width = log2Up(sramDepth * dataWidth / elementWidth))}
   val dout = Vec.fill(numPorts){ UInt(INPUT, width = dataWidth)}
+}
+
+class WritePendingBundle (
+  val elementWidth: Int,
+  val dataWidth: Int,
+  val sramDepth: Int
+) extends Bundle {
+  override def clone = new WritePendingBundle (
+    elementWidth = elementWidth,
+    dataWidth = dataWidth,
+    sramDepth = sramDepth).asInstanceOf[this.type]
+  val valid = Bool()
+  val data = UInt(width = elementWidth)
+  val addrHi = UInt(width = log2Up(sramDepth))
+  val addrLo = UInt(width = log2Up(dataWidth / elementWidth))
 }
 
 // A special instance of the generic SRAM that allows for masked
@@ -48,15 +62,12 @@ class SRAMElement (
 
   val addr = Vec.fill(numPorts){ new Bundle{
     val addrHi = UInt(width = log2Up(sramDepth))
-    val addrLo = UInt(width = log2Up(dataWidth / elementWidth))
-  }}
+    val addrLo = UInt(width = log2Up(dataWidth / elementWidth))}}
 
-  val writePending = Vec.fill(numPorts){new Bundle{
-    val valid = Reg(Bool(), init = Bool(false))
-    val data = Reg(UInt(width = elementWidth))
-    val addrHi = Reg(UInt(width = log2Up(sramDepth)))
-    val addrLo = Reg(UInt(width = log2Up(dataWidth / elementWidth)))
-  }}
+  val writePending = Vec.fill(numPorts){Reg(new WritePendingBundle(
+    elementWidth = elementWidth,
+    dataWidth = dataWidth,
+    sramDepth = sramDepth))}
 
   val tmp = Vec.fill(numPorts){
     Vec.fill(dataWidth / elementWidth){ UInt(width = elementWidth) }}

@@ -122,10 +122,9 @@ class Control extends DanaModule()() {
       // }
     }
   }
-
   // No inbound requests, so we just handle whatever is valid coming
   // from the Transaction Table
-  when (io.tTable.req.valid) {
+  .elsewhen (io.tTable.req.valid) {
     // Cache state is unknown and we're not waiting for the cache to
     // respond
     when (!io.tTable.req.bits.cacheValid &&
@@ -184,7 +183,7 @@ class Control extends DanaModule()() {
         // I'm using the left shift by 3 and need to check how this is
         // being used for the cache lookup by the PE.
         io.tTable.req.bits.neuronPointer + // neuronPointer
-          (io.tTable.req.bits.currentNodeInLayer + UInt(1) << UInt(3)),
+          (io.tTable.req.bits.currentNodeInLayer << UInt(3)),
         // Pass along the decimal point
         io.tTable.req.bits.decimalPoint // decimalPoint
       )

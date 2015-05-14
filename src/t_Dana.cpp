@@ -287,7 +287,7 @@ int t_Dana::info_petable() {
   std::string string_table("Dana.peTable.table_");
   std::string string_pe("Dana.peTable.ProcessingElement");
   std::stringstream string_field("");
-  for (int i = 0; i < 2; i++) { // [TODO] fragile, should be number of PEs
+  for (int i = 0; i < 4; i++) { // [TODO] fragile, should be number of PEs
     // State
     string_field.str("");
     string_field << string_pe;
@@ -339,7 +339,7 @@ int t_Dana::info_petable() {
     std::cout << "|" << get_dat_by_name(string_field.str())->get_value().erase(0,2);
     // Weight Pointer
     string_field.str("");
-    string_field << string_table << i << "_weightPtr";
+    string_field << string_table << i << "_weightPtr_1_1";
     std::cout << "|" << get_dat_by_name(string_field.str())->get_value().erase(0,2);
     // Decimal Point
     string_field.str("");
@@ -359,7 +359,7 @@ int t_Dana::info_petable() {
     // std::cout << "|  " << get_dat_by_name(string_field.str())->get_value().erase(0,2);
     // Num Weights
     string_field.str("");
-    string_field << string_table << i << "_numWeights";
+    string_field << string_table << i << "_numWeights_1_1";
     std::cout << "|" << get_dat_by_name(string_field.str())->get_value().erase(0,2);
     // Activation Function
     string_field.str("");

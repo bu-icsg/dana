@@ -3,37 +3,37 @@ package dana
 import Chisel._
 
 class TransactionState extends DanaBundle()() {
-  val valid = Reg(Bool(), init = Bool(false))
-  val reserved = Reg(Bool(), init = Bool(false))
-  val cacheValid = Reg(Bool())
-  val waiting = Reg(Bool())
-  val needsLayerInfo = Reg(Bool())
-  val needsRegisters = Reg(Bool())
-  val needsNextRegister = Reg(Bool())
-  val done = Reg(Bool())
-  val request = Reg(Bool())
-  val inFirst = Reg(Bool())
-  val inLast = Reg(Bool())
+  val valid = Bool()
+  val reserved = Bool()
+  val cacheValid = Bool()
+  val waiting = Bool()
+  val needsLayerInfo = Bool()
+  val needsRegisters = Bool()
+  val needsNextRegister = Bool()
+  val done = Bool()
+  val request = Bool()
+  val inFirst = Bool()
+  val inLast = Bool()
   // output_layer should be unused according to types.vh
-  val cacheIndex = Reg(UInt(width = log2Up(cacheNumEntries)))
-  val tid = Reg(UInt(width = tidWidth)) // formerly pid
-  val nnid = Reg(UInt(width = nnidWidth)) // formerly nn_hash
-  val decimalPoint = Reg(UInt(width = decimalPointWidth))
-  val numLayers = Reg(UInt(width = 16)) // [TODO] fragile
-  val numNodes = Reg(UInt(width = 16)) // [TODO] fragile
-  val currentNode = Reg(UInt(width = 16)) // [TODO] fragile
-  val currentNodeInLayer = Reg(UInt(width = 16)) // [TODO] fragile
-  val currentLayer = Reg(UInt(width = 16)) // [TODO] fragile
-  val nodesInCurrentLayer = Reg(UInt(width = 16)) // [TODO] fragile
-  val nodesInNextLayer = Reg(UInt(width = 16)) // [TODO] fragile
-  val neuronPointer = Reg(UInt(width = 11)) // [TODO] fragile
-  val regBlockIndexOut = Reg(UInt(width=log2Up(regFileNumElements)))
-  val regBlockIndexIn = Reg(UInt(width=log2Up(regFileNumElements)))
-  val regBlockInNext = Reg(UInt(width = log2Up(regFileNumBlocks)))
-  val countUsedRegisters = Reg(UInt(width = log2Up(elementsPerBlock)))
-  val countFeedback = Reg(UInt(width = feedbackWidth))
+  val cacheIndex = UInt(width = log2Up(cacheNumEntries))
+  val tid = UInt(width = tidWidth) // formerly pid
+  val nnid = UInt(width = nnidWidth) // formerly nn_hash
+  val decimalPoint = UInt(width = decimalPointWidth)
+  val numLayers = UInt(width = 16) // [TODO] fragile
+  val numNodes = UInt(width = 16) // [TODO] fragile
+  val currentNode = UInt(width = 16) // [TODO] fragile
+  val currentNodeInLayer = UInt(width = 16) // [TODO] fragile
+  val currentLayer = UInt(width = 16) // [TODO] fragile
+  val nodesInCurrentLayer = UInt(width = 16) // [TODO] fragile
+  val nodesInNextLayer = UInt(width = 16) // [TODO] fragile
+  val neuronPointer = UInt(width = 11) // [TODO] fragile
+  val regBlockIndexOut = UInt(width=log2Up(regFileNumElements))
+  val regBlockIndexIn = UInt(width=log2Up(regFileNumElements))
+  val regBlockInNext = UInt(width = log2Up(regFileNumBlocks))
+  val countUsedRegisters = UInt(width = log2Up(elementsPerBlock))
+  val countFeedback = UInt(width = feedbackWidth)
   // Additional crap which may be redundant
-  val indexElement = Reg(UInt(width = log2Up(transactionTableSramElements)))
+  val indexElement = UInt(width = log2Up(transactionTableSramElements))
 }
 
 class DanaReq extends DanaBundle()() {
@@ -99,7 +99,7 @@ class TransactionTable extends DanaModule()() {
   val io = new TransactionTableInterface
 
   // Vector of all the table entries
-  val table = Vec.fill(transactionTableNumEntries){new TransactionState}
+  val table = Vec.fill(transactionTableNumEntries){Reg(new TransactionState)}
   // Temporary debug enforcement
   for (i <- 0 until transactionTableNumEntries) {
     debug(table(i).numLayers)

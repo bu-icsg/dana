@@ -52,7 +52,7 @@ abstract class DanaModule(
   val feedbackWidth: Int = 12,
   val bitsFeedback: Int = 12,
   // Processing Element Table
-  val peTableNumEntries: Int = 2,
+  val peTableNumEntries: Int = 4,
   // Transaction Table
   val transactionTableNumEntries: Int = 4,
   val transactionTableSramElements: Int = 32,
@@ -126,15 +126,19 @@ abstract class DanaBundle(
   val elementWidth: Int = 32,
   val elementsPerBlock: Int = 4,
   val tidWidth: Int = 16,
+  // Activation Function width increases will break:
+  //   * ProcessingElementTable logic for indexing into cache data
   val activationFunctionWidth: Int = 5,
   val nnidWidth: Int = 16,
   val decimalPointOffset: Int = 7,
   val decimalPointWidth: Int = 3,
+  // Steepness width increases will break:
+  //   * ProcessingElementTable logic for indexing into cache data
   val steepnessWidth: Int = 3,
   val feedbackWidth: Int = 12,
   val bitsFeedback: Int = 12,
   // Processing Element Table
-  val peTableNumEntries: Int = 2,
+  val peTableNumEntries: Int = 4,
   // Transaction Table
   val transactionTableNumEntries: Int = 4,
   val transactionTableSramElements: Int = 32,

@@ -5,13 +5,13 @@ import Chisel._
 class CacheState extends DanaBundle()() {
   // nnsim-hdl equivalent:
   //   cache_types::cache_config_entry_struct
-  val valid = Reg(Bool(), init = Bool(false))
-  val notifyFlag = Reg(Bool())
-  val fetch = Reg(Bool())
-  val notifyIndex = Reg(UInt(width = log2Up(transactionTableNumEntries)))
-  val notifyMask = Reg(UInt(width = transactionTableNumEntries))
-  val nnid = Reg(UInt(width = nnidWidth))
-  val inUseCount = Reg(UInt(width = log2Up(transactionTableNumEntries)))
+  val valid = Bool()
+  val notifyFlag = Bool()
+  val fetch = Bool()
+  val notifyIndex = UInt(width = log2Up(transactionTableNumEntries))
+  val notifyMask = UInt(width = transactionTableNumEntries)
+  val nnid = UInt(width = nnidWidth)
+  val inUseCount = UInt(width = log2Up(transactionTableNumEntries))
 }
 
 class CacheMemInterface extends DanaBundle()() {
@@ -54,12 +54,26 @@ class CompressedInfo extends DanaBundle()() {
   val weightsPointer    = UInt(width = 16)
   val unused_1          = Bits(width = bitsPerBlock - 16 * 6)
 }
+class CompressedNeuron extends DanaBundle()() {
+  val weightPtr = UInt(width = 16)
+  val numWeights = UInt(width = 8)
+  val activationFunction = UInt(width = activationFunctionWidth)
+  val steepness = UInt(width = steepnessWidth)
+  val bias = UInt(width = elementWidth)
+  def populate(data: UInt, out: CompressedNeuron) {
+    out.weightPtr := data(15, 0)
+    out.numWeights := data(23, 16)
+    out.activationFunction := data(28, 24)
+    out.steepness := data(31, 29)
+    out.bias := data(63, 32)
+  }
+}
 
 class Cache extends DanaModule()() {
   val io = new CacheInterface
 
   // Create the table of cache entries
-  val table = Vec.fill(cacheNumEntries){new CacheState}
+  val table = Vec.fill(cacheNumEntries){Reg(new CacheState)}
   // Each cache entry gets one two-ported SRAM
   val mem = Vec.fill(cacheNumEntries){
     Module(new SRAM(

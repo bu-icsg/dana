@@ -28,6 +28,7 @@ class Dana extends DanaModule()() {
   cache.io.control <> control.io.cache
   cache.io.mem <> mem.io.cache
   control.io.peTable <> peTable.io.control
+  peTable.io.cache <> cache.io.pe
 }
 
 class DanaTests(uut: Dana, isTrace: Boolean = true)

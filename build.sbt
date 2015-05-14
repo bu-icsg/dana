@@ -4,6 +4,7 @@ lazy val commonSettings = Seq(
   organization := "bu.edu",
   version := "0.1.0",
   scalaVersion := "2.11.6",
+  // scalaVersion := "2.10.4",
   // Usually you don't care about the trace (as it provides no useful
   // information), unless sbt, scala, or java shit the bed. This can
   // be upped to a high number (e.g., 100) to get the full trace.
@@ -27,6 +28,6 @@ lazy val root = (project in file(".")).
   settings(commonSettings: _*).
   settings(
     name := "dana",
-    libraryDependencies += chisel
-    // scalacOptions ++= Seq("-feature", "-deprecation")
+    libraryDependencies += chisel,
+    scalacOptions ++= Seq("-deprecation", "-feature", "-unchecked", "-language:reflectiveCalls")
   )

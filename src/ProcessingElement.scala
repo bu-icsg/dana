@@ -54,7 +54,7 @@ class ProcessingElement extends DanaModule()() {
   io.req.ready := Bool(false)
   io.resp.valid := Bool(false)
   io.resp.bits.state := state
-  io.resp.bits.index := indexBlock
+  io.resp.bits.index := io.req.bits.index
   io.resp.bits.data := UInt(0)
   index := index
   indexBlock := indexBlock
