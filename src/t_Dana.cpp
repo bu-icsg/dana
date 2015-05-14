@@ -373,6 +373,14 @@ int t_Dana::info_petable() {
     string_field.str("");
     string_field << string_table << i << "_bias";
     std::cout << "|" << get_dat_by_name(string_field.str())->get_value().erase(0,2);
+    // Inputs for this PE
+    string_field.str("");
+    string_field << string_table << i << "_inputBlock";
+    std::cout << "|" << get_dat_by_name(string_field.str())->get_value().erase(0,2);
+    // Weights for this PE
+    string_field.str("");
+    string_field << string_table << i << "_weightBlock";
+    std::cout << "|" << get_dat_by_name(string_field.str())->get_value().erase(0,2);
     std::cout << "|" << std::endl;
   }
   std::cout << std::endl;

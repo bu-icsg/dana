@@ -182,6 +182,7 @@ class ProcessingElementTable extends DanaModule()() {
         table(peIndex).activationFunction := cacheRespVec(indexIntoData).activationFunction
         table(peIndex).steepness := cacheRespVec(indexIntoData).steepness
         table(peIndex).bias := cacheRespVec(indexIntoData).bias
+        pe(peIndex).req.valid := Bool(true)
       }
       is (e_CACHE_WEIGHT) {
         table(io.cache.resp.bits.peIndex).weightPtr :=
@@ -229,6 +230,12 @@ class ProcessingElementTable extends DanaModule()() {
         // inputs
 
         // Send a request to the cache for weights
+        io.cache.req.valid := Bool(true)
+        io.cache.req.bits.field := e_CACHE_WEIGHT
+        io.cache.req.bits.peIndex := peArbiter.io.out.bits.index
+        io.cache.req.bits.cacheIndex := table(peArbiter.io.out.bits.index).cIdx
+        io.cache.req.bits.cacheAddr := table(peArbiter.io.out.bits.index).weightPtr
+        pe(peArbiter.io.out.bits.index).req.valid := Bool(true)
       }
       is (e_PE_DONE) {
         // Send the output value where it needs to go
