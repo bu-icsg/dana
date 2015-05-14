@@ -36,7 +36,7 @@ class TransactionState extends DanaBundle()() {
   val indexElement = UInt(width = log2Up(transactionTableSramElements))
 }
 
-class DanaReq extends DanaBundle()() {
+class ControlReq extends DanaBundle()() {
   // Bools
   val cacheValid = Bool()
   val waiting = Bool()
@@ -64,7 +64,7 @@ class DanaReq extends DanaBundle()() {
   val decimalPoint = UInt(width = decimalPointWidth)
 }
 
-class DanaResp extends DanaBundle()() {
+class ControlResp extends DanaBundle()() {
   val tableIndex = UInt(width = log2Up(transactionTableNumEntries))
   val field = UInt(width = 4) // [TODO] fragile on Constants.scala
   val data = Vec.fill(3){UInt(width = 16)} // [TODO] fragile
@@ -84,14 +84,14 @@ class XFilesArbiterInterface extends DanaBundle()() {
   val req = Decoupled(new XFilesArbiterReq).flip
 }
 
-class TTableDanaInterface extends DanaBundle()() {
-  val req = Decoupled(new DanaReq)
-  val resp = Decoupled(new DanaResp).flip
+class TTableControlInterface extends DanaBundle()() {
+  val req = Decoupled(new ControlReq)
+  val resp = Decoupled(new ControlResp).flip
 }
 
 class TransactionTableInterface extends DanaBundle()() {
   val arbiter = new XFilesArbiterInterface
-  val dana = new TTableDanaInterface
+  val dana = new TTableControlInterface
 }
 
 class TransactionTable extends DanaModule()() {
@@ -257,7 +257,7 @@ class TransactionTable extends DanaModule()() {
 
   // Round Robin Arbitration of Transaction Table entries. One of
   // these is passed out over an interface to DANA's control module.
-  val entryArbiter = Module(new RRArbiter( new DanaReq,
+  val entryArbiter = Module(new RRArbiter( new ControlReq,
     transactionTableNumEntries))
   // All of these need to be wired up manually as the internal
   // connections aren't IO

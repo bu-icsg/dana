@@ -51,7 +51,7 @@ class ControlPETableInterface extends DanaBundle()() {
 }
 
 class ControlInterface extends DanaBundle()() {
-  val tTable = (new TTableDanaInterface).flip
+  val tTable = (new TTableControlInterface).flip
   val cache = new ControlCacheInterface
   val peTable = new ControlPETableInterface
 }
