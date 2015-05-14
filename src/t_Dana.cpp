@@ -281,9 +281,9 @@ int t_Dana::info_cache_table() {
 }
 
 int t_Dana::info_petable() {
-  std::cout << "--------------------------------------------------------------------------------------\n";
-  std::cout << "|S|IV|WV| TID|CIdx|Node|inLoc|outLoc|InIdx|OutIdx|   &N|   &W|DP|LiL|#W|AF|S|    Bias| <- PE Table\n";
-  std::cout << "--------------------------------------------------------------------------------------\n";
+  std::cout << "-------------------------------------------------------------------------------------------\n";
+  std::cout << "|S|IV|WV| TID|tIdx|CIdx|Node|inLoc|outLoc|InIdx|OutIdx|   &N|   &W|DP|LiL|#W|AF|S|    Bias| <- PE Table\n";
+  std::cout << "-------------------------------------------------------------------------------------------\n";
   std::string string_table("Dana.peTable.table_");
   std::string string_pe("Dana.peTable.ProcessingElement");
   std::stringstream string_field("");
@@ -308,7 +308,10 @@ int t_Dana::info_petable() {
     string_field.str("");
     string_field << string_table << i << "_tid";
     std::cout << "|" << get_dat_by_name(string_field.str())->get_value().erase(0,2);
-   // std::cout << "|    ";
+    // Transaction Index
+    string_field.str("");
+    string_field << string_table << i << "_tIdx";
+    std::cout << "|   " << get_dat_by_name(string_field.str())->get_value().erase(0,2);
     // Cache Index
     string_field.str("");
     string_field << string_table << i << "_cIdx";
@@ -375,7 +378,7 @@ int t_Dana::info_petable() {
     std::cout << "|" << get_dat_by_name(string_field.str())->get_value().erase(0,2);
     // Inputs for this PE
     string_field.str("");
-    string_field << string_table << i << "_inputBlock";
+    string_field << string_table << i << "_inBlock";
     std::cout << "|" << get_dat_by_name(string_field.str())->get_value().erase(0,2);
     // Weights for this PE
     string_field.str("");

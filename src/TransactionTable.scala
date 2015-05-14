@@ -91,7 +91,8 @@ class TTableControlInterface extends DanaBundle()() {
 
 class TransactionTableInterface extends DanaBundle()() {
   val arbiter = new XFilesArbiterInterface
-  val dana = new TTableControlInterface
+  val control = new TTableControlInterface
+  val peTable = (new PETransactionTableInterface).flip
 }
 
 class TransactionTable extends DanaModule()() {
@@ -179,81 +180,110 @@ class TransactionTable extends DanaModule()() {
   }
 
   // Update the table when we get a request from DANA
-  when (io.dana.resp.valid) {
-    // table(io.dana.resp.bits.tableIndex).waiting := Bool(true)
-    switch(io.dana.resp.bits.field) {
+  when (io.control.resp.valid) {
+    // table(io.control.resp.bits.tableIndex).waiting := Bool(true)
+    switch(io.control.resp.bits.field) {
       is(e_TTABLE_WAITING) {
-        table(io.dana.resp.bits.tableIndex).waiting := Bool(true)
+        table(io.control.resp.bits.tableIndex).waiting := Bool(true)
       }
       is(e_TTABLE_CACHE_VALID) {
-        table(io.dana.resp.bits.tableIndex).cacheValid := Bool(true)
-        table(io.dana.resp.bits.tableIndex).numLayers :=
-          io.dana.resp.bits.data(0)
-        table(io.dana.resp.bits.tableIndex).numNodes :=
-          io.dana.resp.bits.data(1)
-        table(io.dana.resp.bits.tableIndex).cacheIndex :=
-          io.dana.resp.bits.data(2)
-        table(io.dana.resp.bits.tableIndex).decimalPoint :=
-          io.dana.resp.bits.decimalPoint
+        table(io.control.resp.bits.tableIndex).cacheValid := Bool(true)
+        table(io.control.resp.bits.tableIndex).numLayers :=
+          io.control.resp.bits.data(0)
+        table(io.control.resp.bits.tableIndex).numNodes :=
+          io.control.resp.bits.data(1)
+        table(io.control.resp.bits.tableIndex).cacheIndex :=
+          io.control.resp.bits.data(2)
+        table(io.control.resp.bits.tableIndex).decimalPoint :=
+          io.control.resp.bits.decimalPoint
         // Once we know the cache is valid, this entry is no longer waiting
-        table(io.dana.resp.bits.tableIndex).waiting := Bool(false)
+        table(io.control.resp.bits.tableIndex).waiting := Bool(false)
       }
       is(e_TTABLE_LAYER) {
-        table(io.dana.resp.bits.tableIndex).needsLayerInfo := Bool(false)
-        table(io.dana.resp.bits.tableIndex).needsRegisters :=
-          table(io.dana.resp.bits.tableIndex).currentLayer !=
-          table(io.dana.resp.bits.tableIndex).numLayers - UInt(1)
-        table(io.dana.resp.bits.tableIndex).currentNodeInLayer := UInt(0)
-        table(io.dana.resp.bits.tableIndex).nodesInCurrentLayer := io.dana.resp.bits.data(0)
-        table(io.dana.resp.bits.tableIndex).nodesInNextLayer := io.dana.resp.bits.data(1)
-        table(io.dana.resp.bits.tableIndex).neuronPointer := io.dana.resp.bits.data(2)
+        table(io.control.resp.bits.tableIndex).needsLayerInfo := Bool(false)
+        table(io.control.resp.bits.tableIndex).needsRegisters :=
+          table(io.control.resp.bits.tableIndex).currentLayer !=
+          table(io.control.resp.bits.tableIndex).numLayers - UInt(1)
+        table(io.control.resp.bits.tableIndex).currentNodeInLayer := UInt(0)
+        table(io.control.resp.bits.tableIndex).nodesInCurrentLayer := io.control.resp.bits.data(0)
+        table(io.control.resp.bits.tableIndex).nodesInNextLayer := io.control.resp.bits.data(1)
+        table(io.control.resp.bits.tableIndex).neuronPointer := io.control.resp.bits.data(2)
         // Update the inFirst and inLast Bools. The currentLayer
         // should have already been updated when the request went out.
-        table(io.dana.resp.bits.tableIndex).inFirst :=
-          table(io.dana.resp.bits.tableIndex).currentLayer !=
-          table(io.dana.resp.bits.tableIndex).numLayers - UInt(1)
-        table(io.dana.resp.bits.tableIndex).inLast :=
-          table(io.dana.resp.bits.tableIndex).currentLayer ===
-          table(io.dana.resp.bits.tableIndex).numLayers - UInt(1)
+        table(io.control.resp.bits.tableIndex).inFirst :=
+          table(io.control.resp.bits.tableIndex).currentLayer !=
+          table(io.control.resp.bits.tableIndex).numLayers - UInt(1)
+        table(io.control.resp.bits.tableIndex).inLast :=
+          table(io.control.resp.bits.tableIndex).currentLayer ===
+          table(io.control.resp.bits.tableIndex).numLayers - UInt(1)
         // [TODO] This right shift is probably fucked
-        table(io.dana.resp.bits.tableIndex).regBlockIndexIn :=
-          table(io.dana.resp.bits.tableIndex).regBlockInNext << UInt(log2Up(elementsPerBlock))
-        table(io.dana.resp.bits.tableIndex).countUsedRegisters := UInt(0)
+        table(io.control.resp.bits.tableIndex).regBlockIndexIn :=
+          table(io.control.resp.bits.tableIndex).regBlockInNext << UInt(log2Up(elementsPerBlock))
+        table(io.control.resp.bits.tableIndex).countUsedRegisters := UInt(0)
         // The tTable is no longer waiting after receiving layer info
-        table(io.dana.resp.bits.tableIndex).waiting := Bool(false)
+        table(io.control.resp.bits.tableIndex).waiting := Bool(false)
       }
       is(e_TTABLE_DONE) {
-        table(io.dana.resp.bits.tableIndex).cacheValid := Bool(true)
+        table(io.control.resp.bits.tableIndex).cacheValid := Bool(true)
       }
       is (e_TTABLE_INCREMENT_NODE) {
         // [TODO] The waiting bit shouldn't always be set...
-        table(io.dana.resp.bits.tableIndex).currentNode :=
-          table(io.dana.resp.bits.tableIndex).currentNode + UInt(1)
+        table(io.control.resp.bits.tableIndex).currentNode :=
+          table(io.control.resp.bits.tableIndex).currentNode + UInt(1)
         // [TODO] This currentNodeInLayer is always incremented and I
         // think this is okay as the value will be reset when a Layer
         // Info request gets serviced.
-        table(io.dana.resp.bits.tableIndex).currentNodeInLayer :=
-          table(io.dana.resp.bits.tableIndex).currentNodeInLayer + UInt(1)
-        table(io.dana.resp.bits.tableIndex).inFirst :=
-          table(io.dana.resp.bits.tableIndex).currentLayer === UInt(0)
-        table(io.dana.resp.bits.tableIndex).inLast :=
-          table(io.dana.resp.bits.tableIndex).currentLayer ===
-          table(io.dana.resp.bits.tableIndex).numLayers - UInt(1)
+        table(io.control.resp.bits.tableIndex).currentNodeInLayer :=
+          table(io.control.resp.bits.tableIndex).currentNodeInLayer + UInt(1)
+        table(io.control.resp.bits.tableIndex).inFirst :=
+          table(io.control.resp.bits.tableIndex).currentLayer === UInt(0)
+        table(io.control.resp.bits.tableIndex).inLast :=
+          table(io.control.resp.bits.tableIndex).currentLayer ===
+          table(io.control.resp.bits.tableIndex).numLayers - UInt(1)
         // If we're at the end of a layer, we need new layer
         // information
-        when(table(io.dana.resp.bits.tableIndex).currentNodeInLayer ===
-          table(io.dana.resp.bits.tableIndex).nodesInCurrentLayer - UInt(2)) {
-          table(io.dana.resp.bits.tableIndex).needsLayerInfo := Bool(true)
-          table(io.dana.resp.bits.tableIndex).currentLayer :=
-            table(io.dana.resp.bits.tableIndex).currentLayer + UInt(1)
+        when(table(io.control.resp.bits.tableIndex).currentNodeInLayer ===
+          table(io.control.resp.bits.tableIndex).nodesInCurrentLayer - UInt(2)) {
+          table(io.control.resp.bits.tableIndex).needsLayerInfo := Bool(true)
+          table(io.control.resp.bits.tableIndex).currentLayer :=
+            table(io.control.resp.bits.tableIndex).currentLayer + UInt(1)
         } .otherwise {
-          table(io.dana.resp.bits.tableIndex).needsLayerInfo := Bool(false)
-          table(io.dana.resp.bits.tableIndex).currentLayer :=
-            table(io.dana.resp.bits.tableIndex).currentLayer
+          table(io.control.resp.bits.tableIndex).needsLayerInfo := Bool(false)
+          table(io.control.resp.bits.tableIndex).currentLayer :=
+            table(io.control.resp.bits.tableIndex).currentLayer
         }
       }
     }
   }
+
+  // Deal with requests from the PE Table. [TODO] This is a somewhat
+  // verbose implementation with a largely unused portion of this
+  // response pipeline.
+  val peRespPipe = Vec.fill(2){Reg(Valid(new PETransactionTableInterfaceResp))}
+  val peRespIndex = Reg(next = io.peTable.req.bits.tableIndex)
+  peRespPipe(0).valid := Bool(false)
+  when (io.peTable.req.valid) {
+    // This is either a read or a write request
+    when (!io.peTable.req.bits.isWrite) { // This is a read req
+      // [TODO] This is using the first address, which should be fine,
+      // but there are technically two that we can play with if
+      // needed. There may be unintended consequences if some read
+      // happens to follow a read very closely.
+      mem(io.peTable.req.bits.peIndex).addr(0)
+      peRespPipe(0).valid := Bool(true)
+      peRespPipe(0).bits.peIndex := io.peTable.req.bits.peIndex
+    } .otherwise { // This is a write req
+
+    }
+  }
+  // Package up the memory response for the response to the PE Table
+  peRespPipe(1) := peRespPipe(0)
+  when (peRespPipe(0).valid) {
+    peRespPipe(1).bits.data := mem(peRespIndex).dout(0)
+  }
+  io.peTable.resp.valid := peRespPipe(1).valid
+  io.peTable.resp.bits.peIndex := peRespPipe(1).bits.peIndex
+  io.peTable.resp.bits.data := peRespPipe(1).bits.data
 
   // Round Robin Arbitration of Transaction Table entries. One of
   // these is passed out over an interface to DANA's control module.
@@ -291,7 +321,7 @@ class TransactionTable extends DanaModule()() {
     entryArbiter.io.in(i).bits.neuronPointer := table(i).neuronPointer
     entryArbiter.io.in(i).bits.decimalPoint := table(i).decimalPoint
   }
-  io.dana.req <> entryArbiter.io.out
+  io.control.req <> entryArbiter.io.out
 
   // Assertions
 
@@ -300,7 +330,7 @@ class TransactionTable extends DanaModule()() {
   assert(!io.arbiter.req.valid || io.arbiter.req.ready,
     "Inbound arbiter request when Transaction Table not ready")
   // Only one inbound request or response can currently be handled
-  assert(!io.arbiter.req.valid || !io.dana.resp.valid,
+  assert(!io.arbiter.req.valid || !io.control.resp.valid,
     "Received simultaneous requests on the TransactionTable")
 }
 
@@ -314,6 +344,6 @@ class TransactionTableTests(uut: TransactionTable, isTrace: Boolean = true)
     newWriteRequest(uut.io.arbiter, tid, nnid)
     writeRndData(uut.io.arbiter, tid, nnid, 5, 10)
     info(uut)
-    poke(uut.io.dana.req.ready, 1)
+    poke(uut.io.control.req.ready, 1)
   }
 }

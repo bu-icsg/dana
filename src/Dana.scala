@@ -24,11 +24,12 @@ class Dana extends DanaModule()() {
 
   // Wire everything up. Ordering shouldn't matter here.
   io.arbiter <> tTable.io.arbiter
-  tTable.io.dana <> control.io.tTable
+  tTable.io.control <> control.io.tTable
   cache.io.control <> control.io.cache
   cache.io.mem <> mem.io.cache
   control.io.peTable <> peTable.io.control
   peTable.io.cache <> cache.io.pe
+  peTable.io.tTable <> tTable.io.peTable
 }
 
 class DanaTests(uut: Dana, isTrace: Boolean = true)

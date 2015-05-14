@@ -33,13 +33,25 @@ class PERegisterFileInterface extends DanaBundle()() {
   }).flip
 }
 
+class PETransactionTableInterfaceResp extends DanaBundle()() {
+  val peIndex = UInt(width = log2Up(peTableNumEntries))
+  val data = UInt(width = bitsPerBlock)
+}
+
 class PETransactionTableInterface extends DanaBundle()() {
+  // Communication with the Transaction Table for some data from an IO
+  // memory. SV equivalents:
+  //   * pe2nn_table_read_struct
+  //   * pe2nn_table_write_sruct
+  //   * nntable2pe_struct
   val req = Decoupled(new DanaBundle()() {
-    val foo = Bool()
+    val isWrite = Bool()
+    val peIndex = UInt(width = log2Up(peTableNumEntries))
+    val tableIndex = UInt(width = log2Up(transactionTableNumEntries))
+    val addr = UInt(width = log2Up(transactionTableSramBlocks))
+    val data = UInt(width = bitsPerBlock)
   })
-  val resp = Decoupled(new DanaBundle()() {
-    val bar = Bool()
-  }).flip
+  val resp = Decoupled(new PETransactionTableInterfaceResp).flip
 }
 
 class PETableInterface extends DanaBundle()() {
@@ -78,10 +90,6 @@ class ProcessingElementState extends DanaBundle()() {
 class ProcessingElementTable extends DanaModule()() {
   val io = new PETableInterface
 
-  // [TODO] Placeholder values for Transaction Table interface
-  io.tTable.req.valid := Bool(false)
-  io.tTable.req.bits.foo := Bool(false)
-  io.tTable.resp.ready := Bool(false)
   // [TODO] Placeholder values for Register File interface
   io.registerFile.req.valid := Bool(false)
   io.registerFile.req.bits.foo := Bool(false)
@@ -124,6 +132,15 @@ class ProcessingElementTable extends DanaModule()() {
   io.cache.req.bits.peIndex := UInt(0)
   io.cache.req.bits.cacheIndex := UInt(0)
   io.cache.req.bits.cacheAddr := UInt(0)
+  io.cache.resp.ready := Bool(true) // [TODO] placeholder
+  // Default values for TTable interface
+  io.tTable.req.valid := Bool(false)
+  io.tTable.req.bits.isWrite := Bool(false)
+  io.tTable.req.bits.peIndex := UInt(0)
+  io.tTable.req.bits.tableIndex := UInt(0)
+  io.tTable.req.bits.addr := UInt(0)
+  io.tTable.req.bits.data := UInt(0)
+  io.tTable.resp.ready := Bool(true) // [TODO] placeholder
   // Default values for PE connections
   for (i <- 0 until peTableNumEntries) {
     pe(i).req.valid := Bool(false)
@@ -199,6 +216,12 @@ class ProcessingElementTable extends DanaModule()() {
     // pe(io.cache.resp.bits.peIndex).req.valid := Bool(true)
   }
 
+  // Deal with any responses from the Transaction Table
+  when (io.tTable.resp.valid) {
+    table(io.tTable.resp.bits.peIndex).inBlock := io.tTable.resp.bits.data
+    table(io.tTable.resp.bits.peIndex).inValid := Bool(true)
+  }
+
   // Round robin arbitration of PE Table entries
   val peArbiter = Module(new RRArbiter(new ProcessingElementResp,
     peTableNumEntries))
@@ -226,8 +249,18 @@ class ProcessingElementTable extends DanaModule()() {
         pe(peArbiter.io.out.bits.index).req.valid := Bool(true)
       }
       is (e_PE_REQUEST_INPUTS_AND_WEIGHTS) {
-        // Send a request to the IO storage or the register file for
-        // inputs
+        // Send a request to the Transaction Table (IO Storage area)
+        // or to the Register File to pull out this data
+        when (table(peArbiter.io.out.bits.index).inLoc === e_LOCATION_IO) {
+          io.tTable.req.valid := Bool(true)
+          io.tTable.req.bits.isWrite := Bool(false)
+          io.tTable.req.bits.peIndex := peArbiter.io.out.bits.index
+          io.tTable.req.bits.tableIndex := table(peArbiter.io.out.bits.index).tIdx
+          io.tTable.req.bits.addr := table(peArbiter.io.out.bits.index).inIdx >>
+            UInt(log2Up(elementsPerBlock))
+        } .otherwise {
+          // [TODO] Unimplemented
+        }
 
         // Send a request to the cache for weights
         io.cache.req.valid := Bool(true)
