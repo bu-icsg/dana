@@ -188,11 +188,11 @@ class ProcessingElementTable extends DanaModule()() {
       i * cacheRespVec(i).getWidth), cacheRespVec(i)))
   // Deal with the cache response if one exists.
   when (io.cache.resp.valid) {
+    peIndex := io.cache.resp.bits.peIndex
     switch (io.cache.resp.bits.field) {
       is (e_CACHE_NEURON) {
         // [TODO] Fragile on increases to widthActivationFunction or
         // widthSteepness.
-        peIndex := io.cache.resp.bits.peIndex
         indexIntoData := io.cache.resp.bits.indexIntoData
         table(peIndex).weightPtr := cacheRespVec(indexIntoData).weightPtr
         table(peIndex).numWeights := cacheRespVec(indexIntoData).numWeights
@@ -202,15 +202,19 @@ class ProcessingElementTable extends DanaModule()() {
         pe(peIndex).req.valid := Bool(true)
       }
       is (e_CACHE_WEIGHT) {
-        table(io.cache.resp.bits.peIndex).weightPtr :=
-          table(io.cache.resp.bits.peIndex).weightPtr +
-          UInt(elementsPerBlock * elementWidth / 8)
-        table(io.cache.resp.bits.peIndex).weightBlock := io.cache.resp.bits.data
-        table(io.cache.resp.bits.peIndex).weightValid := Bool(true)
-        table(io.cache.resp.bits.peIndex).numWeights :=
-          Mux(table(io.cache.resp.bits.peIndex).numWeights < UInt(elementsPerBlock),
-            UInt(0), table(io.cache.resp.bits.peIndex).numWeights -
-              UInt(elementsPerBlock))
+        table(peIndex).weightPtr :=
+          table(peIndex).weightPtr + UInt(elementsPerBlock * elementWidth / 8)
+        table(peIndex).weightBlock := io.cache.resp.bits.data
+        table(peIndex).weightValid := Bool(true)
+        table(peIndex).numWeights :=
+          Mux(table(peIndex).numWeights < UInt(elementsPerBlock),
+            UInt(0), table(peIndex).numWeights - UInt(elementsPerBlock))
+        // Kick the PE if the input is valid or will be valid
+        when (table(peIndex).inValid || io.tTable.resp.valid) {
+          pe(peIndex).req.valid := Bool(true)
+          table(peIndex).weightValid := Bool(false)
+          table(peIndex).inValid := Bool(false)
+        }
       }
     }
     // pe(io.cache.resp.bits.peIndex).req.valid := Bool(true)
@@ -220,6 +224,11 @@ class ProcessingElementTable extends DanaModule()() {
   when (io.tTable.resp.valid) {
     table(io.tTable.resp.bits.peIndex).inBlock := io.tTable.resp.bits.data
     table(io.tTable.resp.bits.peIndex).inValid := Bool(true)
+    when (table(io.tTable.resp.bits.peIndex).weightValid) {
+      pe(io.tTable.resp.bits.peIndex).req.valid := Bool(true)
+      table(peIndex).weightValid := Bool(false)
+      table(peIndex).inValid := Bool(false)
+    }
   }
 
   // Round robin arbitration of PE Table entries
@@ -286,6 +295,11 @@ class ProcessingElementTable extends DanaModule()() {
   // entries in the PE Table
   assert( !io.control.req.valid || hasFree,
     "Control module trying to assign PE, but no free entries in PE Table")
+  // I'm using some kludgy logic spread across two when blocks to
+  // handle kicking the PE when the inputs and weights are valid. The
+  // way this is written, any PE Table entry should never be in a
+  // state where its input and weight are valid, but it hasn't jumped
+  // to state 5. Likewise, it shouldn't be in state 5
 
   // [TODO] Debug info to be removed
   for (i <- 0 until peTableNumEntries) {
@@ -306,7 +320,5 @@ class ProcessingElementTable extends DanaModule()() {
     debug(table(i).activationFunction)
     debug(table(i).steepness)
     debug(table(i).bias)
-    debug(table(i).weightValid)
-    debug(table(i).inValid)
   }
 }
