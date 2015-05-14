@@ -139,13 +139,13 @@ class ProcessingElementTable extends DanaModule()() {
     table(nextFree).tid := io.control.req.bits.tid
     table(nextFree).cIdx := io.control.req.bits.cacheIndex
     table(nextFree).nnNode := io.control.req.bits.neuronIndex
-    table(nextFree).inIdx := io.control.req.bits.locationInput
-    table(nextFree).outIdx := io.control.req.bits.locationOutput
+    table(nextFree).inLoc := io.control.req.bits.locationInput
+    table(nextFree).outLoc := io.control.req.bits.locationOutput
     table(nextFree).neuronPtr := io.control.req.bits.neuronPointer
     table(nextFree).weightPtr := SInt(-1)
     table(nextFree).decimalPoint := io.control.req.bits.decimalPoint
-    table(nextFree).inLoc := io.control.req.bits.inputIndex
-    table(nextFree).outLoc := io.control.req.bits.outputIndex
+    table(nextFree).inIdx := io.control.req.bits.inputIndex
+    table(nextFree).outIdx := io.control.req.bits.outputIndex
     table(nextFree).lastInLayer := Bool(false) // [TODO] not sure about this
     table(nextFree).inBlock := SInt(-1)
     table(nextFree).weightBlock := SInt(-1)

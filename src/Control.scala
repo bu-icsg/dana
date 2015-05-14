@@ -168,9 +168,9 @@ class Control extends DanaModule()() {
         io.tTable.req.bits.currentNodeInLayer, // neuronIndex
         // Clever input/output location determination
         Mux(io.tTable.req.bits.inFirst, e_LOCATION_IO,
-          io.tTable.req.bits.currentLayer(0)), // locationInput
+          !io.tTable.req.bits.currentLayer(0)), // locationInput
         Mux(io.tTable.req.bits.inLast, e_LOCATION_IO,
-          !io.tTable.req.bits.currentLayer(0)), // locationOutput
+          io.tTable.req.bits.currentLayer(0)), // locationOutput
         // The input index is always zero as we need to start reading
         // from the initial position of the IO Storage / Register File
         UInt(0), // inputIndex is always zero

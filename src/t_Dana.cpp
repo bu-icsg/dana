@@ -296,13 +296,13 @@ int t_Dana::info_petable() {
     std::cout << "|" << get_dat_by_name(string_field.str())->get_value().erase(0,2);
     // [TODO] This should read out the state of the PE managed by this
     // PE Table entry
-    // Weight Valid
-    string_field.str("");
-    string_field << string_table << i << "_weightValid";
-    std::cout << "| " << get_dat_by_name(string_field.str())->get_value().erase(0,2);
     // Input Valid
     string_field.str("");
     string_field << string_table << i << "_inValid";
+    std::cout << "| " << get_dat_by_name(string_field.str())->get_value().erase(0,2);
+    // Weight Valid
+    string_field.str("");
+    string_field << string_table << i << "_weightValid";
     std::cout << "| " << get_dat_by_name(string_field.str())->get_value().erase(0,2);
     // Transaction ID
     string_field.str("");
