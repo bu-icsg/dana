@@ -122,7 +122,7 @@ int t_Dana::write_rnd_data(int tid, int nnid, int num, int decimal) {
     dana->Dana__io_arbiter_req_bits_isNew = 0;
     dana->Dana__io_arbiter_req_bits_readOrWrite = 1;
     dana->Dana__io_arbiter_req_bits_isLast = (i == num - 1);
-    dana->Dana__io_arbiter_req_bits_data = i;
+    dana->Dana__io_arbiter_req_bits_data = 256;
     tick_hi(0);
 
   }
@@ -281,9 +281,9 @@ int t_Dana::info_cache_table() {
 }
 
 int t_Dana::info_petable() {
-  std::cout << "-------------------------------------------------------------------------------------------\n";
-  std::cout << "|S|IV|WV| TID|tIdx|CIdx|Node|inLoc|outLoc|InIdx|OutIdx|   &N|   &W|DP|LiL|#W|AF|S|    Bias| <- PE Table\n";
-  std::cout << "-------------------------------------------------------------------------------------------\n";
+  std::cout << "----------------------------------------------------------------------------------------------------\n";
+  std::cout << "|S|IV|WV| TID|tIdx|CIdx|Node|inLoc|outLoc|InIdx|OutIdx|   &N|   &W|DP|LiL|#W|AF|S|    Bias|     Acc| <- PE Table\n";
+  std::cout << "----------------------------------------------------------------------------------------------------\n";
   std::string string_table("Dana.peTable.table_");
   std::string string_pe("Dana.peTable.ProcessingElement");
   std::stringstream string_field("");
@@ -376,6 +376,12 @@ int t_Dana::info_petable() {
     string_field.str("");
     string_field << string_table << i << "_bias";
     std::cout << "|" << get_dat_by_name(string_field.str())->get_value().erase(0,2);
+    // Accumulator
+    string_field.str("");
+    string_field << "Dana.peTable.ProcessingElement";
+    if (i > 0) string_field << "_" << i;
+    string_field << ".acc";
+    std::cout << "|" << get_dat_by_name(string_field.str())->get_value().erase(0,2);
     // Inputs for this PE
     string_field.str("");
     string_field << string_table << i << "_inBlock";
@@ -458,7 +464,7 @@ int main (int argc, char* argv[]) {
   api->new_write_request(1, 17);
   api->info();
   api->write_rnd_data(1, 17, 10, 6);
-  for (int i = 0; i < 30; i++) {
+  for (int i = 0; i < 50; i++) {
     api->tick(1, 0);
     api->info();
   }

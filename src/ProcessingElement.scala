@@ -41,8 +41,8 @@ class ProcessingElement extends DanaModule()() {
   // Interface to the PE Table
   val io = new ProcessingElementInterface
 
-  val index = Reg(init = UInt(0))
-  val indexBlock = Reg(init = UInt(0))
+  val index = Reg(init = UInt(0, width = log2Up(elementsPerBlock)))
+  val indexBlock = Reg(init = UInt(0, width = log2Up(transactionTableSramBlocks)))
   val acc = Reg(init = SInt(0, width = elementWidth))
   val dataOut = Reg(init = SInt(0, width = elementWidth))
 
@@ -71,13 +71,14 @@ class ProcessingElement extends DanaModule()() {
     io.resp.valid := Bool(true)
   } .elsewhen (state === e_PE_WAIT_FOR_INFO) {
     state := Mux(io.req.valid, e_PE_REQUEST_INPUTS_AND_WEIGHTS, state)
+    acc := io.req.bits.bias
   } .elsewhen (state === e_PE_REQUEST_INPUTS_AND_WEIGHTS) {
     state := Mux(io.req.valid, e_PE_WAIT_FOR_INPUTS_AND_WEIGHTS, state)
     io.resp.valid := Bool(true)
   } .elsewhen (state === e_PE_WAIT_FOR_INPUTS_AND_WEIGHTS) {
     state := Mux(io.req.valid, e_PE_RUN, state)
   } .elsewhen (state === e_PE_RUN) {
-    when (index === (io.req.bits.numElements - UInt(2))) {
+    when (index >= (io.req.bits.numElements - UInt(2))) {
       state := e_PE_DONE
     } .elsewhen (index === UInt(elementsPerBlock - 2)) {
       state := e_PE_REQUEST_INPUTS_AND_WEIGHTS
