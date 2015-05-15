@@ -205,15 +205,16 @@ class ProcessingElementTable extends DanaModule()() {
         table(peIndex).weightPtr :=
           table(peIndex).weightPtr + UInt(elementsPerBlock * elementWidth / 8)
         table(peIndex).weightBlock := io.cache.resp.bits.data
-        table(peIndex).weightValid := Bool(true)
         table(peIndex).numWeights :=
           Mux(table(peIndex).numWeights < UInt(elementsPerBlock),
             UInt(0), table(peIndex).numWeights - UInt(elementsPerBlock))
-        // Kick the PE if the input is valid or will be valid
+        // Kick the PE if the input is valid or will be valid.
         when (table(peIndex).inValid || io.tTable.resp.valid) {
           pe(peIndex).req.valid := Bool(true)
           table(peIndex).weightValid := Bool(false)
           table(peIndex).inValid := Bool(false)
+        } .otherwise {
+          table(peIndex).weightValid := Bool(true)
         }
       }
     }
@@ -223,11 +224,12 @@ class ProcessingElementTable extends DanaModule()() {
   // Deal with any responses from the Transaction Table
   when (io.tTable.resp.valid) {
     table(io.tTable.resp.bits.peIndex).inBlock := io.tTable.resp.bits.data
-    table(io.tTable.resp.bits.peIndex).inValid := Bool(true)
     when (table(io.tTable.resp.bits.peIndex).weightValid) {
       pe(io.tTable.resp.bits.peIndex).req.valid := Bool(true)
       table(peIndex).weightValid := Bool(false)
       table(peIndex).inValid := Bool(false)
+    } .otherwise {
+      table(io.tTable.resp.bits.peIndex).inValid := Bool(true)
     }
   }
 
