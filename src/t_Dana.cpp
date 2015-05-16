@@ -342,7 +342,10 @@ int t_Dana::info_petable() {
     std::cout << "|" << get_dat_by_name(string_field.str())->get_value().erase(0,2);
     // Weight Pointer
     string_field.str("");
-    string_field << string_table << i << "_weightPtr_1_1";
+    if (i < 3)
+      string_field << string_table << i << "_weightPtr_1_1";
+    else
+      string_field << string_table << i << "_weightPtr";
     std::cout << "|" << get_dat_by_name(string_field.str())->get_value().erase(0,2);
     // Decimal Point
     string_field.str("");
@@ -362,7 +365,10 @@ int t_Dana::info_petable() {
     // std::cout << "|  " << get_dat_by_name(string_field.str())->get_value().erase(0,2);
     // Num Weights
     string_field.str("");
-    string_field << string_table << i << "_numWeights_1_1";
+    if (i < 3)
+      string_field << string_table << i << "_numWeights_1_1";
+    else
+      string_field << string_table << i << "_numWeights";
     std::cout << "|" << get_dat_by_name(string_field.str())->get_value().erase(0,2);
     // Activation Function
     string_field.str("");
