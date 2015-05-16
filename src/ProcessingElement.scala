@@ -13,7 +13,6 @@ class ProcessingElementReq extends DanaBundle()() {
   val decimalPoint = UInt(INPUT, decimalPointWidth)
   val steepness = UInt(INPUT, steepnessWidth)
   val activationFunction = UInt(INPUT, activationFunctionWidth)
-  val numElements = UInt(INPUT)
   val bias = SInt(INPUT, elementWidth)
   val iBlock = Vec.fill(elementsPerBlock){SInt(INPUT, elementWidth)}
   val wBlock = Vec.fill(elementsPerBlock){SInt(INPUT, elementWidth)}
@@ -49,6 +48,10 @@ class ProcessingElement extends DanaModule()() {
   // [TODO] fragile on PE stateu enum (Common.scala)
   val state = Reg(UInt(width = log2Up(8)), init = e_PE_UNALLOCATED)
 
+  // Local state storage. Any and all of these are possible kludges
+  // which could be implemented more cleanly.
+  val hasBias = Reg(Bool())
+
   // Default values
   acc := acc
   io.req.ready := Bool(false)
@@ -66,21 +69,28 @@ class ProcessingElement extends DanaModule()() {
     acc := SInt(0)
     index := UInt(0)
     indexBlock := UInt(0)
+    hasBias := Bool(false)
   } .elsewhen (state === e_PE_GET_INFO) {
     state := Mux(io.req.valid, e_PE_WAIT_FOR_INFO, state)
     io.resp.valid := Bool(true)
   } .elsewhen (state === e_PE_WAIT_FOR_INFO) {
     state := Mux(io.req.valid, e_PE_REQUEST_INPUTS_AND_WEIGHTS, state)
-    acc := io.req.bits.bias
   } .elsewhen (state === e_PE_REQUEST_INPUTS_AND_WEIGHTS) {
     state := Mux(io.req.valid, e_PE_WAIT_FOR_INPUTS_AND_WEIGHTS, state)
     io.resp.valid := Bool(true)
+    // If hasBias is false, then this is the first time we're in this
+    // state and we need to load the bias into the accumulator
+    when (hasBias === Bool(false)) {
+      hasBias := Bool(true)
+      acc := io.req.bits.bias
+    }
   } .elsewhen (state === e_PE_WAIT_FOR_INPUTS_AND_WEIGHTS) {
     state := Mux(io.req.valid, e_PE_RUN, state)
   } .elsewhen (state === e_PE_RUN) {
-    when (index >= (io.req.bits.numElements - UInt(2))) {
+    // [TOOD] This logic is broken for some reason
+    when (index === (io.req.bits.numWeights - UInt(1))) {
       state := e_PE_DONE
-    } .elsewhen (index === UInt(elementsPerBlock - 2)) {
+    } .elsewhen (index === UInt(elementsPerBlock - 1)) {
       state := e_PE_REQUEST_INPUTS_AND_WEIGHTS
       indexBlock := indexBlock + UInt(1)
     } .otherwise {

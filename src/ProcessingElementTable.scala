@@ -107,7 +107,7 @@ class ProcessingElementTable extends DanaModule()() {
     pe(i).req.bits.decimalPoint := table(i).decimalPoint
     pe(i).req.bits.steepness := table(i).steepness
     pe(i).req.bits.activationFunction := table(i).activationFunction
-    pe(i).req.bits.numElements := table(i).numWeights
+    pe(i).req.bits.numWeights := table(i).numWeights
     pe(i).req.bits.bias := table(i).bias
     // pe(i).validIn
     for (j <- 0 until elementsPerBlock) {
@@ -195,8 +195,10 @@ class ProcessingElementTable extends DanaModule()() {
         // widthSteepness.
         indexIntoData := io.cache.resp.bits.indexIntoData
         table(peIndex).weightPtr := cacheRespVec(indexIntoData).weightPtr
-        table(peIndex).numWeights := cacheRespVec(indexIntoData).numWeights
-        table(peIndex).activationFunction := cacheRespVec(indexIntoData).activationFunction
+        table(peIndex).numWeights :=
+          cacheRespVec(indexIntoData).numWeights + UInt(elementsPerBlock)
+        table(peIndex).activationFunction :=
+          cacheRespVec(indexIntoData).activationFunction
         table(peIndex).steepness := cacheRespVec(indexIntoData).steepness
         table(peIndex).bias := cacheRespVec(indexIntoData).bias
         pe(peIndex).req.valid := Bool(true)
