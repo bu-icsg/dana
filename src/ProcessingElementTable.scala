@@ -25,11 +25,24 @@ class PECacheInterface extends DanaBundle()() {
 }
 
 class PERegisterFileInterface extends DanaBundle()() {
+  // Outbound reguest / inbound response. nnsim-hdl equivalents:
+  //   * pe_types::pe2reg_file_read_struct
+  //   * pe_types::pe2reg_file_write_struct
+  //   * pe_types::reg_file2pe_struct
   val req = Decoupled(new DanaBundle()() {
-    val foo = Bool()
+    // The register index should go down to the element level
+    val isWrite = Bool()
+    val regIndex = UInt(width = log2Up(regFileNumElements))
+    val peIndex = UInt(width = log2Up(peTableNumEntries))
+    val tIdx = UInt(width = log2Up(transactionTableNumEntries))
+    val location = UInt(width = 1)
+    val data = UInt(width = elementWidth)
   })
   val resp = Decoupled(new DanaBundle()() {
-    val bar = Bool()
+    // [TODO] I'm excluding valid_reg_mask as I think this is
+    // unnecessary for the current asynchronous model.
+    val peIndex = UInt(width = log2Up(peTableNumEntries))
+    val data = UInt(width = bitsPerBlock)
   }).flip
 }
 
@@ -57,7 +70,7 @@ class PETransactionTableInterface extends DanaBundle()() {
 class PETableInterface extends DanaBundle()() {
   val control = (new ControlPETableInterface).flip
   val cache = new PECacheInterface
-  val registerFile = new PERegisterFileInterface
+  val regFile = new PERegisterFileInterface
   val tTable = new PETransactionTableInterface
 }
 
@@ -89,11 +102,6 @@ class ProcessingElementState extends DanaBundle()() {
 
 class ProcessingElementTable extends DanaModule()() {
   val io = new PETableInterface
-
-  // [TODO] Placeholder values for Register File interface
-  io.registerFile.req.valid := Bool(false)
-  io.registerFile.req.bits.foo := Bool(false)
-  io.registerFile.resp.ready := Bool(false)
 
   // Create the table with the specified top-level parameters. Derived
   // parameters should not be touched.
@@ -145,6 +153,15 @@ class ProcessingElementTable extends DanaModule()() {
   for (i <- 0 until peTableNumEntries) {
     pe(i).req.valid := Bool(false)
   }
+  // Default values for Register File interface
+  io.regFile.req.valid := Bool(false)
+  io.regFile.req.bits.isWrite := Bool(false)
+  io.regFile.req.bits.regIndex := UInt(0)
+  io.regFile.req.bits.peIndex := UInt(0)
+  io.regFile.req.bits.tIdx := UInt(0)
+  io.regFile.req.bits.location := UInt(0)
+  io.regFile.req.bits.data := UInt(0)
+  io.regFile.resp.ready := Bool(true) // [TOOD] placeholder
 
   // Wire up all the processing elements
   for (i <- 0 until peTableNumEntries) {
@@ -272,7 +289,12 @@ class ProcessingElementTable extends DanaModule()() {
           io.tTable.req.bits.addr := table(peArbiter.io.out.bits.index).inIdx >>
             UInt(log2Up(elementsPerBlock))
         } .otherwise {
-          // [TODO] Unimplemented
+          // [TODO] untested
+          io.regFile.req.valid := Bool(true)
+          io.regFile.req.bits.isWrite := Bool(false) // unecessary to specify
+          io.regFile.req.bits.regIndex := table(peArbiter.io.out.bits.index).inIdx
+          io.regFile.req.bits.tIdx := table(peArbiter.io.out.bits.index).tIdx
+          io.regFile.req.bits.location := table(peArbiter.io.out.bits.index).inLoc
         }
 
         // Send a request to the cache for weights
@@ -284,7 +306,23 @@ class ProcessingElementTable extends DanaModule()() {
         pe(peArbiter.io.out.bits.index).req.valid := Bool(true)
       }
       is (e_PE_DONE) {
-        // Send the output value where it needs to go
+        // Send the output value where it needs to go, based on
+        // location
+        when (table(peArbiter.io.out.bits.index).outLoc === e_LOCATION_IO) {
+          // [TODO] This is untested
+          io.tTable.req.valid := Bool(true)
+          io.tTable.req.bits.isWrite := Bool(true)
+          io.tTable.req.bits.tableIndex := table(peArbiter.io.out.bits.index).tIdx
+          io.tTable.req.bits.addr := table(peArbiter.io.out.bits.index).outIdx
+        } .otherwise { // The location is the register file
+          io.regFile.req.valid := Bool(true)
+          io.regFile.req.bits.isWrite := Bool(true)
+          io.regFile.req.bits.regIndex := table(peArbiter.io.out.bits.index).outIdx
+          io.regFile.req.bits.tIdx := table(peArbiter.io.out.bits.index).tIdx
+          io.regFile.req.bits.location := table(peArbiter.io.out.bits.index).outLoc
+          io.regFile.req.bits.data := peArbiter.io.out.bits.data
+        }
+        pe(peArbiter.io.out.bits.index).req.valid := Bool(true)
       }
     }
     // Kick the selected PE so that it jumps to a wait state
