@@ -100,11 +100,11 @@ class ActivationFunction extends DanaModule()() {
   inD0 := SInt(0)
 
     // FANN_THRESHOLD
-  when(io.req.bits.activationFunction === UInt(1)) {        // FANN_THRESHOLD
+  when(io.req.bits.activationFunction === e_FANN_THRESHOLD) {        // FANN_THRESHOLD
     when (io.req.bits.in <= SInt(0)) { out := SInt(0)
     } .otherwise { out := SInt(1) << decimal }
   } // FANN_THRESHOLD_SYMMETRIC
-    .elsewhen(io.req.bits.activationFunction === UInt(2)) {
+    .elsewhen(io.req.bits.activationFunction === e_FANN_THRESHOLD_SYMMETRIC) {
     when (io.req.bits.in < SInt(0)) {
       out := SInt(-1, width=elementWidth) << decimal
     } .elsewhen(io.req.bits.in === SInt(0)) {
@@ -112,8 +112,8 @@ class ActivationFunction extends DanaModule()() {
     } .otherwise {
       out := SInt(1) << decimal }
   } // FANN_SIGMOID and STEPWISE
-    .elsewhen(io.req.bits.activationFunction === UInt(3) ||
-    io.req.bits.activationFunction === UInt(4)) {
+    .elsewhen(io.req.bits.activationFunction === e_FANN_SIGMOID ||
+    io.req.bits.activationFunction === e_FANN_SIGMOID_STEPWISE) {
     // Adjust for the steepness
     when (io.req.bits.steepness < UInt(4)) {
       inD0 := io.req.bits.in >> (UInt(4) - io.req.bits.steepness)
@@ -139,8 +139,8 @@ class ActivationFunction extends DanaModule()() {
       out := SInt(1) << decimal
     }
   } // FANN_SIGMOID_SYMMETRIC and STEPWISE
-    .elsewhen(io.req.bits.activationFunction === UInt(5) ||
-    io.req.bits.activationFunction === UInt(6)) {
+    .elsewhen(io.req.bits.activationFunction === e_FANN_SIGMOID_SYMMETRIC ||
+    io.req.bits.activationFunction === e_FANN_SIGMOID_SYMMETRIC_STEPWISE) {
     // Adjust for the steepness
     when (io.req.bits.steepness < UInt(4)) {
       inD0 := io.req.bits.in >> (UInt(4) - io.req.bits.steepness)

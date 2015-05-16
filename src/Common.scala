@@ -117,6 +117,26 @@ abstract class DanaModule(
     e_LOCATION_REG_1 ::    // 1
     e_LOCATION_IO ::       // 2
     Nil) = Enum(UInt(), 3)
+  // FANN Activation Function enums. These should match FANN!
+  val (e_FANN_LINEAR ::                  // 0
+    e_FANN_THRESHOLD ::                  // 1
+    e_FANN_THRESHOLD_SYMMETRIC ::        // 2
+    e_FANN_SIGMOID ::                    // 3
+    e_FANN_SIGMOID_STEPWISE ::           // 4
+    e_FANN_SIGMOID_SYMMETRIC ::          // 5
+    e_FANN_SIGMOID_SYMMETRIC_STEPWISE :: // 6
+    e_FANN_GAUSSIAN ::                   // 7
+    e_FANN_GAUSSIAN_SYMMETRIC ::         // 8
+    e_FANN_GAUSSIAN_STEPWISE ::          // 9
+    e_FANN_ELLIOT ::                     // 10
+    e_FANN_ELLIOT_SYMMETRIC ::           // 11
+    e_FANN_LINEAR_PIECE ::               // 12
+    e_FANN_LINEAR_PIECE_SYMMETRIC ::     // 13
+    e_FANN_SIN_SYMMETRIC ::              // 14
+    e_FANN_COS_SYMMETRIC ::              // 15
+    e_FANN_SIN ::                        // 16
+    e_FANN_CO ::                         // 17
+    Nil) = Enum(UInt(), 18)
 }
 
 // Base class for all Bundle classes used in DANA. This sets all the
