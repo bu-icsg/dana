@@ -26,7 +26,7 @@ vpath %.scala $(DIR_SRC)
 vpath %.cpp $(DIR_SRC)
 vpath %.cpp $(DIR_BUILD)
 
-.PHONY: all phony clean test verilog vcd
+.PHONY: all phony clean test verilog vcd run
 
 default: all
 
@@ -60,6 +60,9 @@ build/t_Dana: $(OUTS) $(OBJECTS) $(TEST_OBJECTS)
 
 vcd: $(DIR_BUILD)/t_Dana.vcd Makefile
 	scripts/gtkwave $<
+
+run: $(DIR_BUILD)/t_Dana Makefile
+	./build/t_Dana
 
 verilog: $(HDLS)
 
