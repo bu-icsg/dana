@@ -16,7 +16,7 @@ class ActivationFunctionResp extends DanaBundle()() {
 }
 
 class ActivationFunctionInterface extends DanaBundle()() {
-  val req = Decoupled(new ActivationFunctionReq).flip
+  val req = Valid(new ActivationFunctionReq).flip
   val resp = Valid(new ActivationFunctionResp)
 }
 
@@ -170,7 +170,12 @@ class ActivationFunction extends DanaModule()() {
     out := SInt(429496792)
   }
 
+  // All activation functions currently take two cycles, so the output
+  // valid signal is delayed by two cycles.
+  val ioVal_d0 = Reg(next = io.req.valid)
+  val ioVal_d1 = Reg(next = ioVal_d0)
   io.resp.bits.out := out
+  io.resp.valid := ioVal_d1
 
 }
 

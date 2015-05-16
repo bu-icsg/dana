@@ -110,8 +110,9 @@ abstract class DanaModule(
     e_PE_REQUEST_INPUTS_AND_WEIGHTS ::  // 3
     e_PE_WAIT_FOR_INPUTS_AND_WEIGHTS :: // 4
     e_PE_RUN ::                         // 5
-    e_PE_DONE ::                        // 6
-    Nil) = Enum(UInt(), 7)
+    e_PE_ACTIVATION_FUNCTION ::         // 6
+    e_PE_DONE ::                        // 7
+    Nil) = Enum(UInt(), 8)
   // Location of inputs and outputs
   val (e_LOCATION_REG_0 :: // 0
     e_LOCATION_REG_1 ::    // 1

@@ -40,6 +40,9 @@ class ProcessingElement extends DanaModule()() {
   // Interface to the PE Table
   val io = new ProcessingElementInterface
 
+  // Activation Function module
+  val af = Module(new ActivationFunction)
+
   val index = Reg(init = UInt(0, width = log2Up(elementsPerBlock)))
   val indexBlock = Reg(init = UInt(0, width = log2Up(transactionTableSramBlocks)))
   val acc = Reg(init = SInt(0, width = elementWidth))
@@ -61,6 +64,7 @@ class ProcessingElement extends DanaModule()() {
   io.resp.bits.data := UInt(0)
   index := index
   indexBlock := indexBlock
+  af.io.req.valid := Bool(false)
 
   // State-driven logic
   when (state === e_PE_UNALLOCATED) {
@@ -89,7 +93,7 @@ class ProcessingElement extends DanaModule()() {
   } .elsewhen (state === e_PE_RUN) {
     // [TOOD] This logic is broken for some reason
     when (index === (io.req.bits.numWeights - UInt(1))) {
-      state := e_PE_DONE
+      state := e_PE_ACTIVATION_FUNCTION
     } .elsewhen (index === UInt(elementsPerBlock - 1)) {
       state := e_PE_REQUEST_INPUTS_AND_WEIGHTS
       indexBlock := indexBlock + UInt(1)
@@ -99,16 +103,18 @@ class ProcessingElement extends DanaModule()() {
     acc := acc + ((io.req.bits.iBlock(index) * io.req.bits.wBlock(index)) >>
       (io.req.bits.decimalPoint) >> UInt(decimalPointOffset))
     index := index + UInt(1)
+  } .elsewhen (state === e_PE_ACTIVATION_FUNCTION) {
+    af.io.req.valid := Bool(true)
+    state := Mux(af.io.resp.valid, e_PE_DONE, state)
   } .elsewhen (state === e_PE_DONE) {
     state := Mux(io.req.valid, e_PE_UNALLOCATED, state)
     io.resp.bits.data := dataOut
+    io.resp.valid := Bool(true)
   } .otherwise {
     // [TODO] currently unused, should this fire an assertion or
     // something?
   }
 
-  // Submodule instantiation
-  val af = Module(new ActivationFunction)
   af.io.req.bits.in := acc
   af.io.req.bits.decimal := io.req.bits.decimalPoint
   af.io.req.bits.steepness := io.req.bits.steepness
