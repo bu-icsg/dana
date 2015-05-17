@@ -470,7 +470,7 @@ int main (int argc, char* argv[]) {
   api->new_write_request(1, 17);
   api->info();
   api->write_rnd_data(1, 17, 10, 6);
-  for (int i = 0; i < 50; i++) {
+  for (int i = 0; i < 100; i++) {
     api->tick(1, 0);
     api->info();
   }

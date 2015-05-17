@@ -243,7 +243,12 @@ class TransactionTable extends DanaModule()() {
         // If we're at the end of a layer, we need new layer
         // information
         when(table(io.control.resp.bits.tableIndex).currentNodeInLayer ===
-          table(io.control.resp.bits.tableIndex).nodesInCurrentLayer - UInt(2)) {
+          // The comparison here differs from how this is handled in
+          // nn_instruction.v.
+          table(io.control.resp.bits.tableIndex).nodesInCurrentLayer - UInt(1) &&
+          table(io.control.resp.bits.tableIndex).currentLayer <
+          table(io.control.resp.bits.tableIndex).numLayers
+        ) {
           table(io.control.resp.bits.tableIndex).needsLayerInfo := Bool(true)
           table(io.control.resp.bits.tableIndex).currentLayer :=
             table(io.control.resp.bits.tableIndex).currentLayer + UInt(1)

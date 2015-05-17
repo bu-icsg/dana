@@ -108,9 +108,9 @@ class Cache extends DanaModule()() {
     (0 until bitsPerBlock / 32).map(j => compressedLayers(i)(j) :=
       mem(i).dout(0)(32 * (j + 1) - 1, 32 * j))
     (0 until bitsPerBlock / 64).map(j => compressedNeurons(i)(j) :=
-      mem(i).dout(0)(64 * (j + 1) - 1, 64 * j))
+      mem(i).dout(1)(64 * (j + 1) - 1, 64 * j))
     (0 until bitsPerBlock / 32).map(j => compressedWeights(i)(j) :=
-      mem(i).dout(0)(64 * (j + 1) - 1, 64 * j))
+      mem(i).dout(1)(64 * (j + 1) - 1, 64 * j))
   }
 
   // Response Pipelines for Control module and PEs. Responses take multiple
@@ -185,15 +185,26 @@ class Cache extends DanaModule()() {
   controlRespPipe(1) := controlRespPipe(0)
   peRespPipe(1) := peRespPipe(0)
 
-  // debug(controlRespPipe)
-
+  // Default values for the memory input wires
   for (i <- 0 until cacheNumEntries) {
-    mem(i).din(0) := UInt(0)
-    mem(i).addr(0) := UInt(0)
-    // mem(i).addr(0) := cacheRead(i)
-    mem(i).we(0) := Bool(false)
-    // cacheRead(i) := UInt(0)
+    for (j <- 0 until mem(i).numReadWritePorts) {
+      mem(i).din(j) := UInt(0)
+      mem(i).addr(j) := UInt(0)
+      // mem(i).addr(j) := cacheRead(i)
+      mem(i).we(j) := Bool(false)
+      // cacheRead(j) := UInt(0)
+    }
   }
+
+  // The cache can see requests from three locations:
+  //   * Control (reads for layer information)
+  //   * Memory (writes to load a configuration)
+  //   * PE Table (reads for neuron information or weights)
+  // Control reads and memory writes should never occur at the same
+  // time. Consequently, these types of accesses share an SRAM port.
+  // PE Table requests are frequent and will coflict with
+  // control/memory requests for any non-trivial configuration and
+  // network, so these get their own port.
 
   // Handle requests from the control module
   when (io.control.req.valid) {
@@ -293,7 +304,7 @@ class Cache extends DanaModule()() {
     // generate a block address from the input cache byte address.
     // [TODO] This shift may be a source of bugs. Check to make sure
     // that it's being passed correctly.
-    mem(io.pe.req.bits.cacheIndex).addr(0) :=
+    mem(io.pe.req.bits.cacheIndex).addr(1) :=
       io.pe.req.bits.cacheAddr >> (UInt(2 + log2Up(elementsPerBlock)))
     // Fill the first stage of the PE pipeline
     switch (io.pe.req.bits.field) {
@@ -317,7 +328,7 @@ class Cache extends DanaModule()() {
   // The actual data that comes out of the memory is not interpreted
   // here, i.e., we just pass the full bitsPerBlock-sized data packet
   // to the PE Table and it deals with the internal indices.
-  peRespPipe(1).bits.data := mem(peCacheIndex_d0).dout(0)
+  peRespPipe(1).bits.data := mem(peCacheIndex_d0).dout(1)
 
   // Set the response to the Control module
   io.control.resp.valid := controlRespPipe(1).valid
