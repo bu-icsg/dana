@@ -134,9 +134,11 @@ class TransactionTable extends DanaModule()() {
 
   // Default value assignment
   for (i <- 0 until transactionTableNumEntries) {
-    mem(i).we(0) := Bool(false)
-    mem(i).din(0) := UInt(0)
-    mem(i).addr(0) := UInt(0)
+    for (j <- 0 until mem(i).numPorts) {
+      mem(i).we(j) := Bool(false)
+      mem(i).din(j) := UInt(0)
+      mem(i).addr(j) := UInt(0)
+    }
   }
   when (io.arbiter.req.valid) {
     // This is a new packet
@@ -278,7 +280,9 @@ class TransactionTable extends DanaModule()() {
       peRespPipe(0).valid := Bool(true)
       peRespPipe(0).bits.peIndex := io.peTable.req.bits.peIndex
     } .otherwise { // This is a write req
-
+      mem(io.peTable.req.bits.tableIndex).we(0) := Bool(true)
+      mem(io.peTable.req.bits.tableIndex).addr(0) := io.peTable.req.bits.addr
+      mem(io.peTable.req.bits.tableIndex).din(0) := io.peTable.req.bits.data
     }
   }
   // Package up the memory response for the response to the PE Table
@@ -297,8 +301,12 @@ class TransactionTable extends DanaModule()() {
   // All of these need to be wired up manually as the internal
   // connections aren't IO
   for (i <- 0 until transactionTableNumEntries) {
-    // A request is valid if it is valid and is not waiting
-    entryArbiter.io.in(i).valid := table(i).valid & !table(i).waiting
+    // A request is valid if it is valid, is not waiting, and if all
+    // the nodes haven't already been allocated (but, the cache must
+    // already be valid, i.e., we need to have valid data sitting in
+    // the currentNode and numNodes to actually do this comparison).
+    entryArbiter.io.in(i).valid := table(i).valid && !table(i).waiting &&
+      ((table(i).currentNode != table(i).numNodes) || !table(i).cacheValid)
     // The other data connections are just aliases to the contents of
     // the specific table entry
     entryArbiter.io.in(i).bits.cacheValid := table(i).cacheValid

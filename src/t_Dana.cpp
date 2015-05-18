@@ -330,7 +330,10 @@ int t_Dana::info_petable() {
     std::cout << "|     " << get_dat_by_name(string_field.str())->get_value().erase(0,2);
     // Input Index
     string_field.str("");
-    string_field << string_table << i << "_inIdx";
+    if (i < 3)
+      string_field << string_table << i << "_inIdx_1_1";
+    else
+      string_field << string_table << i << "_inIdx";
     std::cout << "|  " << get_dat_by_name(string_field.str())->get_value().erase(0,2);
     // Output Index
     string_field.str("");

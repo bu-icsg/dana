@@ -62,7 +62,7 @@ class PETransactionTableInterface extends DanaBundle()() {
     val peIndex = UInt(width = log2Up(peTableNumEntries))
     val tableIndex = UInt(width = log2Up(transactionTableNumEntries))
     val addr = UInt(width = log2Up(transactionTableSramBlocks))
-    val data = UInt(width = bitsPerBlock)
+    val data = UInt(width = elementWidth)
   })
   val resp = Decoupled(new PETransactionTableInterfaceResp).flip
 }
@@ -243,12 +243,29 @@ class ProcessingElementTable extends DanaModule()() {
   // Deal with any responses from the Transaction Table
   when (io.tTable.resp.valid) {
     table(io.tTable.resp.bits.peIndex).inBlock := io.tTable.resp.bits.data
+    table(io.tTable.resp.bits.peIndex).inIdx :=
+      table(io.tTable.resp.bits.peIndex).inIdx + UInt(elementsPerBlock)
     when (table(io.tTable.resp.bits.peIndex).weightValid) {
       pe(io.tTable.resp.bits.peIndex).req.valid := Bool(true)
-      table(peIndex).weightValid := Bool(false)
-      table(peIndex).inValid := Bool(false)
+      table(io.tTable.resp.bits.peIndex).weightValid := Bool(false)
+      table(io.tTable.resp.bits.peIndex).inValid := Bool(false)
     } .otherwise {
       table(io.tTable.resp.bits.peIndex).inValid := Bool(true)
+    }
+  }
+
+  // Deal with responses from the register file (should be register
+  // file reads)
+  when (io.regFile.resp.valid) {
+    table(io.regFile.resp.bits.peIndex).inBlock := io.regFile.resp.bits.data
+    table(io.regFile.resp.bits.peIndex).inIdx :=
+      table(io.regFile.resp.bits.peIndex).inIdx + UInt(elementsPerBlock)
+    when (table(io.regFile.resp.bits.peIndex).weightValid) {
+      pe(io.regFile.resp.bits.peIndex).req.valid := Bool(true)
+      table(io.regFile.resp.bits.peIndex).weightValid := Bool(false)
+      table(io.regFile.resp.bits.peIndex).inValid := Bool(false)
+    } .otherwise {
+      table(io.regFile.resp.bits.peIndex).inValid := Bool(true)
     }
   }
 
@@ -293,6 +310,7 @@ class ProcessingElementTable extends DanaModule()() {
           io.regFile.req.valid := Bool(true)
           io.regFile.req.bits.isWrite := Bool(false) // unecessary to specify
           io.regFile.req.bits.regIndex := table(peArbiter.io.out.bits.index).inIdx
+          io.regFile.req.bits.peIndex := peArbiter.io.out.bits.index
           io.regFile.req.bits.tIdx := table(peArbiter.io.out.bits.index).tIdx
           io.regFile.req.bits.location := table(peArbiter.io.out.bits.index).inLoc
         }
@@ -314,6 +332,7 @@ class ProcessingElementTable extends DanaModule()() {
           io.tTable.req.bits.isWrite := Bool(true)
           io.tTable.req.bits.tableIndex := table(peArbiter.io.out.bits.index).tIdx
           io.tTable.req.bits.addr := table(peArbiter.io.out.bits.index).outIdx
+          io.tTable.req.bits.data := peArbiter.io.out.bits.data
         } .otherwise { // The location is the register file
           io.regFile.req.valid := Bool(true)
           io.regFile.req.bits.isWrite := Bool(true)

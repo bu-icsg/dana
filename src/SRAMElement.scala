@@ -2,6 +2,11 @@ package dana
 
 import Chisel._
 
+// [TODO] Miscellaneous todos:
+// * A read immediately following a write is going to result in screwy
+//   behavior. It's reasonable that either this should be prohibited
+//   via pushback on the asynchronous inteface or with an assertion.
+
 class SRAMElementInterface (
   val dataWidth: Int,
   val sramDepth: Int,
