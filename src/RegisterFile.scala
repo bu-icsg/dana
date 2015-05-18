@@ -14,7 +14,7 @@ class RegisterFile extends DanaModule()() {
   val mem = Module( new SRAMElement(
     dataWidth = bitsPerBlock,
     sramDepth = regFileNumBlocks * transactionTableNumEntries * 2,
-    numPorts = 2,
+    numPorts = 1,
     elementWidth = elementWidth))
 
   // Default values for the memory
@@ -33,8 +33,8 @@ class RegisterFile extends DanaModule()() {
         io.pe.req.bits.tIdx * UInt(regFileNumBlocks * 2) +
         io.pe.req.bits.location * UInt(regFileNumBlocks)
     } .otherwise {                  // This is a read
-      mem.io.we(1) := Bool(false)
-      mem.io.addr(1) := io.pe.req.bits.regIndex +
+      mem.io.we(0) := Bool(false)
+      mem.io.addr(0) := io.pe.req.bits.regIndex +
         io.pe.req.bits.tIdx * UInt(regFileNumBlocks * 2) +
         io.pe.req.bits.location * UInt(regFileNumBlocks)
     }
@@ -45,6 +45,6 @@ class RegisterFile extends DanaModule()() {
 
   io.pe.resp.valid := readReqValid_d0
   io.pe.resp.bits.peIndex := peIndex_d0
-  io.pe.resp.bits.data := mem.io.dout(1)
+  io.pe.resp.bits.data := mem.io.dout(0)
 
 }

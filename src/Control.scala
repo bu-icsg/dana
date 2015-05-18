@@ -106,11 +106,13 @@ class Control extends DanaModule()() {
         io.tTable.resp.bits.field := e_TTABLE_CACHE_VALID
         io.tTable.resp.bits.data := io.cache.resp.bits.data
         io.tTable.resp.bits.decimalPoint := io.cache.resp.bits.decimalPoint
+        io.tTable.resp.bits.tableIndex := io.cache.resp.bits.tableIndex
       }
       is (e_CACHE_LAYER) {
         io.tTable.resp.valid := Bool(true)
         io.tTable.resp.bits.field := e_TTABLE_LAYER // [TODO] may be wrong
         io.tTable.resp.bits.data := io.cache.resp.bits.data
+        io.tTable.resp.bits.tableIndex := io.cache.resp.bits.tableIndex
       }
       // is (e_CACHE_NEURON) {
       //   io.tTable.resp.valid := Bool(true)
