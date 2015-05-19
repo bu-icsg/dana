@@ -29,6 +29,7 @@ class Dana extends DanaModule()() {
   cache.io.control <> control.io.cache
   cache.io.mem <> mem.io.cache
   control.io.peTable <> peTable.io.control
+  control.io.regFile <> regFile.io.control
   peTable.io.cache <> cache.io.pe
   peTable.io.tTable <> tTable.io.peTable
   peTable.io.regFile <> regFile.io.pe

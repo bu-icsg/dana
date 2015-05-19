@@ -49,6 +49,9 @@ public:
   // Print out PE Table info
   int info_petable();
 
+  // Print out Register File info
+  int info_reg_file();
+
   // Load the cache so that memory requests aren't necessary
   int cache_load(int index, int nnid, const char *);
 };
@@ -138,6 +141,7 @@ int t_Dana::info() {
   info_ttable();
   info_cache_table();
   info_petable();
+  info_reg_file();
 }
 
 int t_Dana::info_ttable() {
@@ -399,6 +403,35 @@ int t_Dana::info_petable() {
     string_field.str("");
     string_field << string_table << i << "_weightBlock";
     std::cout << "|" << get_dat_by_name(string_field.str())->get_value().erase(0,2);
+    std::cout << "|" << std::endl;
+  }
+  std::cout << std::endl;
+}
+
+int t_Dana::info_reg_file() {
+  std::cout << "-----------\n";
+  std::cout << "|E[Wr](0)|#Wr(0)|E[Wr](1)|#Wr(1)| <- Register File\n";
+  std::cout << "-----------\n";
+  std::string string_table("Dana.regFile.state_");
+  std::stringstream string_field("");
+  for (int i = 0; i < 4; i++) { // [TODO] fragile, should be number of PEs
+    // Total number of expected writes
+    string_field.str("");
+    string_field << string_table << i * 2 << "_totalWrites";
+    std::cout << "| " << get_dat_by_name(string_field.str())->get_value().erase(0,2);
+    // Number of writes that have been seen
+    string_field.str("");
+    string_field << string_table << i * 2 << "_countWrites";
+    std::cout << "|" << get_dat_by_name(string_field.str())->get_value().erase(0,2);
+    // Total number of expected writes
+    string_field.str("");
+    string_field << string_table << (i + 1) * 2 - 1 << "_totalWrites";
+    std::cout << "| " << get_dat_by_name(string_field.str())->get_value().erase(0,2);
+    // Number of writes that have been seen
+    string_field.str("");
+    string_field << string_table << (i + 1) * 2 - 1 << "_countWrites";
+    std::cout << "|" << get_dat_by_name(string_field.str())->get_value().erase(0,2);
+
     std::cout << "|" << std::endl;
   }
   std::cout << std::endl;

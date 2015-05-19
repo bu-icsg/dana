@@ -171,6 +171,7 @@ class Cache extends DanaModule()() {
   controlRespPipe(0).bits.data := Vec.fill(3){UInt(0)}
   controlRespPipe(0).bits.decimalPoint := UInt(0)
   controlRespPipe(0).bits.field := UInt(0)
+  controlRespPipe(0).bits.location := UInt(0)
 
   peRespPipe(0).valid := Bool(false)
   peRespPipe(0).bits.field := UInt(0)
@@ -243,6 +244,7 @@ class Cache extends DanaModule()() {
             UIntToOH(io.control.req.bits.tableIndex)
           controlRespPipe(0).bits.cacheIndex := derefNnid
           controlRespPipe(0).bits.field := e_CACHE_INFO
+          controlRespPipe(0).bits.location := io.control.req.bits.location
 
           // Read the requested information from the cache
           // mem(derefNnid).addr(0) := UInt(0) // Info is in first blocks
@@ -254,6 +256,7 @@ class Cache extends DanaModule()() {
         controlRespPipe(0).bits.tableIndex := io.control.req.bits.tableIndex
         controlRespPipe(0).bits.field := e_CACHE_LAYER_INFO
         controlRespPipe(0).bits.data(0) := io.control.req.bits.layer
+        controlRespPipe(0).bits.location := io.control.req.bits.location
 
         // Read the layer information from the correct block. A layer
         // occupies one block, so we need to pull the block address

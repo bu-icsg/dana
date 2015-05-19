@@ -80,12 +80,13 @@ abstract class DanaModule(
     e_TTABLE_CACHE_VALID ::    // 2
     e_TTABLE_LAYER ::          // 3
     e_TTABLE_WAITING ::        // 4
-    e_TTABLE_DONE ::           // 5
-    e_TTABLE_OUTPUT_LAYER ::   // 6
-    e_TTABLE_INCREMENT_NODE :: // 7
-    e_TTABLE_REGISTER_INFO ::  // 8
-    e_TTABLE_REGISTER_NEXT ::  // 9
-    Nil) = Enum(UInt(), 10)
+    e_TTABLE_STOP_WAITING ::   // 5
+    e_TTABLE_DONE ::           // 6
+    e_TTABLE_OUTPUT_LAYER ::   // 7
+    e_TTABLE_INCREMENT_NODE :: // 8
+    e_TTABLE_REGISTER_INFO ::  // 9
+    e_TTABLE_REGISTER_NEXT ::  // 10
+    Nil) = Enum(UInt(), 11)
   // Cache Request Type
   val (e_CACHE_LOAD ::                // 0
     e_CACHE_LAYER_INFO ::             // 1

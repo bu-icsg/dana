@@ -10,6 +10,7 @@ class ControlCacheInterfaceResp extends DanaBundle()() {
   val data = Vec.fill(3){UInt(width = 16)} // [TODO] possibly fragile
   val decimalPoint = UInt(INPUT, decimalPointWidth)
   val field = UInt(width = log2Up(4)) // [TODO] fragile on Constants.scala
+  val location = UInt(width = 1)
 }
 
 class ControlCacheInterface extends DanaBundle()() {
@@ -20,6 +21,7 @@ class ControlCacheInterface extends DanaBundle()() {
     val nnid = UInt(width = nnidWidth)
     val tableIndex = UInt(width = log2Up(transactionTableNumEntries))
     val layer = UInt(width = 16) // [TODO] fragile
+    val location = UInt(width = 1) // [TODO] fragile
   })
   // Inbound response. nnsim-hdl equivalent:
   //   cache_types::cache2ctl_struct
@@ -50,10 +52,23 @@ class ControlPETableInterface extends DanaBundle()() {
   // of the Decoupled `ready` signal.
 }
 
+class ControlRegisterFileInterface extends DanaBundle()() {
+  // Outbound request/inbound response. No nnsim-hdl equivalent.
+  val req = Decoupled(new DanaBundle()() {
+    val tIdx = UInt(width = transactionTableNumEntries)
+    val totalWrites = UInt(width = 16) // [TODO] fragile
+    val location = UInt(width = 1) // [TODO] fragile
+  })
+  val resp = Decoupled(new DanaBundle()() {
+    val tIdx = UInt(width = transactionTableNumEntries)
+  }).flip
+}
+
 class ControlInterface extends DanaBundle()() {
   val tTable = (new TTableControlInterface).flip
   val cache = new ControlCacheInterface
   val peTable = new ControlPETableInterface
+  val regFile = new ControlRegisterFileInterface
 }
 
 class Control extends DanaModule()() {
@@ -61,12 +76,13 @@ class Control extends DanaModule()() {
 
   // IO Driver Functions
   def reqCache(valid: Bool, request: UInt, nnid: UInt, tableIndex: UInt,
-    layer: UInt) {
+    layer: UInt, location: UInt) {
     io.cache.req.valid := valid
     io.cache.req.bits.request := request
     io.cache.req.bits.nnid := nnid
     io.cache.req.bits.tableIndex := tableIndex
     io.cache.req.bits.layer := layer
+    io.cache.req.bits.location := location
   }
   def reqPETable(valid: Bool, cacheIndex: UInt, tid: UInt,
     neuronIndex: UInt, locationInput: UInt, locationOutput: UInt,
@@ -93,10 +109,16 @@ class Control extends DanaModule()() {
   io.tTable.resp.bits.decimalPoint := UInt(0)
   io.cache.resp.ready := Bool(true) // [TODO] not correct
   // io.cache defaults
-  reqCache(Bool(false), UInt(0), UInt(0), UInt(0), UInt(0))
+  reqCache(Bool(false), UInt(0), UInt(0), UInt(0), UInt(0), UInt(0))
   // io.petable defaults
   reqPETable(Bool(false), UInt(0), UInt(0), UInt(0), UInt(0), UInt(0),
     UInt(0), UInt(0), UInt(0), UInt(0))
+  // io.regFile defaults
+  io.regFile.req.valid := Bool(false)
+  io.regFile.req.bits.tIdx := UInt(0)
+  io.regFile.req.bits.totalWrites := UInt(0)
+  io.regFile.req.bits.location := UInt(0)
+  io.regFile.resp.ready := Bool(false) // [TODO] not correct
 
   // This is where we handle responses
   when (io.cache.resp.valid) {
@@ -113,6 +135,15 @@ class Control extends DanaModule()() {
         io.tTable.resp.bits.field := e_TTABLE_LAYER // [TODO] may be wrong
         io.tTable.resp.bits.data := io.cache.resp.bits.data
         io.tTable.resp.bits.tableIndex := io.cache.resp.bits.tableIndex
+        // Inform the Register File aobut the number of writes that it
+        // is expected to see. The total writes is equal to the number
+        // of nodes in the current layer.
+        io.regFile.req.valid := Bool(true)
+        io.regFile.req.bits.tIdx := io.cache.resp.bits.tableIndex
+        io.regFile.req.bits.totalWrites := io.cache.resp.bits.data(0)
+        // This is the output location. This needs to match the
+        // convention used for the Processing Elements
+        io.regFile.req.bits.location := io.cache.resp.bits.location
       }
       // is (e_CACHE_NEURON) {
       //   io.tTable.resp.valid := Bool(true)
@@ -126,14 +157,14 @@ class Control extends DanaModule()() {
   }
   // No inbound requests, so we just handle whatever is valid coming
   // from the Transaction Table
-  .elsewhen (io.tTable.req.valid) {
+  when (io.tTable.req.valid) {
     // Cache state is unknown and we're not waiting for the cache to
     // respond
     when (!io.tTable.req.bits.cacheValid &&
       !io.tTable.req.bits.waiting) {
       // Send a request to the cache
       reqCache(Bool(true), e_CACHE_LOAD, io.tTable.req.bits.nnid,
-        io.tTable.req.bits.tableIndex, UInt(0))
+        io.tTable.req.bits.tableIndex, UInt(0), UInt(0))
 
       // Send a response to the tTable
       io.tTable.resp.valid := Bool(true)
@@ -144,7 +175,8 @@ class Control extends DanaModule()() {
       io.tTable.req.bits.needsLayerInfo) {
       // Send a request to the storage module
       reqCache(Bool(true), e_CACHE_LAYER_INFO, io.tTable.req.bits.nnid,
-        io.tTable.req.bits.tableIndex, io.tTable.req.bits.currentLayer)
+        io.tTable.req.bits.tableIndex, io.tTable.req.bits.currentLayer,
+        io.tTable.req.bits.currentLayer(0))
 
       // Tell the tTable to wait
       io.tTable.resp.valid := Bool(true)
@@ -196,5 +228,13 @@ class Control extends DanaModule()() {
       io.tTable.resp.bits.tableIndex := io.tTable.req.bits.tableIndex
       io.tTable.resp.bits.field := e_TTABLE_INCREMENT_NODE
     }
+  }
+  // Responses from the Register File
+  when (io.regFile.resp.valid) {
+    // The register file for the next layer is 100% ready so we make
+    // the specific Transaction Table entry stop waiting
+    io.tTable.resp.valid := Bool(true)
+    io.tTable.resp.bits.field := e_TTABLE_STOP_WAITING
+    io.tTable.resp.bits.tableIndex := io.regFile.resp.bits.tIdx
   }
 }

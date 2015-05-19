@@ -188,6 +188,9 @@ class TransactionTable extends DanaModule()() {
       is(e_TTABLE_WAITING) {
         table(io.control.resp.bits.tableIndex).waiting := Bool(true)
       }
+      is (e_TTABLE_STOP_WAITING) {
+        table(io.control.resp.bits.tableIndex).waiting := Bool(false)
+      }
       is(e_TTABLE_CACHE_VALID) {
         table(io.control.resp.bits.tableIndex).cacheValid := Bool(true)
         table(io.control.resp.bits.tableIndex).numLayers :=
@@ -213,8 +216,8 @@ class TransactionTable extends DanaModule()() {
         // Update the inFirst and inLast Bools. The currentLayer
         // should have already been updated when the request went out.
         table(io.control.resp.bits.tableIndex).inFirst :=
-          table(io.control.resp.bits.tableIndex).currentLayer !=
-          table(io.control.resp.bits.tableIndex).numLayers - UInt(1)
+          table(io.control.resp.bits.tableIndex).currentLayer === UInt(0)
+          // table(io.control.resp.bits.tableIndex).numLayers - UInt(1)
         table(io.control.resp.bits.tableIndex).inLast :=
           table(io.control.resp.bits.tableIndex).currentLayer ===
           table(io.control.resp.bits.tableIndex).numLayers - UInt(1)
@@ -222,8 +225,15 @@ class TransactionTable extends DanaModule()() {
         table(io.control.resp.bits.tableIndex).regBlockIndexIn :=
           table(io.control.resp.bits.tableIndex).regBlockInNext << UInt(log2Up(elementsPerBlock))
         table(io.control.resp.bits.tableIndex).countUsedRegisters := UInt(0)
-        // The tTable is no longer waiting after receiving layer info
-        table(io.control.resp.bits.tableIndex).waiting := Bool(false)
+        // If this is a transition into a layer which is not the first
+        // layer, then the Transaction Table requests need to block
+        // until the Register File has all valid data. [TODO] This is
+        // a sub-optimal design choice as PEs should be allowed to
+        // start before the Register File has _all_ of its valid data,
+        // but I'm leaving this the way it is due to the lack of a
+        // non-trivial path to add this functionality.
+        table(io.control.resp.bits.tableIndex).waiting :=
+          table(io.control.resp.bits.tableIndex).currentLayer > UInt(0)
       }
       is(e_TTABLE_DONE) {
         table(io.control.resp.bits.tableIndex).cacheValid := Bool(true)
