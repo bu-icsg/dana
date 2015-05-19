@@ -137,7 +137,9 @@ class Control extends DanaModule()() {
         io.tTable.resp.bits.tableIndex := io.cache.resp.bits.tableIndex
         // Inform the Register File aobut the number of writes that it
         // is expected to see. The total writes is equal to the number
-        // of nodes in the current layer.
+        // of nodes in the current layer. [TODO] This shouldn't
+        // technically be allowed to go through when the current layer
+        // is the last layer, but I don't think it's hurting anything.
         io.regFile.req.valid := Bool(true)
         io.regFile.req.bits.tIdx := io.cache.resp.bits.tableIndex
         io.regFile.req.bits.totalWrites := io.cache.resp.bits.data(0)
