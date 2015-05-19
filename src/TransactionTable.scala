@@ -33,6 +33,7 @@ class TransactionState extends DanaBundle()() {
   val countUsedRegisters = UInt(width = log2Up(elementsPerBlock))
   val countFeedback = UInt(width = feedbackWidth)
   val countPeWrites = UInt(width = 16) // [TODO] fragile
+  val readIdx = UInt(width = log2Up(transactionTableSramElements))
   // Additional crap which may be redundant
   val indexElement = UInt(width = log2Up(transactionTableSramElements))
 }
@@ -78,11 +79,23 @@ class XFilesArbiterReq extends DanaBundle()() {
   val countFeedback = UInt(width = bitsFeedback)
   val isNew = Bool()
   val isLast = Bool()
-  val data = UInt(width = 32) // [TODO] fragile
+  val data = UInt(width = elementWidth)
+}
+
+class XFilesArbiterResp extends DanaBundle()() {
+  val tid = UInt(width = tidWidth)
+  val data = UInt(width = elementWidth)
+}
+
+class XFilesArbiterRespPipe extends DanaBundle()() {
+  val tid = UInt(width = tidWidth)
+  val tidIdx = UInt(width = log2Up(transactionTableNumEntries))
+  val readIdx = UInt(width = log2Up(transactionTableSramElements))
 }
 
 class XFilesArbiterInterface extends DanaBundle()() {
   val req = Decoupled(new XFilesArbiterReq).flip
+  val resp = Decoupled(new XFilesArbiterResp)
 }
 
 class TTableControlInterface extends DanaBundle()() {
@@ -133,6 +146,21 @@ class TransactionTable extends DanaModule()() {
   foundTid := table.exists(derefTid(_, io.arbiter.req.bits.tid))
   derefTidIndex := table.indexWhere(derefTid(_, io.arbiter.req.bits.tid))
   io.arbiter.req.ready := hasFree
+  io.arbiter.resp.valid := Bool(false)
+  io.arbiter.resp.bits.tid := UInt(0)
+  io.arbiter.resp.bits.data := UInt(0)
+
+  // Response pipeline to arbiter
+  val arbiterRespPipe = Reg(Valid(new XFilesArbiterRespPipe))
+  arbiterRespPipe.valid := Bool(false)
+  arbiterRespPipe.bits.tid := UInt(0)
+  arbiterRespPipe.bits.readIdx := UInt(0)
+  arbiterRespPipe.bits.tidIdx := UInt(0)
+  io.arbiter.resp.valid := arbiterRespPipe.valid
+  io.arbiter.resp.bits.tid := arbiterRespPipe.bits.tid
+  val memDataVec = Vec((0 until elementsPerBlock).map(i => (mem(arbiterRespPipe.bits.tidIdx).dout(0) >> (UInt(elementWidth) * UInt(i)))(elementWidth - 1, 0)))
+  io.arbiter.resp.bits.data :=
+    memDataVec(arbiterRespPipe.bits.readIdx(log2Up(elementsPerBlock)-1,0))
 
   // Default value assignment
   for (i <- 0 until transactionTableNumEntries) {
@@ -163,6 +191,7 @@ class TransactionTable extends DanaModule()() {
         table(nextFree).done := Bool(false)
         table(nextFree).indexElement := UInt(0)
         table(nextFree).countPeWrites := UInt(0)
+        table(nextFree).readIdx := UInt(0)
       }
         .elsewhen(io.arbiter.req.bits.isLast) {
         mem(derefTidIndex).we(0) := Bool(true)
@@ -181,6 +210,20 @@ class TransactionTable extends DanaModule()() {
           table(derefTidIndex).indexElement + UInt(1)
         // table(derefTidIndex).data() :=
       }
+    } .otherwise { // Ths is a read packet
+      mem(derefTidIndex).addr(0) :=
+        table(derefTidIndex).readIdx >> UInt(log2Up(elementsPerBlock))
+      arbiterRespPipe.valid := Bool(true)
+      arbiterRespPipe.bits.tid := io.arbiter.req.bits.tid
+      arbiterRespPipe.bits.tidIdx := derefTidIndex
+      arbiterRespPipe.bits.readIdx := table(derefTidIndex).readIdx
+      // Check to see if all outputs have been read
+      when (table(derefTidIndex).readIdx ===
+        table(derefTidIndex).nodesInCurrentLayer - UInt(1)) {
+        table(derefTidIndex).valid := Bool(false)
+        table(derefTidIndex).reserved := Bool(false)
+      }
+      table(derefTidIndex).readIdx := table(derefTidIndex).readIdx + UInt(1)
     }
   }
 

@@ -36,6 +36,9 @@ public:
   // accelerator
   int write_rnd_data(int tid, int nnid, int num, int decimal);
 
+  // Read one unit of data out of Dana for a specific TID
+  int new_read_request(int tid);
+
   // Print out information about the state of all modules in the
   // system
   int info();
@@ -95,8 +98,16 @@ int t_Dana::tick(int num_cycles, int reset) {
   for (int i = 0; i < num_cycles; i++) {
     tick_lo(reset);
     tick_hi(reset);
+    if (dana->Dana__io_arbiter_resp_valid == 1) {
+      std::cout << "[INFO] Saw response... Tid:";
+      std::cout << get_dat_by_name("Dana.io_arbiter_resp_bits_tid")->get_value().erase(0,2);
+      std::cout << " Output:";
+      std::cout << get_dat_by_name("Dana.io_arbiter_resp_bits_data")->get_value().erase(0,2);
+      std::cout << std::endl;
+    }
   }
 }
+
 
 int t_Dana::reset(int num_cycles) {
   for(int i = 0; i < num_cycles; i++) {
@@ -129,6 +140,24 @@ int t_Dana::write_rnd_data(int tid, int nnid, int num, int decimal) {
     tick_hi(0);
 
   }
+  tick_lo(0);
+  dana->Dana__io_arbiter_req_valid = 0;
+  dana->Dana__io_arbiter_req_bits_isLast = 0;
+  dana->Dana__io_arbiter_req_bits_readOrWrite = 0;
+  dana->Dana__io_arbiter_req_bits_data = 0;
+  tick_hi(0);
+  return 1;
+}
+
+int t_Dana::new_read_request(int tid) {
+  tick_lo(0);
+  dana->Dana__io_arbiter_req_valid = 1;
+  dana->Dana__io_arbiter_req_bits_isNew = 0;
+  dana->Dana__io_arbiter_req_bits_readOrWrite = 0;
+  dana->Dana__io_arbiter_req_bits_isLast = 0;
+  dana->Dana__io_arbiter_req_bits_tid = tid;
+  dana->Dana__io_arbiter_req_bits_data = 0;
+  tick_hi(0);
   tick_lo(0);
   dana->Dana__io_arbiter_req_valid = 0;
   dana->Dana__io_arbiter_req_bits_isLast = 0;
@@ -509,6 +538,11 @@ int main (int argc, char* argv[]) {
   api->info();
   api->write_rnd_data(1, 17, 10, 6);
   for (int i = 0; i < 100; i++) {
+    api->tick(1, 0);
+    api->info();
+  }
+  api->new_read_request(1);
+  for (int i = 0; i < 10; i++) {
     api->tick(1, 0);
     api->info();
   }
