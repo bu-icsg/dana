@@ -184,7 +184,9 @@ int t_Dana::info_ttable() {
     string_field << string_table << i << "_needsRegisters";
     std::cout << "| " << get_dat_by_name(string_field.str())->get_value().erase(0,2);
     // Done [TODO] this is a placeholder until done is actually set/used
-    std::cout << "| ";
+    string_field.str("");
+    string_field << string_table << i << "_done";
+    std::cout << "|" << get_dat_by_name(string_field.str())->get_value().erase(0,2);
     // TID
     string_field.str("");
     string_field << string_table << i << "_tid";

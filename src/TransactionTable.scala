@@ -32,6 +32,7 @@ class TransactionState extends DanaBundle()() {
   val regBlockInNext = UInt(width = log2Up(regFileNumBlocks))
   val countUsedRegisters = UInt(width = log2Up(elementsPerBlock))
   val countFeedback = UInt(width = feedbackWidth)
+  val countPeWrites = UInt(width = 16) // [TODO] fragile
   // Additional crap which may be redundant
   val indexElement = UInt(width = log2Up(transactionTableSramElements))
 }
@@ -106,6 +107,7 @@ class TransactionTable extends DanaModule()() {
     debug(table(i).numLayers)
     debug(table(i).numNodes)
     debug(table(i).cacheIndex)
+    debug(table(i).done)
     // debug(table(i).currentNode)
     // debug(table(i).currentLayer)
   }
@@ -160,6 +162,7 @@ class TransactionTable extends DanaModule()() {
         table(nextFree).countFeedback := io.arbiter.req.bits.countFeedback
         table(nextFree).done := Bool(false)
         table(nextFree).indexElement := UInt(0)
+        table(nextFree).countPeWrites := UInt(0)
       }
         .elsewhen(io.arbiter.req.bits.isLast) {
         mem(derefTidIndex).we(0) := Bool(true)
@@ -293,6 +296,12 @@ class TransactionTable extends DanaModule()() {
       mem(io.peTable.req.bits.tableIndex).we(0) := Bool(true)
       mem(io.peTable.req.bits.tableIndex).addr(0) := io.peTable.req.bits.addr
       mem(io.peTable.req.bits.tableIndex).din(0) := io.peTable.req.bits.data
+      table(io.peTable.req.bits.tableIndex).countPeWrites :=
+        table(io.peTable.req.bits.tableIndex).countPeWrites + UInt(1)
+      when (table(io.peTable.req.bits.tableIndex).countPeWrites ===
+        table(io.peTable.req.bits.tableIndex).nodesInCurrentLayer - UInt(1)) {
+        table(io.peTable.req.bits.tableIndex).done := Bool(true)
+      }
     }
   }
   // Package up the memory response for the response to the PE Table
