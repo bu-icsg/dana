@@ -32,9 +32,12 @@ public:
   // Initiate a new write request with the accelerator
   int new_write_request(int tid, int nnid);
 
+  // Write one unit of data
+  int write_data(int tid, int32_t data, int is_last);
+
   // Finalize a write request by sending random data to the
   // accelerator
-  int write_rnd_data(int tid, int nnid, int num, int decimal);
+  int write_rnd_data(int tid, int num, int decimal);
 
   // Read one unit of data out of Dana for a specific TID
   int new_read_request(int tid);
@@ -57,6 +60,12 @@ public:
 
   // Load the cache so that memory requests aren't necessary
   int cache_load(int index, int nnid, const char *);
+
+  // Check to see if any entries in the Transaction Table are done
+  int any_done();
+
+  // Check for valid entries in the Transaction Table
+  int any_valid();
 };
 
 t_Dana::t_Dana() {
@@ -111,57 +120,50 @@ int t_Dana::tick(int num_cycles, int reset) {
 
 int t_Dana::reset(int num_cycles) {
   for(int i = 0; i < num_cycles; i++) {
-    tick_lo(1);
-    tick_hi(1);
-    tick_lo(0);
+    tick(1,1);
   }
 }
 
 int t_Dana::new_write_request(int tid, int nnid) {
-  tick_lo(0);
   dana->Dana__io_arbiter_req_valid = 1;
   dana->Dana__io_arbiter_req_bits_isNew = 1;
   dana->Dana__io_arbiter_req_bits_readOrWrite = 1;
   dana->Dana__io_arbiter_req_bits_isLast = 0;
   dana->Dana__io_arbiter_req_bits_tid = tid;
   dana->Dana__io_arbiter_req_bits_data = nnid;
-  tick_hi(0);
+  tick(1,0);
   return 1;
 }
 
-int t_Dana::write_rnd_data(int tid, int nnid, int num, int decimal) {
-  for (int i = 0; i < num; i++) {
-    tick_lo(0);
-    dana->Dana__io_arbiter_req_valid = 1;
-    dana->Dana__io_arbiter_req_bits_isNew = 0;
-    dana->Dana__io_arbiter_req_bits_readOrWrite = 1;
-    dana->Dana__io_arbiter_req_bits_isLast = (i == num - 1);
-    dana->Dana__io_arbiter_req_bits_data = 256;
-    tick_hi(0);
+int t_Dana::write_data(int tid, int32_t data, int is_last) {
+  dana->Dana__io_arbiter_req_valid = 1;
+  dana->Dana__io_arbiter_req_bits_isNew = 0;
+  dana->Dana__io_arbiter_req_bits_readOrWrite = 1;
+  dana->Dana__io_arbiter_req_bits_isLast = is_last;
+  dana->Dana__io_arbiter_req_bits_data = data;
+  tick(1,0);
+}
 
-  }
-  tick_lo(0);
+int t_Dana::write_rnd_data(int tid, int num, int decimal) {
+  for (int i = 0; i < num; i++)
+    write_data(tid, 256, (i == num - 1));
   dana->Dana__io_arbiter_req_valid = 0;
   dana->Dana__io_arbiter_req_bits_isLast = 0;
   dana->Dana__io_arbiter_req_bits_readOrWrite = 0;
   dana->Dana__io_arbiter_req_bits_data = 0;
-  tick_hi(0);
   return 1;
 }
 
 int t_Dana::new_read_request(int tid) {
-  tick_lo(0);
   dana->Dana__io_arbiter_req_valid = 1;
   dana->Dana__io_arbiter_req_bits_isNew = 0;
   dana->Dana__io_arbiter_req_bits_readOrWrite = 0;
   dana->Dana__io_arbiter_req_bits_isLast = 0;
   dana->Dana__io_arbiter_req_bits_tid = tid;
   dana->Dana__io_arbiter_req_bits_data = 0;
-  tick_hi(0);
-  tick_lo(0);
+  tick(1,0);
   dana->Dana__io_arbiter_req_valid = 0;
   dana->Dana__io_arbiter_req_bits_isLast = 0;
-  tick_hi(0);
   return 1;
 }
 
@@ -520,6 +522,32 @@ int t_Dana::cache_load(int index, int nnid, const char * file) {
   std::cout << "[INFO]   Done!" << std::endl;
 }
 
+int t_Dana::any_done () {
+  std::string string_table("Dana.tTable.table_");
+  std::stringstream string_field("");
+  for (int i = 0; i < 4; i++) {
+    string_field.str("");
+    string_field << string_table << i << "_done";
+    if (std::stoi(get_dat_by_name(string_field.str())->get_value().erase(0,2))) {
+      return 1;
+    }
+  }
+  return 0;
+}
+
+int t_Dana::any_valid () {
+  std::string string_table("Dana.tTable.table_");
+  std::stringstream string_field("");
+  for (int i = 0; i < 4; i++) {
+    string_field.str("");
+    string_field << string_table << i << "_valid";
+    if (std::stoi(get_dat_by_name(string_field.str())->get_value().erase(0,2))) {
+      return 1;
+    }
+  }
+  return 0;
+}
+
 int main (int argc, char* argv[]) {
   t_Dana* api = new t_Dana("build/t_Dana.vcd");
   FILE *tee = NULL;
@@ -533,19 +561,27 @@ int main (int argc, char* argv[]) {
   // api->cache_load(1, 18, "../workloads/data/rsa-fixed.16bin");
 
   // Run the actual tests
-  api->info();
   api->new_write_request(1, 17);
-  api->info();
-  api->write_rnd_data(1, 17, 10, 6);
-  for (int i = 0; i < 100; i++) {
+  api->write_rnd_data(1, 10, 6);
+  // api->new_write_request(1, 17);
+  // api->write_rnd_data(1, 17, 10, 6);
+  // Drop this into a loop until some TID in the Transaction Table is
+  // done
+  while (!api->any_done()) {
     api->tick(1, 0);
-    api->info();
+    // api->info();
   }
-  api->new_read_request(1);
-  for (int i = 0; i < 10; i++) {
-    api->tick(1, 0);
-    api->info();
+  api->tick(1,0);
+  // Read out data until there aren't any valid entries
+  while (api->any_valid()) {
+    api->new_read_request(1);
+    api->tick(1,0);
   }
+  // api->new_read_request(1);
+  // for (int i = 0; i < 10; i++) {
+  //   api->tick(1, 0);
+  //   // api->info();
+  // }
   // api->new_write_request(2, 18);
   // api->write_rnd_data(2, 18, 2, 6);
   // api->tick(10, 0);
