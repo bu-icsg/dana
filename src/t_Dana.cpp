@@ -1,5 +1,6 @@
 #include <iomanip>
 #include "Dana.h"
+#include "fann.h"
 
 class t_Dana : public Dana_api_t {
 private:
@@ -16,50 +17,50 @@ public:
   ~t_Dana();
 
   // Drive the clock low
-  int tick_lo(int reset);
+  void tick_lo(int reset);
 
   // Drive the clock high and update the vcd file if the vcd flag is
   // set
-  int tick_hi(int reset);
+  void tick_hi(int reset);
 
   // Tick the clock for a specified number of cycles without changing
   // the inputs
   int tick(int num_cycles, int reset);
 
   // Apply the reset for a specified number of cycles
-  int reset(int num_cycles);
+  void reset(int num_cycles);
 
   // Initiate a new write request with the accelerator
-  int new_write_request(int tid, int nnid);
+  void new_write_request(int tid, int nnid);
 
   // Write one unit of data
-  int write_data(int tid, int32_t data, int is_last);
+  void write_data(int tid, int32_t data, int is_last);
 
   // Finalize a write request by sending random data to the
   // accelerator
-  int write_rnd_data(int tid, int num, int decimal);
+  void write_rnd_data(int tid, int num, int decimal);
 
   // Read one unit of data out of Dana for a specific TID
-  int new_read_request(int tid);
+  void new_read_request(int tid);
 
   // Print out information about the state of all modules in the
   // system
-  int info();
+  void info();
 
   // Print out information about the Transaction Table
-  int info_ttable();
+  void info_ttable();
 
   // Print out information about the Cache Table
-  int info_cache_table();
+  void info_cache_table();
 
   // Print out PE Table info
-  int info_petable();
+  void info_petable();
 
   // Print out Register File info
-  int info_reg_file();
+  void info_reg_file();
 
   // Load the cache so that memory requests aren't necessary
-  int cache_load(int index, int nnid, const char *);
+  void cache_load(int index, int nnid, const char *);
 
   // Check to see if any entries in the Transaction Table are done
   int any_done();
@@ -95,11 +96,11 @@ t_Dana::~t_Dana() {
     fclose(vcd);
 }
 
-int t_Dana::tick_lo(int reset) {
+void t_Dana::tick_lo(int reset) {
   dana->clock_lo(dat_t<1>(reset));
 }
 
-int t_Dana::tick_hi(int reset) {
+void t_Dana::tick_hi(int reset) {
   if (vcd_flag)
     dana->dump(vcd, cycle);
   dana->clock_hi(dat_t<1>(reset));
@@ -107,6 +108,7 @@ int t_Dana::tick_hi(int reset) {
 }
 
 int t_Dana::tick(int num_cycles, int reset) {
+  int responses_seen = 0;
   for (int i = 0; i < num_cycles; i++) {
     tick_lo(reset);
     tick_hi(reset);
@@ -116,18 +118,20 @@ int t_Dana::tick(int num_cycles, int reset) {
       std::cout << " Output:";
       std::cout << std::stoi(get_dat_by_name("Dana.io_arbiter_resp_bits_data")->get_value().erase(0,2), NULL, 16);
       std::cout << std::endl;
+      responses_seen++;
     }
   }
+  return responses_seen;
 }
 
 
-int t_Dana::reset(int num_cycles) {
+void t_Dana::reset(int num_cycles) {
   for(int i = 0; i < num_cycles; i++) {
     tick(1,1);
   }
 }
 
-int t_Dana::new_write_request(int tid, int nnid) {
+void t_Dana::new_write_request(int tid, int nnid) {
   dana->Dana__io_arbiter_req_valid = 1;
   dana->Dana__io_arbiter_req_bits_isNew = 1;
   dana->Dana__io_arbiter_req_bits_readOrWrite = 1;
@@ -144,7 +148,7 @@ int t_Dana::new_write_request(int tid, int nnid) {
   dana->Dana__io_arbiter_req_bits_data = 0;
 }
 
-int t_Dana::write_data(int tid, int32_t data, int is_last) {
+void t_Dana::write_data(int tid, int32_t data, int is_last) {
   dana->Dana__io_arbiter_req_valid = 1;
   dana->Dana__io_arbiter_req_bits_isNew = 0;
   dana->Dana__io_arbiter_req_bits_tid = tid;
@@ -160,13 +164,12 @@ int t_Dana::write_data(int tid, int32_t data, int is_last) {
   dana->Dana__io_arbiter_req_bits_data = 0;
 }
 
-int t_Dana::write_rnd_data(int tid, int num, int decimal) {
+void t_Dana::write_rnd_data(int tid, int num, int decimal) {
   for (int i = 0; i < num; i++)
     write_data(tid, 256, (i == num - 1));
-  return 1;
 }
 
-int t_Dana::new_read_request(int tid) {
+void t_Dana::new_read_request(int tid) {
   dana->Dana__io_arbiter_req_valid = 1;
   dana->Dana__io_arbiter_req_bits_isNew = 0;
   dana->Dana__io_arbiter_req_bits_readOrWrite = 0;
@@ -176,10 +179,9 @@ int t_Dana::new_read_request(int tid) {
   tick(1,0);
   dana->Dana__io_arbiter_req_valid = 0;
   dana->Dana__io_arbiter_req_bits_isLast = 0;
-  return 1;
 }
 
-int t_Dana::info() {
+void t_Dana::info() {
   std::cout << "[INFO] Dumping tables at cycle " << cycle << std::endl;
   info_ttable();
   info_cache_table();
@@ -187,7 +189,7 @@ int t_Dana::info() {
   info_reg_file();
 }
 
-int t_Dana::info_ttable() {
+void t_Dana::info_ttable() {
   std::cout << "-----------------------------------------------------------------------------------\n";
   std::cout << "|V|R|W|CV|F?|L?|NL|NR|D| Tid|Nnid|  #L|  #N|  CL|  CN|CNinL|#NcL|#NnL| &N|Cache|DP| <- TTable\n";
   std::cout << "-----------------------------------------------------------------------------------\n";
@@ -285,7 +287,7 @@ int t_Dana::info_ttable() {
   std::cout << std::endl;
 }
 
-int t_Dana::info_cache_table() {
+void t_Dana::info_cache_table() {
   std::cout << "---------------------------\n";
   std::cout << "|V|N|F|NIdx|NMask|Nnid|IUC| <- Cache Table\n";
   std::cout << "---------------------------\n";
@@ -329,7 +331,7 @@ int t_Dana::info_cache_table() {
   std::cout << std::endl;
 }
 
-int t_Dana::info_petable() {
+void t_Dana::info_petable() {
   std::cout << "-------------------------------------------------------------------------------------------------------------\n";
   std::cout << "|S|IV|WV| TID|tIdx|CIdx|Node|inLoc|outLoc|InIdx|OutIdx|   &N|   &W|DP|LiL|#W|AF|S|    Bias|     Acc| DataOut| <- PE Table\n";
   std::cout << "-------------------------------------------------------------------------------------------------------------\n";
@@ -459,7 +461,7 @@ int t_Dana::info_petable() {
   std::cout << std::endl;
 }
 
-int t_Dana::info_reg_file() {
+void t_Dana::info_reg_file() {
   std::cout << "-----------\n";
   std::cout << "|E[Wr](0)|#Wr(0)|E[Wr](1)|#Wr(1)| <- Register File\n";
   std::cout << "-----------\n";
@@ -488,7 +490,7 @@ int t_Dana::info_reg_file() {
   std::cout << std::endl;
 }
 
-int t_Dana::cache_load(int index, int nnid, const char * file) {
+void t_Dana::cache_load(int index, int nnid, const char * file) {
   std::stringstream ss("");
   std::stringstream val("");
   std::stringstream i_s("");
@@ -592,6 +594,8 @@ int t_sobel() {
     api->tick(1,0);
   }
   if (tee) fclose(tee);
+
+  return 0;
 }
 
 int t_rsa() {
@@ -640,7 +644,7 @@ int t_rsa() {
   // Run the actual tests
   api->info();
   api->new_write_request(1, 18);
-  for (int i = 0; i < inputs.size(); i++)
+  for (unsigned int i = 0; i < inputs.size(); i++)
     api->write_data(1, inputs[i], i == inputs.size() - 1);
   // Drop this into a loop until some TID in the Transaction Table is
   // done
@@ -660,6 +664,7 @@ int t_rsa() {
   }
 
   if (tee) fclose(tee);
+  return 0;
 }
 
 int main (int argc, char* argv[]) {

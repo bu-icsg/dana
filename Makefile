@@ -5,7 +5,8 @@ DIR_SRC = src
 DIR_BUILD = build
 
 CHISEL_FLAGS :=
-GPP_FLAGS = -I $(DIR_BUILD) -g -std=c++11
+INCLUDE_PATHS = $(DIR_BUILD) ../usr/include
+GPP_FLAGS = $(INCLUDE_PATHS:%=-I %) -g -std=c++11
 GPP = g++
 
 # EXECUTABLES = $(notdir $(basename $(wildcard $(DIR_SRC)/*.scala)))
