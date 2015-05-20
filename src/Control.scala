@@ -126,7 +126,9 @@ class Control extends DanaModule()() {
       is (e_CACHE_INFO) {
         io.tTable.resp.valid := Bool(true)
         io.tTable.resp.bits.field := e_TTABLE_CACHE_VALID
-        io.tTable.resp.bits.data := io.cache.resp.bits.data
+        io.tTable.resp.bits.data(0) := io.cache.resp.bits.data(0)
+        io.tTable.resp.bits.data(1) := io.cache.resp.bits.data(1)
+        io.tTable.resp.bits.data(2) := io.cache.resp.bits.cacheIndex
         io.tTable.resp.bits.decimalPoint := io.cache.resp.bits.decimalPoint
         io.tTable.resp.bits.tableIndex := io.cache.resp.bits.tableIndex
       }
