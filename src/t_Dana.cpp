@@ -66,6 +66,9 @@ public:
 
   // Check for valid entries in the Transaction Table
   int any_valid();
+
+  // Return the count of the number of cycles
+  int get_cycles();
 };
 
 t_Dana::t_Dana() {
@@ -132,25 +135,34 @@ int t_Dana::new_write_request(int tid, int nnid) {
   dana->Dana__io_arbiter_req_bits_tid = tid;
   dana->Dana__io_arbiter_req_bits_data = nnid;
   tick(1,0);
-  return 1;
+  info();
+  dana->Dana__io_arbiter_req_valid = 0;
+  dana->Dana__io_arbiter_req_bits_isNew = 0;
+  dana->Dana__io_arbiter_req_bits_readOrWrite = 0;
+  dana->Dana__io_arbiter_req_bits_isLast = 0;
+  dana->Dana__io_arbiter_req_bits_tid = 0;
+  dana->Dana__io_arbiter_req_bits_data = 0;
 }
 
 int t_Dana::write_data(int tid, int32_t data, int is_last) {
   dana->Dana__io_arbiter_req_valid = 1;
   dana->Dana__io_arbiter_req_bits_isNew = 0;
+  dana->Dana__io_arbiter_req_bits_tid = tid;
   dana->Dana__io_arbiter_req_bits_readOrWrite = 1;
   dana->Dana__io_arbiter_req_bits_isLast = is_last;
   dana->Dana__io_arbiter_req_bits_data = data;
   tick(1,0);
+  info();
+  dana->Dana__io_arbiter_req_valid = 0;
+  dana->Dana__io_arbiter_req_bits_tid = tid;
+  dana->Dana__io_arbiter_req_bits_isLast = 0;
+  dana->Dana__io_arbiter_req_bits_readOrWrite = 0;
+  dana->Dana__io_arbiter_req_bits_data = 0;
 }
 
 int t_Dana::write_rnd_data(int tid, int num, int decimal) {
   for (int i = 0; i < num; i++)
     write_data(tid, 256, (i == num - 1));
-  dana->Dana__io_arbiter_req_valid = 0;
-  dana->Dana__io_arbiter_req_bits_isLast = 0;
-  dana->Dana__io_arbiter_req_bits_readOrWrite = 0;
-  dana->Dana__io_arbiter_req_bits_data = 0;
   return 1;
 }
 
@@ -318,9 +330,9 @@ int t_Dana::info_cache_table() {
 }
 
 int t_Dana::info_petable() {
-  std::cout << "----------------------------------------------------------------------------------------------------\n";
-  std::cout << "|S|IV|WV| TID|tIdx|CIdx|Node|inLoc|outLoc|InIdx|OutIdx|   &N|   &W|DP|LiL|#W|AF|S|    Bias|     Acc| <- PE Table\n";
-  std::cout << "----------------------------------------------------------------------------------------------------\n";
+  std::cout << "-------------------------------------------------------------------------------------------------------------\n";
+  std::cout << "|S|IV|WV| TID|tIdx|CIdx|Node|inLoc|outLoc|InIdx|OutIdx|   &N|   &W|DP|LiL|#W|AF|S|    Bias|     Acc| DataOut| <- PE Table\n";
+  std::cout << "-------------------------------------------------------------------------------------------------------------\n";
   std::string string_table("Dana.peTable.table_");
   std::string string_pe("Dana.peTable.ProcessingElement");
   std::stringstream string_field("");
@@ -427,6 +439,12 @@ int t_Dana::info_petable() {
     string_field << "Dana.peTable.ProcessingElement";
     if (i > 0) string_field << "_" << i;
     string_field << ".acc";
+    std::cout << "|" << get_dat_by_name(string_field.str())->get_value().erase(0,2);
+    // Activation Function Output
+    string_field.str("");
+    string_field << "Dana.peTable.ProcessingElement";
+    if (i > 0) string_field << "_" << i;
+    string_field << ".dataOut";
     std::cout << "|" << get_dat_by_name(string_field.str())->get_value().erase(0,2);
     // Inputs for this PE
     string_field.str("");
@@ -548,28 +566,93 @@ int t_Dana::any_valid () {
   return 0;
 }
 
-int main (int argc, char* argv[]) {
+int t_Dana::get_cycles() {
+  return cycle;
+}
+
+int t_sobel() {
   t_Dana* api = new t_Dana("build/t_Dana.vcd");
   FILE *tee = NULL;
   api->set_teefile(tee);
+  // Reset
+  api->reset(8);
+  // Preload the cache
+  api->cache_load(0, 17, "../workloads/data/sobel-fixed.16bin");
+  // Run the actual tests
+  api->new_write_request(1, 17);
+  api->write_rnd_data(1, 10, 6);
+  // Drop this into a loop until some TID in the Transaction Table is
+  // done
+  while (!api->any_done())
+    api->tick(1, 0);
+  api->tick(1,0);
+  // Read out data until there aren't any valid entries
+  while (api->any_valid()) {
+    api->new_read_request(1);
+    api->tick(1,0);
+  }
+  if (tee) fclose(tee);
+}
+
+int t_rsa() {
+  t_Dana* api = new t_Dana("build/t_Dana.vcd");
+  FILE *tee = NULL;
+  api->set_teefile(tee);
+  std::vector<int32_t> inputs;
+  inputs.push_back(1024);
+  inputs.push_back(1024);
+  inputs.push_back(1024);
+  inputs.push_back(1024);
+  inputs.push_back(0);
+  inputs.push_back(0);
+  inputs.push_back(1024);
+  inputs.push_back(1024);
+  inputs.push_back(1024);
+  inputs.push_back(0);
+  inputs.push_back(1024);
+  inputs.push_back(0);
+  inputs.push_back(0);
+  inputs.push_back(0);
+  inputs.push_back(1024);
+  inputs.push_back(0);
+  inputs.push_back(1024);
+  inputs.push_back(1024);
+  inputs.push_back(1024);
+  inputs.push_back(0);
+  inputs.push_back(1024);
+  inputs.push_back(0);
+  inputs.push_back(0);
+  inputs.push_back(0);
+  inputs.push_back(0);
+  inputs.push_back(0);
+  inputs.push_back(0);
+  inputs.push_back(0);
+  inputs.push_back(0);
+  inputs.push_back(0);
 
   // Reset
   api->reset(8);
 
   // Preload the cache
   api->cache_load(0, 17, "../workloads/data/sobel-fixed.16bin");
-  // api->cache_load(1, 18, "../workloads/data/rsa-fixed.16bin");
+  api->cache_load(1, 18, "../workloads/data/rsa-fixed.16bin");
 
   // Run the actual tests
-  api->new_write_request(1, 17);
-  api->write_rnd_data(1, 10, 6);
+  api->info();
+  api->new_write_request(1, 18);
+  for (int i = 0; i < inputs.size(); i++)
+    api->write_data(1, inputs[i], i == inputs.size() - 1);
   // api->new_write_request(1, 17);
   // api->write_rnd_data(1, 17, 10, 6);
   // Drop this into a loop until some TID in the Transaction Table is
   // done
   while (!api->any_done()) {
     api->tick(1, 0);
-    // api->info();
+    api->info();
+    if (api->get_cycles() > 10000) {
+      std::cout << "[ERROR] Hit cycle count limit, bailing..." << std::endl;
+      return -1;
+    }
   }
   api->tick(1,0);
   // Read out data until there aren't any valid entries
@@ -592,4 +675,8 @@ int main (int argc, char* argv[]) {
   // api->write_rnd_data(4, 20, 6, 6);
   // api->tick(10, 0);
   if (tee) fclose(tee);
+}
+
+int main (int argc, char* argv[]) {
+  t_rsa();
 }
