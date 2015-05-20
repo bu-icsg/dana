@@ -112,9 +112,9 @@ int t_Dana::tick(int num_cycles, int reset) {
     tick_hi(reset);
     if (dana->Dana__io_arbiter_resp_valid == 1) {
       std::cout << "[INFO] Saw response... Tid:";
-      std::cout << get_dat_by_name("Dana.io_arbiter_resp_bits_tid")->get_value().erase(0,2);
+      std::cout << std::stoi(get_dat_by_name("Dana.io_arbiter_resp_bits_tid")->get_value().erase(0,2), NULL, 16);
       std::cout << " Output:";
-      std::cout << get_dat_by_name("Dana.io_arbiter_resp_bits_data")->get_value().erase(0,2);
+      std::cout << std::stoi(get_dat_by_name("Dana.io_arbiter_resp_bits_data")->get_value().erase(0,2), NULL, 16);
       std::cout << std::endl;
     }
   }

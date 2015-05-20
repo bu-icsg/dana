@@ -133,7 +133,7 @@ class TransactionTable extends DanaModule()() {
       elementWidth = elementWidth)).io}
   // An entry is free if it is not valid and not reserved
   def isFree(x: TransactionState): Bool = { !x.valid && !x.reserved }
-  def derefTid(x: TransactionState, y: UInt): Bool = { x.tid === y }
+  def derefTid(x: TransactionState, y: UInt): Bool = { x.tid === y && (x.valid || x.reserved) }
 
   // Determine if there exits a free entry in the table and the index
   // of the next availble free entry
@@ -211,8 +211,7 @@ class TransactionTable extends DanaModule()() {
         // table(derefTidIndex).data() :=
       }
     } .otherwise { // Ths is a read packet
-      mem(derefTidIndex).addr(0) :=
-        table(derefTidIndex).readIdx >> UInt(log2Up(elementsPerBlock))
+      mem(derefTidIndex).addr(0) := table(derefTidIndex).readIdx
       arbiterRespPipe.valid := Bool(true)
       arbiterRespPipe.bits.tid := io.arbiter.req.bits.tid
       arbiterRespPipe.bits.tidIdx := derefTidIndex
@@ -332,14 +331,12 @@ class TransactionTable extends DanaModule()() {
       // but there are technically two that we can play with if
       // needed. There may be unintended consequences if some read
       // happens to follow a read very closely.
-      mem(io.peTable.req.bits.tableIndex).addr(0) :=
-        io.peTable.req.bits.addr << UInt(log2Up(elementsPerBlock))
+      mem(io.peTable.req.bits.tableIndex).addr(0) := io.peTable.req.bits.addr
       peRespPipe(0).valid := Bool(true)
       peRespPipe(0).bits.peIndex := io.peTable.req.bits.peIndex
     } .otherwise { // This is a write req
       mem(io.peTable.req.bits.tableIndex).we(0) := Bool(true)
-      mem(io.peTable.req.bits.tableIndex).addr(0) :=
-        io.peTable.req.bits.addr << UInt(log2Up(elementsPerBlock))
+      mem(io.peTable.req.bits.tableIndex).addr(0) := io.peTable.req.bits.addr
       mem(io.peTable.req.bits.tableIndex).din(0) := io.peTable.req.bits.data
       table(io.peTable.req.bits.tableIndex).countPeWrites :=
         table(io.peTable.req.bits.tableIndex).countPeWrites + UInt(1)
@@ -413,6 +410,9 @@ class TransactionTable extends DanaModule()() {
   for (i <- 0 until transactionTableNumEntries)
     assert(!table(i).valid || table(i).reserved,
       "Valid asserted with reserved de-asserted on TTable " + i)
+  // A read request should hit a valid entry
+  assert(foundTid || !io.arbiter.req.valid || io.arbiter.req.bits.readOrWrite,
+    "X-FILES performed a read request on a non-existent TID")
 }
 
 class TransactionTableTests(uut: TransactionTable, isTrace: Boolean = true)

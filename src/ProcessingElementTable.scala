@@ -61,7 +61,7 @@ class PETransactionTableInterface extends DanaBundle()() {
     val isWrite = Bool()
     val peIndex = UInt(width = log2Up(peTableNumEntries))
     val tableIndex = UInt(width = log2Up(transactionTableNumEntries))
-    val addr = UInt(width = log2Up(transactionTableSramBlocks))
+    val addr = UInt(width = log2Up(transactionTableSramElements))
     val data = UInt(width = elementWidth)
   })
   val resp = Decoupled(new PETransactionTableInterfaceResp).flip
@@ -303,8 +303,7 @@ class ProcessingElementTable extends DanaModule()() {
           io.tTable.req.bits.isWrite := Bool(false)
           io.tTable.req.bits.peIndex := peArbiter.io.out.bits.index
           io.tTable.req.bits.tableIndex := table(peArbiter.io.out.bits.index).tIdx
-          io.tTable.req.bits.addr := table(peArbiter.io.out.bits.index).inIdx >>
-            UInt(log2Up(elementsPerBlock))
+          io.tTable.req.bits.addr := table(peArbiter.io.out.bits.index).inIdx
         } .otherwise {
           // [TODO] untested
           io.regFile.req.valid := Bool(true)
