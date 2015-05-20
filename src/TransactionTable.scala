@@ -407,6 +407,10 @@ class TransactionTable extends DanaModule()() {
   // Only one inbound request or response can currently be handled
   assert(!io.arbiter.req.valid || !io.control.resp.valid,
     "Received simultaneous requests on the TransactionTable")
+  // Valid should never be true if reserved is not true
+  for (i <- 0 until transactionTableNumEntries)
+    assert(!table(i).valid || table(i).reserved,
+      "Valid asserted with reserved de-asserted on TTable " + i)
 }
 
 class TransactionTableTests(uut: TransactionTable, isTrace: Boolean = true)
