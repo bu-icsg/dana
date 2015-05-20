@@ -108,9 +108,9 @@ class Cache extends DanaModule()() {
     (0 until bitsPerBlock / 32).map(j => compressedLayers(i)(j) :=
       mem(i).dout(0)(32 * (j + 1) - 1, 32 * j))
     (0 until bitsPerBlock / 64).map(j => compressedNeurons(i)(j) :=
-      mem(i).dout(1)(64 * (j + 1) - 1, 64 * j))
+      mem(i).dout(0)(64 * (j + 1) - 1, 64 * j))
     (0 until bitsPerBlock / 32).map(j => compressedWeights(i)(j) :=
-      mem(i).dout(1)(64 * (j + 1) - 1, 64 * j))
+      mem(i).dout(0)(32 * (j + 1) - 1, 32 * j))
   }
 
   // Response Pipelines for Control module and PEs. Responses take multiple
@@ -232,7 +232,7 @@ class Cache extends DanaModule()() {
           // the same data shows up while this guy is being fetched.
           table(derefNnid).inUseCount := table(derefNnid).inUseCount + UInt(1)
           table(derefNnid).notifyMask := table(derefNnid).notifyMask |
-          UIntToOH(io.control.req.bits.tableIndex)
+            UIntToOH(io.control.req.bits.tableIndex)
         } .otherwise {
           // The NNID was found and the data has already been loaded
           table(derefNnid).inUseCount := table(derefNnid).inUseCount + UInt(1)
@@ -255,8 +255,11 @@ class Cache extends DanaModule()() {
         controlRespPipe(0).valid := Bool(true)
         controlRespPipe(0).bits.tableIndex := io.control.req.bits.tableIndex
         controlRespPipe(0).bits.field := e_CACHE_LAYER_INFO
-        controlRespPipe(0).bits.data(0) := io.control.req.bits.layer
+        // The layer sub-index is temporarily stored in data(0)
+        controlRespPipe(0).bits.data(0) :=
+          io.control.req.bits.layer(log2Up(elementsPerBlock)-1,0)
         controlRespPipe(0).bits.location := io.control.req.bits.location
+        controlRespPipe(0).bits.cacheIndex := derefNnid
 
         // Read the layer information from the correct block. A layer
         // occupies one block, so we need to pull the block address
@@ -291,13 +294,16 @@ class Cache extends DanaModule()() {
     is (e_CACHE_LAYER_INFO) {
       // Number of neurons in this layer
       controlRespPipe(1).bits.data(0) :=
-        compressedLayers(controlRespPipe(0).bits.cacheIndex)(controlRespPipe(0).bits.data(0)(log2Up(elementsPerBlock)-1,0))(12 + 9, 12)
+        compressedLayers(controlRespPipe(0).bits.cacheIndex)(
+          controlRespPipe(0).bits.data(0))(12 + 10 - 1, 12)
       // Number of neurons in the next layer
       controlRespPipe(1).bits.data(1) :=
-        compressedLayers(controlRespPipe(0).bits.cacheIndex)(controlRespPipe(0).bits.data(0)(log2Up(elementsPerBlock)-1,0))(22 + 9, 22)
+        compressedLayers(controlRespPipe(0).bits.cacheIndex)(
+          controlRespPipe(0).bits.data(0))(22 + 10 - 1, 22)
       // Pointer to the first neuron
       controlRespPipe(1).bits.data(2) :=
-        compressedLayers(controlRespPipe(0).bits.cacheIndex)(controlRespPipe(0).bits.data(0)(log2Up(elementsPerBlock)-1,0))(12 - 1, 0)
+        compressedLayers(controlRespPipe(0).bits.cacheIndex)(
+          controlRespPipe(0).bits.data(0))(12 - 1, 0)
     }
   }
 

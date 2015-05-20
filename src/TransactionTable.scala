@@ -332,12 +332,14 @@ class TransactionTable extends DanaModule()() {
       // but there are technically two that we can play with if
       // needed. There may be unintended consequences if some read
       // happens to follow a read very closely.
-      mem(io.peTable.req.bits.peIndex).addr(0)
+      mem(io.peTable.req.bits.tableIndex).addr(0) :=
+        io.peTable.req.bits.addr << UInt(log2Up(elementsPerBlock))
       peRespPipe(0).valid := Bool(true)
       peRespPipe(0).bits.peIndex := io.peTable.req.bits.peIndex
     } .otherwise { // This is a write req
       mem(io.peTable.req.bits.tableIndex).we(0) := Bool(true)
-      mem(io.peTable.req.bits.tableIndex).addr(0) := io.peTable.req.bits.addr
+      mem(io.peTable.req.bits.tableIndex).addr(0) :=
+        io.peTable.req.bits.addr << UInt(log2Up(elementsPerBlock))
       mem(io.peTable.req.bits.tableIndex).din(0) := io.peTable.req.bits.data
       table(io.peTable.req.bits.tableIndex).countPeWrites :=
         table(io.peTable.req.bits.tableIndex).countPeWrites + UInt(1)
