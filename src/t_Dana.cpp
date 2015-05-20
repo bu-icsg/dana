@@ -642,8 +642,6 @@ int t_rsa() {
   api->new_write_request(1, 18);
   for (int i = 0; i < inputs.size(); i++)
     api->write_data(1, inputs[i], i == inputs.size() - 1);
-  // api->new_write_request(1, 17);
-  // api->write_rnd_data(1, 17, 10, 6);
   // Drop this into a loop until some TID in the Transaction Table is
   // done
   while (!api->any_done()) {
@@ -660,20 +658,7 @@ int t_rsa() {
     api->new_read_request(1);
     api->tick(1,0);
   }
-  // api->new_read_request(1);
-  // for (int i = 0; i < 10; i++) {
-  //   api->tick(1, 0);
-  //   // api->info();
-  // }
-  // api->new_write_request(2, 18);
-  // api->write_rnd_data(2, 18, 2, 6);
-  // api->tick(10, 0);
-  // api->new_write_request(3, 19);
-  // api->write_rnd_data(3, 19, 4, 6);
-  // api->tick(10, 0);
-  // api->new_write_request(4, 20);
-  // api->write_rnd_data(4, 20, 6, 6);
-  // api->tick(10, 0);
+
   if (tee) fclose(tee);
 }
 
