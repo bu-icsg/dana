@@ -17,31 +17,32 @@ public:
   ~t_Dana();
 
   // Drive the clock low
-  void tick_lo(int reset);
+  void tick_lo(int);
 
   // Drive the clock high and update the vcd file if the vcd flag is
   // set
-  void tick_hi(int reset);
+  void tick_hi(int);
 
   // Tick the clock for a specified number of cycles without changing
-  // the inputs
-  int tick(int num_cycles, int reset);
+  // the inputs. Outputs will be pushed onto a specified output vector
+  // (if an output vector is, in fact, specified)
+  int tick(int, int, std::vector<int32_t> *);
 
   // Apply the reset for a specified number of cycles
-  void reset(int num_cycles);
+  void reset(int);
 
   // Initiate a new write request with the accelerator
-  void new_write_request(int tid, int nnid);
+  void new_write_request(uint16_t, uint32_t, bool);
 
   // Write one unit of data
-  void write_data(int tid, int32_t data, int is_last);
+  void write_data(int, int32_t, int, bool);
 
   // Finalize a write request by sending random data to the
   // accelerator
-  void write_rnd_data(int tid, int num, int decimal);
+  void write_rnd_data(int, int, int);
 
   // Read one unit of data out of Dana for a specific TID
-  void new_read_request(int tid);
+  void new_read_request(int);
 
   // Print out information about the state of all modules in the
   // system
@@ -60,7 +61,7 @@ public:
   void info_reg_file();
 
   // Load the cache so that memory requests aren't necessary
-  void cache_load(int index, int nnid, const char *);
+  void cache_load(int, uint32_t, const char *, bool);
 
   // Check to see if any entries in the Transaction Table are done
   int any_done();
@@ -70,6 +71,16 @@ public:
 
   // Return the count of the number of cycles
   int get_cycles();
+
+  // Generic method that compares the output of a FANN neural network
+  // for a specific training file to DANA. The cache must be
+  // preloaded.
+  int testbench_fann(uint16_t, uint32_t, uint16_t, const char *,
+                     const char *, bool);
+
+  // Run the C++ Chisel model on a set of inputs
+  int run(uint16_t, uint32_t, uint16_t, std::vector<int32_t> *,
+          std::vector<int32_t> *, bool, int);
 };
 
 t_Dana::t_Dana() {
@@ -107,23 +118,28 @@ void t_Dana::tick_hi(int reset) {
   cycle++;
 }
 
-int t_Dana::tick(int num_cycles, int reset) {
+int t_Dana::tick(int num_cycles = 1, int reset = 0,
+                 std::vector<int32_t> * output = NULL) {
   int responses_seen = 0;
   for (int i = 0; i < num_cycles; i++) {
     tick_lo(reset);
     tick_hi(reset);
     if (dana->Dana__io_arbiter_resp_valid == 1) {
-      std::cout << "[INFO] Saw response... Tid:";
-      std::cout << std::stoi(get_dat_by_name("Dana.io_arbiter_resp_bits_tid")->get_value().erase(0,2), NULL, 16);
-      std::cout << " Output:";
-      std::cout << std::stoi(get_dat_by_name("Dana.io_arbiter_resp_bits_data")->get_value().erase(0,2), NULL, 16);
-      std::cout << std::endl;
+      if (output != NULL) {
+        output->push_back(std::stoi(get_dat_by_name("Dana.io_arbiter_resp_bits_data")->get_value().erase(0,2), NULL, 16));
+      }
+      else {
+        std::cout << "[INFO] Saw response... Tid:";
+        std::cout << std::stoi(get_dat_by_name("Dana.io_arbiter_resp_bits_tid")->get_value().erase(0,2), NULL, 16);
+        std::cout << " Output:";
+        std::cout << std::stoi(get_dat_by_name("Dana.io_arbiter_resp_bits_data")->get_value().erase(0,2), NULL, 16);
+        std::cout << std::endl;
+      }
       responses_seen++;
     }
   }
   return responses_seen;
 }
-
 
 void t_Dana::reset(int num_cycles) {
   for(int i = 0; i < num_cycles; i++) {
@@ -131,7 +147,7 @@ void t_Dana::reset(int num_cycles) {
   }
 }
 
-void t_Dana::new_write_request(int tid, int nnid) {
+void t_Dana::new_write_request(uint16_t tid, uint32_t nnid, bool debug = false) {
   dana->Dana__io_arbiter_req_valid = 1;
   dana->Dana__io_arbiter_req_bits_isNew = 1;
   dana->Dana__io_arbiter_req_bits_readOrWrite = 1;
@@ -139,7 +155,7 @@ void t_Dana::new_write_request(int tid, int nnid) {
   dana->Dana__io_arbiter_req_bits_tid = tid;
   dana->Dana__io_arbiter_req_bits_data = nnid;
   tick(1,0);
-  info();
+  if (debug) info();
   dana->Dana__io_arbiter_req_valid = 0;
   dana->Dana__io_arbiter_req_bits_isNew = 0;
   dana->Dana__io_arbiter_req_bits_readOrWrite = 0;
@@ -148,7 +164,7 @@ void t_Dana::new_write_request(int tid, int nnid) {
   dana->Dana__io_arbiter_req_bits_data = 0;
 }
 
-void t_Dana::write_data(int tid, int32_t data, int is_last) {
+void t_Dana::write_data(int tid, int32_t data, int is_last, bool debug = false) {
   dana->Dana__io_arbiter_req_valid = 1;
   dana->Dana__io_arbiter_req_bits_isNew = 0;
   dana->Dana__io_arbiter_req_bits_tid = tid;
@@ -156,7 +172,7 @@ void t_Dana::write_data(int tid, int32_t data, int is_last) {
   dana->Dana__io_arbiter_req_bits_isLast = is_last;
   dana->Dana__io_arbiter_req_bits_data = data;
   tick(1,0);
-  info();
+  if (debug) info();
   dana->Dana__io_arbiter_req_valid = 0;
   dana->Dana__io_arbiter_req_bits_tid = tid;
   dana->Dana__io_arbiter_req_bits_isLast = 0;
@@ -490,7 +506,8 @@ void t_Dana::info_reg_file() {
   std::cout << std::endl;
 }
 
-void t_Dana::cache_load(int index, int nnid, const char * file) {
+void t_Dana::cache_load(int index, uint32_t nnid, const char * file,
+                        bool debug = false) {
   std::stringstream ss("");
   std::stringstream val("");
   std::stringstream i_s("");
@@ -515,14 +532,15 @@ void t_Dana::cache_load(int index, int nnid, const char * file) {
   ss << ".mem";
   i = 0;
   // Go through the whole file and dump the data into the SRAM
-  std::cout << "[INFO] Loading Cache SRAM " << index << " with data from\n";
+  std::cout << "[INFO] Loading Cache SRAM " << index << " with NNID "
+            << nnid  << " and data from" << std::endl;
   std::cout << "[INFO]   " << file << std::endl;
   while (!config.eof()) {
     // [TODO] The endinannes may need to be swapped here
     // The number of characters to read
     config.read(buf, 16);
     // std::cout << i << ":" << std::hex << std::setfill('0') << std::setw(2) << buf << std::endl;
-    std::cout << "[INFO]   " << std::setw(5) << i << ":";
+    if (debug) std::cout << "[INFO]   " << std::setw(5) << i << ":";
     val.str("");
     val << "0x";
     // This needs to go in reverse order to do an endianness
@@ -531,15 +549,14 @@ void t_Dana::cache_load(int index, int nnid, const char * file) {
       sprintf(tmp, "%02x", (const unsigned char)buf[j]);
       val << tmp;
     }
-    std::cout << val.str();
-    printf("\n");
+    if (debug) std::cout << val.str() << std::endl;
     i_s.str("");
     i_s << i;
     get_mem_by_name(ss.str())->set_element(i_s.str(), val.str());
     i++;
   }
   config.close();
-  std::cout << "[INFO]   Done!" << std::endl;
+  if (debug) std::cout << "[INFO]   Done!" << std::endl;
 }
 
 int t_Dana::any_done () {
@@ -570,6 +587,110 @@ int t_Dana::any_valid () {
 
 int t_Dana::get_cycles() {
   return cycle;
+}
+
+int t_Dana::run(uint16_t tid, uint32_t nnid, uint16_t num_rounds,
+                std::vector<int32_t> * inputs, std::vector<int32_t> * outputs,
+                bool debug = false, int cycle_limit = 0) {
+  if (debug) info();
+  new_write_request(tid, nnid);
+  for (unsigned int i = 0; i < inputs->size(); i++)
+    write_data(tid, (*inputs)[i], i == inputs->size() - 1);
+  while (!any_done()) {
+    tick();
+    if (debug) info();
+    if (cycle_limit && get_cycles() > cycle_limit) {
+      std::cout << "[ERROR] Hit " << cycle_limit
+                << " cycle count limit, bailing..." << std::endl;
+      return -1;
+    }
+  }
+  // We need to add an extra tick to allow the data to get into the IO
+  // storage.
+  tick();
+  while (any_valid()) {
+    new_read_request(tid);
+    tick(1, 0, outputs);
+  }
+  return 0;
+}
+
+int t_Dana::testbench_fann(uint16_t tid, uint32_t nnid, uint16_t num_rounds,
+                           const char * file_net, const char * file_train,
+                           bool debug = false) {
+  struct fann *ann = NULL;
+  struct fann_train_data *data = NULL;
+  fann_type * output_fann;
+  std::vector<int32_t> input_dana, output_dana;
+  int i, j;
+  int decimal_point, total_bit_failures, total_outputs;
+  int output_fann_th, output_dana_th;
+  double error, error_mean, error_mse;
+
+  // [TODO] Add support for num_rounds into DANA-Chisel and into the
+  // FANN checking below.
+  if (num_rounds > 0)
+    std::cout << "[WARN] NN Output->Input feedback not supported" << std::endl;
+
+  if ((ann = fann_create_from_file(file_net)) == 0) goto failure;
+  if ((data = fann_read_train_from_file(file_train)) == 0) goto failure;
+
+  input_dana.resize(data->num_input);
+
+  decimal_point = fann_save_to_fixed(ann, "/dev/null");
+
+  error_mean = 0.0;
+  error_mse = 0.0;
+  total_outputs = 0;
+  total_bit_failures = 0;
+
+  for (i = 0; i < data->num_data; i++) {
+    output_dana.clear();
+    for (j = 0; j < data->num_input; j++) {
+      input_dana[j] = ((int32_t) data->input[i][j] << decimal_point);
+    }
+    output_fann = fann_run(ann, data->input[i]);
+    run(tid, nnid, num_rounds, &input_dana, &output_dana, debug);
+    // std::cout << "[INFO] FANN vs. DANA" << std::endl;
+    for (j = 0; j < data->num_output; j++) {
+      total_outputs++;
+      error = output_fann[j] -
+        ((fann_type) output_dana[j] / pow(2.0, decimal_point));
+      error_mean += error;
+      error_mse += error * error;
+      if (fabs(error) > 0.1) {
+        printf("[INFO] ABS Err > 0.1 (%f) on [%d, %d], found %d (%f), should be %f\n",
+               fabs(error), i, j,
+               output_dana[j], (float)output_dana[j] / pow(2.0, decimal_point),
+               output_fann[j]);
+        // Check to see if this results in a bit flip
+        output_fann_th = output_fann[j] > 0.5 ? 1 : 0;
+        output_dana_th = output_dana[j] > (1 << (decimal_point - 1)) ? 1 : 0;
+        if (output_fann_th != output_dana_th) {
+          std::cout << "[ERROR] This results in a bit flip!" << std::endl;
+          total_bit_failures++;
+        }
+      }
+      // std::cout << "[INFO] " << output_fann[j] << " | " << output_dana[j]
+      //           << std::endl;
+    }
+  }
+
+  printf("[INFO] Outputs tested: %d\n", total_outputs);
+  printf("[INFO] Mean error: %0.5f\n",
+         error_mean / (fann_type) total_outputs);
+  printf("[INFO] Mean squared error: %0.5f\n",
+         error_mse / (fann_type) total_outputs);
+  printf("[INFO] Total bit failures: %d\n", total_bit_failures);
+
+  fann_destroy(ann);
+  fann_destroy_train(data);
+  return 0;
+
+ failure:
+  if (data != NULL) fann_destroy_train(data);
+  if (ann != NULL) fann_destroy(ann);
+  return 1;
 }
 
 int t_sobel() {
@@ -668,5 +789,18 @@ int t_rsa() {
 }
 
 int main (int argc, char* argv[]) {
-  t_rsa();
+  // t_Dana* api = new t_Dana("build/t_Dana.vcd");
+  t_Dana* api = new t_Dana();
+  FILE *tee = NULL;
+  api->set_teefile(tee);
+
+  // Preload the cache
+  api->cache_load(0, 17, "../workloads/data/sobel-fixed.16bin");
+  api->cache_load(1, 18, "../workloads/data/rsa-fixed.16bin");
+
+  api->testbench_fann(1, 18, 0, "../workloads/data/rsa.net",
+                      "../workloads/data/rsa.train");
+
+  if (tee) fclose(tee);
+  return 0;
 }

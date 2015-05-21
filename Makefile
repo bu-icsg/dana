@@ -5,9 +5,17 @@ DIR_SRC = src
 DIR_BUILD = build
 
 CHISEL_FLAGS :=
+COMMA    = ,
+
+# Compiler related options
 INCLUDE_PATHS = $(DIR_BUILD) ../usr/include
 GPP_FLAGS = $(INCLUDE_PATHS:%=-I %) -g -std=c++11
 GPP = g++
+
+# Linker related options
+LIB_PATHS      = ../usr/lib
+LIB_LIBS       = m fann
+LFLAGS         = $(addprefix -Wl$(COMMA)-R, $(shell readlink -f $(LIB_PATHS))) $(LIB_PATHS:%=-L %) $(LIB_LIBS:%=-l %)
 
 # EXECUTABLES = $(notdir $(basename $(wildcard $(DIR_SRC)/*.scala)))
 EXECUTABLES = Dana
@@ -57,7 +65,7 @@ $(DIR_BUILD)/%.vcd: $(DIR_BUILD)/% Makefile
 	$<
 
 build/t_Dana: $(OUTS) $(OBJECTS) $(TEST_OBJECTS)
-	$(GPP) $(GPP_FLAGS) $(OBJECTS) $(EMULATOR_OBJECTS) -o $@
+	$(GPP) $(GPP_FLAGS) $(OBJECTS) $(EMULATOR_OBJECTS) $(LFLAGS) -o $@
 
 vcd: $(DIR_BUILD)/t_Dana.vcd Makefile
 	scripts/gtkwave $<
