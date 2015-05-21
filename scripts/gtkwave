@@ -1,5 +1,7 @@
 #!/bin/bash
 
+# Front-end script to open up
+
 usage () {
     echo "Usage: $0 [VCD File]"
 }
@@ -11,7 +13,14 @@ then
 fi
 
 FILE_VCD=$1
+FILE_FST=${FILE_VCD%.*}.fst
 FILE_GTKW=${FILE_VCD%.*}.gtkw
 
-gtkwave -S ../tools/scripts/addWavesRecursive.tcl $FILE_VCD > $FILE_GTKW
-gtkwave -o $FILE_VCD $FILE_GTKW
+# Pass a truncated version of the VCD file to the addWavesRecursive
+# script to generate the .gtkw save file
+awk '/^#(([1\-9])|([0\-9][0\-9]))/{exit}1' $FILE_VCD | \
+    gtkwave -v -S ../tools/scripts/addWavesRecursive.tcl > $FILE_GTKW
+# Compress the VCD file to an FST file
+vcd2fst $FILE_VCD $FILE_FST
+# Open the FST file
+gtkwave $FILE_FST $FILE_GTKW
