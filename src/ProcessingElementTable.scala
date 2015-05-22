@@ -2,19 +2,19 @@ package dana
 
 import Chisel._
 
-class PECacheInterfaceResp extends DanaBundle()() {
+class PECacheInterfaceResp extends DanaBundle {
   val field = UInt(width = log2Up(3))
   val data = UInt(width = bitsPerBlock)
   val peIndex = UInt(width = log2Up(peTableNumEntries))
   val indexIntoData = UInt(width = elementsPerBlock) // [TODO] too big width?
 }
 
-class PECacheInterface extends DanaBundle()() {
+class PECacheInterface extends DanaBundle {
   // Outbound request / inbound responses. These are roughly
   // equivalent to:
   //   * pe_types::pe2storage_struct
   //   * pe_types::storage2pe_struct
-  val req = Decoupled(new DanaBundle()() {
+  val req = Decoupled(new DanaBundle {
     val field = UInt(width = log2Up(3)) // [TODO] fragile on Cache Req Enum
     val peIndex = UInt(width = log2Up(peTableNumEntries))
     val cacheIndex = UInt(width = log2Up(cacheNumEntries))
@@ -24,12 +24,12 @@ class PECacheInterface extends DanaBundle()() {
   val resp = Decoupled(new PECacheInterfaceResp).flip
 }
 
-class PERegisterFileInterface extends DanaBundle()() {
+class PERegisterFileInterface extends DanaBundle {
   // Outbound reguest / inbound response. nnsim-hdl equivalents:
   //   * pe_types::pe2reg_file_read_struct
   //   * pe_types::pe2reg_file_write_struct
   //   * pe_types::reg_file2pe_struct
-  val req = Decoupled(new DanaBundle()() {
+  val req = Decoupled(new DanaBundle {
     // The register index should go down to the element level
     val isWrite = Bool()
     val regIndex = UInt(width = log2Up(regFileNumElements))
@@ -38,7 +38,7 @@ class PERegisterFileInterface extends DanaBundle()() {
     val location = UInt(width = 1)
     val data = UInt(width = elementWidth)
   })
-  val resp = Decoupled(new DanaBundle()() {
+  val resp = Decoupled(new DanaBundle {
     // [TODO] I'm excluding valid_reg_mask as I think this is
     // unnecessary for the current asynchronous model.
     val peIndex = UInt(width = log2Up(peTableNumEntries))
@@ -46,18 +46,18 @@ class PERegisterFileInterface extends DanaBundle()() {
   }).flip
 }
 
-class PETransactionTableInterfaceResp extends DanaBundle()() {
+class PETransactionTableInterfaceResp extends DanaBundle {
   val peIndex = UInt(width = log2Up(peTableNumEntries))
   val data = UInt(width = bitsPerBlock)
 }
 
-class PETransactionTableInterface extends DanaBundle()() {
+class PETransactionTableInterface extends DanaBundle {
   // Communication with the Transaction Table for some data from an IO
   // memory. SV equivalents:
   //   * pe2nn_table_read_struct
   //   * pe2nn_table_write_sruct
   //   * nntable2pe_struct
-  val req = Decoupled(new DanaBundle()() {
+  val req = Decoupled(new DanaBundle {
     val isWrite = Bool()
     val peIndex = UInt(width = log2Up(peTableNumEntries))
     val tableIndex = UInt(width = log2Up(transactionTableNumEntries))
@@ -67,14 +67,14 @@ class PETransactionTableInterface extends DanaBundle()() {
   val resp = Decoupled(new PETransactionTableInterfaceResp).flip
 }
 
-class PETableInterface extends DanaBundle()() {
+class PETableInterface extends DanaBundle {
   val control = (new ControlPETableInterface).flip
   val cache = new PECacheInterface
   val regFile = new PERegisterFileInterface
   val tTable = new PETransactionTableInterface
 }
 
-class ProcessingElementState extends DanaBundle()() {
+class ProcessingElementState extends DanaBundle {
   val infoValid = Bool()
   val weightValid = Bool()
   val inValid = Bool() // input_valid
@@ -100,7 +100,7 @@ class ProcessingElementState extends DanaBundle()() {
   val bias = UInt(width = elementWidth)
 }
 
-class ProcessingElementTable extends DanaModule()() {
+class ProcessingElementTable extends DanaModule {
   val io = new PETableInterface
 
   // Create the table with the specified top-level parameters. Derived

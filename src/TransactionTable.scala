@@ -2,7 +2,7 @@ package dana
 
 import Chisel._
 
-class TransactionState extends DanaBundle()() {
+class TransactionState extends DanaBundle {
   val valid = Bool()
   val reserved = Bool()
   val cacheValid = Bool()
@@ -38,7 +38,7 @@ class TransactionState extends DanaBundle()() {
   val indexElement = UInt(width = log2Up(transactionTableSramElements))
 }
 
-class ControlReq extends DanaBundle()() {
+class ControlReq extends DanaBundle {
   // Bools
   val cacheValid = Bool()
   val waiting = Bool()
@@ -66,50 +66,50 @@ class ControlReq extends DanaBundle()() {
   val decimalPoint = UInt(width = decimalPointWidth)
 }
 
-class ControlResp extends DanaBundle()() {
+class ControlResp extends DanaBundle {
   val tableIndex = UInt(width = log2Up(transactionTableNumEntries))
   val field = UInt(width = 4) // [TODO] fragile on Constants.scala
   val data = Vec.fill(3){UInt(width = 16)} // [TODO] fragile
   val decimalPoint = UInt(width = decimalPointWidth)
 }
 
-class XFilesArbiterReq extends DanaBundle()() {
+class XFilesArbiterReq extends DanaBundle {
   val tid = UInt(width = tidWidth)
   val readOrWrite = Bool()
-  val countFeedback = UInt(width = bitsFeedback)
+  val countFeedback = UInt(width = feedbackWidth)
   val isNew = Bool()
   val isLast = Bool()
   val data = UInt(width = elementWidth)
 }
 
-class XFilesArbiterResp extends DanaBundle()() {
+class XFilesArbiterResp extends DanaBundle {
   val tid = UInt(width = tidWidth)
   val data = UInt(width = elementWidth)
 }
 
-class XFilesArbiterRespPipe extends DanaBundle()() {
+class XFilesArbiterRespPipe extends DanaBundle {
   val tid = UInt(width = tidWidth)
   val tidIdx = UInt(width = log2Up(transactionTableNumEntries))
   val readIdx = UInt(width = log2Up(transactionTableSramElements))
 }
 
-class XFilesArbiterInterface extends DanaBundle()() {
+class XFilesArbiterInterface extends DanaBundle {
   val req = Decoupled(new XFilesArbiterReq).flip
   val resp = Decoupled(new XFilesArbiterResp)
 }
 
-class TTableControlInterface extends DanaBundle()() {
+class TTableControlInterface extends DanaBundle {
   val req = Decoupled(new ControlReq)
   val resp = Decoupled(new ControlResp).flip
 }
 
-class TransactionTableInterface extends DanaBundle()() {
+class TransactionTableInterface extends DanaBundle {
   val arbiter = new XFilesArbiterInterface
   val control = new TTableControlInterface
   val peTable = (new PETransactionTableInterface).flip
 }
 
-class TransactionTable extends DanaModule()() {
+class TransactionTable extends DanaModule {
   // Communication with the X-FILES arbiter
   val io = new TransactionTableInterface
 

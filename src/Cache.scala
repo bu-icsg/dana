@@ -2,7 +2,7 @@ package dana
 
 import Chisel._
 
-class CacheState extends DanaBundle()() {
+class CacheState extends DanaBundle {
   // nnsim-hdl equivalent:
   //   cache_types::cache_config_entry_struct
   val valid = Bool()
@@ -14,10 +14,10 @@ class CacheState extends DanaBundle()() {
   val inUseCount = UInt(width = log2Up(transactionTableNumEntries))
 }
 
-class CacheMemInterface extends DanaBundle()() {
+class CacheMemInterface extends DanaBundle {
   // Outbound request. nnsim-hdl equivalent:
   //   cache_types::cache2mem_struct
-  val req = Decoupled(new DanaBundle()() {
+  val req = Decoupled(new DanaBundle {
     val nnid = UInt(width = nnidWidth)
     // [TODO] I'm not sure if the following is needed
     val tTableIndex = UInt(width = log2Up(transactionTableNumEntries))
@@ -25,7 +25,7 @@ class CacheMemInterface extends DanaBundle()() {
   })
   // Response from memory. nnsim-hdl equivalent:
   //   cache_types::mem2cache_struct
-  val resp = Decoupled(new DanaBundle()() {
+  val resp = Decoupled(new DanaBundle {
     val done = Bool()
     val data = UInt(width = elementsPerBlock * elementWidth)
     val cacheIndex = UInt(width = log2Up(cacheNumEntries))
@@ -44,7 +44,7 @@ class CacheInterface extends Bundle {
 }
 
 // Helper bundles that we can use for typecasting (I think)
-class CompressedInfo extends DanaBundle()() {
+class CompressedInfo extends DanaBundle {
   val decimalPoint      = UInt(width = decimalPointWidth)
   val unused_0          = Bits(width = 16 - decimalPointWidth)
   val totalEdges        = UInt(width = 16) // [TODO] Wrong name?
@@ -54,7 +54,7 @@ class CompressedInfo extends DanaBundle()() {
   val weightsPointer    = UInt(width = 16)
   val unused_1          = Bits(width = bitsPerBlock - 16 * 6)
 }
-class CompressedNeuron extends DanaBundle()() {
+class CompressedNeuron extends DanaBundle {
   val weightPtr = UInt(width = 16)
   val numWeights = UInt(width = 8)
   val activationFunction = UInt(width = activationFunctionWidth)
@@ -69,7 +69,7 @@ class CompressedNeuron extends DanaBundle()() {
   }
 }
 
-class Cache extends DanaModule()() {
+class Cache extends DanaModule {
   val io = new CacheInterface
 
   // Create the table of cache entries

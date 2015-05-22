@@ -1,81 +1,113 @@
-SBT          ?= sbt
-_SBT_FLAGS   ?= -Dsbt.log.noformat=true
-SBT_FLAGS    ?=
-DIR_SRC = src
-DIR_BUILD = build
+# Common configuration
+DIR_SRC		= src
+DIR_BUILD	= build
 
-CHISEL_FLAGS :=
+# Chisel/Scala configuration
+SBT			?= sbt
+# Unused sbt flags
+_SBT_FLAGS		?= -Dsbt.log.noformat=true
+SBT_FLAGS		?=
+CHISEL_TOP		= dana
+CHISEL_CONFIG		= DefaultConfig
+CHISEL_CONFIG_DOT 	= .$(CHISEL_CONFIG)
+CHISEL_FLAGS		= --targetDir $(DIR_BUILD) \
+	--compile \
+	--configInstance $(CHISEL_TOP)$(CHISEL_CONFIG_DOT) \
+	--debug \
+	--vcd
+CHISEL_FLAGS_CPP	= --backend c --compile $(CHISEL_FLAGS)
+CHISEL_FLAGS_V		= --backend v $(CHISEL_FLAGS)
+CHISEL_FLAGS_DOT	= --backend dot $(CHISEL_FLAGS)
+# Unused Chisel Flags
+_CHISEL_FLAGS		= --genHarness \
+	--compile \
+	--test \
+	--debug \
+	--vcd \
+	--targetDir $(DIR_BUILD) \
+	--configInstance $(CHISEL_TOP)$(CHISEL_CONFIG_DOT)
+
+# Miscellaneous crap
 COMMA    = ,
 
+# Chisel Target Backends
+EXECUTABLES	= Dana
+ALL_MODULES	= $(notdir $(wildcard $(DIR_SRC)/*.scala))
+BACKEND_CPP	= $(EXECUTABLES:%=$(DIR_BUILD)/%$(CHISEL_CONFIG_DOT).cpp)
+BACKEND_VERILOG = $(EXECUTABLES:%=$(DIR_BUILD)/%$(CHISEL_CONFIG_DOT).v)
+BACKEND_DOT	= $(EXECUTABLES:%=$(DIR_BUILD)/%$(CHISEL_CONFIG_DOT).dot)
+
+# C++ Backend Specific Targets
+TESTS            = t_Dana.cpp
+TEST_EXECUTABLES = $(TESTS:%.cpp=$(DIR_BUILD)/%$(CHISEL_CONFIG_DOT))
+OBJECTS          = $(BACKEND_CPP:%.cpp=%.o) $(TESTS:%.cpp=$(DIR_BUILD)/%.o)
+VCDS             = $(TESTS:%.cpp=$(DIR_BUILD)/%.vcd)
+STRIPPED         = $(EXECUTABLES:%=$(DIR_BUILD)/%-emulator-nomain.o)
+
 # Compiler related options
+GPP           = g++
 INCLUDE_PATHS = $(DIR_BUILD) ../usr/include
-GPP_FLAGS = $(INCLUDE_PATHS:%=-I %) -g -std=c++11
-GPP = g++
+INCLUDES      = $(addprefix -include $(DIR_BUILD)/, \
+	$(EXECUTABLES:%=%$(CHISEL_CONFIG_DOT).h))
+GPP_FLAGS     = $(INCLUDES) $(INCLUDE_PATHS:%=-I %) -g -std=c++11
 
 # Linker related options
-LIB_PATHS      = ../usr/lib
-LIB_LIBS       = m fann
-LFLAGS         = $(addprefix -Wl$(COMMA)-R, $(shell readlink -f $(LIB_PATHS))) $(LIB_PATHS:%=-L %) $(LIB_LIBS:%=-l %)
-
-# EXECUTABLES = $(notdir $(basename $(wildcard $(DIR_SRC)/*.scala)))
-EXECUTABLES = Dana
-ALL_MODULES = $(notdir $(wildcard $(DIR_SRC)/*.scala))
-TESTS = t_Dana.cpp
-OUTS = $(EXECUTABLES:%=$(DIR_BUILD)/%.out)
-TEST_EXECUTABLES = $(TESTS:%.cpp=$(DIR_BUILD)/%)
-TEST_OBJECTS = $(TESTS:%.cpp=$(DIR_BUILD)/%.o)
-VCDS = $(TESTS:%.cpp=$(DIR_BUILD)/%.vcd)
-STRIPPED = $(EXECUTABLES:%=$(DIR_BUILD)/%-emulator-nomain.o)
-OBJECTS = $(TEST_OBJECTS) \
-	$(EXECUTABLES:%=$(DIR_BUILD)/%.o)
-HDLS = $(EXECUTABLES:%=$(DIR_BUILD)/%.v)
-DOTS = $(EXECUTABLES:%=$(DIR_BUILD)/%.dot)
+LIB_PATHS     = ../usr/lib
+LIB_LIBS      = m fann
+LFLAGS        = $(addprefix -Wl$(COMMA)-R, $(shell readlink -f $(LIB_PATHS))) \
+	$(LIB_PATHS:%=-L %) $(LIB_LIBS:%=-l %)
 
 vpath %.scala $(DIR_SRC)
 vpath %.cpp $(DIR_SRC)
 vpath %.cpp $(DIR_BUILD)
 
-.PHONY: all phony clean test verilog vcd run
+.PHONY: all clean cpp dot verilog vcd run
 
 default: all
 
-#------------------- Build targets depending on scala sources
-$(DIR_BUILD)/%.out: %.scala $(ALL_MODULES)
-	set -e -o pipefail; \
-	$(SBT) $(SBT_FLAGS) "run $(basename $(notdir $<)) --genHarness --compile --test --backend c --debug --vcd --targetDir $(DIR_BUILD)" | tee $@
+all: $(TEST_EXECUTABLES)
+# all: $(BACKEND_CPP)
 
-$(DIR_BUILD)/%.v: %.scala $(ALL_MODULES)
-	set -e -o pipefail; \
-	$(SBT) $(SBT_FLAGS) "run $(basename $(notdir $<)) --genHarness --compile --backend v --targetDir $(DIR_BUILD)"
+cpp: $(BACKEND_CPP)
 
-$(DIR_BUILD)/%.dot: %.scala $(ALL_MODULES)
-	set -e -o pipefail; \
-	$(SBT) $(SBT_FLAGS) "run $(basename $(notdir $<)) --compile --backend dot --targetDir $(DIR_BUILD)"
+dot: $(BACKEND_DOT)
 
-#------------------- Other build targets
+verilog: $(BACKEND_VERILOG)
+
+vcd: $(DIR_BUILD)/t_Dana$(CHISEL_CONFIG_DOT).vcd Makefile
+	scripts/gtkwave $<
+
+run: $(TEST_EXECUTABLES) Makefile
+	$<
+
+#------------------- Chisel Build Targets
+$(DIR_BUILD)/%$(CHISEL_CONFIG_DOT).cpp: %.scala $(ALL_MODULES) Makefile
+	set -e -o pipefail; \
+	$(SBT) $(SBT_FLAGS) "run $(basename $(notdir $<)) $(CHISEL_FLAGS_CPP)" \
+	| tee $@.out
+
+$(DIR_BUILD)/%$(CHISEL_CONFIG_DOT).v: %.scala $(ALL_MODULES) Makefile
+	set -e -o pipefail; \
+	$(SBT) $(SBT_FLAGS) "run $(basename $(notdir $<)) $(CHISEL_FLAGS_V)" \
+	| tee $@.out
+
+$(DIR_BUILD)/%$(CHISEL_CONFIG_DOT).dot: %.scala $(ALL_MODULES) Makefile
+	set -e -o pipefail; \
+	$(SBT) $(SBT_FLAGS) "run $(basename $(notdir $<)) $(CHISEL_FLAGS_DOT)" \
+	| tee $@.out
+
+#------------------- C++ Backend Targets
 $(DIR_BUILD)/%-nomain.o: $(DIR_BUILD)/%.o Makefile
 	strip -N main $< -o $@
-
-$(DIR_BUILD)/Dana.o: $(DIR_BUILD)/Dana.out
 
 $(DIR_BUILD)/%.o: %.cpp Makefile
 	$(GPP) -c $(GPP_FLAGS) $< -o $@
 
 $(DIR_BUILD)/%.vcd: $(DIR_BUILD)/% Makefile
-	$<
+	$< $<.vcd
 
-build/t_Dana: $(OUTS) $(OBJECTS) $(TEST_OBJECTS)
+$(DIR_BUILD)/t_Dana$(CHISEL_CONFIG_DOT): $(OBJECTS)
 	$(GPP) $(GPP_FLAGS) $(OBJECTS) $(EMULATOR_OBJECTS) $(LFLAGS) -o $@
-
-vcd: $(DIR_BUILD)/t_Dana.vcd Makefile
-	scripts/gtkwave $<
-
-run: $(DIR_BUILD)/t_Dana Makefile
-	./build/t_Dana
-
-verilog: $(HDLS)
-
-all: $(TEST_EXECUTABLES)
 
 clean:
 	rm -f $(DIR_BUILD)/*

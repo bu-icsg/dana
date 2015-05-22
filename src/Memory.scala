@@ -2,11 +2,11 @@ package dana
 
 import Chisel._
 
-class MemoryInterface extends DanaBundle()() {
+class MemoryInterface extends DanaBundle {
   val cache = (new CacheMemInterface).flip
 }
 
-class Memory extends DanaModule()() {
+class Memory extends DanaModule {
   val io = new MemoryInterface
 
   // The output is connected, but does not do anything. So, these

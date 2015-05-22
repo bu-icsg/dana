@@ -1,5 +1,4 @@
 #include <iomanip>
-#include "Dana.h"
 #include "fann.h"
 
 class t_Dana : public Dana_api_t {
@@ -89,6 +88,7 @@ t_Dana::t_Dana() {
   init(dana);
   cycle = 0;
   vcd_flag = false;
+  std::cout << "[INFO] No vcd file output specified" << std::endl;
 }
 
 t_Dana::t_Dana(const string file_string_vcd) {
@@ -99,6 +99,7 @@ t_Dana::t_Dana(const string file_string_vcd) {
   vcd_flag = true;
   vcd = fopen(file_string_vcd.c_str(), "w");
   assert(vcd);
+  std::cout << "[INFO] Using vcd file:\n[INFO]   " << file_string_vcd << std::endl;
   dana->set_dumpfile(vcd);
 }
 
@@ -478,28 +479,28 @@ void t_Dana::info_petable() {
 }
 
 void t_Dana::info_reg_file() {
-  std::cout << "-----------\n";
+  std::cout << "---------------------------------\n";
   std::cout << "|E[Wr](0)|#Wr(0)|E[Wr](1)|#Wr(1)| <- Register File\n";
-  std::cout << "-----------\n";
+  std::cout << "---------------------------------\n";
   std::string string_table("Dana.regFile.state_");
   std::stringstream string_field("");
   for (int i = 0; i < 4; i++) { // [TODO] fragile, should be number of PEs
     // Total number of expected writes
     string_field.str("");
     string_field << string_table << i * 2 << "_totalWrites";
-    std::cout << "| " << get_dat_by_name(string_field.str())->get_value().erase(0,2);
+    std::cout << "|    " << get_dat_by_name(string_field.str())->get_value().erase(0,2);
     // Number of writes that have been seen
     string_field.str("");
     string_field << string_table << i * 2 << "_countWrites";
-    std::cout << "|" << get_dat_by_name(string_field.str())->get_value().erase(0,2);
+    std::cout << "|  " << get_dat_by_name(string_field.str())->get_value().erase(0,2);
     // Total number of expected writes
     string_field.str("");
     string_field << string_table << (i + 1) * 2 - 1 << "_totalWrites";
-    std::cout << "| " << get_dat_by_name(string_field.str())->get_value().erase(0,2);
+    std::cout << "|    " << get_dat_by_name(string_field.str())->get_value().erase(0,2);
     // Number of writes that have been seen
     string_field.str("");
     string_field << string_table << (i + 1) * 2 - 1 << "_countWrites";
-    std::cout << "|" << get_dat_by_name(string_field.str())->get_value().erase(0,2);
+    std::cout << "|  " << get_dat_by_name(string_field.str())->get_value().erase(0,2);
 
     std::cout << "|" << std::endl;
   }
@@ -593,9 +594,9 @@ int t_Dana::run(uint16_t tid, uint32_t nnid, uint16_t num_rounds,
                 std::vector<int32_t> * inputs, std::vector<int32_t> * outputs,
                 bool debug = false, int cycle_limit = 0) {
   if (debug) info();
-  new_write_request(tid, nnid);
+  new_write_request(tid, nnid, debug);
   for (unsigned int i = 0; i < inputs->size(); i++)
-    write_data(tid, (*inputs)[i], i == inputs->size() - 1);
+    write_data(tid, (*inputs)[i], i == inputs->size() - 1, debug);
   while (!any_done()) {
     tick();
     if (debug) info();
@@ -609,6 +610,7 @@ int t_Dana::run(uint16_t tid, uint32_t nnid, uint16_t num_rounds,
   // storage.
   tick();
   while (any_valid()) {
+    if (debug) info();
     new_read_request(tid);
     tick(1, 0, outputs);
   }
@@ -626,6 +628,7 @@ int t_Dana::testbench_fann(uint16_t tid, uint32_t nnid, uint16_t num_rounds,
   int decimal_point, total_bit_failures, total_outputs;
   int output_fann_th, output_dana_th;
   double error, error_mean, error_mse;
+  uint64_t cycle_start, cycle_stop, edges;
 
   // [TODO] Add support for num_rounds into DANA-Chisel and into the
   // FANN checking below.
@@ -643,6 +646,8 @@ int t_Dana::testbench_fann(uint16_t tid, uint32_t nnid, uint16_t num_rounds,
   error_mse = 0.0;
   total_outputs = 0;
   total_bit_failures = 0;
+  edges = 0;
+  cycle_start = cycle;
 
   for (i = 0; i < data->num_data; i++) {
     output_dana.clear();
@@ -671,10 +676,10 @@ int t_Dana::testbench_fann(uint16_t tid, uint32_t nnid, uint16_t num_rounds,
           total_bit_failures++;
         }
       }
-      // std::cout << "[INFO] " << output_fann[j] << " | " << output_dana[j]
-      //           << std::endl;
     }
+    edges += ann->total_connections;
   }
+  cycle_stop = cycle;
 
   printf("[INFO] Outputs tested: %d\n", total_outputs);
   printf("[INFO] Mean error: %0.5f\n",
@@ -682,6 +687,8 @@ int t_Dana::testbench_fann(uint16_t tid, uint32_t nnid, uint16_t num_rounds,
   printf("[INFO] Mean squared error: %0.5f\n",
          error_mse / (fann_type) total_outputs);
   printf("[INFO] Total bit failures: %d\n", total_bit_failures);
+  printf("[INFO] Throughput: %0.2f edges/cycle\n",
+         (double) edges / (cycle_stop - cycle_start));
 
   fann_destroy(ann);
   fann_destroy_train(data);
@@ -790,7 +797,12 @@ int t_rsa() {
 
 int main (int argc, char* argv[]) {
   // t_Dana* api = new t_Dana("build/t_Dana.vcd");
-  t_Dana* api = new t_Dana();
+  t_Dana * api;
+
+  if (argc == 2)
+    api = new t_Dana(argv[1]);
+  else
+    api = new t_Dana();
   FILE *tee = NULL;
   api->set_teefile(tee);
 
@@ -799,7 +811,7 @@ int main (int argc, char* argv[]) {
   api->cache_load(1, 18, "../workloads/data/rsa-fixed.16bin");
 
   api->testbench_fann(1, 18, 0, "../workloads/data/rsa.net",
-                      "../workloads/data/rsa.train");
+                      "../workloads/data/rsa.train.1");
 
   if (tee) fclose(tee);
   return 0;

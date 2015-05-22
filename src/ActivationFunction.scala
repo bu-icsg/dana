@@ -4,23 +4,23 @@ import Chisel._
 
 // The steepness is currently
 
-class ActivationFunctionReq extends DanaBundle()() {
+class ActivationFunctionReq extends DanaBundle {
   val decimal = UInt(width = decimalPointWidth)
   val steepness = UInt(width = steepnessWidth)
   val activationFunction = UInt(width = log2Up(18)) // [TODO] fragile
   val in = SInt(INPUT, elementWidth)
 }
 
-class ActivationFunctionResp extends DanaBundle()() {
+class ActivationFunctionResp extends DanaBundle {
   val out = SInt(OUTPUT, elementWidth)
 }
 
-class ActivationFunctionInterface extends DanaBundle()() {
+class ActivationFunctionInterface extends DanaBundle {
   val req = Valid(new ActivationFunctionReq).flip
   val resp = Valid(new ActivationFunctionResp)
 }
 
-class ActivationFunction extends DanaModule()() {
+class ActivationFunction extends DanaModule {
   val io = new ActivationFunctionInterface
 
   // Temporary values

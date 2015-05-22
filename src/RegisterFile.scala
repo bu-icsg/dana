@@ -2,17 +2,17 @@ package dana
 
 import Chisel._
 
-class RegisterFileInterface extends DanaBundle()() {
+class RegisterFileInterface extends DanaBundle {
   val pe = new (PERegisterFileInterface).flip
   val control = new (ControlRegisterFileInterface).flip
 }
 
-class RegisterFileState extends DanaBundle()() {
+class RegisterFileState extends DanaBundle {
   val totalWrites = UInt(width = 16) // [TODO] fragile
   val countWrites = UInt(width = 16) // [TODO] fragile
 }
 
-class RegisterFile extends DanaModule()() {
+class RegisterFile extends DanaModule {
   val io = new RegisterFileInterface
 
   // Instantiate an element-write SRAM with regFileNumBlocks reserved
