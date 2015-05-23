@@ -11,11 +11,12 @@ CHISEL_TOP		= dana
 CHISEL_CONFIG		= DefaultConfig
 CHISEL_CONFIG_DOT 	= .$(CHISEL_CONFIG)
 CHISEL_FLAGS		= --targetDir $(DIR_BUILD) \
+	--configDump \
 	--compile \
 	--configInstance $(CHISEL_TOP)$(CHISEL_CONFIG_DOT) \
 	--debug \
 	--vcd
-CHISEL_FLAGS_CPP	= --backend c --compile $(CHISEL_FLAGS)
+CHISEL_FLAGS_CPP	= --backend c --genHarness --compile $(CHISEL_FLAGS)
 CHISEL_FLAGS_V		= --backend v $(CHISEL_FLAGS)
 CHISEL_FLAGS_DOT	= --backend dot $(CHISEL_FLAGS)
 # Unused Chisel Flags
