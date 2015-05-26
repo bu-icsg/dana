@@ -79,7 +79,7 @@ vcd: $(DIR_BUILD)/t_Dana$(CHISEL_CONFIG_DOT).vcd Makefile
 	scripts/gtkwave $<
 
 run: $(TEST_EXECUTABLES) Makefile
-	$<
+	$< $(<:$(DIR_BUILD)/t_%=$(DIR_BUILD)/%.prm)
 
 #------------------- Chisel Build Targets
 $(DIR_BUILD)/%$(CHISEL_CONFIG_DOT).cpp: %.scala $(ALL_MODULES) Makefile
@@ -105,7 +105,7 @@ $(DIR_BUILD)/%.o: %.cpp Makefile
 	$(GPP) -c $(GPP_FLAGS) $< -o $@
 
 $(DIR_BUILD)/%.vcd: $(DIR_BUILD)/% Makefile
-	$< $<.vcd
+	$< $(<:$(DIR_BUILD)/t_%=$(DIR_BUILD)/%.prm) $<.vcd
 
 $(DIR_BUILD)/t_Dana$(CHISEL_CONFIG_DOT): $(OBJECTS)
 	$(GPP) $(GPP_FLAGS) $(OBJECTS) $(EMULATOR_OBJECTS) $(LFLAGS) -o $@

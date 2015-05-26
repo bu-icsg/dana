@@ -7,6 +7,12 @@ private:
   bool vcd_flag;
   FILE * vcd;
   Dana_t * dana;
+  struct {
+    uint64_t num_pes;
+    uint64_t cache_num_entries;
+    uint64_t elements_per_block;
+    uint64_t transaction_table_num_entries;
+  } parameters;
 
 public:
   // Constructors
@@ -80,7 +86,42 @@ public:
   // Run the C++ Chisel model on a set of inputs
   int run(uint16_t, uint32_t, uint16_t, std::vector<int32_t> *,
           std::vector<int32_t> *, bool, int);
+
+  // Read a parameter file and populate the local parameters
+  int read_parameters(const string);
 };
+
+int t_Dana::read_parameters(const string file_string_parameters) {
+  std::string line, key, value;
+  int pos_del, pos_eol;
+  std::ifstream file_params(file_string_parameters, std::ifstream::in);
+
+  while (std::getline(file_params, line)) {
+    pos_del = line.find(",");
+    pos_eol = line.find(")");
+    key = line.substr(1, pos_del - 1);
+    value = line.substr(pos_del + 1, pos_eol - pos_del - 1);
+    if (key.compare("NUM_PES") == 0) {
+      parameters.num_pes = stoi(value);
+    }
+    else if (key.compare("CACHE_NUM_ENTRIES") == 0) {
+      parameters.cache_num_entries = stoi(value);
+    }
+    else if (key.compare("ELEMENTS_PER_BLOCK") == 0) {
+      parameters.elements_per_block = stoi(value);
+    }
+    else if (key.compare("TRANSACTION_TABLE_NUM_ENTRIES") == 0) {
+      parameters.transaction_table_num_entries = stoi(value);
+    }
+    else {
+      std::cout << "[ERROR] Unknown parameter key (" << key << ") found" << std::endl;
+    }
+    std::cout << "[INFO] Found parameter: " << key << " -> " << value << std::endl;
+  }
+
+  file_params.close();
+  return 0;
+}
 
 t_Dana::t_Dana() {
   dana = new Dana_t();
@@ -212,7 +253,7 @@ void t_Dana::info_ttable() {
   std::cout << "-----------------------------------------------------------------------------------\n";
   std::string string_table("Dana.tTable.table_");
   std::stringstream string_field("");
-  for (int i = 0; i < 4; i++) { // [TODO] fragile, should be transactionTableNumEntries
+  for (int i = 0; i < parameters.transaction_table_num_entries; i++) {
     // Valid
     string_field.str("");
     string_field << string_table << i << "_valid";
@@ -310,7 +351,7 @@ void t_Dana::info_cache_table() {
   std::cout << "---------------------------\n";
   std::string string_table("Dana.cache.table_");
   std::stringstream string_field("");
-  for (int i = 0; i < 4; i++) { // [TODO] fragile, should be transactionTableNumEntries
+  for (int i = 0; i < parameters.cache_num_entries; i++) {
     // Valid
     string_field.str("");
     string_field << string_table << i << "_valid";
@@ -355,7 +396,7 @@ void t_Dana::info_petable() {
   std::string string_table("Dana.peTable.table_");
   std::string string_pe("Dana.peTable.ProcessingElement");
   std::stringstream string_field("");
-  for (int i = 0; i < 4; i++) { // [TODO] fragile, should be number of PEs
+  for (int i = 0; i < parameters.num_pes; i++) {
     // State
     string_field.str("");
     string_field << string_pe;
@@ -398,9 +439,9 @@ void t_Dana::info_petable() {
     std::cout << "|     " << get_dat_by_name(string_field.str())->get_value().erase(0,2);
     // Input Index
     string_field.str("");
-    if (i < 3)
-      string_field << string_table << i << "_inIdx_1_1";
-    else
+    // if (i < 3)
+    //   string_field << string_table << i << "_inIdx_1_1";
+    // else
       string_field << string_table << i << "_inIdx";
     std::cout << "|  " << get_dat_by_name(string_field.str())->get_value().erase(0,2);
     // Output Index
@@ -413,9 +454,9 @@ void t_Dana::info_petable() {
     std::cout << "|" << get_dat_by_name(string_field.str())->get_value().erase(0,2);
     // Weight Pointer
     string_field.str("");
-    if (i < 3)
-      string_field << string_table << i << "_weightPtr_1_1";
-    else
+    // if (i < 3)
+    //   string_field << string_table << i << "_weightPtr_1_1";
+    // else
       string_field << string_table << i << "_weightPtr";
     std::cout << "|" << get_dat_by_name(string_field.str())->get_value().erase(0,2);
     // Decimal Point
@@ -436,9 +477,9 @@ void t_Dana::info_petable() {
     // std::cout << "|  " << get_dat_by_name(string_field.str())->get_value().erase(0,2);
     // Num Weights
     string_field.str("");
-    if (i < 3)
-      string_field << string_table << i << "_numWeights_1_1";
-    else
+    // if (i < 3)
+    //   string_field << string_table << i << "_numWeights_1_1";
+    // else
       string_field << string_table << i << "_numWeights";
     std::cout << "|" << get_dat_by_name(string_field.str())->get_value().erase(0,2);
     // Activation Function
@@ -484,7 +525,7 @@ void t_Dana::info_reg_file() {
   std::cout << "---------------------------------\n";
   std::string string_table("Dana.regFile.state_");
   std::stringstream string_field("");
-  for (int i = 0; i < 4; i++) { // [TODO] fragile, should be number of PEs
+  for (int i = 0; i < parameters.num_pes; i++) {
     // Total number of expected writes
     string_field.str("");
     string_field << string_table << i * 2 << "_totalWrites";
@@ -512,9 +553,27 @@ void t_Dana::cache_load(int index, uint32_t nnid, const char * file,
   std::stringstream ss("");
   std::stringstream val("");
   std::stringstream i_s("");
+  std::string file_extension;
   char buf [16];
   char tmp [2];
   int i;
+
+  // Determine the file extension (.e.g., ".16bin") based on the
+  // number of elements per block
+  switch(parameters.elements_per_block) {
+  case 4:
+    file_extension = ".16bin";
+    break;
+  case 8:
+    file_extension = ".32bin";
+    break;
+  case 16:
+    file_extension = ".64bin";
+    break;
+  case 32:
+    file_extension = ".128bin";
+    break;
+  }
 
   // Set the cache table
   ss << "Dana.cache.table_" << index << "_valid";
@@ -526,7 +585,7 @@ void t_Dana::cache_load(int index, uint32_t nnid, const char * file,
 
   // Set the cache SRAM
   ifstream config;
-  config.open(file, ios::in | ios::binary);
+  config.open(file + file_extension, ios::in | ios::binary);
   ss.str("");
   ss << "Dana.cache.SRAM";
   if (index > 0) ss << "_" << index;
@@ -535,7 +594,7 @@ void t_Dana::cache_load(int index, uint32_t nnid, const char * file,
   // Go through the whole file and dump the data into the SRAM
   std::cout << "[INFO] Loading Cache SRAM " << index << " with NNID "
             << nnid  << " and data from" << std::endl;
-  std::cout << "[INFO]   " << file << std::endl;
+  std::cout << "[INFO]   " << file + file_extension << std::endl;
   while (!config.eof()) {
     // [TODO] The endinannes may need to be swapped here
     // The number of characters to read
@@ -799,16 +858,22 @@ int main (int argc, char* argv[]) {
   // t_Dana* api = new t_Dana("build/t_Dana.vcd");
   t_Dana * api;
 
-  if (argc == 2)
-    api = new t_Dana(argv[1]);
+  if (argc == 3) {
+    api = new t_Dana(argv[2]);
+    api->read_parameters(argv[1]);
+  }
+  else if (argc == 2) {
+    api = new t_Dana();
+    api->read_parameters(argv[1]);
+  }
   else
     api = new t_Dana();
   FILE *tee = NULL;
   api->set_teefile(tee);
 
   // Preload the cache
-  api->cache_load(0, 17, "../workloads/data/sobel-fixed.16bin");
-  api->cache_load(1, 18, "../workloads/data/rsa-fixed.16bin");
+  api->cache_load(0, 17, "../workloads/data/sobel-fixed");
+  api->cache_load(1, 18, "../workloads/data/rsa-fixed");
 
   api->testbench_fann(1, 18, 0, "../workloads/data/rsa.net",
                       "../workloads/data/rsa.train.1");
