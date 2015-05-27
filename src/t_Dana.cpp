@@ -554,12 +554,14 @@ void t_Dana::cache_load(int index, uint32_t nnid, const char * file,
   std::stringstream val("");
   std::stringstream i_s("");
   std::string file_extension;
-  char buf [16];
   char tmp [2];
   int i;
+  int num_bytes;
 
   // Determine the file extension (.e.g., ".16bin") based on the
   // number of elements per block
+  num_bytes = parameters.elements_per_block * 4;
+  char buf [num_bytes];
   switch(parameters.elements_per_block) {
   case 4:
     file_extension = ".16bin";
@@ -598,14 +600,13 @@ void t_Dana::cache_load(int index, uint32_t nnid, const char * file,
   while (!config.eof()) {
     // [TODO] The endinannes may need to be swapped here
     // The number of characters to read
-    config.read(buf, 16);
-    // std::cout << i << ":" << std::hex << std::setfill('0') << std::setw(2) << buf << std::endl;
+    config.read(buf, num_bytes);
     if (debug) std::cout << "[INFO]   " << std::setw(5) << i << ":";
     val.str("");
     val << "0x";
     // This needs to go in reverse order to do an endianness
     // conversion
-    for (int j = 15; j >= 0; j--) {
+    for (int j = num_bytes - 1; j >= 0; j--) {
       sprintf(tmp, "%02x", (const unsigned char)buf[j]);
       val << tmp;
     }
@@ -714,7 +715,8 @@ int t_Dana::testbench_fann(uint16_t tid, uint32_t nnid, uint16_t num_rounds,
       input_dana[j] = ((int32_t) data->input[i][j] << decimal_point);
     }
     output_fann = fann_run(ann, data->input[i]);
-    run(tid, nnid, num_rounds, &input_dana, &output_dana, debug);
+    if (run(tid, nnid, num_rounds, &input_dana, &output_dana, debug))
+      goto failure;
     // std::cout << "[INFO] FANN vs. DANA" << std::endl;
     for (j = 0; j < data->num_output; j++) {
       total_outputs++;
@@ -873,10 +875,10 @@ int main (int argc, char* argv[]) {
 
   // Preload the cache
   api->cache_load(0, 17, "../workloads/data/sobel-fixed");
-  api->cache_load(1, 18, "../workloads/data/rsa-fixed");
+  api->cache_load(1, 18, "../workloads/data/rsa-fixed", true);
 
   api->testbench_fann(1, 18, 0, "../workloads/data/rsa.net",
-                      "../workloads/data/rsa.train.1");
+                      "../workloads/data/rsa.train.1", true);
 
   if (tee) fclose(tee);
   return 0;
