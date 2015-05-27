@@ -19,6 +19,8 @@ case object TransactionTableSramElements extends Field[Int]
 case object RegisterFileNumElements extends Field[Int]
 
 abstract trait DanaParameters extends UsesParameters {
+  def divUp (dividend: Int, divisor: Int): Int = {
+    (dividend + divisor - 1) / divisor}
   val elementWidth = params(ElementWidth)
   val elementsPerBlock = params(ElementsPerBlock)
   val tidWidth = params(TidWidth)
@@ -45,11 +47,13 @@ abstract trait DanaParameters extends UsesParameters {
   val regFileNumElements = params(RegisterFileNumElements)
 
   // Derived parameters
-  val transactionTableSramBlocks = params(TransactionTableSramElements) /
-    params(ElementsPerBlock)
-  val regFileNumBlocks = params(RegisterFileNumElements) / params(ElementsPerBlock)
-  val cacheNumBlocks = params(CacheDataSize) / params(ElementsPerBlock) /
-    params(ElementWidth) * 8
+  val transactionTableSramBlocks =
+    divUp(params(TransactionTableSramElements),  params(ElementsPerBlock))
+  val regFileNumBlocks =
+    divUp(params(RegisterFileNumElements), params(ElementsPerBlock))
+  val cacheNumBlocks =
+    divUp(divUp(params(CacheDataSize), params(ElementsPerBlock)),
+      params(ElementWidth)) * 8
   val ioIdxWidth = if (params(TransactionTableSramElements) > params(RegisterFileNumElements))
     log2Up(params(TransactionTableSramElements) * params(ElementWidth)) else
       log2Up(params(RegisterFileNumElements) * params(ElementWidth))

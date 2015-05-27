@@ -623,7 +623,7 @@ void t_Dana::cache_load(int index, uint32_t nnid, const char * file,
 int t_Dana::any_done () {
   std::string string_table("Dana.tTable.table_");
   std::stringstream string_field("");
-  for (int i = 0; i < 4; i++) {
+  for (int i = 0; i < parameters.transaction_table_num_entries; i++) {
     string_field.str("");
     string_field << string_table << i << "_done";
     if (std::stoi(get_dat_by_name(string_field.str())->get_value().erase(0,2))) {
@@ -636,7 +636,7 @@ int t_Dana::any_done () {
 int t_Dana::any_valid () {
   std::string string_table("Dana.tTable.table_");
   std::stringstream string_field("");
-  for (int i = 0; i < 4; i++) {
+  for (int i = 0; i < parameters.transaction_table_num_entries; i++) {
     string_field.str("");
     string_field << string_table << i << "_valid";
     if (std::stoi(get_dat_by_name(string_field.str())->get_value().erase(0,2))) {
@@ -875,10 +875,10 @@ int main (int argc, char* argv[]) {
 
   // Preload the cache
   api->cache_load(0, 17, "../workloads/data/sobel-fixed");
-  api->cache_load(1, 18, "../workloads/data/rsa-fixed", true);
+  api->cache_load(1, 18, "../workloads/data/rsa-fixed");
 
   api->testbench_fann(1, 18, 0, "../workloads/data/rsa.net",
-                      "../workloads/data/rsa.train.1", true);
+                      "../workloads/data/rsa.train.1");
 
   if (tee) fclose(tee);
   return 0;

@@ -19,7 +19,7 @@ class DefaultConfig extends ChiselConfig (
       case PeTableNumEntries => Dump(Knob("NUM_PES"))
       // Transaction Table
       case TransactionTableNumEntries => Dump(Knob("TRANSACTION_TABLE_NUM_ENTRIES"))
-      case TransactionTableSramElements => 32
+      case TransactionTableSramElements => 64
       // Configuration Cache
       case CacheNumEntries => Dump(Knob("CACHE_NUM_ENTRIES"))
       case CacheDataSize => 32 * 1024
@@ -33,8 +33,8 @@ class DefaultConfig extends ChiselConfig (
   // ),
   knobValues = {
     case "ELEMENTS_PER_BLOCK" => 4
-    case "NUM_PES" => 8
-    case "TRANSACTION_TABLE_NUM_ENTRIES" => 4
+    case "NUM_PES" => 4
+    case "TRANSACTION_TABLE_NUM_ENTRIES" => 2
     case "CACHE_NUM_ENTRIES" => 4
     case "REGISTER_FILE_NUM_ELEMENTS" => 80
   }
