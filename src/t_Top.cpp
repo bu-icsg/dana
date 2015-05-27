@@ -743,6 +743,7 @@ int t_Top::testbench_fann(uint16_t tid, uint32_t nnid, uint16_t num_rounds,
   cycle_stop = cycle;
 
   printf("[INFO] Outputs tested: %d\n", total_outputs);
+  printf("[INFO] Total cycles: %d\n", cycle_stop - cycle_start);
   printf("[INFO] Mean error: %0.5f\n",
          error_mean / (fann_type) total_outputs);
   printf("[INFO] Mean squared error: %0.5f\n",
