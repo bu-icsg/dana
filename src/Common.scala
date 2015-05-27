@@ -31,8 +31,8 @@ object Testbench {
             numPorts = 1,
             sramDepth = 8))){
             c => new SRAMElementTests(c, false)}
-        case "Dana" =>
-          chiselMain.run(cliArgs, () => new Dana)
+        case "Top" =>
+          chiselMain.run(cliArgs, () => new Top)
       }
   }
 }

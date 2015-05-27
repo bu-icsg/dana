@@ -32,14 +32,14 @@ _CHISEL_FLAGS		= --genHarness \
 COMMA    = ,
 
 # Chisel Target Backends
-EXECUTABLES	= Dana
+EXECUTABLES	= Top
 ALL_MODULES	= $(notdir $(wildcard $(DIR_SRC)/*.scala))
 BACKEND_CPP	= $(EXECUTABLES:%=$(DIR_BUILD)/%$(CHISEL_CONFIG_DOT).cpp)
 BACKEND_VERILOG = $(EXECUTABLES:%=$(DIR_BUILD)/%$(CHISEL_CONFIG_DOT).v)
 BACKEND_DOT	= $(EXECUTABLES:%=$(DIR_BUILD)/%$(CHISEL_CONFIG_DOT).dot)
 
 # C++ Backend Specific Targets
-TESTS            = t_Dana.cpp
+TESTS            = t_Top.cpp
 TEST_EXECUTABLES = $(TESTS:%.cpp=$(DIR_BUILD)/%$(CHISEL_CONFIG_DOT))
 OBJECTS          = $(BACKEND_CPP:%.cpp=%.o) $(TESTS:%.cpp=$(DIR_BUILD)/%.o)
 VCDS             = $(TESTS:%.cpp=$(DIR_BUILD)/%.vcd)
@@ -75,7 +75,7 @@ dot: $(BACKEND_DOT)
 
 verilog: $(BACKEND_VERILOG)
 
-vcd: $(DIR_BUILD)/t_Dana$(CHISEL_CONFIG_DOT).vcd Makefile
+vcd: $(DIR_BUILD)/t_Top$(CHISEL_CONFIG_DOT).vcd Makefile
 	scripts/gtkwave $<
 
 run: $(TEST_EXECUTABLES) Makefile
@@ -107,7 +107,7 @@ $(DIR_BUILD)/%.o: %.cpp Makefile
 $(DIR_BUILD)/%.vcd: $(DIR_BUILD)/% Makefile
 	$< $(<:$(DIR_BUILD)/t_%=$(DIR_BUILD)/%.prm) $<.vcd
 
-$(DIR_BUILD)/t_Dana$(CHISEL_CONFIG_DOT): $(OBJECTS)
+$(DIR_BUILD)/t_Top$(CHISEL_CONFIG_DOT): $(OBJECTS)
 	$(GPP) $(GPP_FLAGS) $(OBJECTS) $(EMULATOR_OBJECTS) $(LFLAGS) -o $@
 
 clean:

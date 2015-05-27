@@ -73,29 +73,10 @@ class ControlResp extends DanaBundle {
   val decimalPoint = UInt(width = decimalPointWidth)
 }
 
-class XFilesArbiterReq extends DanaBundle {
-  val tid = UInt(width = tidWidth)
-  val readOrWrite = Bool()
-  val countFeedback = UInt(width = feedbackWidth)
-  val isNew = Bool()
-  val isLast = Bool()
-  val data = UInt(width = elementWidth)
-}
-
-class XFilesArbiterResp extends DanaBundle {
-  val tid = UInt(width = tidWidth)
-  val data = UInt(width = elementWidth)
-}
-
 class XFilesArbiterRespPipe extends DanaBundle {
   val tid = UInt(width = tidWidth)
   val tidIdx = UInt(width = log2Up(transactionTableNumEntries))
   val readIdx = UInt(width = log2Up(transactionTableSramElements))
-}
-
-class XFilesArbiterInterface extends DanaBundle {
-  val req = Decoupled(new XFilesArbiterReq).flip
-  val resp = Decoupled(new XFilesArbiterResp)
 }
 
 class TTableControlInterface extends DanaBundle {
@@ -104,7 +85,7 @@ class TTableControlInterface extends DanaBundle {
 }
 
 class TransactionTableInterface extends DanaBundle {
-  val arbiter = new XFilesArbiterInterface
+  val arbiter = (new XFilesArbiterInterface).flip
   val control = new TTableControlInterface
   val peTable = (new PETransactionTableInterface).flip
 }

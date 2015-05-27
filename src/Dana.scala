@@ -136,12 +136,8 @@ abstract class DanaModule extends Module with DanaParameters {
 // should be the same as in DanaModule.
 abstract class DanaBundle extends Bundle with DanaParameters
 
-class DanaInterface extends DanaBundle {
-  val arbiter = new XFilesArbiterInterface
-}
-
 class Dana extends DanaModule {
-  val io = new DanaInterface
+  val io = (new XFilesDanaInterface).flip
 
   // Half clock hack
   // val halfClock = new Clock(reset) / 2
@@ -150,7 +146,7 @@ class Dana extends DanaModule {
   // clockInternal := ~clockInternal
 
   // Module instantiation
-  val tTable = Module(new TransactionTable)
+  // val tTable = Module(new TransactionTable)
   val control = Module(new Control)
   val cache = Module(new Cache)
   val mem = Module(new Memory)
@@ -158,14 +154,16 @@ class Dana extends DanaModule {
   val regFile = Module(new RegisterFile)
 
   // Wire everything up. Ordering shouldn't matter here.
-  io.arbiter <> tTable.io.arbiter
-  tTable.io.control <> control.io.tTable
+  // io.arbiter <> tTable.io.arbiter
+  // tTable.io.control <> control.io.tTable
+  io.control <> control.io.tTable
   cache.io.control <> control.io.cache
   cache.io.mem <> mem.io.cache
   control.io.peTable <> peTable.io.control
   control.io.regFile <> regFile.io.control
   peTable.io.cache <> cache.io.pe
-  peTable.io.tTable <> tTable.io.peTable
+  // peTable.io.tTable <> tTable.io.peTable
+  peTable.io.tTable <> io.peTable
   peTable.io.regFile <> regFile.io.pe
 }
 

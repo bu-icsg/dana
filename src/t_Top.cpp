@@ -1,12 +1,12 @@
 #include <iomanip>
 #include "fann.h"
 
-class t_Dana : public Dana_api_t {
+class t_Top : public Top_api_t {
 private:
   uint64_t cycle;
   bool vcd_flag;
   FILE * vcd;
-  Dana_t * dana;
+  Top_t * top;
   struct {
     uint64_t num_pes;
     uint64_t cache_num_entries;
@@ -16,10 +16,10 @@ private:
 
 public:
   // Constructors
-  t_Dana();
-  t_Dana(const string);
+  t_Top();
+  t_Top(const string);
   // Destructor
-  ~t_Dana();
+  ~t_Top();
 
   // Drive the clock low
   void tick_lo(int);
@@ -91,7 +91,7 @@ public:
   int read_parameters(const string);
 };
 
-int t_Dana::read_parameters(const string file_string_parameters) {
+int t_Top::read_parameters(const string file_string_parameters) {
   std::string line, key, value;
   int pos_del, pos_eol;
   std::ifstream file_params(file_string_parameters, std::ifstream::in);
@@ -123,58 +123,58 @@ int t_Dana::read_parameters(const string file_string_parameters) {
   return 0;
 }
 
-t_Dana::t_Dana() {
-  dana = new Dana_t();
-  dana->init();
-  init(dana);
+t_Top::t_Top() {
+  top = new Top_t();
+  top->init();
+  init(top);
   cycle = 0;
   vcd_flag = false;
   std::cout << "[INFO] No vcd file output specified" << std::endl;
 }
 
-t_Dana::t_Dana(const string file_string_vcd) {
-  dana = new Dana_t();
-  dana->init();
-  init(dana);
+t_Top::t_Top(const string file_string_vcd) {
+  top = new Top_t();
+  top->init();
+  init(top);
   cycle = 0;
   vcd_flag = true;
   vcd = fopen(file_string_vcd.c_str(), "w");
   assert(vcd);
   std::cout << "[INFO] Using vcd file:\n[INFO]   " << file_string_vcd << std::endl;
-  dana->set_dumpfile(vcd);
+  top->set_dumpfile(vcd);
 }
 
-t_Dana::~t_Dana() {
+t_Top::~t_Top() {
   if (vcd_flag)
     fclose(vcd);
 }
 
-void t_Dana::tick_lo(int reset) {
-  dana->clock_lo(dat_t<1>(reset));
+void t_Top::tick_lo(int reset) {
+  top->clock_lo(dat_t<1>(reset));
 }
 
-void t_Dana::tick_hi(int reset) {
+void t_Top::tick_hi(int reset) {
   if (vcd_flag)
-    dana->dump(vcd, cycle);
-  dana->clock_hi(dat_t<1>(reset));
+    top->dump(vcd, cycle);
+  top->clock_hi(dat_t<1>(reset));
   cycle++;
 }
 
-int t_Dana::tick(int num_cycles = 1, int reset = 0,
+int t_Top::tick(int num_cycles = 1, int reset = 0,
                  std::vector<int32_t> * output = NULL) {
   int responses_seen = 0;
   for (int i = 0; i < num_cycles; i++) {
     tick_lo(reset);
     tick_hi(reset);
-    if (dana->Dana__io_arbiter_resp_valid == 1) {
+    if (top->Top__io_arbiter_resp_valid == 1) {
       if (output != NULL) {
-        output->push_back(std::stoi(get_dat_by_name("Dana.io_arbiter_resp_bits_data")->get_value().erase(0,2), NULL, 16));
+        output->push_back(std::stoi(get_dat_by_name("Top.io_arbiter_resp_bits_data")->get_value().erase(0,2), NULL, 16));
       }
       else {
         std::cout << "[INFO] Saw response... Tid:";
-        std::cout << std::stoi(get_dat_by_name("Dana.io_arbiter_resp_bits_tid")->get_value().erase(0,2), NULL, 16);
+        std::cout << std::stoi(get_dat_by_name("Top.io_arbiter_resp_bits_tid")->get_value().erase(0,2), NULL, 16);
         std::cout << " Output:";
-        std::cout << std::stoi(get_dat_by_name("Dana.io_arbiter_resp_bits_data")->get_value().erase(0,2), NULL, 16);
+        std::cout << std::stoi(get_dat_by_name("Top.io_arbiter_resp_bits_data")->get_value().erase(0,2), NULL, 16);
         std::cout << std::endl;
       }
       responses_seen++;
@@ -183,63 +183,63 @@ int t_Dana::tick(int num_cycles = 1, int reset = 0,
   return responses_seen;
 }
 
-void t_Dana::reset(int num_cycles) {
+void t_Top::reset(int num_cycles) {
   for(int i = 0; i < num_cycles; i++) {
     tick(1,1);
   }
 }
 
-void t_Dana::new_write_request(uint16_t tid, uint32_t nnid, bool debug = false) {
-  dana->Dana__io_arbiter_req_valid = 1;
-  dana->Dana__io_arbiter_req_bits_isNew = 1;
-  dana->Dana__io_arbiter_req_bits_readOrWrite = 1;
-  dana->Dana__io_arbiter_req_bits_isLast = 0;
-  dana->Dana__io_arbiter_req_bits_tid = tid;
-  dana->Dana__io_arbiter_req_bits_data = nnid;
+void t_Top::new_write_request(uint16_t tid, uint32_t nnid, bool debug = false) {
+  top->Top__io_arbiter_req_valid = 1;
+  top->Top__io_arbiter_req_bits_isNew = 1;
+  top->Top__io_arbiter_req_bits_readOrWrite = 1;
+  top->Top__io_arbiter_req_bits_isLast = 0;
+  top->Top__io_arbiter_req_bits_tid = tid;
+  top->Top__io_arbiter_req_bits_data = nnid;
   tick(1,0);
   if (debug) info();
-  dana->Dana__io_arbiter_req_valid = 0;
-  dana->Dana__io_arbiter_req_bits_isNew = 0;
-  dana->Dana__io_arbiter_req_bits_readOrWrite = 0;
-  dana->Dana__io_arbiter_req_bits_isLast = 0;
-  dana->Dana__io_arbiter_req_bits_tid = 0;
-  dana->Dana__io_arbiter_req_bits_data = 0;
+  top->Top__io_arbiter_req_valid = 0;
+  top->Top__io_arbiter_req_bits_isNew = 0;
+  top->Top__io_arbiter_req_bits_readOrWrite = 0;
+  top->Top__io_arbiter_req_bits_isLast = 0;
+  top->Top__io_arbiter_req_bits_tid = 0;
+  top->Top__io_arbiter_req_bits_data = 0;
 }
 
-void t_Dana::write_data(int tid, int32_t data, int is_last, bool debug = false) {
-  dana->Dana__io_arbiter_req_valid = 1;
-  dana->Dana__io_arbiter_req_bits_isNew = 0;
-  dana->Dana__io_arbiter_req_bits_tid = tid;
-  dana->Dana__io_arbiter_req_bits_readOrWrite = 1;
-  dana->Dana__io_arbiter_req_bits_isLast = is_last;
-  dana->Dana__io_arbiter_req_bits_data = data;
+void t_Top::write_data(int tid, int32_t data, int is_last, bool debug = false) {
+  top->Top__io_arbiter_req_valid = 1;
+  top->Top__io_arbiter_req_bits_isNew = 0;
+  top->Top__io_arbiter_req_bits_tid = tid;
+  top->Top__io_arbiter_req_bits_readOrWrite = 1;
+  top->Top__io_arbiter_req_bits_isLast = is_last;
+  top->Top__io_arbiter_req_bits_data = data;
   tick(1,0);
   if (debug) info();
-  dana->Dana__io_arbiter_req_valid = 0;
-  dana->Dana__io_arbiter_req_bits_tid = tid;
-  dana->Dana__io_arbiter_req_bits_isLast = 0;
-  dana->Dana__io_arbiter_req_bits_readOrWrite = 0;
-  dana->Dana__io_arbiter_req_bits_data = 0;
+  top->Top__io_arbiter_req_valid = 0;
+  top->Top__io_arbiter_req_bits_tid = tid;
+  top->Top__io_arbiter_req_bits_isLast = 0;
+  top->Top__io_arbiter_req_bits_readOrWrite = 0;
+  top->Top__io_arbiter_req_bits_data = 0;
 }
 
-void t_Dana::write_rnd_data(int tid, int num, int decimal) {
+void t_Top::write_rnd_data(int tid, int num, int decimal) {
   for (int i = 0; i < num; i++)
     write_data(tid, 256, (i == num - 1));
 }
 
-void t_Dana::new_read_request(int tid) {
-  dana->Dana__io_arbiter_req_valid = 1;
-  dana->Dana__io_arbiter_req_bits_isNew = 0;
-  dana->Dana__io_arbiter_req_bits_readOrWrite = 0;
-  dana->Dana__io_arbiter_req_bits_isLast = 0;
-  dana->Dana__io_arbiter_req_bits_tid = tid;
-  dana->Dana__io_arbiter_req_bits_data = 0;
+void t_Top::new_read_request(int tid) {
+  top->Top__io_arbiter_req_valid = 1;
+  top->Top__io_arbiter_req_bits_isNew = 0;
+  top->Top__io_arbiter_req_bits_readOrWrite = 0;
+  top->Top__io_arbiter_req_bits_isLast = 0;
+  top->Top__io_arbiter_req_bits_tid = tid;
+  top->Top__io_arbiter_req_bits_data = 0;
   tick(1,0);
-  dana->Dana__io_arbiter_req_valid = 0;
-  dana->Dana__io_arbiter_req_bits_isLast = 0;
+  top->Top__io_arbiter_req_valid = 0;
+  top->Top__io_arbiter_req_bits_isLast = 0;
 }
 
-void t_Dana::info() {
+void t_Top::info() {
   std::cout << "[INFO] Dumping tables at cycle " << cycle << std::endl;
   info_ttable();
   info_cache_table();
@@ -247,11 +247,11 @@ void t_Dana::info() {
   info_reg_file();
 }
 
-void t_Dana::info_ttable() {
+void t_Top::info_ttable() {
   std::cout << "-----------------------------------------------------------------------------------\n";
   std::cout << "|V|R|W|CV|F?|L?|NL|NR|D| Tid|Nnid|  #L|  #N|  CL|  CN|CNinL|#NcL|#NnL| &N|Cache|DP| <- TTable\n";
   std::cout << "-----------------------------------------------------------------------------------\n";
-  std::string string_table("Dana.tTable.table_");
+  std::string string_table("Top.xFilesArbiter.tTable.table_");
   std::stringstream string_field("");
   for (int i = 0; i < parameters.transaction_table_num_entries; i++) {
     // Valid
@@ -345,11 +345,11 @@ void t_Dana::info_ttable() {
   std::cout << std::endl;
 }
 
-void t_Dana::info_cache_table() {
+void t_Top::info_cache_table() {
   std::cout << "---------------------------\n";
   std::cout << "|V|N|F|NIdx|NMask|Nnid|IUC| <- Cache Table\n";
   std::cout << "---------------------------\n";
-  std::string string_table("Dana.cache.table_");
+  std::string string_table("Top.dana.cache.table_");
   std::stringstream string_field("");
   for (int i = 0; i < parameters.cache_num_entries; i++) {
     // Valid
@@ -389,12 +389,12 @@ void t_Dana::info_cache_table() {
   std::cout << std::endl;
 }
 
-void t_Dana::info_petable() {
+void t_Top::info_petable() {
   std::cout << "-------------------------------------------------------------------------------------------------------------\n";
   std::cout << "|S|IV|WV| TID|tIdx|CIdx|Node|inLoc|outLoc|InIdx|OutIdx|   &N|   &W|DP|LiL|#W|AF|S|    Bias|     Acc| DataOut| <- PE Table\n";
   std::cout << "-------------------------------------------------------------------------------------------------------------\n";
-  std::string string_table("Dana.peTable.table_");
-  std::string string_pe("Dana.peTable.ProcessingElement");
+  std::string string_table("Top.dana.peTable.table_");
+  std::string string_pe("Top.dana.peTable.ProcessingElement");
   std::stringstream string_field("");
   for (int i = 0; i < parameters.num_pes; i++) {
     // State
@@ -496,13 +496,13 @@ void t_Dana::info_petable() {
     std::cout << "|" << get_dat_by_name(string_field.str())->get_value().erase(0,2);
     // Accumulator
     string_field.str("");
-    string_field << "Dana.peTable.ProcessingElement";
+    string_field << string_pe;
     if (i > 0) string_field << "_" << i;
     string_field << ".acc";
     std::cout << "|" << get_dat_by_name(string_field.str())->get_value().erase(0,2);
     // Activation Function Output
     string_field.str("");
-    string_field << "Dana.peTable.ProcessingElement";
+    string_field << string_pe;
     if (i > 0) string_field << "_" << i;
     string_field << ".dataOut";
     std::cout << "|" << get_dat_by_name(string_field.str())->get_value().erase(0,2);
@@ -519,11 +519,11 @@ void t_Dana::info_petable() {
   std::cout << std::endl;
 }
 
-void t_Dana::info_reg_file() {
+void t_Top::info_reg_file() {
   std::cout << "---------------------------------\n";
   std::cout << "|E[Wr](0)|#Wr(0)|E[Wr](1)|#Wr(1)| <- Register File\n";
   std::cout << "---------------------------------\n";
-  std::string string_table("Dana.regFile.state_");
+  std::string string_table("Top.dana.regFile.state_");
   std::stringstream string_field("");
   for (int i = 0; i < parameters.num_pes; i++) {
     // Total number of expected writes
@@ -548,7 +548,7 @@ void t_Dana::info_reg_file() {
   std::cout << std::endl;
 }
 
-void t_Dana::cache_load(int index, uint32_t nnid, const char * file,
+void t_Top::cache_load(int index, uint32_t nnid, const char * file,
                         bool debug = false) {
   std::stringstream ss("");
   std::stringstream val("");
@@ -578,10 +578,10 @@ void t_Dana::cache_load(int index, uint32_t nnid, const char * file,
   }
 
   // Set the cache table
-  ss << "Dana.cache.table_" << index << "_valid";
+  ss << "Top.dana.cache.table_" << index << "_valid";
   get_dat_by_name(ss.str())->set_value("1");
   ss.str("");
-  ss << "Dana.cache.table_" << index << "_nnid";
+  ss << "Top.dana.cache.table_" << index << "_nnid";
   val << nnid;
   get_dat_by_name(ss.str())->set_value(val.str());
 
@@ -589,7 +589,7 @@ void t_Dana::cache_load(int index, uint32_t nnid, const char * file,
   ifstream config;
   config.open(file + file_extension, ios::in | ios::binary);
   ss.str("");
-  ss << "Dana.cache.SRAM";
+  ss << "Top.dana.cache.SRAM";
   if (index > 0) ss << "_" << index;
   ss << ".mem";
   i = 0;
@@ -620,8 +620,8 @@ void t_Dana::cache_load(int index, uint32_t nnid, const char * file,
   if (debug) std::cout << "[INFO]   Done!" << std::endl;
 }
 
-int t_Dana::any_done () {
-  std::string string_table("Dana.tTable.table_");
+int t_Top::any_done () {
+  std::string string_table("Top.xFilesArbiter.tTable.table_");
   std::stringstream string_field("");
   for (int i = 0; i < parameters.transaction_table_num_entries; i++) {
     string_field.str("");
@@ -633,8 +633,8 @@ int t_Dana::any_done () {
   return 0;
 }
 
-int t_Dana::any_valid () {
-  std::string string_table("Dana.tTable.table_");
+int t_Top::any_valid () {
+  std::string string_table("Top.xFilesArbiter.tTable.table_");
   std::stringstream string_field("");
   for (int i = 0; i < parameters.transaction_table_num_entries; i++) {
     string_field.str("");
@@ -646,11 +646,11 @@ int t_Dana::any_valid () {
   return 0;
 }
 
-int t_Dana::get_cycles() {
+int t_Top::get_cycles() {
   return cycle;
 }
 
-int t_Dana::run(uint16_t tid, uint32_t nnid, uint16_t num_rounds,
+int t_Top::run(uint16_t tid, uint32_t nnid, uint16_t num_rounds,
                 std::vector<int32_t> * inputs, std::vector<int32_t> * outputs,
                 bool debug = false, int cycle_limit = 0) {
   if (debug) info();
@@ -677,7 +677,7 @@ int t_Dana::run(uint16_t tid, uint32_t nnid, uint16_t num_rounds,
   return 0;
 }
 
-int t_Dana::testbench_fann(uint16_t tid, uint32_t nnid, uint16_t num_rounds,
+int t_Top::testbench_fann(uint16_t tid, uint32_t nnid, uint16_t num_rounds,
                            const char * file_net, const char * file_train,
                            bool debug = false) {
   struct fann *ann = NULL;
@@ -762,7 +762,7 @@ int t_Dana::testbench_fann(uint16_t tid, uint32_t nnid, uint16_t num_rounds,
 }
 
 int t_sobel() {
-  t_Dana* api = new t_Dana("build/t_Dana.vcd");
+  t_Top* api = new t_Top("build/t_Top.vcd");
   FILE *tee = NULL;
   api->set_teefile(tee);
   // Reset
@@ -788,7 +788,7 @@ int t_sobel() {
 }
 
 int t_rsa() {
-  t_Dana* api = new t_Dana("build/t_Dana.vcd");
+  t_Top* api = new t_Top("build/t_Top.vcd");
   FILE *tee = NULL;
   api->set_teefile(tee);
   std::vector<int32_t> inputs;
@@ -857,19 +857,19 @@ int t_rsa() {
 }
 
 int main (int argc, char* argv[]) {
-  // t_Dana* api = new t_Dana("build/t_Dana.vcd");
-  t_Dana * api;
+  // t_Top* api = new t_Top("build/t_Top.vcd");
+  t_Top * api;
 
   if (argc == 3) {
-    api = new t_Dana(argv[2]);
+    api = new t_Top(argv[2]);
     api->read_parameters(argv[1]);
   }
   else if (argc == 2) {
-    api = new t_Dana();
+    api = new t_Top();
     api->read_parameters(argv[1]);
   }
   else
-    api = new t_Dana();
+    api = new t_Top();
   FILE *tee = NULL;
   api->set_teefile(tee);
 
