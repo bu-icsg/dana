@@ -1,4 +1,5 @@
 #include <iomanip>
+#include <unistd.h>
 #include "fann.h"
 
 class t_Top : public Top_api_t {
@@ -95,6 +96,8 @@ int t_Top::read_parameters(const string file_string_parameters) {
   std::string line, key, value;
   int pos_del, pos_eol;
   std::ifstream file_params(file_string_parameters, std::ifstream::in);
+  std::cout << "[INFO] Reading parameters from file:\n[INFO]   "
+            << file_string_parameters << std::endl;
 
   while (std::getline(file_params, line)) {
     pos_del = line.find(",");
@@ -116,7 +119,7 @@ int t_Top::read_parameters(const string file_string_parameters) {
     else {
       std::cout << "[ERROR] Unknown parameter key (" << key << ") found" << std::endl;
     }
-    std::cout << "[INFO] Found parameter: " << key << " -> " << value << std::endl;
+    std::cout << "[INFO]     " << key << " -> " << value << std::endl;
   }
 
   file_params.close();
@@ -525,7 +528,7 @@ void t_Top::info_reg_file() {
   std::cout << "---------------------------------\n";
   std::string string_table("Top.dana.regFile.state_");
   std::stringstream string_field("");
-  for (int i = 0; i < parameters.num_pes; i++) {
+  for (int i = 0; i < parameters.transaction_table_num_entries; i++) {
     // Total number of expected writes
     string_field.str("");
     string_field << string_table << i * 2 << "_totalWrites";
@@ -857,29 +860,66 @@ int t_rsa() {
   return 0;
 }
 
+void usage (const char * bin) {
+  // Print a usage string and exit
+  const char *string_usage =
+    "[OPTION]... PARAMETER_FILE\n"
+    "Simulate an X-FILES/DANA accelerator for a given paramter file.\n\n"
+    "  -d                         print debug output from tables\n"
+    "  -v                         output to the specified vcd file\n";
+  printf("Usage: %s ", bin);
+  printf("%s", string_usage);
+}
+
 int main (int argc, char* argv[]) {
   // t_Top* api = new t_Top("build/t_Top.vcd");
   t_Top * api;
+  bool has_vcd = false, debug = false;
+  std::string file_parameters, file_vcd;
 
-  if (argc == 3) {
-    api = new t_Top(argv[2]);
-    api->read_parameters(argv[1]);
+  int c;
+  while ((c = getopt (argc, argv, "dhv:")) != -1) {
+    switch (c) {
+    case 'd':
+      debug = true;
+      break;
+    case 'h':
+      usage(argv[0]);
+      return 0;
+    case 'v':
+      file_vcd = optarg;
+      has_vcd = true;
+      break;
+    }
   }
-  else if (argc == 2) {
-    api = new t_Top();
-    api->read_parameters(argv[1]);
+
+  // After parsing all the options, there should be one argument left
+  // in argv which is the parameter file
+  if (argc - optind != 1) {
+    fprintf(stderr, "%s: missing parameter file\n", argv[0]);
+    usage(argv[0]);
+    return -1;
   }
-  else
-    api = new t_Top();
+  file_parameters = argv[optind];
+
+  // Run the constructor for t_Top specifying a vcd file if we have
+  // one
+  if (has_vcd) api = new t_Top(file_vcd);
+  else api = new t_Top();
+
+  // Load the parameters
+  api->read_parameters(file_parameters);
+  // No tee file is used, currently
   FILE *tee = NULL;
   api->set_teefile(tee);
 
   // Preload the cache
-  api->cache_load(0, 17, "../workloads/data/sobel-fixed");
-  api->cache_load(1, 18, "../workloads/data/rsa-fixed");
+  api->cache_load(0, 17, "../workloads/data/sobel-fixed", debug);
+  api->cache_load(1, 18, "../workloads/data/rsa-fixed", debug);
 
+  // Run the simulation
   api->testbench_fann(1, 18, 0, "../workloads/data/rsa.net",
-                      "../workloads/data/rsa.train.1");
+                      "../workloads/data/rsa.train.1", debug);
 
   if (tee) fclose(tee);
   return 0;

@@ -105,7 +105,7 @@ $(DIR_BUILD)/%.o: %.cpp Makefile
 	$(GPP) -c $(GPP_FLAGS) $< -o $@
 
 $(DIR_BUILD)/%.vcd: $(DIR_BUILD)/% Makefile
-	$< $(<:$(DIR_BUILD)/t_%=$(DIR_BUILD)/%.prm) $<.vcd
+	$< -v $<.vcd $(<:$(DIR_BUILD)/t_%=$(DIR_BUILD)/%.prm)
 
 $(DIR_BUILD)/t_Top$(CHISEL_CONFIG_DOT): $(OBJECTS)
 	$(GPP) $(GPP_FLAGS) $(OBJECTS) $(EMULATOR_OBJECTS) $(LFLAGS) -o $@
