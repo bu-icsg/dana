@@ -7,16 +7,17 @@ class DefaultConfig extends ChiselConfig (
     pname match {
       // Core parameters
       case NumCores => Knob("NUM_CORES")
+      case XLen => 64
       // Field widths
-      case ElementWidth => 32
+      case ElementWidth => Dump("ELEMENT_WIDTH", 32)
       case ElementsPerBlock => Dump(Knob("ELEMENTS_PER_BLOCK"))
-      case TidWidth => 16
+      case TidWidth => Dump("TID_WIDTH", 16)
       case ActivationFunctionWidth => 5
-      case NnidWidth => 16
+      case NnidWidth => Dump("NNID_WIDTH", 16)
       case DecimalPointOffset => 7
       case DecimalPointWidth => 3
       case SteepnessWidth => 3
-      case FeedbackWidth => 12
+      case FeedbackWidth => Dump("FEEDBACK_WIDTH", 12)
       // Processing Element Table
       case PeTableNumEntries => Dump(Knob("NUM_PES"))
       // Transaction Table

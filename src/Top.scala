@@ -3,7 +3,7 @@ package dana
 import Chisel._
 
 class TopInterface extends DanaBundle with XFilesParameters {
-  val arbiter = Vec.fill(numCores){(new XFilesArbiterInterface).flip}
+  val arbiter = Vec.fill(numCores){ new RoCCInterface }
 }
 
 class XFilesArbiterReq extends DanaBundle {

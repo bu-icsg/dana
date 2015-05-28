@@ -13,6 +13,10 @@ private:
     uint64_t cache_num_entries;
     uint64_t elements_per_block;
     uint64_t transaction_table_num_entries;
+    uint64_t tid_width;
+    uint64_t nnid_width;
+    uint64_t feedback_width;
+    uint64_t element_width;
   } parameters;
 
 public:
@@ -104,21 +108,24 @@ int t_Top::read_parameters(const string file_string_parameters) {
     pos_eol = line.find(")");
     key = line.substr(1, pos_del - 1);
     value = line.substr(pos_del + 1, pos_eol - pos_del - 1);
-    if (key.compare("NUM_PES") == 0) {
+    if (key.compare("NUM_PES") == 0)
       parameters.num_pes = stoi(value);
-    }
-    else if (key.compare("CACHE_NUM_ENTRIES") == 0) {
+    else if (key.compare("CACHE_NUM_ENTRIES") == 0)
       parameters.cache_num_entries = stoi(value);
-    }
-    else if (key.compare("ELEMENTS_PER_BLOCK") == 0) {
+    else if (key.compare("ELEMENTS_PER_BLOCK") == 0)
       parameters.elements_per_block = stoi(value);
-    }
-    else if (key.compare("TRANSACTION_TABLE_NUM_ENTRIES") == 0) {
+    else if (key.compare("TRANSACTION_TABLE_NUM_ENTRIES") == 0)
       parameters.transaction_table_num_entries = stoi(value);
-    }
-    else {
+    else if (key.compare("TID_WIDTH") == 0)
+      parameters.tid_width = stoi(value);
+    else if (key.compare("NNID_WIDTH") == 0)
+      parameters.nnid_width = stoi(value);
+    else if (key.compare("FEEDBACK_WIDTH") == 0)
+      parameters.feedback_width = stoi(value);
+    else if (key.compare("ELEMENT_WIDTH") == 0)
+      parameters.element_width = stoi(value);
+    else
       std::cout << "[ERROR] Unknown parameter key (" << key << ") found" << std::endl;
-    }
     std::cout << "[INFO]     " << key << " -> " << value << std::endl;
   }
 
@@ -166,19 +173,21 @@ void t_Top::tick_hi(int reset) {
 int t_Top::tick(int num_cycles = 1, int reset = 0,
                  std::vector<int32_t> * output = NULL) {
   int responses_seen = 0;
+  uint64_t data;
   for (int i = 0; i < num_cycles; i++) {
     tick_lo(reset);
     tick_hi(reset);
     if (top->Top__io_arbiter_0_resp_valid == 1) {
+      data = std::stoll(get_dat_by_name("Top.io_arbiter_0_resp_bits_data")->get_value().erase(0,2), 0, 16);
       if (output != NULL) {
-        output->push_back(std::stoi(get_dat_by_name("Top.io_arbiter_0_resp_bits_data")->get_value().erase(0,2), NULL, 16));
+        output->push_back(data & ~(~(uint64_t)0 << parameters.element_width));
       }
       else {
-        std::cout << "[INFO] Saw response... Tid:";
-        std::cout << std::stoi(get_dat_by_name("Top.io_arbiter_0_resp_bits_tid")->get_value().erase(0,2), NULL, 16);
-        std::cout << " Output:";
-        std::cout << std::stoi(get_dat_by_name("Top.io_arbiter_0_resp_bits_data")->get_value().erase(0,2), NULL, 16);
-        std::cout << std::endl;
+        std::cout << "[INFO] Saw response... Tid:"
+                  << (data >> parameters.element_width)
+                  << " Output:"
+                  << (data & ~(~(uint64_t)0 << parameters.element_width))
+                  << std::endl;
       }
       responses_seen++;
     }
@@ -193,36 +202,43 @@ void t_Top::reset(int num_cycles) {
 }
 
 void t_Top::new_write_request(uint16_t tid, uint32_t nnid, bool debug = false) {
-  top->Top__io_arbiter_0_req_valid = 1;
-  top->Top__io_arbiter_0_req_bits_isNew = 1;
-  top->Top__io_arbiter_0_req_bits_readOrWrite = 1;
-  top->Top__io_arbiter_0_req_bits_isLast = 0;
-  top->Top__io_arbiter_0_req_bits_tid = tid;
-  top->Top__io_arbiter_0_req_bits_data = nnid;
+  uint64_t funct, rs1, rs2;
+  // Compute the underlying fields
+  funct = 1 | (1 << 1) & ~(1 << 2);
+  rs1 = tid & ~(~(~0 << parameters.feedback_width) << parameters.tid_width);
+  rs2 = nnid;
+  // Assign the fields to the input wires for core 0
+  top->Top__io_arbiter_0_cmd_valid = 1;
+  top->Top__io_arbiter_0_cmd_bits_inst_funct = funct;
+  top->Top__io_arbiter_0_cmd_bits_rs1 = rs1;
+  top->Top__io_arbiter_0_cmd_bits_rs2 = rs2;
   tick(1,0);
   if (debug) info();
-  top->Top__io_arbiter_0_req_valid = 0;
-  top->Top__io_arbiter_0_req_bits_isNew = 0;
-  top->Top__io_arbiter_0_req_bits_readOrWrite = 0;
-  top->Top__io_arbiter_0_req_bits_isLast = 0;
-  top->Top__io_arbiter_0_req_bits_tid = 0;
-  top->Top__io_arbiter_0_req_bits_data = 0;
+  top->Top__io_arbiter_0_cmd_valid = 0;
+  top->Top__io_arbiter_0_cmd_bits_inst_funct = 0;
+  top->Top__io_arbiter_0_cmd_bits_rs1 = 0;
+  top->Top__io_arbiter_0_cmd_bits_rs2 = 0;
 }
 
 void t_Top::write_data(int tid, int32_t data, int is_last, bool debug = false) {
-  top->Top__io_arbiter_0_req_valid = 1;
-  top->Top__io_arbiter_0_req_bits_isNew = 0;
-  top->Top__io_arbiter_0_req_bits_tid = tid;
-  top->Top__io_arbiter_0_req_bits_readOrWrite = 1;
-  top->Top__io_arbiter_0_req_bits_isLast = is_last;
-  top->Top__io_arbiter_0_req_bits_data = data;
+  uint64_t funct, rs1, rs2;
+  // Compute the fields
+  funct = 1 & ~(1 << 2);
+  if (is_last) funct |= 1 << 2;
+  else funct &= ~(1 << 2);
+  rs1 = tid;
+  rs2 = data;
+  // Assign the fields to the input wires of core 0
+  top->Top__io_arbiter_0_cmd_valid = 1;
+  top->Top__io_arbiter_0_cmd_bits_inst_funct = funct;
+  top->Top__io_arbiter_0_cmd_bits_rs1 = rs1;
+  top->Top__io_arbiter_0_cmd_bits_rs2 = rs2;
   tick(1,0);
   if (debug) info();
-  top->Top__io_arbiter_0_req_valid = 0;
-  top->Top__io_arbiter_0_req_bits_tid = tid;
-  top->Top__io_arbiter_0_req_bits_isLast = 0;
-  top->Top__io_arbiter_0_req_bits_readOrWrite = 0;
-  top->Top__io_arbiter_0_req_bits_data = 0;
+  top->Top__io_arbiter_0_cmd_valid = 0;
+  top->Top__io_arbiter_0_cmd_bits_inst_funct = 0;
+  top->Top__io_arbiter_0_cmd_bits_rs1 = 0;
+  top->Top__io_arbiter_0_cmd_bits_rs2 = 0;
 }
 
 void t_Top::write_rnd_data(int tid, int num, int decimal) {
@@ -231,15 +247,21 @@ void t_Top::write_rnd_data(int tid, int num, int decimal) {
 }
 
 void t_Top::new_read_request(int tid) {
-  top->Top__io_arbiter_0_req_valid = 1;
-  top->Top__io_arbiter_0_req_bits_isNew = 0;
-  top->Top__io_arbiter_0_req_bits_readOrWrite = 0;
-  top->Top__io_arbiter_0_req_bits_isLast = 0;
-  top->Top__io_arbiter_0_req_bits_tid = tid;
-  top->Top__io_arbiter_0_req_bits_data = 0;
+  uint64_t funct, rs1, rs2;
+  // Compute the fields;
+  funct = 0 & ~(1 << 1) & ~(1 << 2);
+  rs1 = tid;
+  rs2 = 0;
+  // Assign the fields
+  top->Top__io_arbiter_0_cmd_valid = 1;
+  top->Top__io_arbiter_0_cmd_bits_inst_funct = funct;
+  top->Top__io_arbiter_0_cmd_bits_rs1 = rs1;
+  top->Top__io_arbiter_0_cmd_bits_rs2 = rs2;
   tick(1,0);
-  top->Top__io_arbiter_0_req_valid = 0;
-  top->Top__io_arbiter_0_req_bits_isLast = 0;
+  top->Top__io_arbiter_0_cmd_valid = 0;
+  top->Top__io_arbiter_0_cmd_bits_inst_funct = 0;
+  top->Top__io_arbiter_0_cmd_bits_rs1 = 0;
+  top->Top__io_arbiter_0_cmd_bits_rs2 = 0;
 }
 
 void t_Top::info() {
@@ -711,6 +733,8 @@ int t_Top::testbench_fann(uint16_t tid, uint32_t nnid, uint16_t num_rounds,
   total_bit_failures = 0;
   edges = 0;
   cycle_start = cycle;
+
+  reset(8);
 
   for (i = 0; i < data->num_data; i++) {
     output_dana.clear();

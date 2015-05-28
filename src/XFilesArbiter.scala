@@ -14,7 +14,7 @@ class XFilesDanaInterface extends DanaBundle {
 }
 
 class XFilesInterface extends DanaBundle with XFilesParameters {
-  val core = Vec.fill(numCores){(new XFilesArbiterInterface).flip}
+  val core = Vec.fill(numCores){ new RoCCInterface }
   val dana = new XFilesDanaInterface
 }
 
@@ -25,13 +25,13 @@ class XFilesArbiter extends DanaModule with XFilesParameters {
   val tTable = Module(new TransactionTable)
 
   // Requests from cores are fed into a round robin arbiter
-  val coreArbiter = Module(new RRArbiter(new XFilesArbiterReq,
+  val coreArbiter = Module(new RRArbiter(new RoCCCommand,
     numCores))
-  (0 until numCores).map(i => io.core(i).req <> coreArbiter.io.in(i))
+  (0 until numCores).map(i => io.core(i).cmd <> coreArbiter.io.in(i))
 
   // Interface connections
   // io.core <> tTable.io.arbiter
-  coreArbiter.io.out <> tTable.io.arbiter.req
+  coreArbiter.io.out <> tTable.io.arbiter.cmd
   // [TODO] Kludge until ASID routing is in place. The response from
   // the Transaction Table is just routed to the first core.
   io.core(0).resp <> tTable.io.arbiter.resp
