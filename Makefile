@@ -62,7 +62,7 @@ vpath %.scala $(DIR_SRC)
 vpath %.cpp $(DIR_SRC)
 vpath %.cpp $(DIR_BUILD)
 
-.PHONY: all clean cpp dot verilog vcd run
+.PHONY: all clean cpp debug dot run vcd verilog
 
 default: all
 
@@ -80,6 +80,9 @@ vcd: $(DIR_BUILD)/t_Top$(CHISEL_CONFIG_DOT).vcd Makefile
 
 run: $(TEST_EXECUTABLES) Makefile
 	$< $(<:$(DIR_BUILD)/t_%=$(DIR_BUILD)/%.prm)
+
+debug: $(TEST_EXECUTABLES) Makefile
+	$< -d $(<:$(DIR_BUILD)/t_%=$(DIR_BUILD)/%.prm)
 
 #------------------- Chisel Build Targets
 $(DIR_BUILD)/%$(CHISEL_CONFIG_DOT).cpp: %.scala $(ALL_MODULES) Makefile
