@@ -8,17 +8,20 @@ abstract trait XFilesParameters extends UsesParameters {
   val numCores = params(NumCores)
 }
 
-class XFilesDanaInterface extends DanaBundle {
+abstract class XFilesModule extends DanaModule with XFilesParameters
+abstract class XFilesBundle extends DanaBundle with XFilesParameters
+
+class XFilesDanaInterface extends XFilesBundle {
   val control = new TTableControlInterface
   val peTable = (new PETransactionTableInterface).flip
 }
 
-class XFilesInterface extends DanaBundle with XFilesParameters {
+class XFilesInterface extends XFilesBundle {
   val core = Vec.fill(numCores){ new RoCCInterface }
   val dana = new XFilesDanaInterface
 }
 
-class XFilesArbiter extends DanaModule with XFilesParameters {
+class XFilesArbiter extends XFilesModule {
   val io = new XFilesInterface
 
   // Module instatiation
