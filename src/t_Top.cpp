@@ -169,15 +169,15 @@ int t_Top::tick(int num_cycles = 1, int reset = 0,
   for (int i = 0; i < num_cycles; i++) {
     tick_lo(reset);
     tick_hi(reset);
-    if (top->Top__io_arbiter_resp_valid == 1) {
+    if (top->Top__io_arbiter_0_resp_valid == 1) {
       if (output != NULL) {
-        output->push_back(std::stoi(get_dat_by_name("Top.io_arbiter_resp_bits_data")->get_value().erase(0,2), NULL, 16));
+        output->push_back(std::stoi(get_dat_by_name("Top.io_arbiter_0_resp_bits_data")->get_value().erase(0,2), NULL, 16));
       }
       else {
         std::cout << "[INFO] Saw response... Tid:";
-        std::cout << std::stoi(get_dat_by_name("Top.io_arbiter_resp_bits_tid")->get_value().erase(0,2), NULL, 16);
+        std::cout << std::stoi(get_dat_by_name("Top.io_arbiter_0_resp_bits_tid")->get_value().erase(0,2), NULL, 16);
         std::cout << " Output:";
-        std::cout << std::stoi(get_dat_by_name("Top.io_arbiter_resp_bits_data")->get_value().erase(0,2), NULL, 16);
+        std::cout << std::stoi(get_dat_by_name("Top.io_arbiter_0_resp_bits_data")->get_value().erase(0,2), NULL, 16);
         std::cout << std::endl;
       }
       responses_seen++;
@@ -193,36 +193,36 @@ void t_Top::reset(int num_cycles) {
 }
 
 void t_Top::new_write_request(uint16_t tid, uint32_t nnid, bool debug = false) {
-  top->Top__io_arbiter_req_valid = 1;
-  top->Top__io_arbiter_req_bits_isNew = 1;
-  top->Top__io_arbiter_req_bits_readOrWrite = 1;
-  top->Top__io_arbiter_req_bits_isLast = 0;
-  top->Top__io_arbiter_req_bits_tid = tid;
-  top->Top__io_arbiter_req_bits_data = nnid;
+  top->Top__io_arbiter_0_req_valid = 1;
+  top->Top__io_arbiter_0_req_bits_isNew = 1;
+  top->Top__io_arbiter_0_req_bits_readOrWrite = 1;
+  top->Top__io_arbiter_0_req_bits_isLast = 0;
+  top->Top__io_arbiter_0_req_bits_tid = tid;
+  top->Top__io_arbiter_0_req_bits_data = nnid;
   tick(1,0);
   if (debug) info();
-  top->Top__io_arbiter_req_valid = 0;
-  top->Top__io_arbiter_req_bits_isNew = 0;
-  top->Top__io_arbiter_req_bits_readOrWrite = 0;
-  top->Top__io_arbiter_req_bits_isLast = 0;
-  top->Top__io_arbiter_req_bits_tid = 0;
-  top->Top__io_arbiter_req_bits_data = 0;
+  top->Top__io_arbiter_0_req_valid = 0;
+  top->Top__io_arbiter_0_req_bits_isNew = 0;
+  top->Top__io_arbiter_0_req_bits_readOrWrite = 0;
+  top->Top__io_arbiter_0_req_bits_isLast = 0;
+  top->Top__io_arbiter_0_req_bits_tid = 0;
+  top->Top__io_arbiter_0_req_bits_data = 0;
 }
 
 void t_Top::write_data(int tid, int32_t data, int is_last, bool debug = false) {
-  top->Top__io_arbiter_req_valid = 1;
-  top->Top__io_arbiter_req_bits_isNew = 0;
-  top->Top__io_arbiter_req_bits_tid = tid;
-  top->Top__io_arbiter_req_bits_readOrWrite = 1;
-  top->Top__io_arbiter_req_bits_isLast = is_last;
-  top->Top__io_arbiter_req_bits_data = data;
+  top->Top__io_arbiter_0_req_valid = 1;
+  top->Top__io_arbiter_0_req_bits_isNew = 0;
+  top->Top__io_arbiter_0_req_bits_tid = tid;
+  top->Top__io_arbiter_0_req_bits_readOrWrite = 1;
+  top->Top__io_arbiter_0_req_bits_isLast = is_last;
+  top->Top__io_arbiter_0_req_bits_data = data;
   tick(1,0);
   if (debug) info();
-  top->Top__io_arbiter_req_valid = 0;
-  top->Top__io_arbiter_req_bits_tid = tid;
-  top->Top__io_arbiter_req_bits_isLast = 0;
-  top->Top__io_arbiter_req_bits_readOrWrite = 0;
-  top->Top__io_arbiter_req_bits_data = 0;
+  top->Top__io_arbiter_0_req_valid = 0;
+  top->Top__io_arbiter_0_req_bits_tid = tid;
+  top->Top__io_arbiter_0_req_bits_isLast = 0;
+  top->Top__io_arbiter_0_req_bits_readOrWrite = 0;
+  top->Top__io_arbiter_0_req_bits_data = 0;
 }
 
 void t_Top::write_rnd_data(int tid, int num, int decimal) {
@@ -231,15 +231,15 @@ void t_Top::write_rnd_data(int tid, int num, int decimal) {
 }
 
 void t_Top::new_read_request(int tid) {
-  top->Top__io_arbiter_req_valid = 1;
-  top->Top__io_arbiter_req_bits_isNew = 0;
-  top->Top__io_arbiter_req_bits_readOrWrite = 0;
-  top->Top__io_arbiter_req_bits_isLast = 0;
-  top->Top__io_arbiter_req_bits_tid = tid;
-  top->Top__io_arbiter_req_bits_data = 0;
+  top->Top__io_arbiter_0_req_valid = 1;
+  top->Top__io_arbiter_0_req_bits_isNew = 0;
+  top->Top__io_arbiter_0_req_bits_readOrWrite = 0;
+  top->Top__io_arbiter_0_req_bits_isLast = 0;
+  top->Top__io_arbiter_0_req_bits_tid = tid;
+  top->Top__io_arbiter_0_req_bits_data = 0;
   tick(1,0);
-  top->Top__io_arbiter_req_valid = 0;
-  top->Top__io_arbiter_req_bits_isLast = 0;
+  top->Top__io_arbiter_0_req_valid = 0;
+  top->Top__io_arbiter_0_req_bits_isLast = 0;
 }
 
 void t_Top::info() {

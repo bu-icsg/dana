@@ -2,8 +2,8 @@ package dana
 
 import Chisel._
 
-class TopInterface extends DanaBundle {
-  val arbiter = (new XFilesArbiterInterface).flip
+class TopInterface extends DanaBundle with XFilesParameters {
+  val arbiter = Vec.fill(numCores){(new XFilesArbiterInterface).flip}
 }
 
 class XFilesArbiterReq extends DanaBundle {

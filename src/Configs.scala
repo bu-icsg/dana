@@ -5,6 +5,8 @@ import Chisel._
 class DefaultConfig extends ChiselConfig (
   topDefinitions = { (pname,site,here) =>
     pname match {
+      // Core parameters
+      case NumCores => Knob("NUM_CORES")
       // Field widths
       case ElementWidth => 32
       case ElementsPerBlock => Dump(Knob("ELEMENTS_PER_BLOCK"))
@@ -32,6 +34,7 @@ class DefaultConfig extends ChiselConfig (
   //   { ex => ex(ActivationFunctionWidth) <= 5 }
   // ),
   knobValues = {
+    case "NUM_CORES" => 1
     case "ELEMENTS_PER_BLOCK" => 4
     case "NUM_PES" => 4
     case "TRANSACTION_TABLE_NUM_ENTRIES" => 2
