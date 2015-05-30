@@ -78,7 +78,8 @@ class ProcessingElementState extends DanaBundle {
   val infoValid = Bool()
   val weightValid = Bool()
   val inValid = Bool() // input_valid
-  val tid = UInt(width = tidWidth) // pid
+  val asid = UInt(width = asidWidth)
+  val tid = UInt(width = tidWidth)
   val tIdx = UInt(width = log2Up(transactionTableNumEntries)) // nn_index
   val cIdx = UInt(width = log2Up(cacheNumEntries)) // cache_index
   val nnNode = UInt(width = 10) // nn_node [TODO] fragile
@@ -170,6 +171,7 @@ class ProcessingElementTable extends DanaModule {
   // Deal with inbound requests from the Control module. If we see a
   // request, it can only mean one thing---we need to allocate a PE.
   when (io.control.req.valid) {
+    table(nextFree).asid := io.control.req.bits.asid
     table(nextFree).tid := io.control.req.bits.tid
     table(nextFree).cIdx := io.control.req.bits.cacheIndex
     table(nextFree).nnNode := io.control.req.bits.neuronIndex
@@ -363,6 +365,7 @@ class ProcessingElementTable extends DanaModule {
 
   // [TODO] Debug info to be removed
   for (i <- 0 until peTableNumEntries) {
+    debug(table(i).asid)
     debug(table(i).tid)
     debug(table(i).cIdx)
     debug(table(i).nnNode)

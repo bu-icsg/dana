@@ -41,6 +41,7 @@ class ControlPETableInterface extends DanaBundle with ControlParameters {
     // new_state -- this should be unnecessary as all we need to do is
     // give the PE a kick, which should be accomplished with the
     // decoupled valid signal
+    val asid = UInt(width = asidWidth)
     val tid = UInt(width = tidWidth)
     val neuronIndex = UInt(width = 10) // [TODO] fragile
     val locationInput = UInt()
@@ -87,12 +88,13 @@ class Control extends DanaModule {
     io.cache.req.bits.layer := layer
     io.cache.req.bits.location := location
   }
-  def reqPETable(valid: Bool, cacheIndex: UInt, tid: UInt,
+  def reqPETable(valid: Bool, cacheIndex: UInt, asid: UInt, tid: UInt,
     neuronIndex: UInt, locationInput: UInt, locationOutput: UInt,
     inputIndex: UInt, outputIndex: UInt, neuronPointer: UInt,
     decimalPoint: UInt) {
     io.peTable.req.valid := valid
     io.peTable.req.bits.cacheIndex := cacheIndex
+    io.peTable.req.bits.asid := asid
     io.peTable.req.bits.tid := tid
     io.peTable.req.bits.neuronIndex := neuronIndex
     io.peTable.req.bits.locationInput := locationInput
@@ -114,7 +116,7 @@ class Control extends DanaModule {
   // io.cache defaults
   reqCache(Bool(false), UInt(0), UInt(0), UInt(0), UInt(0), UInt(0))
   // io.petable defaults
-  reqPETable(Bool(false), UInt(0), UInt(0), UInt(0), UInt(0), UInt(0),
+  reqPETable(Bool(false), UInt(0), UInt(0), UInt(0), UInt(0), UInt(0), UInt(0),
     UInt(0), UInt(0), UInt(0), UInt(0))
   // io.regFile defaults
   io.regFile.req.valid := Bool(false)
@@ -201,8 +203,9 @@ class Control extends DanaModule {
         // The specific cache entry where the NN configuration for
         // this PE is located
         io.tTable.req.bits.cacheIndex, // cacheIndex
-        // The transaction ID
-        io.tTable.req.bits.tid, // tid
+        // The ASID and TID
+        io.tTable.req.bits.asid,
+        io.tTable.req.bits.tid,
         // The neuron index is just the current neuron in the layer
         // that's being processed. This information is redundant with
         // the output index

@@ -6,12 +6,13 @@ class DefaultConfig extends ChiselConfig (
   topDefinitions = { (pname,site,here) =>
     pname match {
       // Core parameters
-      case NumCores => Knob("NUM_CORES")
+      case NumCores => Dump(Knob("NUM_CORES"))
       case XLen => 64
       // Field widths
       case ElementWidth => Dump("ELEMENT_WIDTH", 32)
       case ElementsPerBlock => Dump(Knob("ELEMENTS_PER_BLOCK"))
       case TidWidth => Dump("TID_WIDTH", 16)
+      case AsidWidth => Dump("ASID_WIDTH", 16)
       case ActivationFunctionWidth => 5
       case NnidWidth => Dump("NNID_WIDTH", 16)
       case DecimalPointOffset => 7
@@ -35,7 +36,7 @@ class DefaultConfig extends ChiselConfig (
   //   { ex => ex(ActivationFunctionWidth) <= 5 }
   // ),
   knobValues = {
-    case "NUM_CORES" => 1
+    case "NUM_CORES" => 2
     case "ELEMENTS_PER_BLOCK" => 4
     case "NUM_PES" => 4
     case "TRANSACTION_TABLE_NUM_ENTRIES" => 2

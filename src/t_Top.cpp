@@ -13,10 +13,12 @@ private:
     uint64_t cache_num_entries;
     uint64_t elements_per_block;
     uint64_t transaction_table_num_entries;
+    uint64_t asid_width;
     uint64_t tid_width;
     uint64_t nnid_width;
     uint64_t feedback_width;
     uint64_t element_width;
+    uint64_t num_cores;
   } parameters;
 
 public:
@@ -42,7 +44,7 @@ public:
   void reset(int);
 
   // Initiate a new write request with the accelerator
-  void new_write_request(uint16_t, uint32_t, bool);
+  void new_write_request(uint32_t, std::vector<int32_t> *, bool);
 
   // Write one unit of data
   void write_data(int, int32_t, int, bool);
@@ -52,7 +54,10 @@ public:
   void write_rnd_data(int, int, int);
 
   // Read one unit of data out of Dana for a specific TID
-  void new_read_request(int);
+  void new_read_request(int, std::vector<int32_t> *);
+
+  // Set the ASID of the first core's input line to a new value
+  void set_asid(int);
 
   // Print out information about the state of all modules in the
   // system
@@ -69,6 +74,9 @@ public:
 
   // Print out Register File info
   void info_reg_file();
+
+  // Print out ASID info
+  void info_asids();
 
   // Load the cache so that memory requests aren't necessary
   void cache_load(int, uint32_t, const char *, bool);
@@ -89,7 +97,7 @@ public:
                      const char *, bool);
 
   // Run the C++ Chisel model on a set of inputs
-  int run(uint16_t, uint32_t, uint16_t, std::vector<int32_t> *,
+  int run(uint32_t, uint16_t, std::vector<int32_t> *,
           std::vector<int32_t> *, bool, int);
 
   // Read a parameter file and populate the local parameters
@@ -124,6 +132,10 @@ int t_Top::read_parameters(const string file_string_parameters) {
       parameters.feedback_width = stoi(value);
     else if (key.compare("ELEMENT_WIDTH") == 0)
       parameters.element_width = stoi(value);
+    else if (key.compare("ASID_WIDTH") == 0)
+      parameters.asid_width = stoi(value);
+    else if (key.compare("NUM_CORES") == 0)
+      parameters.num_cores = stoi(value);
     else
       std::cout << "[ERROR] Unknown parameter key (" << key << ") found" << std::endl;
     std::cout << "[INFO]     " << key << " -> " << value << std::endl;
@@ -174,17 +186,36 @@ int t_Top::tick(int num_cycles = 1, int reset = 0,
                  std::vector<int32_t> * output = NULL) {
   int responses_seen = 0;
   uint64_t data;
+  int asid, tid;
+  std::string string_full, string_asid, string_tid, string_data;
   for (int i = 0; i < num_cycles; i++) {
     tick_lo(reset);
     tick_hi(reset);
     if (top->Top__io_arbiter_0_resp_valid == 1) {
-      data = std::stoll(get_dat_by_name("Top.io_arbiter_0_resp_bits_data")->get_value().erase(0,2), 0, 16);
+      string_full = get_dat_by_name("Top.io_arbiter_0_resp_bits_data")->get_value().erase(0,2);
+      // If any of the following parameters are not divisible by 4
+      // (and consequently aligned on nibble boundaries), the lazy
+      // logic below to split up the string into asid, tid, and data
+      // regions won't work. [TODO] Add a more intelligent way of
+      // doing this that works for parameters of any size.
+      assert((parameters.asid_width / 4) * 4 == parameters.asid_width);
+      assert((parameters.tid_width / 4) * 4 == parameters.tid_width);
+      assert((parameters.element_width / 4) * 4 == parameters.element_width);
+      // Break up the string into its constituent regions
+      string_asid = string_full.substr(0, parameters.asid_width / 4);
+      string_tid = string_full.substr(parameters.asid_width / 4, parameters.tid_width / 4);
+      string_data = string_full.substr(parameters.asid_width / 4 + parameters.tid_width / 4,
+                                       parameters.element_width / 4);
+      asid = std::stoi(string_asid, 0, 16);
+      tid = std::stoi(string_tid, 0, 16);
+      data = std::stoi(string_data, 0, 16);
+      // data = std::stoll(get_dat_by_name("Top.io_arbiter_0_resp_bits_data")->get_value().erase(0,2), 0, 16);
       if (output != NULL) {
-        output->push_back(data & ~(~(uint64_t)0 << parameters.element_width));
+        output->push_back(data);
       }
       else {
-        std::cout << "[INFO] Saw response... Tid:"
-                  << (data >> parameters.element_width)
+        std::cout << "[INFO] Saw response... ASID+TID: "
+                  << asid << " + " << tid
                   << " Output:"
                   << (data & ~(~(uint64_t)0 << parameters.element_width))
                   << std::endl;
@@ -201,18 +232,19 @@ void t_Top::reset(int num_cycles) {
   }
 }
 
-void t_Top::new_write_request(uint16_t tid, uint32_t nnid, bool debug = false) {
+void t_Top::new_write_request(uint32_t nnid, std::vector<int32_t> * outputs = NULL,
+                              bool debug = false) {
   uint64_t funct, rs1, rs2;
   // Compute the underlying fields
   funct = 1 | (1 << 1) & ~(1 << 2);
-  rs1 = tid & ~(~(~0 << parameters.feedback_width) << parameters.tid_width);
+  rs1 = 0 & ~(~(~0 << parameters.feedback_width) << parameters.tid_width);
   rs2 = nnid;
   // Assign the fields to the input wires for core 0
   top->Top__io_arbiter_0_cmd_valid = 1;
   top->Top__io_arbiter_0_cmd_bits_inst_funct = funct;
   top->Top__io_arbiter_0_cmd_bits_rs1 = rs1;
   top->Top__io_arbiter_0_cmd_bits_rs2 = rs2;
-  tick(1,0);
+  tick(1,0, outputs);
   if (debug) info();
   top->Top__io_arbiter_0_cmd_valid = 0;
   top->Top__io_arbiter_0_cmd_bits_inst_funct = 0;
@@ -246,7 +278,7 @@ void t_Top::write_rnd_data(int tid, int num, int decimal) {
     write_data(tid, 256, (i == num - 1));
 }
 
-void t_Top::new_read_request(int tid) {
+void t_Top::new_read_request(int tid, std::vector<int32_t> * outputs = NULL) {
   uint64_t funct, rs1, rs2;
   // Compute the fields;
   funct = 0 & ~(1 << 1) & ~(1 << 2);
@@ -257,11 +289,21 @@ void t_Top::new_read_request(int tid) {
   top->Top__io_arbiter_0_cmd_bits_inst_funct = funct;
   top->Top__io_arbiter_0_cmd_bits_rs1 = rs1;
   top->Top__io_arbiter_0_cmd_bits_rs2 = rs2;
-  tick(1,0);
+  tick(1, 0, outputs);
   top->Top__io_arbiter_0_cmd_valid = 0;
   top->Top__io_arbiter_0_cmd_bits_inst_funct = 0;
   top->Top__io_arbiter_0_cmd_bits_rs1 = 0;
   top->Top__io_arbiter_0_cmd_bits_rs2 = 0;
+}
+
+void t_Top::set_asid(int asid) {
+  std::cout << "[INFO] Changing ASID to: 0x" << std::hex << asid << std::endl;
+  top->Top__io_arbiter_0_s = 1;
+  top->Top__io_arbiter_0_cmd_valid = 1;
+  top->Top__io_arbiter_0_cmd_bits_rs1 = asid;
+  tick(1,0);
+  top->Top__io_arbiter_0_cmd_valid = 0;
+  top->Top__io_arbiter_0_s = 0;
 }
 
 void t_Top::info() {
@@ -270,12 +312,13 @@ void t_Top::info() {
   info_cache_table();
   info_petable();
   info_reg_file();
+  info_asids();
 }
 
 void t_Top::info_ttable() {
-  std::cout << "-----------------------------------------------------------------------------------\n";
-  std::cout << "|V|R|W|CV|F?|L?|NL|NR|D| Tid|Nnid|  #L|  #N|  CL|  CN|CNinL|#NcL|#NnL| &N|Cache|DP| <- TTable\n";
-  std::cout << "-----------------------------------------------------------------------------------\n";
+  std::cout << "----------------------------------------------------------------------------------------\n";
+  std::cout << "|V|R|W|CV|F?|L?|NL|NR|D|ASID| Tid|Nnid|  #L|  #N|  CL|  CN|CNinL|#NcL|#NnL| &N|Cache|DP| <- TTable\n";
+  std::cout << "----------------------------------------------------------------------------------------\n";
   std::string string_table("Top.xFilesArbiter.tTable.table_");
   std::stringstream string_field("");
   for (int i = 0; i < parameters.transaction_table_num_entries; i++) {
@@ -314,6 +357,10 @@ void t_Top::info_ttable() {
     // Done [TODO] this is a placeholder until done is actually set/used
     string_field.str("");
     string_field << string_table << i << "_done";
+    std::cout << "|" << get_dat_by_name(string_field.str())->get_value().erase(0,2);
+    // ASID
+    string_field.str("");
+    string_field << string_table << i << "_asid";
     std::cout << "|" << get_dat_by_name(string_field.str())->get_value().erase(0,2);
     // TID
     string_field.str("");
@@ -415,9 +462,9 @@ void t_Top::info_cache_table() {
 }
 
 void t_Top::info_petable() {
-  std::cout << "-------------------------------------------------------------------------------------------------------------\n";
-  std::cout << "|S|IV|WV| TID|tIdx|CIdx|Node|inLoc|outLoc|InIdx|OutIdx|   &N|   &W|DP|LiL|#W|AF|S|    Bias|     Acc| DataOut| <- PE Table\n";
-  std::cout << "-------------------------------------------------------------------------------------------------------------\n";
+  std::cout << "------------------------------------------------------------------------------------------------------------------\n";
+  std::cout << "|S|IV|WV|ASID| TID|tIdx|CIdx|Node|inLoc|outLoc|InIdx|OutIdx|   &N|   &W|DP|LiL|#W|AF|S|    Bias|     Acc| DataOut| <- PE Table\n";
+  std::cout << "------------------------------------------------------------------------------------------------------------------\n";
   std::string string_table("Top.dana.peTable.table_");
   std::string string_pe("Top.dana.peTable.ProcessingElement");
   std::stringstream string_field("");
@@ -438,6 +485,10 @@ void t_Top::info_petable() {
     string_field.str("");
     string_field << string_table << i << "_weightValid";
     std::cout << "| " << get_dat_by_name(string_field.str())->get_value().erase(0,2);
+    // ASID
+    string_field.str("");
+    string_field << string_table << i << "_asid";
+    std::cout << "|" << get_dat_by_name(string_field.str())->get_value().erase(0,2);
     // Transaction ID
     string_field.str("");
     string_field << string_table << i << "_tid";
@@ -545,9 +596,9 @@ void t_Top::info_petable() {
 }
 
 void t_Top::info_reg_file() {
-  std::cout << "---------------------------------\n";
-  std::cout << "|E[Wr](0)|#Wr(0)|E[Wr](1)|#Wr(1)| <- Register File\n";
-  std::cout << "---------------------------------\n";
+  std::cout << "---------------------------------\n"
+            << "|E[Wr](0)|#Wr(0)|E[Wr](1)|#Wr(1)| <- Register File\n"
+            << "---------------------------------\n";
   std::string string_table("Top.dana.regFile.state_");
   std::stringstream string_field("");
   for (int i = 0; i < parameters.transaction_table_num_entries; i++) {
@@ -568,6 +619,35 @@ void t_Top::info_reg_file() {
     string_field << string_table << (i + 1) * 2 - 1 << "_countWrites";
     std::cout << "|  " << get_dat_by_name(string_field.str())->get_value().erase(0,2);
 
+    std::cout << "|" << std::endl;
+  }
+  std::cout << std::endl;
+}
+
+void t_Top::info_asids() {
+  std::cout << "------------------\n"
+            << "|Core|V|ASID|nTID| <- ASIDs in X-FILES arbiter\n"
+            << "------------------\n";
+  std::string string_table("Top.xFilesArbiter.AsidUnit");
+  std::stringstream string_field("");
+  for (int i = 0; i < parameters.num_cores; i++) {
+    // Core Index
+    std::cout << "|" << std::setw(4) << std::setfill(' ') << i;
+    // Valid
+    string_field.str("");
+    if (i == 0) string_field << string_table << ".asidReg_valid";
+    else string_field << string_table << "_" << i << ".asidReg_valid";
+    std::cout << "|" << get_dat_by_name(string_field.str())->get_value().erase(0,2);
+    // ASID
+    string_field.str("");
+    if (i == 0) string_field << string_table << ".asidReg_asid";
+    else string_field << string_table << "_" << i << ".asidReg_asid";
+    std::cout << "|" << get_dat_by_name(string_field.str())->get_value().erase(0,2);
+    // Next TID
+    string_field.str("");
+    if (i == 0) string_field << string_table << ".asidReg_tid";
+    else string_field << string_table << "_" << i << ".asidReg_tid";
+    std::cout << "|" << get_dat_by_name(string_field.str())->get_value().erase(0,2);
     std::cout << "|" << std::endl;
   }
   std::cout << std::endl;
@@ -675,11 +755,21 @@ int t_Top::get_cycles() {
   return cycle;
 }
 
-int t_Top::run(uint16_t tid, uint32_t nnid, uint16_t num_rounds,
-                std::vector<int32_t> * inputs, std::vector<int32_t> * outputs,
-                bool debug = false, int cycle_limit = 0) {
+int t_Top::run(uint32_t nnid, uint16_t num_rounds,
+               std::vector<int32_t> * inputs, std::vector<int32_t> * outputs,
+               bool debug = false, int cycle_limit = 0) {
+  int tid;
+
   if (debug) info();
-  new_write_request(tid, nnid, debug);
+  // Initiate a new request. [TODO] The output is passed along to grab
+  // the TID. Currently the TID response happens in the same cycle,
+  // which may be too aggressive.
+  new_write_request(nnid, outputs, debug);
+  tid = (*outputs)[0];
+  std::cout << "[INFO] X-FILES responded with TID: 0x" << std::hex <<  tid
+            << std::endl;
+  outputs->pop_back();
+  // Once we have a TID, we can start writing data
   for (unsigned int i = 0; i < inputs->size(); i++)
     write_data(tid, (*inputs)[i], i == inputs->size() - 1, debug);
   while (!any_done()) {
@@ -696,8 +786,10 @@ int t_Top::run(uint16_t tid, uint32_t nnid, uint16_t num_rounds,
   tick();
   while (any_valid()) {
     if (debug) info();
-    new_read_request(tid);
-    tick(1, 0, outputs);
+    new_read_request(tid, outputs);
+    // [TODO] This is kludgy as I'm forcing a slower response rate
+    // than *should* be allowable.
+    tick(2, 0, outputs);
   }
   return 0;
 }
@@ -734,15 +826,13 @@ int t_Top::testbench_fann(uint16_t tid, uint32_t nnid, uint16_t num_rounds,
   edges = 0;
   cycle_start = cycle;
 
-  reset(8);
-
   for (i = 0; i < data->num_data; i++) {
     output_dana.clear();
     for (j = 0; j < data->num_input; j++) {
       input_dana[j] = ((int32_t) data->input[i][j] << decimal_point);
     }
     output_fann = fann_run(ann, data->input[i]);
-    if (run(tid, nnid, num_rounds, &input_dana, &output_dana, debug))
+    if (run(nnid, num_rounds, &input_dana, &output_dana, debug))
       goto failure;
     // std::cout << "[INFO] FANN vs. DANA" << std::endl;
     for (j = 0; j < data->num_output; j++) {
@@ -787,101 +877,6 @@ int t_Top::testbench_fann(uint16_t tid, uint32_t nnid, uint16_t num_rounds,
   if (data != NULL) fann_destroy_train(data);
   if (ann != NULL) fann_destroy(ann);
   return 1;
-}
-
-int t_sobel() {
-  t_Top* api = new t_Top("build/t_Top.vcd");
-  FILE *tee = NULL;
-  api->set_teefile(tee);
-  // Reset
-  api->reset(8);
-  // Preload the cache
-  api->cache_load(0, 17, "../workloads/data/sobel-fixed.16bin");
-  // Run the actual tests
-  api->new_write_request(1, 17);
-  api->write_rnd_data(1, 10, 6);
-  // Drop this into a loop until some TID in the Transaction Table is
-  // done
-  while (!api->any_done())
-    api->tick(1, 0);
-  api->tick(1,0);
-  // Read out data until there aren't any valid entries
-  while (api->any_valid()) {
-    api->new_read_request(1);
-    api->tick(1,0);
-  }
-  if (tee) fclose(tee);
-
-  return 0;
-}
-
-int t_rsa() {
-  t_Top* api = new t_Top("build/t_Top.vcd");
-  FILE *tee = NULL;
-  api->set_teefile(tee);
-  std::vector<int32_t> inputs;
-  inputs.push_back(1024);
-  inputs.push_back(1024);
-  inputs.push_back(1024);
-  inputs.push_back(1024);
-  inputs.push_back(0);
-  inputs.push_back(0);
-  inputs.push_back(1024);
-  inputs.push_back(1024);
-  inputs.push_back(1024);
-  inputs.push_back(0);
-  inputs.push_back(1024);
-  inputs.push_back(0);
-  inputs.push_back(0);
-  inputs.push_back(0);
-  inputs.push_back(1024);
-  inputs.push_back(0);
-  inputs.push_back(1024);
-  inputs.push_back(1024);
-  inputs.push_back(1024);
-  inputs.push_back(0);
-  inputs.push_back(1024);
-  inputs.push_back(0);
-  inputs.push_back(0);
-  inputs.push_back(0);
-  inputs.push_back(0);
-  inputs.push_back(0);
-  inputs.push_back(0);
-  inputs.push_back(0);
-  inputs.push_back(0);
-  inputs.push_back(0);
-
-  // Reset
-  api->reset(8);
-
-  // Preload the cache
-  api->cache_load(0, 17, "../workloads/data/sobel-fixed.16bin");
-  api->cache_load(1, 18, "../workloads/data/rsa-fixed.16bin");
-
-  // Run the actual tests
-  api->info();
-  api->new_write_request(1, 18);
-  for (unsigned int i = 0; i < inputs.size(); i++)
-    api->write_data(1, inputs[i], i == inputs.size() - 1);
-  // Drop this into a loop until some TID in the Transaction Table is
-  // done
-  while (!api->any_done()) {
-    api->tick(1, 0);
-    api->info();
-    if (api->get_cycles() > 10000) {
-      std::cout << "[ERROR] Hit cycle count limit, bailing..." << std::endl;
-      return -1;
-    }
-  }
-  api->tick(1,0);
-  // Read out data until there aren't any valid entries
-  while (api->any_valid()) {
-    api->new_read_request(1);
-    api->tick(1,0);
-  }
-
-  if (tee) fclose(tee);
-  return 0;
 }
 
 void usage (const char * bin) {
@@ -931,6 +926,9 @@ int main (int argc, char* argv[]) {
   if (has_vcd) api = new t_Top(file_vcd);
   else api = new t_Top();
 
+  // Apply a multi-cycle reset
+  api->reset(8);
+
   // Load the parameters
   api->read_parameters(file_parameters);
   // No tee file is used, currently
@@ -941,9 +939,12 @@ int main (int argc, char* argv[]) {
   api->cache_load(0, 17, "../workloads/data/sobel-fixed", debug);
   api->cache_load(1, 18, "../workloads/data/rsa-fixed", debug);
 
+  // Set the ASID
+  api->set_asid(0xbeef);
+
   // Run the simulation
   api->testbench_fann(1, 18, 0, "../workloads/data/rsa.net",
-                      "../workloads/data/rsa.train.1", debug);
+                      "../workloads/data/rsa.train.100", debug);
 
   if (tee) fclose(tee);
   return 0;

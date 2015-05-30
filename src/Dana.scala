@@ -5,6 +5,7 @@ import Chisel._
 case object ElementWidth extends Field[Int]
 case object ElementsPerBlock extends Field[Int]
 case object TidWidth extends Field[Int]
+case object AsidWidth extends Field[Int]
 case object ActivationFunctionWidth extends Field[Int]
 case object NnidWidth extends Field[Int]
 case object DecimalPointOffset extends Field[Int]
@@ -24,6 +25,7 @@ abstract trait DanaParameters extends UsesParameters {
   val elementWidth = params(ElementWidth)
   val elementsPerBlock = params(ElementsPerBlock)
   val tidWidth = params(TidWidth)
+  val asidWidth = params(AsidWidth)
   // Activation Function width increases will break:
   //   * ProcessingElementTable logic for indexing into cache data
   val activationFunctionWidth = params(ActivationFunctionWidth)

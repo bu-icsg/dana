@@ -2,7 +2,7 @@ package dana
 
 import Chisel._
 
-class TransactionState extends DanaBundle {
+class TransactionState extends XFilesBundle {
   val valid = Bool()
   val reserved = Bool()
   val cacheValid = Bool()
@@ -16,7 +16,8 @@ class TransactionState extends DanaBundle {
   val inLast = Bool()
   // output_layer should be unused according to types.vh
   val cacheIndex = UInt(width = log2Up(cacheNumEntries))
-  val tid = UInt(width = tidWidth) // formerly pid
+  val asid = UInt(width = asidWidth)
+  val tid = UInt(width = tidWidth)
   val nnid = UInt(width = nnidWidth) // formerly nn_hash
   val decimalPoint = UInt(width = decimalPointWidth)
   val numLayers = UInt(width = 16) // [TODO] fragile
@@ -38,7 +39,7 @@ class TransactionState extends DanaBundle {
   val indexElement = UInt(width = log2Up(transactionTableSramElements))
 }
 
-class ControlReq extends DanaBundle {
+class ControlReq extends XFilesBundle {
   // Bools
   val cacheValid = Bool()
   val waiting = Bool()
@@ -52,7 +53,8 @@ class ControlReq extends DanaBundle {
   val tableIndex = UInt(width = log2Up(transactionTableNumEntries))
   val cacheIndex = UInt(width = log2Up(cacheNumEntries))
   val nnid = UInt(width = nnidWidth) // formerly nn_hash
-  val tid = UInt(width = tidWidth) // formerly pid
+  val asid = UInt(width = asidWidth)
+  val tid = UInt(width = tidWidth)
   // State info
   val currentNode = UInt(width = 16) // [TODO] fragile
   val currentNodeInLayer = UInt(width = 16) // [TODO] fragile
@@ -66,44 +68,53 @@ class ControlReq extends DanaBundle {
   val decimalPoint = UInt(width = decimalPointWidth)
 }
 
-class ControlResp extends DanaBundle {
+class ControlResp extends XFilesBundle {
   val tableIndex = UInt(width = log2Up(transactionTableNumEntries))
   val field = UInt(width = 4) // [TODO] fragile on Constants.scala
   val data = Vec.fill(3){UInt(width = 16)} // [TODO] fragile
   val decimalPoint = UInt(width = decimalPointWidth)
 }
 
-class XFilesArbiterRespPipe extends DanaBundle {
+class XFilesArbiterRespPipe extends XFilesBundle {
+  val asid = UInt(width = asidWidth)
   val tid = UInt(width = tidWidth)
   val tidIdx = UInt(width = log2Up(transactionTableNumEntries))
   val readIdx = UInt(width = log2Up(transactionTableSramElements))
+  val coreIdx = UInt(width = log2Up(numCores))
 }
 
-class TTableControlInterface extends DanaBundle {
+class TTableControlInterface extends XFilesBundle {
   val req = Decoupled(new ControlReq)
   val resp = Decoupled(new ControlResp).flip
 }
 
-class TransactionTableInterface extends DanaBundle {
-  val arbiter = new RoCCInterface
+class TransactionTableInterface extends XFilesBundle {
+  val arbiter = new XFilesBundle {
+    val rocc = new RoCCInterface
+    val indexIn = UInt(INPUT, width = log2Up(numCores))
+    val indexOut = UInt(OUTPUT, width = log2Up(numCores))
+  }
   val control = new TTableControlInterface
   val peTable = (new PETransactionTableInterface).flip
 }
 
-class TransactionTable extends DanaModule {
+class TransactionTable extends XFilesModule {
   // Communication with the X-FILES arbiter
   val io = new TransactionTableInterface
 
   // IO alises
-  val cmd = new DanaBundle {
-    val readOrWrite = io.arbiter.cmd.bits.inst.funct(0)
-    val isNew = io.arbiter.cmd.bits.inst.funct(1)
-    val isLast = io.arbiter.cmd.bits.inst.funct(2)
-    val tid = io.arbiter.cmd.bits.rs1(tidWidth - 1, 0)
+  val cmd = new XFilesBundle {
+    val readOrWrite = io.arbiter.rocc.cmd.bits.inst.funct(0)
+    val isNew = io.arbiter.rocc.cmd.bits.inst.funct(1)
+    val isLast = io.arbiter.rocc.cmd.bits.inst.funct(2)
+    val asid = io.arbiter.rocc.cmd.bits.rs1(asidWidth + tidWidth - 1, tidWidth)
+    val tid = io.arbiter.rocc.cmd.bits.rs1(tidWidth - 1, 0)
+    val coreIdx = io.arbiter.indexIn
     val countFeedback =
-      io.arbiter.cmd.bits.rs1(feedbackWidth + tidWidth - 1, tidWidth)
-    val nnid = io.arbiter.cmd.bits.rs2(nnidWidth - 1, 0)
-    val data = io.arbiter.cmd.bits.rs2
+      io.arbiter.rocc.cmd.bits.rs1(feedbackWidth + asidWidth + tidWidth - 1,
+        asidWidth + tidWidth)
+    val nnid = io.arbiter.rocc.cmd.bits.rs2(nnidWidth - 1, 0)
+    val data = io.arbiter.rocc.cmd.bits.rs2
   }
 
   // Vector of all the table entries
@@ -121,7 +132,8 @@ class TransactionTable extends DanaModule {
       elementWidth = elementWidth)).io}
   // An entry is free if it is not valid and not reserved
   def isFree(x: TransactionState): Bool = { !x.valid && !x.reserved }
-  def derefTid(x: TransactionState, y: UInt): Bool = { x.tid === y && (x.valid || x.reserved) }
+  def derefTid(x: TransactionState, asid: UInt, tid: UInt): Bool = {
+    x.asid === asid && x.tid === tid && (x.valid || x.reserved) }
 
   // Determine if there exits a free entry in the table and the index
   // of the next availble free entry
@@ -131,22 +143,26 @@ class TransactionTable extends DanaModule {
   val derefTidIndex = UInt()
   hasFree := table.exists(isFree)
   nextFree := table.indexWhere(isFree)
-  foundTid := table.exists(derefTid(_, cmd.tid))
-  derefTidIndex := table.indexWhere(derefTid(_, cmd.tid))
-  io.arbiter.cmd.ready := hasFree
-  io.arbiter.resp.valid := Bool(false)
-  io.arbiter.resp.bits.data := UInt(0)
+  foundTid := table.exists(derefTid(_, cmd.asid, cmd.tid))
+  derefTidIndex := table.indexWhere(derefTid(_, cmd.asid, cmd.tid))
+  io.arbiter.rocc.cmd.ready := hasFree
+  io.arbiter.rocc.resp.valid := Bool(false)
+  io.arbiter.rocc.resp.bits.data := UInt(0)
 
   // Response pipeline to arbiter
   val arbiterRespPipe = Reg(Valid(new XFilesArbiterRespPipe))
   arbiterRespPipe.valid := Bool(false)
+  arbiterRespPipe.bits.asid := UInt(0)
   arbiterRespPipe.bits.tid := UInt(0)
   arbiterRespPipe.bits.readIdx := UInt(0)
   arbiterRespPipe.bits.tidIdx := UInt(0)
-  io.arbiter.resp.valid := arbiterRespPipe.valid
+  arbiterRespPipe.bits.coreIdx := UInt(0)
+  io.arbiter.rocc.resp.valid := arbiterRespPipe.valid
   val memDataVec = Vec((0 until elementsPerBlock).map(i => (mem(arbiterRespPipe.bits.tidIdx).dout(0) >> (UInt(elementWidth) * UInt(i)))(elementWidth - 1, 0)))
-  io.arbiter.resp.bits.data := Cat(arbiterRespPipe.bits.tid,
-    memDataVec(arbiterRespPipe.bits.readIdx(log2Up(elementsPerBlock) - 1, 0)))
+  io.arbiter.rocc.resp.bits.data := arbiterRespPipe.bits.asid ##
+    arbiterRespPipe.bits.tid ##
+    memDataVec(arbiterRespPipe.bits.readIdx(log2Up(elementsPerBlock) - 1, 0))
+  io.arbiter.indexOut := arbiterRespPipe.bits.coreIdx
 
   // Default value assignment
   for (i <- 0 until transactionTableNumEntries) {
@@ -157,7 +173,7 @@ class TransactionTable extends DanaModule {
     }
   }
 
-  when (io.arbiter.cmd.valid) {
+  when (io.arbiter.rocc.cmd.valid) {
     // This is a new packet
     when (cmd.readOrWrite) { // Write == True
       when (cmd.isNew) {
@@ -169,6 +185,7 @@ class TransactionTable extends DanaModule {
         table(nextFree).needsNextRegister := Bool(false)
         table(nextFree).inFirst := Bool(true)
         table(nextFree).inLast := Bool(false)
+        table(nextFree).asid := cmd.asid
         table(nextFree).tid := cmd.tid
         table(nextFree).nnid := cmd.nnid
         table(nextFree).currentNode := UInt(0)
@@ -200,9 +217,11 @@ class TransactionTable extends DanaModule {
     } .otherwise { // Ths is a read packet
       mem(derefTidIndex).addr(0) := table(derefTidIndex).readIdx
       arbiterRespPipe.valid := Bool(true)
+      arbiterRespPipe.bits.asid := cmd.asid
       arbiterRespPipe.bits.tid := cmd.tid
       arbiterRespPipe.bits.tidIdx := derefTidIndex
       arbiterRespPipe.bits.readIdx := table(derefTidIndex).readIdx
+      arbiterRespPipe.bits.coreIdx := cmd.coreIdx
       // Check to see if all outputs have been read
       when (table(derefTidIndex).readIdx ===
         table(derefTidIndex).nodesInCurrentLayer - UInt(1)) {
@@ -369,6 +388,7 @@ class TransactionTable extends DanaModule {
     entryArbiter.io.in(i).bits.tableIndex := UInt(i)
     entryArbiter.io.in(i).bits.cacheIndex := table(i).cacheIndex
     entryArbiter.io.in(i).bits.nnid := table(i).nnid
+    entryArbiter.io.in(i).bits.asid := table(i).asid
     entryArbiter.io.in(i).bits.tid := table(i).tid
     // State info
     entryArbiter.io.in(i).bits.currentNode := table(i).currentNode
@@ -388,17 +408,17 @@ class TransactionTable extends DanaModule {
 
   // The arbiter should only receive a request if it is asserting its
   // ready signal.
-  assert(!io.arbiter.cmd.valid || io.arbiter.cmd.ready,
+  assert(!io.arbiter.rocc.cmd.valid || io.arbiter.rocc.cmd.ready,
     "Inbound arbiter request when Transaction Table not ready")
   // Only one inbound request or response can currently be handled
-  assert(!io.arbiter.cmd.valid || !io.control.resp.valid,
+  assert(!io.arbiter.rocc.cmd.valid || !io.control.resp.valid,
     "Received simultaneous requests on the TransactionTable")
   // Valid should never be true if reserved is not true
   for (i <- 0 until transactionTableNumEntries)
     assert(!table(i).valid || table(i).reserved,
       "Valid asserted with reserved de-asserted on TTable " + i)
   // A read request should hit a valid entry
-  assert(foundTid || !io.arbiter.cmd.valid || cmd.readOrWrite,
+  assert(foundTid || !io.arbiter.rocc.cmd.valid || cmd.readOrWrite,
     "X-FILES performed a read request on a non-existent TID")
 }
 
@@ -409,8 +429,8 @@ class TransactionTableTests(uut: TransactionTable, isTrace: Boolean = true)
     peek(uut.nextFree)
     val tid = t
     val nnid = t + 15 * 16
-    // newWriteRequest(uut.io.arbiter, tid, nnid)
-    // writeRndData(uut.io.arbiter, tid, nnid, 5, 10)
+    // newWriteRequest(uut.io.arbiter.rocc, tid, nnid)
+    // writeRndData(uut.io.arbiter.rocc, tid, nnid, 5, 10)
     info(uut)
     poke(uut.io.control.req.ready, 1)
   }
