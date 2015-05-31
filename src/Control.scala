@@ -195,6 +195,14 @@ class Control extends DanaModule {
       // io.tTable.resp.bits.tableIndex := io.tTable.req.bits.tableIndex
       // io.tTable.resp.bits.field := e_TTABLE_
     }
+    // If this entry is done, then its cache entry needs to be invalidated
+    when (io.tTable.req.bits.isDone) {
+      reqCache(Bool(true), e_CACHE_DECREMENT_IN_USE_COUNT, io.tTable.req.bits.nnid,
+        UInt(0), UInt(0), UInt(0))
+      io.tTable.resp.valid := Bool(true)
+      io.tTable.resp.bits.tableIndex := io.tTable.req.bits.tableIndex
+      io.tTable.resp.bits.field := e_TTABLE_WAITING
+    }
     when (io.tTable.req.bits.cacheValid &&
       !io.tTable.req.bits.needsLayerInfo &&
       io.peTable.req.ready) {

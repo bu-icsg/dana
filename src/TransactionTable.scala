@@ -46,6 +46,7 @@ class ControlReq extends XFilesBundle {
   val needsLayerInfo = Bool()
   val needsRegisters = Bool()
   val needsNextRegister = Bool()
+  val isDone = Bool()
   val request = Bool()
   val inFirst = Bool()
   val inLast = Bool()
@@ -373,7 +374,7 @@ class TransactionTable extends XFilesModule {
     // already be valid, i.e., we need to have valid data sitting in
     // the currentNode and numNodes to actually do this comparison).
     entryArbiter.io.in(i).valid := table(i).valid && !table(i).waiting &&
-      ((table(i).currentNode != table(i).numNodes) || !table(i).cacheValid)
+      ((table(i).currentNode != table(i).numNodes) || table(i).done || !table(i).cacheValid)
     // The other data connections are just aliases to the contents of
     // the specific table entry
     entryArbiter.io.in(i).bits.cacheValid := table(i).cacheValid
@@ -384,6 +385,7 @@ class TransactionTable extends XFilesModule {
     entryArbiter.io.in(i).bits.request := table(i).request
     entryArbiter.io.in(i).bits.inFirst := table(i).inFirst
     entryArbiter.io.in(i).bits.inLast := table(i).inLast
+    entryArbiter.io.in(i).bits.isDone := table(i).done
     // Global info
     entryArbiter.io.in(i).bits.tableIndex := UInt(i)
     entryArbiter.io.in(i).bits.cacheIndex := table(i).cacheIndex

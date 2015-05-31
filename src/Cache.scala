@@ -11,7 +11,7 @@ class CacheState extends DanaBundle {
   val notifyIndex = UInt(width = log2Up(transactionTableNumEntries))
   val notifyMask = UInt(width = transactionTableNumEntries)
   val nnid = UInt(width = nnidWidth)
-  val inUseCount = UInt(width = log2Up(transactionTableNumEntries))
+  val inUseCount = UInt(width = log2Up(transactionTableNumEntries) + 1)
 }
 
 class CacheMemInterface extends DanaBundle {
@@ -272,7 +272,7 @@ class Cache extends DanaModule {
         //     log2Up(elementsPerBlock))
       }
       is (e_CACHE_DECREMENT_IN_USE_COUNT) {
-
+          table(derefNnid).inUseCount := table(derefNnid).inUseCount - UInt(1)
       }
     }
   }
@@ -351,4 +351,8 @@ class Cache extends DanaModule {
     "Cache trying to send response to Control when Control not ready")
   assert(!io.control.req.valid || !io.pe.req.valid || !io.mem.req.valid,
     "Multiple simultaneous requests on the cache (dropped requests possible)")
+  assert(!io.control.req.valid ||
+    io.control.req.bits.request != e_CACHE_DECREMENT_IN_USE_COUNT ||
+    table(derefNnid).inUseCount != UInt(0),
+    "Cache received control request to decrement count of zero-valued inUseCount")
 }
