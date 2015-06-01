@@ -92,16 +92,22 @@ public:
   int get_cycles();
 
   // Generic method that compares the output of a FANN neural network
-  // for a specific training file to DANA. The cache must be
-  // preloaded.
-  int testbench_fann(uint16_t, uint32_t, const char *,
-                     const char *, bool);
+  // for a specific training file to DANA. The inputs in the training
+  // file are run in order and one at a time on DANA.
+  int testbench_fann_single(uint16_t, const char *,
+                            const char *,
+                            const char *, bool);
+
+  int testbench_fann_smp(const char **, const char **, bool);
 
   // Run a set of transactions on the DANA object
   int testbench(std::vector<transaction *> *);
 
   // Run a single transaction to completion
   int run_single(transaction *, bool, int);
+
+  // Run a collection of transactions to completion
+  int run_smp(std::vector<transaction *> *, bool, int);
 
   // Read a parameter file and populate the local parameters
   int read_parameters(const string);
@@ -758,8 +764,8 @@ int t_Top::get_cycles() {
   return cycle;
 }
 
-int t_Top::run_single(transaction * t,
-               bool debug = false, int cycle_limit = 0) {
+int t_Top::run_single(transaction * t, bool debug = false,
+                      int cycle_limit = 0) {
   if (debug) info();
   // Initiate a new request. [TODO] The output is passed along to grab
   // the TID. Currently the TID response happens in the same cycle,
@@ -794,9 +800,18 @@ int t_Top::run_single(transaction * t,
   return 0;
 }
 
-int t_Top::testbench_fann(uint16_t tid, uint32_t nnid,
-                           const char * file_net, const char * file_train,
-                           bool debug = false) {
+int t_Top::run_smp(std::vector<transaction *> *, bool debug = false,
+                   int cycle_limit =0) {
+  if (debug) info();
+
+  return 0;
+}
+
+int t_Top::testbench_fann_single(uint16_t tid,
+                                 const char * file_net,
+                                 const char * file_train,
+                                 const char * file_cache,
+                                 bool debug = false) {
   struct fann *ann = NULL;
   struct fann_train_data *data = NULL;
   fann_type * output_fann;
@@ -804,9 +819,14 @@ int t_Top::testbench_fann(uint16_t tid, uint32_t nnid,
   int i, j;
   int decimal_point, total_bit_failures, total_outputs;
   int output_fann_th, output_dana_th;
+  uint32_t nnid;
   double error, error_mean, error_mse;
   uint64_t cycle_start, cycle_stop, edges;
   std::vector<transaction*> transactions;
+
+  // Preload the cache
+  nnid = rand();
+  cache_load(0, nnid, file_cache, debug);
 
   if ((ann = fann_create_from_file(file_net)) == 0) goto failure;
   if ((data = fann_read_train_from_file(file_train)) == 0) goto failure;
@@ -942,16 +962,14 @@ int main(int argc, char* argv[]) {
   FILE *tee = NULL;
   api->set_teefile(tee);
 
-  // Preload the cache
-  api->cache_load(0, 17, "../workloads/data/sobel-fixed", debug);
-  api->cache_load(1, 18, "../workloads/data/rsa-fixed", debug);
-
   // Set the ASID
   api->set_asid(0xbeef);
 
   // Run the simulation
-  api->testbench_fann(1, 18, "../workloads/data/rsa.net",
-                      "../workloads/data/rsa.train.1", debug);
+  api->testbench_fann_single(1, "../workloads/data/rsa.net",
+                             "../workloads/data/rsa.train.1",
+                             "../workloads/data/rsa-fixed",
+                             debug);
 
   if (tee) fclose(tee);
   return 0;
