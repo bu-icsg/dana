@@ -94,15 +94,14 @@ public:
   // Generic method that compares the output of a FANN neural network
   // for a specific training file to DANA. The cache must be
   // preloaded.
-  int testbench_fann(uint16_t, uint32_t, uint16_t, const char *,
+  int testbench_fann(uint16_t, uint32_t, const char *,
                      const char *, bool);
 
   // Run a set of transactions on the DANA object
   int testbench(std::vector<transaction *> *);
 
-  // Run the C++ Chisel model on a set of inputs
-  int run(uint32_t, uint16_t, std::vector<int32_t> *,
-          std::vector<int32_t> *, bool, int);
+  // Run a single transaction to completion
+  int run_single(transaction *, bool, int);
 
   // Read a parameter file and populate the local parameters
   int read_parameters(const string);
@@ -759,23 +758,20 @@ int t_Top::get_cycles() {
   return cycle;
 }
 
-int t_Top::run(uint32_t nnid, uint16_t num_rounds,
-               std::vector<int32_t> * inputs, std::vector<int32_t> * outputs,
+int t_Top::run_single(transaction * t,
                bool debug = false, int cycle_limit = 0) {
-  int tid;
-
   if (debug) info();
   // Initiate a new request. [TODO] The output is passed along to grab
   // the TID. Currently the TID response happens in the same cycle,
   // which may be too aggressive.
-  new_write_request(nnid, outputs, debug);
-  tid = (*outputs)[0];
-  std::cout << "[INFO] X-FILES responded with TID: 0x" << std::hex <<  tid
+  new_write_request(t->nnid, &t->outputs, debug);
+  t->tid = t->outputs[0];
+  std::cout << "[INFO] X-FILES responded with TID: 0x" << std::hex << t->tid
             << std::endl;
-  outputs->pop_back();
+  t->outputs.pop_back();
   // Once we have a TID, we can start writing data
-  for (unsigned int i = 0; i < inputs->size(); i++)
-    write_data(tid, (*inputs)[i], i == inputs->size() - 1, debug);
+  for (unsigned int i = 0; i < t->inputs.size(); i++)
+    write_data(t->tid, t->get_input(), t->done_in(), debug);
   while (!any_done()) {
     tick();
     if (debug) info();
@@ -790,15 +786,15 @@ int t_Top::run(uint32_t nnid, uint16_t num_rounds,
   tick();
   while (any_valid()) {
     if (debug) info();
-    new_read_request(tid, outputs);
+    new_read_request(t->tid, &t->outputs);
     // [TODO] This is kludgy as I'm forcing a slower response rate
     // than *should* be allowable.
-    tick(2, 0, outputs);
+    tick(2, 0, &t->outputs);
   }
   return 0;
 }
 
-int t_Top::testbench_fann(uint16_t tid, uint32_t nnid, uint16_t num_rounds,
+int t_Top::testbench_fann(uint16_t tid, uint32_t nnid,
                            const char * file_net, const char * file_train,
                            bool debug = false) {
   struct fann *ann = NULL;
@@ -811,11 +807,6 @@ int t_Top::testbench_fann(uint16_t tid, uint32_t nnid, uint16_t num_rounds,
   double error, error_mean, error_mse;
   uint64_t cycle_start, cycle_stop, edges;
   std::vector<transaction*> transactions;
-
-  // [TODO] Add support for num_rounds into DANA-Chisel and into the
-  // FANN checking below.
-  if (num_rounds > 0)
-    std::cout << "[WARN] NN Output->Input feedback not supported" << std::endl;
 
   if ((ann = fann_create_from_file(file_net)) == 0) goto failure;
   if ((data = fann_read_train_from_file(file_train)) == 0) goto failure;
@@ -840,7 +831,7 @@ int t_Top::testbench_fann(uint16_t tid, uint32_t nnid, uint16_t num_rounds,
       input_dana[j] = ((int32_t) data->input[i][j] << decimal_point);
     }
     output_fann = fann_run(ann, data->input[i]);
-    if (run(nnid, num_rounds, &transactions[i]->inputs, &transactions[i]->outputs, debug))
+    if (run_single(transactions[i], debug))
       goto failure;
     // std::cout << "[INFO] FANN vs. DANA" << std::endl;
     for (j = 0; j < data->num_output; j++) {
@@ -959,7 +950,7 @@ int main(int argc, char* argv[]) {
   api->set_asid(0xbeef);
 
   // Run the simulation
-  api->testbench_fann(1, 18, 0, "../workloads/data/rsa.net",
+  api->testbench_fann(1, 18, "../workloads/data/rsa.net",
                       "../workloads/data/rsa.train.1", debug);
 
   if (tee) fclose(tee);

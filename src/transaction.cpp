@@ -15,16 +15,12 @@ transaction::transaction(fann * _ann, fann_type * _data, uint32_t _nnid,
     inputs[i] = (int32_t) data[i] << decimal_point;
 };
 
-int32_t transaction::next_in() {
+int32_t transaction::get_input() {
   return inputs[count_in++];
 };
 
-void transaction::next_out(int32_t output) {
-  outputs[count_out++] = output;
-};
-
 bool transaction::done_in() {
-  return count_in == num_input;
+  return count_in == num_input - 1;
 };
 
 bool transaction::done_out() {
