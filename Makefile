@@ -41,7 +41,9 @@ BACKEND_DOT	= $(EXECUTABLES:%=$(DIR_BUILD)/%$(CHISEL_CONFIG_DOT).dot)
 # C++ Backend Specific Targets
 TESTS            = t_Top.cpp
 TEST_EXECUTABLES = $(TESTS:%.cpp=$(DIR_BUILD)/%$(CHISEL_CONFIG_DOT))
-OBJECTS          = $(BACKEND_CPP:%.cpp=%.o) $(TESTS:%.cpp=$(DIR_BUILD)/%.o)
+SOURCES          = transaction.cpp
+OBJECTS          = $(BACKEND_CPP:%.cpp=%.o) $(TESTS:%.cpp=$(DIR_BUILD)/%.o) \
+	$(SOURCES:%.cpp=$(DIR_BUILD)/%.o)
 VCDS             = $(TESTS:%.cpp=$(DIR_BUILD)/%.vcd)
 STRIPPED         = $(EXECUTABLES:%=$(DIR_BUILD)/%-emulator-nomain.o)
 

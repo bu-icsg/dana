@@ -1,6 +1,7 @@
 #include <iomanip>
 #include <unistd.h>
 #include "fann.h"
+#include "transaction.h"
 
 class t_Top : public Top_api_t {
 private:
@@ -95,6 +96,9 @@ public:
   // preloaded.
   int testbench_fann(uint16_t, uint32_t, uint16_t, const char *,
                      const char *, bool);
+
+  // Run a set of transactions on the DANA object
+  int testbench(std::vector<transaction *> *);
 
   // Run the C++ Chisel model on a set of inputs
   int run(uint32_t, uint16_t, std::vector<int32_t> *,
@@ -806,6 +810,7 @@ int t_Top::testbench_fann(uint16_t tid, uint32_t nnid, uint16_t num_rounds,
   int output_fann_th, output_dana_th;
   double error, error_mean, error_mse;
   uint64_t cycle_start, cycle_stop, edges;
+  std::vector<transaction*> transactions;
 
   // [TODO] Add support for num_rounds into DANA-Chisel and into the
   // FANN checking below.
@@ -826,29 +831,33 @@ int t_Top::testbench_fann(uint16_t tid, uint32_t nnid, uint16_t num_rounds,
   edges = 0;
   cycle_start = cycle;
 
+  for (i = 0; i < data->num_data; i++)
+    transactions.push_back(new transaction(ann, data->input[i], nnid, decimal_point));
+
   for (i = 0; i < data->num_data; i++) {
     output_dana.clear();
     for (j = 0; j < data->num_input; j++) {
       input_dana[j] = ((int32_t) data->input[i][j] << decimal_point);
     }
     output_fann = fann_run(ann, data->input[i]);
-    if (run(nnid, num_rounds, &input_dana, &output_dana, debug))
+    if (run(nnid, num_rounds, &transactions[i]->inputs, &transactions[i]->outputs, debug))
       goto failure;
     // std::cout << "[INFO] FANN vs. DANA" << std::endl;
     for (j = 0; j < data->num_output; j++) {
       total_outputs++;
       error = output_fann[j] -
-        ((fann_type) output_dana[j] / pow(2.0, decimal_point));
+        ((fann_type) transactions[i]->outputs[j] / pow(2.0, decimal_point));
       error_mean += error;
       error_mse += error * error;
       if (fabs(error) > 0.1) {
         printf("[INFO] ABS Err > 0.1 (%f) on [%d, %d], found %d (%f), should be %f\n",
                fabs(error), i, j,
-               output_dana[j], (float)output_dana[j] / pow(2.0, decimal_point),
+               transactions[i]->outputs[j],
+               (float) transactions[i]->outputs[j] / pow(2.0, decimal_point),
                output_fann[j]);
         // Check to see if this results in a bit flip
         output_fann_th = output_fann[j] > 0.5 ? 1 : 0;
-        output_dana_th = output_dana[j] > (1 << (decimal_point - 1)) ? 1 : 0;
+        output_dana_th = transactions[i]->outputs[j] > (1 << (decimal_point - 1)) ? 1 : 0;
         if (output_fann_th != output_dana_th) {
           std::cout << "[ERROR] This results in a bit flip!" << std::endl;
           total_bit_failures++;
@@ -869,6 +878,9 @@ int t_Top::testbench_fann(uint16_t tid, uint32_t nnid, uint16_t num_rounds,
   printf("[INFO] Throughput: %0.2f edges/cycle\n",
          (double) edges / (cycle_stop - cycle_start));
 
+  for (i = 0; i < data->num_data; i++)
+    delete transactions[i];
+
   fann_destroy(ann);
   fann_destroy_train(data);
   return 0;
@@ -879,7 +891,11 @@ int t_Top::testbench_fann(uint16_t tid, uint32_t nnid, uint16_t num_rounds,
   return 1;
 }
 
-void usage (const char * bin) {
+int t_Top::testbench(std::vector<transaction *> * transactions) {
+  return 0;
+};
+
+void usage(const char * bin) {
   // Print a usage string and exit
   const char *string_usage =
     "[OPTION]... PARAMETER_FILE\n"
@@ -890,7 +906,7 @@ void usage (const char * bin) {
   printf("%s", string_usage);
 }
 
-int main (int argc, char* argv[]) {
+int main(int argc, char* argv[]) {
   // t_Top* api = new t_Top("build/t_Top.vcd");
   t_Top * api;
   bool has_vcd = false, debug = false;
@@ -944,7 +960,7 @@ int main (int argc, char* argv[]) {
 
   // Run the simulation
   api->testbench_fann(1, 18, 0, "../workloads/data/rsa.net",
-                      "../workloads/data/rsa.train.100", debug);
+                      "../workloads/data/rsa.train.1", debug);
 
   if (tee) fclose(tee);
   return 0;
