@@ -220,7 +220,7 @@ int t_Top::tick(int num_cycles = 1, int reset = 0,
       data = std::stoi(string_data, 0, 16);
       // data = std::stoll(get_dat_by_name("Top.io_arbiter_0_resp_bits_data")->get_value().erase(0,2), 0, 16);
       if (output != NULL) {
-        output->push_back(data);
+        output->push_back(data & ~(~(uint64_t)0 << parameters.element_width));
       }
       else {
         std::cout << "[INFO] Saw response... ASID+TID: "
@@ -816,7 +816,6 @@ int t_Top::testbench_fann_single(const char * file_net,
   fann_type * output_fann;
   int i, j;
   int decimal_point, total_bit_failures, total_outputs;
-  int output_fann_th, output_dana_th;
   uint32_t nnid;
   double error, error_mean, error_mse;
   uint64_t cycle_start, cycle_stop, edges;
@@ -838,35 +837,20 @@ int t_Top::testbench_fann_single(const char * file_net,
   edges = 0;
   cycle_start = cycle;
 
-  for (i = 0; i < data->num_data; i++)
-    transactions.push_back(new transaction(ann, data->input[i], nnid, decimal_point));
-
+  // Create an array of transactions from the input data
   for (i = 0; i < data->num_data; i++) {
-    output_fann = fann_run(ann, data->input[i]);
+    transactions.push_back(new transaction(ann, data->input[i], nnid, decimal_point));
+  }
+
+  // Execute the transactions and populate error metrics
+  for (i = 0; i < transactions.size(); i++) {
     if (run_single(transactions[i], debug))
       goto failure;
-    // std::cout << "[INFO] FANN vs. DANA" << std::endl;
-    for (j = 0; j < data->num_output; j++) {
-      total_outputs++;
-      error = output_fann[j] -
-        ((fann_type) transactions[i]->outputs[j] / pow(2.0, decimal_point));
-      error_mean += error;
-      error_mse += error * error;
-      if (fabs(error) > 0.1) {
-        printf("[INFO] ABS Err > 0.1 (%f) on [%d, %d], found %d (%f), should be %f\n",
-               fabs(error), i, j,
-               transactions[i]->outputs[j],
-               (float) transactions[i]->outputs[j] / pow(2.0, decimal_point),
-               output_fann[j]);
-        // Check to see if this results in a bit flip
-        output_fann_th = output_fann[j] > 0.5 ? 1 : 0;
-        output_dana_th = transactions[i]->outputs[j] > (1 << (decimal_point - 1)) ? 1 : 0;
-        if (output_fann_th != output_dana_th) {
-          std::cout << "[ERROR] This results in a bit flip!" << std::endl;
-          total_bit_failures++;
-        }
-      }
-    }
+    transactions[i]->update_error();
+    error_mean += transactions[i]->error;
+    error_mse += transactions[i]->error_squared;
+    total_outputs += transactions[i]->num_output;
+    total_bit_failures += transactions[i]->bit_failures;
     edges += ann->total_connections;
   }
   cycle_stop = cycle;
@@ -881,7 +865,7 @@ int t_Top::testbench_fann_single(const char * file_net,
   printf("[INFO] Throughput: %0.2f edges/cycle\n",
          (double) edges / (cycle_stop - cycle_start));
 
-  for (i = 0; i < data->num_data; i++)
+  for (i = 0; i < transactions.size(); i++)
     delete transactions[i];
 
   fann_destroy(ann);
@@ -894,9 +878,12 @@ int t_Top::testbench_fann_single(const char * file_net,
   return 1;
 }
 
-int t_Top::testbench(std::vector<transaction *> * transactions) {
-  return 0;
-};
+// int t_Top::testbench(const char * file_net,
+//                      const char * file_train,
+//                      const char * file_cache,
+//                      bool debug = false) {
+//   return 0;
+// };
 
 void usage(const char * bin) {
   // Print a usage string and exit
