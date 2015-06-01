@@ -94,7 +94,7 @@ public:
   // Generic method that compares the output of a FANN neural network
   // for a specific training file to DANA. The inputs in the training
   // file are run in order and one at a time on DANA.
-  int testbench_fann_single(uint16_t, const char *,
+  int testbench_fann_single(const char *,
                             const char *,
                             const char *, bool);
 
@@ -807,15 +807,13 @@ int t_Top::run_smp(std::vector<transaction *> *, bool debug = false,
   return 0;
 }
 
-int t_Top::testbench_fann_single(uint16_t tid,
-                                 const char * file_net,
+int t_Top::testbench_fann_single(const char * file_net,
                                  const char * file_train,
                                  const char * file_cache,
                                  bool debug = false) {
   struct fann *ann = NULL;
   struct fann_train_data *data = NULL;
   fann_type * output_fann;
-  std::vector<int32_t> input_dana, output_dana;
   int i, j;
   int decimal_point, total_bit_failures, total_outputs;
   int output_fann_th, output_dana_th;
@@ -831,8 +829,6 @@ int t_Top::testbench_fann_single(uint16_t tid,
   if ((ann = fann_create_from_file(file_net)) == 0) goto failure;
   if ((data = fann_read_train_from_file(file_train)) == 0) goto failure;
 
-  input_dana.resize(data->num_input);
-
   decimal_point = fann_save_to_fixed(ann, "/dev/null");
 
   error_mean = 0.0;
@@ -846,10 +842,6 @@ int t_Top::testbench_fann_single(uint16_t tid,
     transactions.push_back(new transaction(ann, data->input[i], nnid, decimal_point));
 
   for (i = 0; i < data->num_data; i++) {
-    output_dana.clear();
-    for (j = 0; j < data->num_input; j++) {
-      input_dana[j] = ((int32_t) data->input[i][j] << decimal_point);
-    }
     output_fann = fann_run(ann, data->input[i]);
     if (run_single(transactions[i], debug))
       goto failure;
@@ -966,7 +958,7 @@ int main(int argc, char* argv[]) {
   api->set_asid(0xbeef);
 
   // Run the simulation
-  api->testbench_fann_single(1, "../workloads/data/rsa.net",
+  api->testbench_fann_single("../workloads/data/rsa.net",
                              "../workloads/data/rsa.train.1",
                              "../workloads/data/rsa-fixed",
                              debug);
