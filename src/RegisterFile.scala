@@ -46,10 +46,10 @@ class RegisterFile extends DanaModule {
         io.pe.req.bits.location * UInt(regFileNumBlocks)
       // Increment the write count and generate a response to the
       // control module if this puts us at the write count
-      state(io.pe.req.bits.tIdx + io.pe.req.bits.location).countWrites :=
-        state(io.pe.req.bits.tIdx + io.pe.req.bits.location).countWrites + UInt(1)
-      when (state(io.pe.req.bits.tIdx + io.pe.req.bits.location).countWrites ===
-        state(io.pe.req.bits.tIdx + io.pe.req.bits.location).totalWrites - UInt(1)) {
+      state(io.pe.req.bits.tIdx ## io.pe.req.bits.location).countWrites :=
+        state(io.pe.req.bits.tIdx ## io.pe.req.bits.location).countWrites + UInt(1)
+      when (state(io.pe.req.bits.tIdx ## io.pe.req.bits.location).countWrites ===
+        state(io.pe.req.bits.tIdx ## io.pe.req.bits.location).totalWrites - UInt(1)) {
         io.control.resp.valid := Bool(true)
         io.control.resp.bits.tIdx := io.pe.req.bits.tIdx
       }
@@ -63,9 +63,11 @@ class RegisterFile extends DanaModule {
 
   // Requests from the Control module
   when (io.control.req.valid) {
-    state(io.control.req.bits.tIdx + io.control.req.bits.location).totalWrites :=
+    state(io.control.req.bits.tIdx << UInt(1) |
+      io.control.req.bits.location).totalWrites :=
       io.control.req.bits.totalWrites
-    state(io.control.req.bits.tIdx + io.control.req.bits.location).countWrites := UInt(0)
+    state(io.control.req.bits.tIdx << UInt(1) |
+      io.control.req.bits.location).countWrites := UInt(0)
   }
 
   val readReqValid_d0 = Reg(next = io.pe.req.valid && !io.pe.req.bits.isWrite)
@@ -75,4 +77,11 @@ class RegisterFile extends DanaModule {
   io.pe.resp.bits.peIndex := peIndex_d0
   io.pe.resp.bits.data := mem.io.dout(0)
 
+  // Assertions
+
+  // The number of writes that we've seen should never be greater than
+  // the number of expected writes.
+  assert(!Vec((0 until transactionTableNumEntries * 2).map(
+    i => (state(i).countWrites > state(i).totalWrites))).contains(Bool(true)),
+    "The total writes to a Regsiter File entry exceeded the number expected")
 }

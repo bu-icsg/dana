@@ -43,6 +43,7 @@ class ControlPETableInterface extends DanaBundle with ControlParameters {
     // decoupled valid signal
     val asid = UInt(width = asidWidth)
     val tid = UInt(width = tidWidth)
+    val tIdx = UInt(width = log2Up(transactionTableNumEntries))
     val neuronIndex = UInt(width = 10) // [TODO] fragile
     val locationInput = UInt()
     val locationOutput = UInt()
@@ -89,13 +90,14 @@ class Control extends DanaModule {
     io.cache.req.bits.location := location
   }
   def reqPETable(valid: Bool, cacheIndex: UInt, asid: UInt, tid: UInt,
-    neuronIndex: UInt, locationInput: UInt, locationOutput: UInt,
+    tIdx: UInt, neuronIndex: UInt, locationInput: UInt, locationOutput: UInt,
     inputIndex: UInt, outputIndex: UInt, neuronPointer: UInt,
     decimalPoint: UInt) {
     io.peTable.req.valid := valid
     io.peTable.req.bits.cacheIndex := cacheIndex
     io.peTable.req.bits.asid := asid
     io.peTable.req.bits.tid := tid
+    io.peTable.req.bits.tIdx := tIdx
     io.peTable.req.bits.neuronIndex := neuronIndex
     io.peTable.req.bits.locationInput := locationInput
     io.peTable.req.bits.locationOutput := locationOutput
@@ -106,18 +108,22 @@ class Control extends DanaModule {
   }
 
   // io.tTable defaults
-  io.tTable.req.ready := Bool(true)   // [TODO] Not correct
+  // [TODO] This is over-aggressive, but should be safe
+  io.tTable.req.ready := io.peTable.req.ready & io.cache.req.ready
   io.tTable.resp.valid := Bool(false)
+  io.tTable.resp.bits.cacheValid := Bool(false)
   io.tTable.resp.bits.tableIndex := UInt(0)
   io.tTable.resp.bits.field := UInt(0)
   io.tTable.resp.bits.data := Vec.fill(3){UInt(0)}
   io.tTable.resp.bits.decimalPoint := UInt(0)
-  io.cache.resp.ready := Bool(true) // [TODO] not correct
+  io.tTable.resp.bits.layerValid := Bool(false)
+  io.tTable.resp.bits.layerValidIndex := UInt(0)
   // io.cache defaults
+  io.cache.resp.ready := Bool(true) // [TODO] not correct
   reqCache(Bool(false), UInt(0), UInt(0), UInt(0), UInt(0), UInt(0))
   // io.petable defaults
   reqPETable(Bool(false), UInt(0), UInt(0), UInt(0), UInt(0), UInt(0), UInt(0),
-    UInt(0), UInt(0), UInt(0), UInt(0))
+    UInt(0), UInt(0), UInt(0), UInt(0), UInt(0))
   // io.regFile defaults
   io.regFile.req.valid := Bool(false)
   io.regFile.req.bits.tIdx := UInt(0)
@@ -127,21 +133,20 @@ class Control extends DanaModule {
 
   // This is where we handle responses
   when (io.cache.resp.valid) {
+    io.tTable.resp.valid := Bool(true)
+    io.tTable.resp.bits.cacheValid := Bool(true)
+    io.tTable.resp.bits.tableIndex := io.cache.resp.bits.tableIndex
     switch (io.cache.resp.bits.field) {
       is (e_CACHE_INFO) {
-        io.tTable.resp.valid := Bool(true)
         io.tTable.resp.bits.field := e_TTABLE_CACHE_VALID
         io.tTable.resp.bits.data(0) := io.cache.resp.bits.data(0)
         io.tTable.resp.bits.data(1) := io.cache.resp.bits.data(1)
         io.tTable.resp.bits.data(2) := io.cache.resp.bits.cacheIndex
         io.tTable.resp.bits.decimalPoint := io.cache.resp.bits.decimalPoint
-        io.tTable.resp.bits.tableIndex := io.cache.resp.bits.tableIndex
       }
       is (e_CACHE_LAYER) {
-        io.tTable.resp.valid := Bool(true)
         io.tTable.resp.bits.field := e_TTABLE_LAYER // [TODO] may be wrong
         io.tTable.resp.bits.data := io.cache.resp.bits.data
-        io.tTable.resp.bits.tableIndex := io.cache.resp.bits.tableIndex
         // Inform the Register File aobut the number of writes that it
         // is expected to see. The total writes is equal to the number
         // of nodes in the current layer. [TODO] This shouldn't
@@ -154,14 +159,6 @@ class Control extends DanaModule {
         // convention used for the Processing Elements
         io.regFile.req.bits.location := io.cache.resp.bits.location
       }
-      // is (e_CACHE_NEURON) {
-      //   io.tTable.resp.valid := Bool(true)
-      //   io.tTable.resp.bits.field := e_CACHE_NEURON // [TODO] wrong
-      // }
-      // is (e_CACHE_WEIGHT) {
-      //   io.tTable.resp.valid := Bool(true)
-      //   io.tTable.resp.bits.field := e_CACHE_WEIGHT // [TODO] wrong
-      // }
     }
   }
   // No inbound requests, so we just handle whatever is valid coming
@@ -169,51 +166,33 @@ class Control extends DanaModule {
   when (io.tTable.req.valid) {
     // Cache state is unknown and we're not waiting for the cache to
     // respond
-    when (!io.tTable.req.bits.cacheValid &&
-      !io.tTable.req.bits.waiting) {
+    when (!io.tTable.req.bits.cacheValid && !io.tTable.req.bits.waiting) {
       // Send a request to the cache
       reqCache(Bool(true), e_CACHE_LOAD, io.tTable.req.bits.nnid,
         io.tTable.req.bits.tableIndex, UInt(0), UInt(0))
-
-      // Send a response to the tTable
-      io.tTable.resp.valid := Bool(true)
-      io.tTable.resp.bits.tableIndex := io.tTable.req.bits.tableIndex
-      io.tTable.resp.bits.field := e_TTABLE_WAITING
     }
-    when (io.tTable.req.bits.cacheValid &&
-      io.tTable.req.bits.needsLayerInfo) {
+    when (io.tTable.req.bits.cacheValid && io.tTable.req.bits.needsLayerInfo) {
       // Send a request to the storage module
       reqCache(Bool(true), e_CACHE_LAYER_INFO, io.tTable.req.bits.nnid,
         io.tTable.req.bits.tableIndex, io.tTable.req.bits.currentLayer,
         io.tTable.req.bits.currentLayer(0))
-
-      // Tell the tTable to wait
-      io.tTable.resp.valid := Bool(true)
-      io.tTable.resp.bits.tableIndex := io.tTable.req.bits.tableIndex
-      io.tTable.resp.bits.field := e_TTABLE_WAITING
-      // io.tTable.resp.valid := Bool(true)
-      // io.tTable.resp.bits.tableIndex := io.tTable.req.bits.tableIndex
-      // io.tTable.resp.bits.field := e_TTABLE_
     }
     // If this entry is done, then its cache entry needs to be invalidated
     when (io.tTable.req.bits.isDone) {
       reqCache(Bool(true), e_CACHE_DECREMENT_IN_USE_COUNT, io.tTable.req.bits.nnid,
         UInt(0), UInt(0), UInt(0))
-      io.tTable.resp.valid := Bool(true)
-      io.tTable.resp.bits.tableIndex := io.tTable.req.bits.tableIndex
-      io.tTable.resp.bits.field := e_TTABLE_WAITING
     }
-    when (io.tTable.req.bits.cacheValid &&
-      !io.tTable.req.bits.needsLayerInfo &&
+    when (io.tTable.req.bits.cacheValid && !io.tTable.req.bits.needsLayerInfo &&
       io.peTable.req.ready) {
       // Go ahead and allocate an entry in the Processing Element
       reqPETable(Bool(true), // valid
         // The specific cache entry where the NN configuration for
         // this PE is located
         io.tTable.req.bits.cacheIndex, // cacheIndex
-        // The ASID and TID
+        // Transaction Table index (ASID/TID) aren't needed?
         io.tTable.req.bits.asid,
         io.tTable.req.bits.tid,
+        io.tTable.req.bits.tableIndex,
         // The neuron index is just the current neuron in the layer
         // that's being processed. This information is redundant with
         // the output index
@@ -239,20 +218,24 @@ class Control extends DanaModule {
         // Pass along the decimal point
         io.tTable.req.bits.decimalPoint // decimalPoint
       )
-
-      // Increment the Transaction Table Node as we've just initiated*
-      // an assignment
-      io.tTable.resp.valid := Bool(true)
-      io.tTable.resp.bits.tableIndex := io.tTable.req.bits.tableIndex
-      io.tTable.resp.bits.field := e_TTABLE_INCREMENT_NODE
     }
   }
-  // Responses from the Register File
+  // Responses from the Register File specific to layer updates. These
+  // use different lines than TTable responses in the above block so
+  // that these won't cause aliasing conflicts.
   when (io.regFile.resp.valid) {
     // The register file for the next layer is 100% ready so we make
     // the specific Transaction Table entry stop waiting
     io.tTable.resp.valid := Bool(true)
-    io.tTable.resp.bits.field := e_TTABLE_STOP_WAITING
-    io.tTable.resp.bits.tableIndex := io.regFile.resp.bits.tIdx
+    io.tTable.resp.bits.layerValid := Bool(true)
+    io.tTable.resp.bits.layerValidIndex := io.regFile.resp.bits.tIdx
   }
+
+  // Assertions
+
+  // The X-FILES arbiter (really the Transaction Table) shouldn't be
+  // sending valid requests to the Cotrol module if it can't accept
+  // them.
+  assert(!(!io.tTable.req.ready && io.tTable.req.valid),
+    "Control received valid request from X-FILES/TTable when not ready")
 }

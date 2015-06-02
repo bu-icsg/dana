@@ -57,10 +57,10 @@ class XFilesArbiter extends XFilesModule {
         asidRegs(i).asid ##
         asidRegs(i).tid
       // Respond to the core with the TID
-      io.core(i).resp.valid := Bool(true)
-      io.core(i).resp.bits.rd := io.core(i).cmd.bits.inst.rd
-      io.core(i).resp.bits.data := asidRegs(i).tid
-      tTable.io.arbiter.rocc.resp.ready := Bool(false)
+      // io.core(i).resp.valid := Bool(false)
+      // io.core(i).resp.bits.rd := io.core(i).cmd.bits.inst.rd
+      // io.core(i).resp.bits.data := asidRegs(i).tid << UInt(elementWidth)
+      // tTable.io.arbiter.rocc.resp.ready := Bool(false)
     } .otherwise {
       coreQueue(i).enq.bits := io.core(i).cmd.bits
       coreQueue(i).enq.bits.rs1 :=
@@ -93,14 +93,9 @@ class XFilesArbiter extends XFilesModule {
 
   // Interface connections
   coreArbiter.io.out <> tTable.io.arbiter.rocc.cmd
-  tTable.io.arbiter.indexIn := coreArbiter.io.chosen
+  tTable.io.arbiter.coreIdx := coreArbiter.io.chosen
   io.dana.control <> tTable.io.control
   io.dana.peTable <> tTable.io.peTable
 
   // Assertions
-
-  // We're dropping a request if both the X-FILES arbiter and the
-  // Transaction Table are trying to generate a response to a core
-  assert(tTable.io.arbiter.rocc.resp.ready || !tTable.io.arbiter.rocc.resp.valid,
-    "Transaction Table generated a valid response when Arbiter was not ready")
 }

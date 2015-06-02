@@ -1,13 +1,16 @@
 #include "transaction.h"
 
 transaction::transaction(fann * _ann, fann_type * _inputs,
-                         uint32_t _nnid, unsigned int _decimal_point) {
+                         uint16_t _asid, uint32_t _nnid,
+                         unsigned int _decimal_point) {
   ann = _ann;
+  asid = _asid;
   nnid = _nnid;
   num_input = fann_get_num_input(ann);
   num_output = fann_get_num_output(ann);
   count_in = 0;
   count_out = 0;
+  count_reads = 0;
   decimal_point = _decimal_point;
   inputs.resize(num_input);
   outputs_fann.resize(num_output);
@@ -16,6 +19,11 @@ transaction::transaction(fann * _ann, fann_type * _inputs,
   fann_type * tmp = fann_run(ann, _inputs);
   for (int i = 0; i < num_output; i++)
     outputs_fann[i] = tmp[i];
+};
+
+bool transaction::new_read() {
+  count_reads++;
+  return count_reads == num_output;
 };
 
 int32_t transaction::get_input() {
@@ -27,13 +35,14 @@ bool transaction::done_in() {
 };
 
 bool transaction::done_out() {
-  return count_out == num_output;
+  return outputs.size() == num_output;
 };
 
 void transaction::update_error() {
   error = 0;
   error_squared = 0;
   bit_failures = 0;
+  assert(outputs.size() == num_output);
   double err;
   for (int i = 0; i < num_output; i++) {
     err = outputs_fann[i] - (double) outputs[i] / pow(2.0, decimal_point);

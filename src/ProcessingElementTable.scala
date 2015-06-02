@@ -173,6 +173,7 @@ class ProcessingElementTable extends DanaModule {
   when (io.control.req.valid) {
     table(nextFree).asid := io.control.req.bits.asid
     table(nextFree).tid := io.control.req.bits.tid
+    table(nextFree).tIdx := io.control.req.bits.tIdx
     table(nextFree).cIdx := io.control.req.bits.cacheIndex
     table(nextFree).nnNode := io.control.req.bits.neuronIndex
     table(nextFree).inLoc := io.control.req.bits.locationInput
@@ -367,6 +368,7 @@ class ProcessingElementTable extends DanaModule {
   for (i <- 0 until peTableNumEntries) {
     debug(table(i).asid)
     debug(table(i).tid)
+    debug(table(i).tIdx)
     debug(table(i).cIdx)
     debug(table(i).nnNode)
     // debug(table(i).inIdx)

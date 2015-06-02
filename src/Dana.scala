@@ -71,14 +71,10 @@ abstract class DanaModule extends Module with DanaParameters {
     e_TTABLE_RESERVED ::       // 1
     e_TTABLE_CACHE_VALID ::    // 2
     e_TTABLE_LAYER ::          // 3
-    e_TTABLE_WAITING ::        // 4
-    e_TTABLE_STOP_WAITING ::   // 5
-    e_TTABLE_DONE ::           // 6
-    e_TTABLE_OUTPUT_LAYER ::   // 7
-    e_TTABLE_INCREMENT_NODE :: // 8
-    e_TTABLE_REGISTER_INFO ::  // 9
-    e_TTABLE_REGISTER_NEXT ::  // 10
-    Nil) = Enum(UInt(), 11)
+    e_TTABLE_OUTPUT_LAYER ::   // 4
+    e_TTABLE_REGISTER_INFO ::  // 5
+    e_TTABLE_REGISTER_NEXT ::  // 6
+    Nil) = Enum(UInt(), 7)
   // Cache Request Type
   val (e_CACHE_LOAD ::                // 0
     e_CACHE_LAYER_INFO ::             // 1
@@ -131,6 +127,10 @@ abstract class DanaModule extends Module with DanaParameters {
     e_FANN_SIN ::                        // 16
     e_FANN_CO ::                         // 17
     Nil) = Enum(UInt(), 18)
+  // Response type that will be sent to a core
+  val (e_TID :: // 0
+    e_READ :: // 1
+    Nil) = Enum(UInt(), 2)
 }
 
 // Base class for all Bundle classes used in DANA. This sets all the

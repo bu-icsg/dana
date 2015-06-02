@@ -1,7 +1,24 @@
 #include <iomanip>
 #include <unistd.h>
+#include <algorithm>
+#include <unordered_map>
+#include <queue>
+#include "time.h"
+
 #include "fann.h"
 #include "transaction.h"
+
+
+typedef enum {
+  e_SINGLE = 0,
+  e_SMP
+} test_type;
+
+typedef struct {
+  uint64_t unused;
+  uint64_t tid;
+  uint64_t data;
+} response;
 
 class t_Top : public Top_api_t {
 private:
@@ -9,6 +26,7 @@ private:
   bool vcd_flag;
   FILE * vcd;
   Top_t * top;
+  unsigned int seed;
   struct {
     uint64_t num_pes;
     uint64_t cache_num_entries;
@@ -39,26 +57,27 @@ public:
   // Tick the clock for a specified number of cycles without changing
   // the inputs. Outputs will be pushed onto a specified output vector
   // (if an output vector is, in fact, specified)
-  int tick(int, int, std::vector<int32_t> *);
+  int tick(int, int, std::vector<response> *, bool);
 
   // Apply the reset for a specified number of cycles
   void reset(int);
 
   // Initiate a new write request with the accelerator
-  void new_write_request(uint32_t, std::vector<int32_t> *, bool);
+  int new_write_request(uint32_t, std::vector<response> *, bool);
 
   // Write one unit of data
-  void write_data(int, int32_t, int, bool);
+  void write_data(int, int32_t, int, std::vector<response> *, bool);
 
   // Finalize a write request by sending random data to the
   // accelerator
   void write_rnd_data(int, int, int);
 
   // Read one unit of data out of Dana for a specific TID
-  void new_read_request(int, std::vector<int32_t> *);
+  int new_read_request(int, std::vector<response> *, bool);
 
   // Set the ASID of the first core's input line to a new value
-  void set_asid(int);
+  // [TODO] Make generic so you can set any core's input line.
+  void set_asid(uint16_t);
 
   // Print out information about the state of all modules in the
   // system
@@ -88,26 +107,29 @@ public:
   // Check for valid entries in the Transaction Table
   int any_valid();
 
+  // Check to see if a specific ASID/TID transaction is done
+  int is_done(uint16_t, uint16_t);
+
   // Return the count of the number of cycles
-  int get_cycles();
+  uint64_t get_cycles();
 
   // Generic method that compares the output of a FANN neural network
   // for a specific training file to DANA. The inputs in the training
   // file are run in order and one at a time on DANA.
-  int testbench_fann_single(const char *,
-                            const char *,
-                            const char *, bool);
+  int testbench_fann(const char *,
+                     const char *,
+                     const char *, test_type, bool, uint64_t);
 
-  int testbench_fann_smp(const char **, const char **, bool);
-
-  // Run a set of transactions on the DANA object
-  int testbench(std::vector<transaction *> *);
+  // Generic method that throw multiple FANN networks at DANA.
+  int testbench_fann(std::vector<const char *> *,
+                     std::vector<const char *> *,
+                     std::vector<const char *> *, test_type, bool, uint64_t);
 
   // Run a single transaction to completion
-  int run_single(transaction *, bool, int);
+  int run_single(transaction *, bool, uint64_t);
 
   // Run a collection of transactions to completion
-  int run_smp(std::vector<transaction *> *, bool, int);
+  int run_smp(std::vector<transaction *> *, bool, uint64_t);
 
   // Read a parameter file and populate the local parameters
   int read_parameters(const string);
@@ -126,25 +148,25 @@ int t_Top::read_parameters(const string file_string_parameters) {
     key = line.substr(1, pos_del - 1);
     value = line.substr(pos_del + 1, pos_eol - pos_del - 1);
     if (key.compare("NUM_PES") == 0)
-      parameters.num_pes = stoi(value);
+      parameters.num_pes = stoi(value, NULL, 10);
     else if (key.compare("CACHE_NUM_ENTRIES") == 0)
-      parameters.cache_num_entries = stoi(value);
+      parameters.cache_num_entries = stoi(value, NULL, 10);
     else if (key.compare("ELEMENTS_PER_BLOCK") == 0)
-      parameters.elements_per_block = stoi(value);
+      parameters.elements_per_block = stoi(value, NULL, 10);
     else if (key.compare("TRANSACTION_TABLE_NUM_ENTRIES") == 0)
-      parameters.transaction_table_num_entries = stoi(value);
+      parameters.transaction_table_num_entries = stoi(value, NULL, 10);
     else if (key.compare("TID_WIDTH") == 0)
-      parameters.tid_width = stoi(value);
+      parameters.tid_width = stoi(value, NULL, 10);
     else if (key.compare("NNID_WIDTH") == 0)
-      parameters.nnid_width = stoi(value);
+      parameters.nnid_width = stoi(value, NULL, 10);
     else if (key.compare("FEEDBACK_WIDTH") == 0)
-      parameters.feedback_width = stoi(value);
+      parameters.feedback_width = stoi(value, NULL, 10);
     else if (key.compare("ELEMENT_WIDTH") == 0)
-      parameters.element_width = stoi(value);
+      parameters.element_width = stoi(value, NULL, 10);
     else if (key.compare("ASID_WIDTH") == 0)
-      parameters.asid_width = stoi(value);
+      parameters.asid_width = stoi(value, NULL, 10);
     else if (key.compare("NUM_CORES") == 0)
-      parameters.num_cores = stoi(value);
+      parameters.num_cores = stoi(value, NULL, 10);
     else
       std::cout << "[ERROR] Unknown parameter key (" << key << ") found" << std::endl;
     std::cout << "[INFO]     " << key << " -> " << value << std::endl;
@@ -155,15 +177,22 @@ int t_Top::read_parameters(const string file_string_parameters) {
 }
 
 t_Top::t_Top() {
+  seed = time(NULL);
+  // seed = 0x556e5aa0;
+  srand(seed);
   top = new Top_t();
   top->init();
   init(top);
   cycle = 0;
   vcd_flag = false;
+  std::cout << "[INFO] Using seed: " << std::hex << seed << std::endl;
   std::cout << "[INFO] No vcd file output specified" << std::endl;
 }
 
 t_Top::t_Top(const string file_string_vcd) {
+  seed = time(NULL);
+  // seed = 0x556e5aa0;
+  srand(seed);
   top = new Top_t();
   top->init();
   init(top);
@@ -171,6 +200,7 @@ t_Top::t_Top(const string file_string_vcd) {
   vcd_flag = true;
   vcd = fopen(file_string_vcd.c_str(), "w");
   assert(vcd);
+  std::cout << "[INFO] Using seed: " << std::hex << seed << std::endl;
   std::cout << "[INFO] Using vcd file:\n[INFO]   " << file_string_vcd << std::endl;
   top->set_dumpfile(vcd);
 }
@@ -192,14 +222,16 @@ void t_Top::tick_hi(int reset) {
 }
 
 int t_Top::tick(int num_cycles = 1, int reset = 0,
-                 std::vector<int32_t> * output = NULL) {
+                std::vector<response> * output = NULL, bool debug = false) {
+  // [TODO] This needs to support reads from all core lines.
   int responses_seen = 0;
+  response r;
   uint64_t data;
-  int asid, tid;
   std::string string_full, string_asid, string_tid, string_data;
   for (int i = 0; i < num_cycles; i++) {
     tick_lo(reset);
     tick_hi(reset);
+    if (debug) info();
     if (top->Top__io_arbiter_0_resp_valid == 1) {
       string_full = get_dat_by_name("Top.io_arbiter_0_resp_bits_data")->get_value().erase(0,2);
       // If any of the following parameters are not divisible by 4
@@ -215,18 +247,17 @@ int t_Top::tick(int num_cycles = 1, int reset = 0,
       string_tid = string_full.substr(parameters.asid_width / 4, parameters.tid_width / 4);
       string_data = string_full.substr(parameters.asid_width / 4 + parameters.tid_width / 4,
                                        parameters.element_width / 4);
-      asid = std::stoi(string_asid, 0, 16);
-      tid = std::stoi(string_tid, 0, 16);
-      data = std::stoi(string_data, 0, 16);
-      // data = std::stoll(get_dat_by_name("Top.io_arbiter_0_resp_bits_data")->get_value().erase(0,2), 0, 16);
+      r.unused = std::stoi(string_asid, NULL, 16);
+      r.tid = std::stoi(string_tid, NULL, 16);
+      r.data = std::stoi(string_data, NULL, 16);
       if (output != NULL) {
-        output->push_back(data & ~(~(uint64_t)0 << parameters.element_width));
+        output->push_back(r);
       }
       else {
-        std::cout << "[INFO] Saw response... ASID+TID: "
-                  << asid << " + " << tid
+        std::cout << "[INFO] Saw response... [UNUSED]+TID: "
+                  << r.unused << " + " << r.tid
                   << " Output:"
-                  << (data & ~(~(uint64_t)0 << parameters.element_width))
+                  << r.data
                   << std::endl;
       }
       responses_seen++;
@@ -241,7 +272,7 @@ void t_Top::reset(int num_cycles) {
   }
 }
 
-void t_Top::new_write_request(uint32_t nnid, std::vector<int32_t> * outputs = NULL,
+int t_Top::new_write_request(uint32_t nnid, std::vector<response> * outputs = NULL,
                               bool debug = false) {
   uint64_t funct, rs1, rs2;
   // Compute the underlying fields
@@ -253,15 +284,18 @@ void t_Top::new_write_request(uint32_t nnid, std::vector<int32_t> * outputs = NU
   top->Top__io_arbiter_0_cmd_bits_inst_funct = funct;
   top->Top__io_arbiter_0_cmd_bits_rs1 = rs1;
   top->Top__io_arbiter_0_cmd_bits_rs2 = rs2;
-  tick(1,0, outputs);
+  int responses_seen = tick(1,0, outputs);
   if (debug) info();
   top->Top__io_arbiter_0_cmd_valid = 0;
   top->Top__io_arbiter_0_cmd_bits_inst_funct = 0;
   top->Top__io_arbiter_0_cmd_bits_rs1 = 0;
   top->Top__io_arbiter_0_cmd_bits_rs2 = 0;
+  return responses_seen;
 }
 
-void t_Top::write_data(int tid, int32_t data, int is_last, bool debug = false) {
+void t_Top::write_data(int tid, int32_t data, int is_last,
+                       std::vector<response> * outputs = NULL,
+                       bool debug = false) {
   uint64_t funct, rs1, rs2;
   // Compute the fields
   funct = 1 & ~(1 << 2);
@@ -274,7 +308,7 @@ void t_Top::write_data(int tid, int32_t data, int is_last, bool debug = false) {
   top->Top__io_arbiter_0_cmd_bits_inst_funct = funct;
   top->Top__io_arbiter_0_cmd_bits_rs1 = rs1;
   top->Top__io_arbiter_0_cmd_bits_rs2 = rs2;
-  tick(1,0);
+  tick(1, 0, outputs);
   if (debug) info();
   top->Top__io_arbiter_0_cmd_valid = 0;
   top->Top__io_arbiter_0_cmd_bits_inst_funct = 0;
@@ -287,7 +321,8 @@ void t_Top::write_rnd_data(int tid, int num, int decimal) {
     write_data(tid, 256, (i == num - 1));
 }
 
-void t_Top::new_read_request(int tid, std::vector<int32_t> * outputs = NULL) {
+int t_Top::new_read_request(int tid, std::vector<response> * outputs = NULL,
+                            bool debug = false) {
   uint64_t funct, rs1, rs2;
   // Compute the fields;
   funct = 0 & ~(1 << 1) & ~(1 << 2);
@@ -298,14 +333,15 @@ void t_Top::new_read_request(int tid, std::vector<int32_t> * outputs = NULL) {
   top->Top__io_arbiter_0_cmd_bits_inst_funct = funct;
   top->Top__io_arbiter_0_cmd_bits_rs1 = rs1;
   top->Top__io_arbiter_0_cmd_bits_rs2 = rs2;
-  tick(1, 0, outputs);
+  int responses_seen = tick(1, 0, outputs, debug);
   top->Top__io_arbiter_0_cmd_valid = 0;
   top->Top__io_arbiter_0_cmd_bits_inst_funct = 0;
   top->Top__io_arbiter_0_cmd_bits_rs1 = 0;
   top->Top__io_arbiter_0_cmd_bits_rs2 = 0;
+  return responses_seen;
 }
 
-void t_Top::set_asid(int asid) {
+void t_Top::set_asid(uint16_t asid) {
   std::cout << "[INFO] Changing ASID to: 0x" << std::hex << asid << std::endl;
   top->Top__io_arbiter_0_s = 1;
   top->Top__io_arbiter_0_cmd_valid = 1;
@@ -316,7 +352,8 @@ void t_Top::set_asid(int asid) {
 }
 
 void t_Top::info() {
-  std::cout << "[INFO] Dumping tables at cycle " << cycle << std::endl;
+  std::cout << "[INFO] Dumping tables at cycle " << std::dec << cycle
+            << std::endl;
   info_ttable();
   info_cache_table();
   info_petable();
@@ -325,9 +362,9 @@ void t_Top::info() {
 }
 
 void t_Top::info_ttable() {
-  std::cout << "----------------------------------------------------------------------------------------\n";
-  std::cout << "|V|R|W|CV|F?|L?|NL|NR|D|ASID| Tid|Nnid|  #L|  #N|  CL|  CN|CNinL|#NcL|#NnL| &N|Cache|DP| <- TTable\n";
-  std::cout << "----------------------------------------------------------------------------------------\n";
+  std::cout << "--------------------------------------------------------------------------------------------------\n";
+  std::cout << "|V|R|W|CV|F?|L?|NL|NR|D|ASID| Tid|Nnid|  #L|  #N|  CL|  CN|CNinL|#NcL|#NnL|idxE|RidX| &N|Cache|DP| <- TTable\n";
+  std::cout << "--------------------------------------------------------------------------------------------------\n";
   std::string string_table("Top.xFilesArbiter.tTable.table_");
   std::stringstream string_field("");
   for (int i = 0; i < parameters.transaction_table_num_entries; i++) {
@@ -407,6 +444,14 @@ void t_Top::info_ttable() {
     string_field.str("");
     string_field << string_table << i << "_nodesInNextLayer";
     std::cout << "|" << get_dat_by_name(string_field.str())->get_value().erase(0,2);
+    // Element Index (updated when this receives write data)
+    string_field.str("");
+    string_field << string_table << i << "_indexElement";
+    std::cout << "|  " << get_dat_by_name(string_field.str())->get_value().erase(0,2);
+    // Read index
+    string_field.str("");
+    string_field << string_table << i << "_readIdx";
+    std::cout << "|  " << get_dat_by_name(string_field.str())->get_value().erase(0,2);
     // Neuron Pointer
     string_field.str("");
     string_field << string_table << i << "_neuronPointer";
@@ -709,7 +754,7 @@ void t_Top::cache_load(int index, uint32_t nnid, const char * file,
   i = 0;
   // Go through the whole file and dump the data into the SRAM
   std::cout << "[INFO] Loading Cache SRAM " << index << " with NNID "
-            << nnid  << " and data from" << std::endl;
+            << std::hex << nnid  << " and data from" << std::endl;
   std::cout << "[INFO]   " << file + file_extension << std::endl;
   while (!config.eof()) {
     // [TODO] The endinannes may need to be swapped here
@@ -740,7 +785,7 @@ int t_Top::any_done () {
   for (int i = 0; i < parameters.transaction_table_num_entries; i++) {
     string_field.str("");
     string_field << string_table << i << "_done";
-    if (std::stoi(get_dat_by_name(string_field.str())->get_value().erase(0,2))) {
+    if (std::stoi(get_dat_by_name(string_field.str())->get_value().erase(0,2), NULL, 16)) {
       return 1;
     }
   }
@@ -753,77 +798,264 @@ int t_Top::any_valid () {
   for (int i = 0; i < parameters.transaction_table_num_entries; i++) {
     string_field.str("");
     string_field << string_table << i << "_valid";
-    if (std::stoi(get_dat_by_name(string_field.str())->get_value().erase(0,2))) {
+    if (std::stoi(get_dat_by_name(string_field.str())->get_value().erase(0,2), NULL, 16)) {
       return 1;
     }
   }
   return 0;
 }
 
-int t_Top::get_cycles() {
+int t_Top::is_done (uint16_t _asid, uint16_t _tid) {
+  std::string string_table("Top.xFilesArbiter.tTable.table_");
+  std::stringstream string_field("");
+  for (int i = 0; i < parameters.transaction_table_num_entries; i++) {
+    uint16_t asid, tid;
+    int done;
+    string_field.str("");
+    string_field << string_table << i << "_asid";
+    asid = std::stoi(get_dat_by_name(string_field.str())->get_value().erase(0,2), NULL, 16);
+    string_field.str("");
+    string_field << string_table << i << "_tid";
+    tid = std::stoi(get_dat_by_name(string_field.str())->get_value().erase(0,2), NULL, 16);
+    string_field.str("");
+    string_field << string_table << i << "_done";
+    done = std::stoi(get_dat_by_name(string_field.str())->get_value().erase(0,2), NULL, 16);
+    // printf("[INFO] Doing is_done check. Found %d, %d, %d, %d\n",
+    //        asid, tid, done, _asid == asid && _tid == tid && done);
+    if (_asid == asid && _tid == tid && done) {
+      return i;
+    }
+  }
+  return -1;
+}
+
+uint64_t t_Top::get_cycles() {
   return cycle;
 }
 
 int t_Top::run_single(transaction * t, bool debug = false,
-                      int cycle_limit = 0) {
+                      uint64_t cycle_limit = 0) {
+  std::vector<response> responses;
   if (debug) info();
-  // Initiate a new request. [TODO] The output is passed along to grab
-  // the TID. Currently the TID response happens in the same cycle,
-  // which may be too aggressive.
-  new_write_request(t->nnid, &t->outputs, debug);
-  t->tid = t->outputs[0];
+  // Initiate a new request. If we don't see a response in the same
+  // cycle, then loop until we see a response.
+  if (!new_write_request(t->nnid, &responses, debug))
+    while (1) if (tick(1, 0, &responses, debug)) break;
+  assert(responses.size() == 1);
+  t->tid = responses[0].tid;
   std::cout << "[INFO] X-FILES responded with TID: 0x" << std::hex << t->tid
             << std::endl;
-  t->outputs.pop_back();
+  responses.pop_back();
   // Once we have a TID, we can start writing data
   for (unsigned int i = 0; i < t->inputs.size(); i++)
-    write_data(t->tid, t->get_input(), t->done_in(), debug);
+    write_data(t->tid, t->get_input(), t->done_in(), &responses, debug);
   while (!any_done()) {
-    tick();
+    tick(1, 0, NULL, debug);
     if (debug) info();
     if (cycle_limit && get_cycles() > cycle_limit) {
-      std::cout << "[ERROR] Hit " << cycle_limit
-                << " cycle count limit, bailing..." << std::endl;
+      std::cout << "[ERROR] Hit " << std::dec << cycle_limit
+                << " cycle limit, bailing..." << std::endl;
       return -1;
     }
   }
-  // We need to add an extra tick to allow the data to get into the IO
-  // storage.
-  tick();
-  while (any_valid()) {
+  // Once a transaction is done, we can start reading data
+  for (int i = 0; i < t->num_output; i++) {
     if (debug) info();
-    new_read_request(t->tid, &t->outputs);
-    // [TODO] This is kludgy as I'm forcing a slower response rate
-    // than *should* be allowable.
-    tick(2, 0, &t->outputs);
+    new_read_request(t->tid, &responses);
+  }
+  tick(5, 0, &responses, debug);
+  // Copy the data over to the output vector
+  for (int i = 0; i < responses.size(); i++) {
+    assert (t->tid == responses[i].tid);
+    t->outputs.push_back(responses[i].data);
   }
   return 0;
 }
 
-int t_Top::run_smp(std::vector<transaction *> *, bool debug = false,
-                   int cycle_limit =0) {
+int t_Top::run_smp(std::vector<transaction *> * transactions,
+                   bool debug = false, uint64_t cycle_limit =0) {
+  typedef enum {UNUSED, NEW_WRITE, NEW_WRITE_WAIT,
+                WRITE, EXECUTING, READ, READ_WAIT} action_type;
+
+  typedef struct {
+    action_type state;
+    transaction * t;
+  } action;
+
+  std::unordered_map<uint16_t, action *> action_hash;
+  std::queue<action *> action_queue;
+  std::vector<action> action_pool;
+  std::vector<action *> action_pool_work;
+  action * a;
+  int i, i_assigned = 0, done_in, unused_count;
+  int32_t input_next;
+  std::vector<response> responses;
+
+  action_pool.resize(parameters.transaction_table_num_entries);
+
   if (debug) info();
 
+  // Initial population of transactions
+  std::random_shuffle (transactions->begin(), transactions->end());
+  for (i = 0; i < parameters.transaction_table_num_entries; i++) {
+    action_pool[i].t = (*transactions)[i];
+    action_pool[i].state = NEW_WRITE;
+    i_assigned++;
+  }
+
+  // for (int i_tmp = 0; i_tmp < 8000; i_tmp++) {
+  while (1) {
+    // Iteratre over the action pool populating a vector of actions
+    // with core-side requests that need to be generated. Also,
+    // compute the total number of unused action slots.
+    action_pool_work.clear();
+    unused_count = 0;
+    for (i = 0; i < action_pool.size(); i++) {
+      // Compute the number of unused action slots
+      if (action_pool[i].state == UNUSED) unused_count++;
+      // If an action slot is unused, then we need to fill it with a
+      // new transaction if the action pool is not exhausted.
+      if (action_pool[i].state == UNUSED && i_assigned < transactions->size()) {
+        action_pool[i].t = (*transactions)[i_assigned++];
+        action_pool[i].state = NEW_WRITE;
+        action_pool_work.push_back(&action_pool[i]);
+      }
+      // Actionable work (to populated action_pool_work) exists if a
+      // transaction is only in select states.
+      else if (action_pool[i].state != EXECUTING &&
+               action_pool[i].state != NEW_WRITE_WAIT &&
+               action_pool[i].state != UNUSED &&
+               action_pool[i].state != READ_WAIT)
+        action_pool_work.push_back(&action_pool[i]);
+    }
+
+    // Run two checks to see if we're done or if we've hit the cycle
+    // limit.
+    if (unused_count == action_pool.size())
+      break;
+    if (cycle_limit && get_cycles() > cycle_limit) {
+      printf("[ERROR] Hit %d cycle limit, bailing...\n", cycle_limit);
+      goto failure;
+    }
+
+    // From the actionable transactions, choose a transaction that
+    // will generate a request. If there are no actionable
+    // transactions, just tick X-FILES/DANA.
+    if (action_pool_work.size() > 0) {
+      std::random_shuffle (action_pool_work.begin(), action_pool_work.end());
+      a = action_pool_work[0];
+      // Based on the state of that action, we generate a specific
+      // transaction, updating the state as needed.
+      switch (a->state) {
+      case UNUSED:
+        break;
+      case NEW_WRITE:
+        new_write_request(a->t->nnid, &responses, debug);
+        a->state = NEW_WRITE_WAIT;
+        // New writes will get a response some time later. The
+        // response order is FIFO, so we add these transactions to a
+        // FIFO queue that we'll read when we see a TID response.
+        action_queue.push(a);
+        break;
+      case WRITE:
+        done_in = a->t->done_in();
+        write_data(a->t->tid, a->t->get_input(), done_in, &responses,
+                   debug);
+        a->state = (done_in) ? EXECUTING : a->state;
+        break;
+      case READ:
+        new_read_request(a->t->tid, &responses, debug);
+        a->state = (a->t->new_read()) ? READ_WAIT : a->state;
+        break;
+      default:
+        printf("[ERROR] Unknown action pool state (%d)\n", a->state);
+        goto failure;
+      }
+    } else {
+      tick(1, 0, &responses, debug);
+    }
+
+    // Peek at the internal state of executing transactions to see if
+    // any of these are done. If they are, move the transaction state
+    // to READ so that we'll start reading data out during a later
+    // cycle.
+    for (i = 0; i < action_pool.size(); i++) {
+      a = &action_pool[i];
+      switch (a->state) {
+      case EXECUTING:
+        a->state = (is_done(a->t->asid, a->t->tid) > -1) ? READ : EXECUTING;
+        break;
+      }
+    }
+
+    // Look to see if X-FILES/DANA generated any responses and handle
+    // them accordingly.
+    while (responses.size() != 0) {
+      switch (responses.back().unused) {
+      case 0: // e_TID, a TID response.
+        // The transaction that generated this TID request should be
+        // sitting in the action queue waiting for a TID response.
+        assert(action_queue.size() > 0);
+        a = action_queue.front();
+        assert(a->state == NEW_WRITE_WAIT);
+        action_queue.pop();
+        // New write request response providing a TID. We need to
+        // create a new entry in the action hash (first checking to
+        // make sure that this doesn't already exist) so that we can
+        // find it later on when we get read responses.
+        assert(action_hash.find(responses.back().tid) == action_hash.end());
+        action_hash[responses.back().tid] = a;
+        a->t->tid = responses.back().tid;
+        std::cout << "[INFO] X-FILES responded with TID: 0x" << std::hex << a->t->tid
+                  << std::endl;
+        a->state = WRITE;
+        break;
+      case 1: // e_READ, a data response to a read request
+        // Dereference the transaction from the response' TID and put
+        // it in that transactions output vector.
+        a = action_hash[responses.back().tid];
+        a->t->outputs.push_back(responses.back().data);
+        a->state = (a->t->done_out()) ? UNUSED : a->state;
+        break;
+      default:
+        printf("[ERROR] Unknown response type %d found\n",
+               responses.back().unused);
+        goto failure;
+      }
+      responses.pop_back();
+    }
+  }
+
+  printf("[INFO] All transactions finished executing\n");
   return 0;
+
+ failure:
+  return 1;
 }
 
-int t_Top::testbench_fann_single(const char * file_net,
-                                 const char * file_train,
-                                 const char * file_cache,
-                                 bool debug = false) {
+int t_Top::testbench_fann(const char * file_net,
+                          const char * file_train,
+                          const char * file_cache,
+                          test_type type,
+                          bool debug = false,
+                          uint64_t cycle_limit = 0) {
   struct fann *ann = NULL;
   struct fann_train_data *data = NULL;
   fann_type * output_fann;
   int i, j;
   int decimal_point, total_bit_failures, total_outputs;
   uint32_t nnid;
+  uint16_t asid;
   double error, error_mean, error_mse;
   uint64_t cycle_start, cycle_stop, edges;
   std::vector<transaction*> transactions;
 
-  // Preload the cache
-  nnid = rand();
+  // Preload the cache and set the ASID
+  nnid = (uint32_t) rand();
+  asid = (uint16_t) rand();
   cache_load(0, nnid, file_cache, debug);
+  if (debug) info();
+  set_asid(asid);
 
   if ((ann = fann_create_from_file(file_net)) == 0) goto failure;
   if ((data = fann_read_train_from_file(file_train)) == 0) goto failure;
@@ -839,30 +1071,50 @@ int t_Top::testbench_fann_single(const char * file_net,
 
   // Create an array of transactions from the input data
   for (i = 0; i < data->num_data; i++) {
-    transactions.push_back(new transaction(ann, data->input[i], nnid, decimal_point));
+    transactions.push_back(new transaction(ann, data->input[i], asid, nnid,
+                                           decimal_point));
   }
 
-  // Execute the transactions and populate error metrics
-  for (i = 0; i < transactions.size(); i++) {
-    if (run_single(transactions[i], debug))
+  switch (type) {
+  case e_SINGLE:
+    // Execute the transactions and populate error metrics
+    for (i = 0; i < transactions.size(); i++) {
+      if (run_single(transactions[i], debug, cycle_limit))
+        goto failure;
+      transactions[i]->update_error();
+      error_mean += transactions[i]->error;
+      error_mse += transactions[i]->error_squared;
+      total_outputs += transactions[i]->num_output;
+      total_bit_failures += transactions[i]->bit_failures;
+      edges += ann->total_connections;
+    }
+    break;
+  case e_SMP:
+    if (run_smp(&transactions, debug, cycle_limit))
       goto failure;
-    transactions[i]->update_error();
-    error_mean += transactions[i]->error;
-    error_mse += transactions[i]->error_squared;
-    total_outputs += transactions[i]->num_output;
-    total_bit_failures += transactions[i]->bit_failures;
-    edges += ann->total_connections;
+    for (i = 0; i < transactions.size(); i++) {
+      transactions[i]->update_error();
+      error_mean += transactions[i]->error;
+      error_mse += transactions[i]->error_squared;
+      total_outputs += transactions[i]->num_output;
+      total_bit_failures += transactions[i]->bit_failures;
+      edges += ann->total_connections;
+    }
+    break;
+  default:
+    printf("[ERROR] Unknown test type %d\n", type);
+    goto failure;
   }
   cycle_stop = cycle;
 
   printf("[INFO] Outputs tested: %d\n", total_outputs);
   printf("[INFO] Total cycles: %d\n", cycle_stop - cycle_start);
-  printf("[INFO] Mean error: %0.5f\n",
+  printf("[INFO] Mean error: %0.10f\n",
          error_mean / (fann_type) total_outputs);
-  printf("[INFO] Mean squared error: %0.5f\n",
+  printf("[INFO] Mean squared error: %0.10f\n",
          error_mse / (fann_type) total_outputs);
   printf("[INFO] Total bit failures: %d\n", total_bit_failures);
-  printf("[INFO] Throughput: %0.2f edges/cycle\n",
+  printf("[INFO] Throughput: %0.4f edges/cycle\n",
          (double) edges / (cycle_stop - cycle_start));
 
   for (i = 0; i < transactions.size(); i++)
@@ -878,12 +1130,38 @@ int t_Top::testbench_fann_single(const char * file_net,
   return 1;
 }
 
-// int t_Top::testbench(const char * file_net,
-//                      const char * file_train,
-//                      const char * file_cache,
-//                      bool debug = false) {
-//   return 0;
-// };
+int t_Top::testbench_fann(std::vector<const char *> * files_net,
+                          std::vector<const char *> * files_train,
+                          std::vector<const char *> * files_cache,
+                          test_type type,
+                          bool debug = false,
+                          uint64_t cycle_limit = 0) {
+  struct fann *ann = NULL;
+  struct fann_train_data *data = NULL;
+  fann_type * output_fann;
+  int i, j;
+  int decimal_point, total_bit_failures, total_outputs;
+  uint32_t nnid;
+  double error, error_mean, error_mse;
+  uint64_t cycle_start, cycle_stop, edges;
+  std::vector<transaction*> transactions;
+
+  // Preload the cache
+  if (files_cache->size() > parameters.cache_num_entries) {
+    printf("[ERROR] Specified %d cache files, but cache is of size %d\n",
+           files_cache->size(), parameters.cache_num_entries);
+    goto failure;
+  }
+  for (i = 0; i < files_cache->size(); i++) {
+    nnid = rand();
+    cache_load(0, nnid, (*files_cache)[i], debug);
+  }
+
+  return 0;
+
+ failure:
+  return 1;
+};
 
 void usage(const char * bin) {
   // Print a usage string and exit
@@ -941,14 +1219,14 @@ int main(int argc, char* argv[]) {
   FILE *tee = NULL;
   api->set_teefile(tee);
 
-  // Set the ASID
-  api->set_asid(0xbeef);
-
   // Run the simulation
-  api->testbench_fann_single("../workloads/data/rsa.net",
-                             "../workloads/data/rsa.train.1",
-                             "../workloads/data/rsa-fixed",
-                             debug);
+  api->testbench_fann("../workloads/data/rsa.net",
+                      "../workloads/data/rsa.train.10",
+                      "../workloads/data/rsa-fixed",
+                      // e_SINGLE,
+                      e_SMP,
+                      debug,
+                      0);
 
   if (tee) fclose(tee);
   return 0;

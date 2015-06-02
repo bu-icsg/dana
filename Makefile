@@ -87,17 +87,17 @@ debug: $(TEST_EXECUTABLES) Makefile
 	$< -d $(<:$(DIR_BUILD)/t_%=$(DIR_BUILD)/%.prm)
 
 #------------------- Chisel Build Targets
-$(DIR_BUILD)/%$(CHISEL_CONFIG_DOT).cpp: %.scala $(ALL_MODULES) Makefile
+$(DIR_BUILD)/%$(CHISEL_CONFIG_DOT).cpp: %.scala $(ALL_MODULES)
 	set -e -o pipefail; \
 	$(SBT) $(SBT_FLAGS) "run $(basename $(notdir $<)) $(CHISEL_FLAGS_CPP)" \
 	| tee $@.out
 
-$(DIR_BUILD)/%$(CHISEL_CONFIG_DOT).v: %.scala $(ALL_MODULES) Makefile
+$(DIR_BUILD)/%$(CHISEL_CONFIG_DOT).v: %.scala $(ALL_MODULES)
 	set -e -o pipefail; \
 	$(SBT) $(SBT_FLAGS) "run $(basename $(notdir $<)) $(CHISEL_FLAGS_V)" \
 	| tee $@.out
 
-$(DIR_BUILD)/%$(CHISEL_CONFIG_DOT).dot: %.scala $(ALL_MODULES) Makefile
+$(DIR_BUILD)/%$(CHISEL_CONFIG_DOT).dot: %.scala $(ALL_MODULES)
 	set -e -o pipefail; \
 	$(SBT) $(SBT_FLAGS) "run $(basename $(notdir $<)) $(CHISEL_FLAGS_DOT)" \
 	| tee $@.out
