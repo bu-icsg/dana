@@ -8,8 +8,6 @@ class TransactionState extends XFilesBundle {
   val cacheValid = Bool()
   val waiting = Bool()
   val needsLayerInfo = Bool()
-  val needsNextRegister = Bool()
-  val hasWorkToDo = Bool()
   val done = Bool()
   val request = Bool()
   val inFirst = Bool()
@@ -40,7 +38,6 @@ class ControlReq extends XFilesBundle {
   val cacheValid = Bool()
   val waiting = Bool()
   val needsLayerInfo = Bool()
-  val needsNextRegister = Bool()
   val isDone = Bool()
   val request = Bool()
   val inFirst = Bool()
@@ -184,7 +181,6 @@ class TransactionTable extends XFilesModule {
         table(nextFree).cacheValid := Bool(false)
         table(nextFree).waiting := Bool(false)
         table(nextFree).needsLayerInfo := Bool(true)
-        table(nextFree).needsNextRegister := Bool(false)
         table(nextFree).inFirst := Bool(true)
         table(nextFree).inLast := Bool(false)
         table(nextFree).asid := cmd.asid
@@ -350,7 +346,6 @@ class TransactionTable extends XFilesModule {
     entryArbiter.io.in(i).bits.cacheValid := table(i).cacheValid
     entryArbiter.io.in(i).bits.waiting := table(i).waiting
     entryArbiter.io.in(i).bits.needsLayerInfo := table(i).needsLayerInfo
-    entryArbiter.io.in(i).bits.needsNextRegister := table(i).needsNextRegister
     entryArbiter.io.in(i).bits.request := table(i).request
     entryArbiter.io.in(i).bits.inFirst := table(i).inFirst
     entryArbiter.io.in(i).bits.inLast := table(i).inLast
