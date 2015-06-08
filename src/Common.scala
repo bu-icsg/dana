@@ -87,24 +87,16 @@ abstract class DanaTester[+T <: Module](c: T, isTrace: Boolean = true)
         printf("|V|R|CV|WC|NL|NR|D|Tid|Nnid| <- TTable\n")
         printf("----------------------------\n")
         for (i <- 0 until c.table.length) {
-          printf("|%d|%d|%2d|%2d|%2d|%2d|%s|%3d|%4x|",
+          printf("|%d|%d|%2d|%2d|%2d|%s|%3d|%4x|",
             peek(c.table(i).valid),
             peek(c.table(i).reserved),
             peek(c.table(i).cacheValid),
             peek(c.table(i).waiting),
             peek(c.table(i).needsLayerInfo),
-            peek(c.table(i).needsRegisters),
-            // peek(c.table(i).done),
-            "X",
+            peek(c.table(i).done),
             peek(c.table(i).tid),
             peek(c.table(i).nnid)
           )
-          // for (j <- 0 until c.transactionTableSramElements) {
-          //   poke(c.mem(i).we(0), j)
-          //   poke(c.mem(i).addr(0), j)
-          //   step(1)
-          //   printf("%6d|", peek(c.mem(i).dout(0)).toInt)
-          // }
           printf("\n")
         }
         printf("| hasFree: %d | nextFree: %d |\n",

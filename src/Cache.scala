@@ -43,17 +43,7 @@ class CacheInterface extends Bundle {
   val pe = (new PECacheInterface).flip
 }
 
-// Helper bundles that we can use for typecasting (I think)
-class CompressedInfo extends DanaBundle {
-  val decimalPoint      = UInt(width = decimalPointWidth)
-  val unused_0          = Bits(width = 16 - decimalPointWidth)
-  val totalEdges        = UInt(width = 16) // [TODO] Wrong name?
-  val totalNeurons      = UInt(width = 16)
-  val totalLayers       = UInt(width = 16)
-  val firstLayerPointer = UInt(width = 16)
-  val weightsPointer    = UInt(width = 16)
-  val unused_1          = Bits(width = bitsPerBlock - 16 * 6)
-}
+
 class CompressedNeuron extends DanaBundle {
   val weightPtr = UInt(width = 16)
   val numWeights = UInt(width = 8)
@@ -83,35 +73,6 @@ class Cache extends DanaModule {
       numReadWritePorts = 2,
       sramDepth = cacheNumBlocks // [TODO] I think this is the correct parameter
     )).io}
-
-  // Fake signals that hack in typecasting onto the data read out from
-  // the cache. CompressedInfo is currently not used because I can't
-  // figure out a way to make it work.
-  val compressedInfo = Vec.fill(cacheNumEntries){new CompressedInfo}
-  val compressedLayers = Vec.fill(cacheNumEntries){
-    Vec.fill(bitsPerBlock / 32){UInt(width = 32) }}
-  val compressedNeurons = Vec.fill(cacheNumEntries){
-    Vec.fill(bitsPerBlock / 64){UInt(width = 64) }}
-  val compressedWeights = Vec.fill(cacheNumEntries){
-    Vec.fill(bitsPerBlock / 32){UInt(width = 32)}}
-  for (i <- 0 until cacheNumEntries) {
-    compressedInfo(i).decimalPoint      := mem(i).dout(0)(decimalPointWidth-1,0)
-    compressedInfo(i).unused_0          := mem(i).dout(0)(16-decimalPointWidth-1,
-      decimalPointWidth)
-    compressedInfo(i).totalEdges        := mem(i).dout(0)(32-1, 16)
-    compressedInfo(i).totalNeurons      := mem(i).dout(0)(48-1, 32)
-    compressedInfo(i).totalLayers       := mem(i).dout(0)(64-1, 48)
-    compressedInfo(i).firstLayerPointer := mem(i).dout(0)(80-1, 64)
-    compressedInfo(i).weightsPointer    := mem(i).dout(0)(96-1, 80)
-    compressedInfo(i).unused_1          := mem(i).dout(0)(bitsPerBlock-1, 96)
-    debug(compressedInfo(i))
-    (0 until bitsPerBlock / 32).map(j => compressedLayers(i)(j) :=
-      mem(i).dout(0)(32 * (j + 1) - 1, 32 * j))
-    (0 until bitsPerBlock / 64).map(j => compressedNeurons(i)(j) :=
-      mem(i).dout(0)(64 * (j + 1) - 1, 64 * j))
-    (0 until bitsPerBlock / 32).map(j => compressedWeights(i)(j) :=
-      mem(i).dout(0)(32 * (j + 1) - 1, 32 * j))
-  }
 
   // Response Pipelines for Control module and PEs. Responses take multiple
   // cycles to generate due to the fact that data needs to be read out
@@ -280,30 +241,36 @@ class Cache extends DanaModule {
   // Pipeline second stage (SRAM read)
   switch (controlRespPipe(0).bits.field) {
     is (e_CACHE_INFO) {
+      val compressedInfo = new Bundle{
+        val decimalPoint = mem(controlRespPipe(0).bits.cacheIndex).dout(0)(decimalPointWidth-1,0)
+        val unused_0 = mem(controlRespPipe(0).bits.cacheIndex).dout(0)(16-decimalPointWidth-1, decimalPointWidth)
+        val totalEdges = mem(controlRespPipe(0).bits.cacheIndex).dout(0)(32-1, 16)
+        val totalNeurons = mem(controlRespPipe(0).bits.cacheIndex).dout(0)(48-1, 32)
+        val totalLayers = mem(controlRespPipe(0).bits.cacheIndex).dout(0)(64-1, 48)
+        val firstLayerPointer = mem(controlRespPipe(0).bits.cacheIndex).dout(0)(80-1, 64)
+        val weightsPointer = mem(controlRespPipe(0).bits.cacheIndex).dout(0)(96-1, 80)
+        val unused_1 = mem(controlRespPipe(0).bits.cacheIndex).dout(0)(bitsPerBlock-1, 96)
+      }
       // Decimal Point
-      controlRespPipe(1).bits.decimalPoint :=
-        compressedInfo(controlRespPipe(0).bits.cacheIndex).decimalPoint
+      controlRespPipe(1).bits.decimalPoint := compressedInfo.decimalPoint
       // Layers
-      controlRespPipe(1).bits.data(0) :=
-        compressedInfo(controlRespPipe(0).bits.cacheIndex).totalLayers
+      controlRespPipe(1).bits.data(0) := compressedInfo.totalLayers
       // Neurons
-      controlRespPipe(1).bits.data(1) :=
-        compressedInfo(controlRespPipe(0).bits.cacheIndex).totalNeurons
+      controlRespPipe(1).bits.data(1) := compressedInfo.totalNeurons
       controlRespPipe(1).bits.data(2) := UInt(0) // Unused
     }
     is (e_CACHE_LAYER_INFO) {
+      val compressedLayers = Vec((0 until bitsPerBlock / 32).map(i =>
+        mem(controlRespPipe(0).bits.cacheIndex).dout(0)(32 * (i + 1) - 1, 32 * i)))
       // Number of neurons in this layer
       controlRespPipe(1).bits.data(0) :=
-        compressedLayers(controlRespPipe(0).bits.cacheIndex)(
-          controlRespPipe(0).bits.data(0))(12 + 10 - 1, 12)
+        compressedLayers(controlRespPipe(0).bits.data(0))(12 + 10 - 1, 12)
       // Number of neurons in the next layer
       controlRespPipe(1).bits.data(1) :=
-        compressedLayers(controlRespPipe(0).bits.cacheIndex)(
-          controlRespPipe(0).bits.data(0))(22 + 10 - 1, 22)
+        compressedLayers(controlRespPipe(0).bits.data(0))(22 + 10 - 1, 22)
       // Pointer to the first neuron
       controlRespPipe(1).bits.data(2) :=
-        compressedLayers(controlRespPipe(0).bits.cacheIndex)(
-          controlRespPipe(0).bits.data(0))(12 - 1, 0)
+        compressedLayers(controlRespPipe(0).bits.data(0))(12 - 1, 0)
     }
   }
 

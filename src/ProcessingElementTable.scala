@@ -92,7 +92,6 @@ class ProcessingElementState extends DanaBundle {
   val decimalPoint = UInt(width = decimalPointWidth) // decimal_point
   val inLoc = UInt(width = 2) // input_location [TODO] fragile
   val outLoc = UInt(width = 2) // output_location [TODO] fragile
-  val lastInLayer = Bool() // last_in_layer
   val inBlock = UInt(width = bitsPerBlock) // input_block
   val weightBlock = UInt(width = bitsPerBlock) //weight_block
   val numWeights = UInt(width = 8) // [TODO] fragile
@@ -183,7 +182,6 @@ class ProcessingElementTable extends DanaModule {
     table(nextFree).decimalPoint := io.control.req.bits.decimalPoint
     table(nextFree).inIdx := io.control.req.bits.inputIndex
     table(nextFree).outIdx := io.control.req.bits.outputIndex
-    table(nextFree).lastInLayer := Bool(false) // [TODO] not sure about this
     table(nextFree).inBlock := SInt(-1)
     table(nextFree).weightBlock := SInt(-1)
     table(nextFree).numWeights := SInt(-1)
@@ -368,22 +366,6 @@ class ProcessingElementTable extends DanaModule {
   for (i <- 0 until peTableNumEntries) {
     debug(table(i).asid)
     debug(table(i).tid)
-    debug(table(i).tIdx)
-    debug(table(i).cIdx)
     debug(table(i).nnNode)
-    // debug(table(i).inIdx)
-    debug(table(i).outIdx)
-    // debug(table(i).neuronPtr)
-    // debug(table(i).weightPtr)
-    debug(table(i).decimalPoint)
-    debug(table(i).inLoc)
-    debug(table(i).outLoc)
-    debug(table(i).lastInLayer)
-    debug(table(i).inBlock)
-    debug(table(i).weightBlock)
-    // debug(table(i).numWeights)
-    debug(table(i).activationFunction)
-    debug(table(i).steepness)
-    debug(table(i).bias)
   }
 }

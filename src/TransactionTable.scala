@@ -8,7 +8,6 @@ class TransactionState extends XFilesBundle {
   val cacheValid = Bool()
   val waiting = Bool()
   val needsLayerInfo = Bool()
-  val needsRegisters = Bool()
   val needsNextRegister = Bool()
   val hasWorkToDo = Bool()
   val done = Bool()
@@ -29,10 +28,6 @@ class TransactionState extends XFilesBundle {
   val nodesInCurrentLayer = UInt(width = 16) // [TODO] fragile
   val nodesInNextLayer = UInt(width = 16) // [TODO] fragile
   val neuronPointer = UInt(width = 11) // [TODO] fragile
-  val regBlockIndexOut = UInt(width=log2Up(regFileNumElements))
-  val regBlockIndexIn = UInt(width=log2Up(regFileNumElements))
-  val regBlockInNext = UInt(width = log2Up(regFileNumBlocks))
-  val countUsedRegisters = UInt(width = log2Up(elementsPerBlock))
   val countFeedback = UInt(width = feedbackWidth)
   val countPeWrites = UInt(width = 16) // [TODO] fragile
   val readIdx = UInt(width = log2Up(transactionTableSramElements))
@@ -45,7 +40,6 @@ class ControlReq extends XFilesBundle {
   val cacheValid = Bool()
   val waiting = Bool()
   val needsLayerInfo = Bool()
-  val needsRegisters = Bool()
   val needsNextRegister = Bool()
   val isDone = Bool()
   val request = Bool()
@@ -63,9 +57,6 @@ class ControlReq extends XFilesBundle {
   val currentLayer = UInt(width = 16) // [TODO] fragile
   val nodesInCurrentLayer = UInt(width = 16) // [TODO] fragile
   val nodesInNextLayer = UInt(width = 16) // [TODO] fragile
-  val regBlockIndexIn = UInt(width=log2Up(regFileNumElements))
-  val regBlockIndexOut = UInt(width=log2Up(regFileNumElements))
-  val regBlockInNext = UInt(width = log2Up(regFileNumBlocks))
   val neuronPointer = UInt(width = 11) // [TODO] fragile
   val decimalPoint = UInt(width = decimalPointWidth)
 }
@@ -122,17 +113,9 @@ class TransactionTable extends XFilesModule {
     val nnid = io.arbiter.rocc.cmd.bits.rs2(nnidWidth - 1, 0)
     val data = io.arbiter.rocc.cmd.bits.rs2
   }
-  debug(cmd.asid);
-  debug(cmd.tid);
-  debug(cmd.nnid);
-  debug(cmd.data);
 
   // Vector of all the table entries
   val table = Vec.fill(transactionTableNumEntries){Reg(new TransactionState)}
-  // Temporary debug enforcement
-  for (i <- 0 until transactionTableNumEntries) {
-    debug(table(i).done)
-  }
   // Vector of the table entry memories
   val mem = Vec.fill(transactionTableNumEntries){
     Module(new SRAMElement(
@@ -201,7 +184,6 @@ class TransactionTable extends XFilesModule {
         table(nextFree).cacheValid := Bool(false)
         table(nextFree).waiting := Bool(false)
         table(nextFree).needsLayerInfo := Bool(true)
-        table(nextFree).needsRegisters := Bool(true)
         table(nextFree).needsNextRegister := Bool(false)
         table(nextFree).inFirst := Bool(true)
         table(nextFree).inLast := Bool(false)
@@ -280,9 +262,6 @@ class TransactionTable extends XFilesModule {
         }
         is(e_TTABLE_LAYER) {
           table(io.control.resp.bits.tableIndex).needsLayerInfo := Bool(false)
-          table(io.control.resp.bits.tableIndex).needsRegisters :=
-          table(io.control.resp.bits.tableIndex).currentLayer !=
-          table(io.control.resp.bits.tableIndex).numLayers - UInt(1)
           table(io.control.resp.bits.tableIndex).currentNodeInLayer := UInt(0)
           table(io.control.resp.bits.tableIndex).nodesInCurrentLayer := io.control.resp.bits.data(0)
           table(io.control.resp.bits.tableIndex).nodesInNextLayer := io.control.resp.bits.data(1)
@@ -295,10 +274,6 @@ class TransactionTable extends XFilesModule {
           table(io.control.resp.bits.tableIndex).inLast :=
             table(io.control.resp.bits.tableIndex).currentLayer ===
             table(io.control.resp.bits.tableIndex).numLayers - UInt(1)
-          // [TODO] This right shift is probably fucked
-          table(io.control.resp.bits.tableIndex).regBlockIndexIn :=
-            table(io.control.resp.bits.tableIndex).regBlockInNext << UInt(log2Up(elementsPerBlock))
-          table(io.control.resp.bits.tableIndex).countUsedRegisters := UInt(0)
           // If this is a transition into a layer which is not the first
           // layer, then the Transaction Table requests need to block
           // until the Register File has all valid data. [TODO] This is
@@ -375,7 +350,6 @@ class TransactionTable extends XFilesModule {
     entryArbiter.io.in(i).bits.cacheValid := table(i).cacheValid
     entryArbiter.io.in(i).bits.waiting := table(i).waiting
     entryArbiter.io.in(i).bits.needsLayerInfo := table(i).needsLayerInfo
-    entryArbiter.io.in(i).bits.needsRegisters := table(i).needsRegisters
     entryArbiter.io.in(i).bits.needsNextRegister := table(i).needsNextRegister
     entryArbiter.io.in(i).bits.request := table(i).request
     entryArbiter.io.in(i).bits.inFirst := table(i).inFirst
@@ -393,9 +367,6 @@ class TransactionTable extends XFilesModule {
     entryArbiter.io.in(i).bits.currentLayer := table(i).currentLayer
     entryArbiter.io.in(i).bits.nodesInCurrentLayer :=table(i).nodesInCurrentLayer
     entryArbiter.io.in(i).bits.nodesInNextLayer := table(i).nodesInNextLayer
-    entryArbiter.io.in(i).bits.regBlockIndexIn := table(i).regBlockIndexIn
-    entryArbiter.io.in(i).bits.regBlockIndexOut := table(i).regBlockIndexOut
-    entryArbiter.io.in(i).bits.regBlockInNext := table(i).regBlockInNext
     entryArbiter.io.in(i).bits.neuronPointer := table(i).neuronPointer
     entryArbiter.io.in(i).bits.decimalPoint := table(i).decimalPoint
   }

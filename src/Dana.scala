@@ -141,12 +141,6 @@ abstract class DanaBundle extends Bundle with DanaParameters
 class Dana extends DanaModule {
   val io = (new XFilesDanaInterface).flip
 
-  // Half clock hack
-  // val halfClock = new Clock(reset) / 2
-  // val clockInternal = Reg(init=UInt(0), clock = halfClock)
-  // debug(clockInternal)
-  // clockInternal := ~clockInternal
-
   // Module instantiation
   // val tTable = Module(new TransactionTable)
   val control = Module(new Control)

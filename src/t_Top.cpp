@@ -362,9 +362,9 @@ void t_Top::info() {
 }
 
 void t_Top::info_ttable() {
-  std::cout << "--------------------------------------------------------------------------------------------------\n";
-  std::cout << "|V|R|W|CV|F?|L?|NL|NR|D|ASID| Tid|Nnid|  #L|  #N|  CL|  CN|CNinL|#NcL|#NnL|idxE|RidX| &N|Cache|DP| <- TTable\n";
-  std::cout << "--------------------------------------------------------------------------------------------------\n";
+  std::cout << "-----------------------------------------------------------------------------------------------\n";
+  std::cout << "|V|R|W|CV|F?|L?|NL|D|ASID| Tid|Nnid|  #L|  #N|  CL|  CN|CNinL|#NcL|#NnL|idxE|RidX| &N|Cache|DP| <- TTable\n";
+  std::cout << "-----------------------------------------------------------------------------------------------\n";
   std::string string_table("Top.xFilesArbiter.tTable.table_");
   std::stringstream string_field("");
   for (int i = 0; i < parameters.transaction_table_num_entries; i++) {
@@ -395,10 +395,6 @@ void t_Top::info_ttable() {
     // Needs Layer Info
     string_field.str("");
     string_field << string_table << i << "_needsLayerInfo";
-    std::cout << "| " << get_dat_by_name(string_field.str())->get_value().erase(0,2);
-    // Needs Registers
-    string_field.str("");
-    string_field << string_table << i << "_needsRegisters";
     std::cout << "| " << get_dat_by_name(string_field.str())->get_value().erase(0,2);
     // Done [TODO] this is a placeholder until done is actually set/used
     string_field.str("");
@@ -516,9 +512,9 @@ void t_Top::info_cache_table() {
 }
 
 void t_Top::info_petable() {
-  std::cout << "------------------------------------------------------------------------------------------------------------------\n";
-  std::cout << "|S|IV|WV|ASID| TID|tIdx|CIdx|Node|inLoc|outLoc|InIdx|OutIdx|   &N|   &W|DP|LiL|#W|AF|S|    Bias|     Acc| DataOut| <- PE Table\n";
-  std::cout << "------------------------------------------------------------------------------------------------------------------\n";
+  std::cout << "--------------------------------------------------------------------------------------------------------------\n";
+  std::cout << "|S|IV|WV|ASID| TID|tIdx|CIdx|Node|inLoc|outLoc|InIdx|OutIdx|   &N|   &W|DP|#W|AF|S|    Bias|     Acc| DataOut| <- PE Table\n";
+  std::cout << "--------------------------------------------------------------------------------------------------------------\n";
   std::string string_table("Top.dana.peTable.table_");
   std::string string_pe("Top.dana.peTable.ProcessingElement");
   std::stringstream string_field("");
@@ -593,18 +589,6 @@ void t_Top::info_petable() {
     string_field.str("");
     string_field << string_table << i << "_decimalPoint";
     std::cout << "| " << get_dat_by_name(string_field.str())->get_value().erase(0,2);
-    // Last in Layer
-    string_field.str("");
-    string_field << string_table << i << "_lastInLayer";
-    std::cout << "|  " << get_dat_by_name(string_field.str())->get_value().erase(0,2);
-    // // In Block
-    // string_field.str("");
-    // string_field << string_table << i << "_inBlock";
-    // std::cout << "|  " << get_dat_by_name(string_field.str())->get_value().erase(0,2);
-    // // Weight Block
-    // string_field.str("");
-    // string_field << string_table << i << "_weightBlock";
-    // std::cout << "|  " << get_dat_by_name(string_field.str())->get_value().erase(0,2);
     // Num Weights
     string_field.str("");
     // if (i < 3)
@@ -1226,7 +1210,7 @@ int main(int argc, char* argv[]) {
                       // e_SINGLE,
                       e_SMP,
                       debug,
-                      0);
+                      32000);
 
   if (tee) fclose(tee);
   return 0;
