@@ -362,9 +362,9 @@ void t_Top::info() {
 }
 
 void t_Top::info_ttable() {
-  std::cout << "-----------------------------------------------------------------------------------------------\n";
-  std::cout << "|V|R|W|CV|F?|L?|NL|D|ASID| Tid|Nnid|  #L|  #N|  CL|  CN|CNinL|#NcL|#NnL|idxE|RidX| &N|Cache|DP| <- TTable\n";
-  std::cout << "-----------------------------------------------------------------------------------------------\n";
+  std::cout << "----------------------------------------------------------------------------------------------------\n";
+  std::cout << "|V|R|W|CV|F?|L?|NL|D|ASID| Tid|Nnid|  #L|  #N|  CL|  CN|CNinL|#NcL|#NnL|idxE|#PeW|RidX| &N|Cache|DP| <- TTable\n";
+  std::cout << "----------------------------------------------------------------------------------------------------\n";
   std::string string_table("Top.xFilesArbiter.tTable.table_");
   std::stringstream string_field("");
   for (int i = 0; i < parameters.transaction_table_num_entries; i++) {
@@ -444,6 +444,10 @@ void t_Top::info_ttable() {
     string_field.str("");
     string_field << string_table << i << "_indexElement";
     std::cout << "|  " << get_dat_by_name(string_field.str())->get_value().erase(0,2);
+    // Number of PE Writes
+    string_field.str("");
+    string_field << string_table << i << "_countPeWrites";
+    std::cout << "|" << get_dat_by_name(string_field.str())->get_value().erase(0,2);
     // Read index
     string_field.str("");
     string_field << string_table << i << "_readIdx";
@@ -1098,8 +1102,9 @@ int t_Top::testbench_fann(const char * file_net,
   printf("[INFO] Mean squared error: %0.10f\n",
          error_mse / (fann_type) total_outputs);
   printf("[INFO] Total bit failures: %d\n", total_bit_failures);
-  printf("[INFO] Throughput: %0.4f edges/cycle\n",
-         (double) edges / (cycle_stop - cycle_start));
+  printf("[INFO] Throughput: %0.4f edges/cycle (%0.0f%% of max)\n",
+         (double) edges / (cycle_stop - cycle_start),
+         (double) edges / (cycle_stop - cycle_start) / parameters.num_pes *100);
 
   for (i = 0; i < transactions.size(); i++)
     delete transactions[i];
@@ -1207,10 +1212,16 @@ int main(int argc, char* argv[]) {
   api->testbench_fann("../workloads/data/rsa.net",
                       "../workloads/data/rsa.train.10",
                       "../workloads/data/rsa-fixed",
-                      // e_SINGLE,
+                      e_SINGLE,
+                      debug,
+                      640 * 1024);
+
+  api->testbench_fann("../workloads/data/rsa.net",
+                      "../workloads/data/rsa.train.10",
+                      "../workloads/data/rsa-fixed",
                       e_SMP,
                       debug,
-                      32000);
+                      640 * 1024);
 
   if (tee) fclose(tee);
   return 0;

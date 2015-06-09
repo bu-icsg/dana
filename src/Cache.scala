@@ -314,12 +314,14 @@ class Cache extends DanaModule {
   io.pe.resp.bits := peRespPipe(1).bits
 
   // Assertions
-  assert(!io.control.resp.valid || io.control.resp.ready,
+  assert(!(!io.control.req.ready && io.control.req.valid),
+    "Cache received valid control request when not ready")
+  assert(!(io.control.resp.valid && !io.control.resp.ready),
     "Cache trying to send response to Control when Control not ready")
-  assert(!io.control.req.valid || !io.pe.req.valid || !io.mem.req.valid,
+  assert(!(io.control.req.valid && io.pe.req.valid && io.mem.req.valid),
     "Multiple simultaneous requests on the cache (dropped requests possible)")
-  assert(!io.control.req.valid ||
-    io.control.req.bits.request != e_CACHE_DECREMENT_IN_USE_COUNT ||
-    table(derefNnid).inUseCount != UInt(0),
+  assert(!(io.control.req.valid &&
+    io.control.req.bits.request === e_CACHE_DECREMENT_IN_USE_COUNT &&
+    table(derefNnid).inUseCount === UInt(0)),
     "Cache received control request to decrement count of zero-valued inUseCount")
 }

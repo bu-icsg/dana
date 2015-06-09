@@ -354,8 +354,8 @@ class ProcessingElementTable extends DanaModule {
 
   // Inbound control requests should only happen if there are free
   // entries in the PE Table
-  assert( !io.control.req.valid || hasFree,
-    "Control module trying to assign PE, but no free entries in PE Table")
+  assert(!(!io.control.req.ready && io.control.req.valid),
+    "Cache received valid control request when not ready")
   // I'm using some kludgy logic spread across two when blocks to
   // handle kicking the PE when the inputs and weights are valid. The
   // way this is written, any PE Table entry should never be in a

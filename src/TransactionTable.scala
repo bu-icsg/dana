@@ -59,6 +59,8 @@ class ControlReq extends XFilesBundle {
 }
 
 class ControlResp extends XFilesBundle {
+  val readyCache = Bool()
+  val readyPeTable = Bool()
   val cacheValid = Bool()
   val tableIndex = UInt(width = log2Up(transactionTableNumEntries))
   val field = UInt(width = 4) // [TODO] fragile on Constants.scala
@@ -315,6 +317,7 @@ class TransactionTable extends XFilesModule {
       when (table(io.peTable.req.bits.tableIndex).countPeWrites ===
         table(io.peTable.req.bits.tableIndex).nodesInCurrentLayer - UInt(1)) {
         table(io.peTable.req.bits.tableIndex).done := Bool(true)
+        table(io.peTable.req.bits.tableIndex).waiting := Bool(true)
       }
     }
   }
@@ -327,6 +330,8 @@ class TransactionTable extends XFilesModule {
   io.peTable.resp.bits.peIndex := peRespPipe(1).bits.peIndex
   io.peTable.resp.bits.data := peRespPipe(1).bits.data
 
+  val readyCache = Reg(next = io.control.resp.bits.readyCache)
+  val readyPeTable = Reg(next = io.control.resp.bits.readyPeTable)
   // Round Robin Arbitration of Transaction Table entries. One of
   // these is passed out over an interface to DANA's control module.
   val entryArbiter = Module(new RRArbiter( new ControlReq,
@@ -339,8 +344,10 @@ class TransactionTable extends XFilesModule {
     // already be valid, i.e., we need to have valid data sitting in
     // the currentNode and numNodes to actually do this comparison).
     entryArbiter.io.in(i).valid := table(i).valid && !table(i).waiting &&
-      ((table(i).currentNode != table(i).numNodes) || table(i).done || !table(i).cacheValid) &&
-      Reg(next = entryArbiter.io.in(i).ready) && Reg(next = !entryArbiter.io.out.valid)
+      Reg(next = !entryArbiter.io.out.valid) &&
+      ((readyCache && (table(i).done || !table(i).cacheValid ||
+        table(i).needsLayerInfo)) ||
+       (readyPeTable && (table(i).currentNode != table(i).numNodes)))
     // The other data connections are just aliases to the contents of
     // the specific table entry
     entryArbiter.io.in(i).bits.cacheValid := table(i).cacheValid
@@ -374,8 +381,9 @@ class TransactionTable extends XFilesModule {
   // and may result in excess combinational logic depth. It may be
   // necessary to pipeline this.
   val isCacheReq = entryArbiter.io.out.valid &&
-    !(entryArbiter.io.out.bits.cacheValid &&
-      !entryArbiter.io.out.bits.needsLayerInfo)
+    (!entryArbiter.io.out.bits.cacheValid ||
+      entryArbiter.io.out.bits.needsLayerInfo ||
+      entryArbiter.io.out.bits.isDone)
   val isPeReq = entryArbiter.io.out.valid &&
     (entryArbiter.io.out.bits.cacheValid &&
       !entryArbiter.io.out.bits.needsLayerInfo)
@@ -390,17 +398,17 @@ class TransactionTable extends XFilesModule {
     table(entryArbiter.io.out.bits.tableIndex).waiting := Bool(true)}
   when (isPeReq) {
     table(entryArbiter.io.out.bits.tableIndex).currentNode :=
-    table(entryArbiter.io.out.bits.tableIndex).currentNode + UInt(1)
+      table(entryArbiter.io.out.bits.tableIndex).currentNode + UInt(1)
     // [TODO] This currentNodeInLayer is always incremented and I
     // think this is okay as the value will be reset when a Layer
     // Info request gets serviced.
     table(entryArbiter.io.out.bits.tableIndex).currentNodeInLayer :=
-    table(entryArbiter.io.out.bits.tableIndex).currentNodeInLayer + UInt(1)
+      table(entryArbiter.io.out.bits.tableIndex).currentNodeInLayer + UInt(1)
     table(entryArbiter.io.out.bits.tableIndex).inFirst :=
-    table(entryArbiter.io.out.bits.tableIndex).currentLayer === UInt(0)
+      table(entryArbiter.io.out.bits.tableIndex).currentLayer === UInt(0)
     table(entryArbiter.io.out.bits.tableIndex).inLast :=
-    table(entryArbiter.io.out.bits.tableIndex).currentLayer ===
-    table(entryArbiter.io.out.bits.tableIndex).numLayers - UInt(1)
+      table(entryArbiter.io.out.bits.tableIndex).currentLayer ===
+      table(entryArbiter.io.out.bits.tableIndex).numLayers - UInt(1)
     // If we're at the end of a layer, we need new layer
     // information
     when(table(entryArbiter.io.out.bits.tableIndex).currentNodeInLayer ===
@@ -408,15 +416,15 @@ class TransactionTable extends XFilesModule {
       // nn_instruction.v.
       table(entryArbiter.io.out.bits.tableIndex).nodesInCurrentLayer - UInt(1) &&
       table(entryArbiter.io.out.bits.tableIndex).currentLayer <
-      table(entryArbiter.io.out.bits.tableIndex).numLayers
+      table(entryArbiter.io.out.bits.tableIndex).numLayers - UInt(1)
     ) {
       table(entryArbiter.io.out.bits.tableIndex).needsLayerInfo := Bool(true)
       table(entryArbiter.io.out.bits.tableIndex).currentLayer :=
-      table(entryArbiter.io.out.bits.tableIndex).currentLayer + UInt(1)
+        table(entryArbiter.io.out.bits.tableIndex).currentLayer + UInt(1)
     } .otherwise {
       table(entryArbiter.io.out.bits.tableIndex).needsLayerInfo := Bool(false)
       table(entryArbiter.io.out.bits.tableIndex).currentLayer :=
-      table(entryArbiter.io.out.bits.tableIndex).currentLayer
+        table(entryArbiter.io.out.bits.tableIndex).currentLayer
     }}
 
   // Assertions
@@ -462,6 +470,11 @@ class TransactionTable extends XFilesModule {
   assert(!(!io.control.resp.valid &&
     (io.control.resp.bits.cacheValid || io.control.resp.bits.layerValid)),
     "TTable control response deasserted, but cacheValid or layerValid asserted")
+
+  // The current node should never be greater than the total number of nodes
+  assert(!Vec((0 until transactionTableNumEntries).map(i =>
+    table(i).valid && (table(i).currentNode > table(i).numNodes))).contains(Bool(true)),
+    "A TTable entry has a currentNode count greater than the total numNodes")
 }
 
 class TransactionTableTests(uut: TransactionTable, isTrace: Boolean = true)

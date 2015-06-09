@@ -108,9 +108,13 @@ class Control extends DanaModule {
   }
 
   // io.tTable defaults
-  // [TODO] This is over-aggressive, but should be safe
-  io.tTable.req.ready := io.peTable.req.ready & io.cache.req.ready
+  // The actual req.ready signal serves no purpose. Readiness is
+  // indicated using the readyCache and readyPeTable lines passed
+  // using the response portion of the tTable bundle.
+  io.tTable.req.ready := Bool(true)
   io.tTable.resp.valid := Bool(false)
+  io.tTable.resp.bits.readyCache := io.cache.req.ready
+  io.tTable.resp.bits.readyPeTable := io.peTable.req.ready
   io.tTable.resp.bits.cacheValid := Bool(false)
   io.tTable.resp.bits.tableIndex := UInt(0)
   io.tTable.resp.bits.field := UInt(0)
@@ -232,10 +236,4 @@ class Control extends DanaModule {
   }
 
   // Assertions
-
-  // The X-FILES arbiter (really the Transaction Table) shouldn't be
-  // sending valid requests to the Cotrol module if it can't accept
-  // them.
-  assert(!(!io.tTable.req.ready && io.tTable.req.valid),
-    "Control received valid request from X-FILES/TTable when not ready")
 }
