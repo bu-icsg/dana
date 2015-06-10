@@ -1,6 +1,7 @@
 package dana
 
 import Chisel._
+import scala.math._
 
 class RegisterFileInterface extends DanaBundle {
   val pe = new (PERegisterFileInterface).flip
@@ -19,7 +20,8 @@ class RegisterFile extends DanaModule {
   // for each Transaction Table entry
   val mem = Module( new SRAMElement(
     dataWidth = bitsPerBlock,
-    sramDepth = regFileNumBlocks * transactionTableNumEntries * 2,
+    sramDepth = pow(2, log2Up(regFileNumBlocks)).toInt *
+      transactionTableNumEntries * 2,
     numPorts = 1,
     elementWidth = elementWidth))
   val state = Vec.fill(transactionTableNumEntries * 2){Reg(new RegisterFileState)}
