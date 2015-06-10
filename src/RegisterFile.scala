@@ -41,9 +41,8 @@ class RegisterFile extends DanaModule {
     when (io.pe.req.bits.isWrite) { // This is a Write
       mem.io.we(0) := Bool(true)
       mem.io.din(0) := io.pe.req.bits.data
-      mem.io.addr(0) := io.pe.req.bits.regIndex +
-        io.pe.req.bits.tIdx * UInt(regFileNumBlocks * 2) +
-        io.pe.req.bits.location * UInt(regFileNumBlocks)
+      mem.io.addr(0) := io.pe.req.bits.tIdx ## io.pe.req.bits.location ##
+        io.pe.req.bits.regIndex
       // Increment the write count and generate a response to the
       // control module if this puts us at the write count
       state(io.pe.req.bits.tIdx ## io.pe.req.bits.location).countWrites :=
@@ -55,9 +54,8 @@ class RegisterFile extends DanaModule {
       }
     } .otherwise {                  // This is a read
       mem.io.we(0) := Bool(false)
-      mem.io.addr(0) := io.pe.req.bits.regIndex +
-        io.pe.req.bits.tIdx * UInt(regFileNumBlocks * 2) +
-        io.pe.req.bits.location * UInt(regFileNumBlocks)
+      mem.io.addr(0) := io.pe.req.bits.tIdx ## io.pe.req.bits.location ##
+        io.pe.req.bits.regIndex
     }
   }
 

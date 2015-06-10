@@ -21,7 +21,7 @@ class SRAMElementInterface (
   val we = Vec.fill(numPorts){ Bool(OUTPUT) }
   val din = Vec.fill(numPorts){ UInt(OUTPUT, width = elementWidth)}
   val addr = Vec.fill(numPorts){ UInt(OUTPUT,
-    width = log2Up(sramDepth * dataWidth / elementWidth))}
+    width = log2Up(sramDepth) + log2Up(dataWidth / elementWidth))}
   val dout = Vec.fill(numPorts){ UInt(INPUT, width = dataWidth)}
 }
 

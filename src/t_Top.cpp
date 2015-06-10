@@ -178,7 +178,7 @@ int t_Top::read_parameters(const string file_string_parameters) {
 
 t_Top::t_Top() {
   seed = time(NULL);
-  // seed = 0x556e5aa0;
+  seed = 0x556e5aa0;
   srand(seed);
   top = new Top_t();
   top->init();
@@ -191,7 +191,7 @@ t_Top::t_Top() {
 
 t_Top::t_Top(const string file_string_vcd) {
   seed = time(NULL);
-  // seed = 0x556e5aa0;
+  seed = 0x556e5aa0;
   srand(seed);
   top = new Top_t();
   top->init();
@@ -627,12 +627,14 @@ void t_Top::info_petable() {
     // Inputs for this PE
     string_field.str("");
     string_field << string_table << i << "_inBlock";
-    std::cout << "|" << get_dat_by_name(string_field.str())->get_value().erase(0,2);
+    std::cout << "|" << get_dat_by_name(string_field.str())->get_value().erase(0,2)
+              << "|" << std::endl
+              << "                                                                                                             ";
     // Weights for this PE
     string_field.str("");
     string_field << string_table << i << "_weightBlock";
-    std::cout << "|" << get_dat_by_name(string_field.str())->get_value().erase(0,2);
-    std::cout << "|" << std::endl;
+    std::cout << "|" << get_dat_by_name(string_field.str())->get_value().erase(0,2)
+              << "|" << std::endl;
   }
   std::cout << std::endl;
 }
@@ -1095,6 +1097,15 @@ int t_Top::testbench_fann(const char * file_net,
   }
   cycle_stop = cycle;
 
+  // for (i = 0; i < transactions.size(); i++) {
+  //   printf("[%2d]: ", i);
+  //   for (int j = 0; j < transactions[i]->outputs.size(); j++) {
+  //     printf("(%d, %0.0f) ", transactions[i]->outputs[j],
+  //            transactions[i]->outputs_fann[j] * pow(2,decimal_point));
+  //   }
+  //   printf("\n");
+  // }
+
   printf("[INFO] Outputs tested: %d\n", total_outputs);
   printf("[INFO] Total cycles: %d\n", cycle_stop - cycle_start);
   printf("[INFO] Mean error: %0.10f\n",
@@ -1213,15 +1224,16 @@ int main(int argc, char* argv[]) {
                       "../workloads/data/rsa.train.10",
                       "../workloads/data/rsa-fixed",
                       e_SINGLE,
+                      // e_SMP,
                       debug,
-                      640 * 1024);
+                      64 * 1024);
 
   api->testbench_fann("../workloads/data/rsa.net",
                       "../workloads/data/rsa.train.10",
                       "../workloads/data/rsa-fixed",
                       e_SMP,
                       debug,
-                      640 * 1024);
+                      64 * 1024);
 
   if (tee) fclose(tee);
   return 0;
