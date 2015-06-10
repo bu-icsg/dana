@@ -32,6 +32,8 @@ private:
     uint64_t cache_num_entries;
     uint64_t elements_per_block;
     uint64_t transaction_table_num_entries;
+    uint64_t transaction_table_sram_elements;
+    uint64_t register_file_num_elements;
     uint64_t asid_width;
     uint64_t tid_width;
     uint64_t nnid_width;
@@ -155,6 +157,10 @@ int t_Top::read_parameters(const string file_string_parameters) {
       parameters.elements_per_block = stoi(value, NULL, 10);
     else if (key.compare("TRANSACTION_TABLE_NUM_ENTRIES") == 0)
       parameters.transaction_table_num_entries = stoi(value, NULL, 10);
+    else if (key.compare("TRANSACTION_TABLE_SRAM_ELEMENTS") == 0)
+      parameters.transaction_table_sram_elements = stoi(value, NULL, 10);
+    else if (key.compare("REGISTER_FILE_NUM_ELEMENTS") == 0)
+      parameters.register_file_num_elements = stoi(value, NULL, 10);
     else if (key.compare("TID_WIDTH") == 0)
       parameters.tid_width = stoi(value, NULL, 10);
     else if (key.compare("NNID_WIDTH") == 0)
@@ -178,7 +184,7 @@ int t_Top::read_parameters(const string file_string_parameters) {
 
 t_Top::t_Top() {
   seed = time(NULL);
-  seed = 0x556e5aa0;
+  // seed = 0x556e5aa0;
   srand(seed);
   top = new Top_t();
   top->init();
@@ -191,7 +197,7 @@ t_Top::t_Top() {
 
 t_Top::t_Top(const string file_string_vcd) {
   seed = time(NULL);
-  seed = 0x556e5aa0;
+  // seed = 0x556e5aa0;
   srand(seed);
   top = new Top_t();
   top->init();
@@ -881,13 +887,16 @@ int t_Top::run_smp(std::vector<transaction *> * transactions,
   int32_t input_next;
   std::vector<response> responses;
 
-  action_pool.resize(parameters.transaction_table_num_entries);
+  if ((*transactions).size() <= parameters.transaction_table_num_entries)
+    action_pool.resize((*transactions).size());
+  else
+    action_pool.resize(parameters.transaction_table_num_entries);
 
   if (debug) info();
 
   // Initial population of transactions
   std::random_shuffle (transactions->begin(), transactions->end());
-  for (i = 0; i < parameters.transaction_table_num_entries; i++) {
+  for (i = 0; i < action_pool.size(); i++) {
     action_pool[i].t = (*transactions)[i];
     action_pool[i].state = NEW_WRITE;
     i_assigned++;
@@ -908,6 +917,7 @@ int t_Top::run_smp(std::vector<transaction *> * transactions,
       if (action_pool[i].state == UNUSED && i_assigned < transactions->size()) {
         action_pool[i].t = (*transactions)[i_assigned++];
         action_pool[i].state = NEW_WRITE;
+        unused_count--;
         action_pool_work.push_back(&action_pool[i]);
       }
       // Actionable work (to populated action_pool_work) exists if a
@@ -1032,6 +1042,7 @@ int t_Top::testbench_fann(const char * file_net,
   struct fann *ann = NULL;
   struct fann_train_data *data = NULL;
   fann_type * output_fann;
+  fann_layer * layer_it;
   int i, j;
   int decimal_point, total_bit_failures, total_outputs;
   uint32_t nnid;
@@ -1049,6 +1060,17 @@ int t_Top::testbench_fann(const char * file_net,
 
   if ((ann = fann_create_from_file(file_net)) == 0) goto failure;
   if ((data = fann_read_train_from_file(file_train)) == 0) goto failure;
+
+  // Assertions checking that the sizing of X-FILES/DANA is okay for
+  // the selected NN configuration
+  printf("num_input: %d\nnum_output: %d\n", ann->num_input, ann->num_output);
+  printf("num_sram: %d\n", parameters.transaction_table_sram_elements);
+  assert(ann->num_input <= parameters.transaction_table_sram_elements);
+  assert(ann->num_output <= parameters.transaction_table_sram_elements);
+  for (layer_it = ann->first_layer + 1; layer_it != ann->last_layer - 1; layer_it++) {
+    assert(layer_it->last_neuron - layer_it->first_neuron <=
+           parameters.register_file_num_elements);
+  }
 
   decimal_point = fann_save_to_fixed(ann, "/dev/null");
 
@@ -1221,7 +1243,7 @@ int main(int argc, char* argv[]) {
 
   // Run the simulation
   api->testbench_fann("../workloads/data/rsa.net",
-                      "../workloads/data/rsa.train.10",
+                      "../workloads/data/rsa.train.4",
                       "../workloads/data/rsa-fixed",
                       e_SINGLE,
                       // e_SMP,
@@ -1229,7 +1251,7 @@ int main(int argc, char* argv[]) {
                       64 * 1024);
 
   api->testbench_fann("../workloads/data/rsa.net",
-                      "../workloads/data/rsa.train.10",
+                      "../workloads/data/rsa.train.4",
                       "../workloads/data/rsa-fixed",
                       e_SMP,
                       debug,
