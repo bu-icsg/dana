@@ -37,9 +37,9 @@ class DefaultConfig extends ChiselConfig (
   // ),
   knobValues = {
     case "NUM_CORES" => 2
-    case "ELEMENTS_PER_BLOCK" => 4
-    case "NUM_PES" => 4
-    case "TRANSACTION_TABLE_NUM_ENTRIES" => 3
+    case "ELEMENTS_PER_BLOCK" => 8
+    case "NUM_PES" => 6
+    case "TRANSACTION_TABLE_NUM_ENTRIES" => 4
     case "TRANSACTION_TABLE_SRAM_ELEMENTS" => 64
     case "CACHE_NUM_ENTRIES" => 4
     case "REGISTER_FILE_NUM_ELEMENTS" => 80

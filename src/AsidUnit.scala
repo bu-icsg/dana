@@ -37,6 +37,6 @@ class AsidUnit extends DanaModule with XFilesParameters {
 
   // Assertions
   // There shouldn't be a new request on an invalid TID
-  assert(!newRequest || asidReg.valid,
+  assert(!(newRequest && !asidReg.valid),
     "New request on invalid ASID (a clean build may be needed)");
 }

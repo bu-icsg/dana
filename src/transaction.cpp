@@ -38,9 +38,10 @@ bool transaction::done_out() {
   return outputs.size() == num_output;
 };
 
-void transaction::update_error() {
+void transaction::update_error(double bound) {
   error = 0;
   error_squared = 0;
+  bound_failures = 0;
   bit_failures = 0;
   assert(outputs.size() == num_output);
   double err;
@@ -48,19 +49,24 @@ void transaction::update_error() {
     err = outputs_fann[i] - (double) outputs[i] / pow(2.0, decimal_point);
     error += err;
     error_squared += err * err;
-    if (fabs(err) > 0.1) {
-      printf("[INFO] ABS Err > 0.1 (%f) on [TID: %d, %d], found %d (%f), should be %f\n",
-             fabs(err), tid, i,
+    // Check to see if we're violating an error bound
+    if (fabs(err) > bound) {
+      printf("[ERROR] ABS Err (%f) > %0.5f on [TID: 0x%x, %d], found %d (%f), should be %f\n",
+             fabs(err), bound, tid, i,
              outputs[i],
              (double) outputs[i] / pow(2.0, decimal_point),
              outputs_fann[i]);
-      // Check to see if this results in a bit flip
-      output_fann_th = outputs_fann[i] > 0.5 ? 1 : 0;
-      output_dana_th = outputs[i] > (1 << (decimal_point - 1)) ? 1 : 0;
-      if (output_fann_th != output_dana_th) {
-        std::cout << "[ERROR] This results in a bit flip!" << std::endl;
-        bit_failures++;
-      }
+      bound_failures++;
+    }
+    // Check to see if this results in a bit flip
+    output_fann_th = outputs_fann[i] > 0.5 ? 1 : 0;
+    output_dana_th = outputs[i] > (1 << (decimal_point - 1)) ? 1 : 0;
+    if (output_fann_th != output_dana_th) {
+      printf("[ERROR] Bit flip on [TID: 0x%x, %d], found %d (%f), should be %f\n",
+             tid, i, outputs[i],
+             (double) outputs[i] / pow(2.0, decimal_point),
+             outputs_fann[i]);
+      bit_failures++;
     }
   }
 };

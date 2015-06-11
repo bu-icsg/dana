@@ -20,6 +20,7 @@ public:
   uint16_t num_rounds;
   uint32_t nnid;
   double error, error_squared;
+  int bound_failures;
   int bit_failures;
 
   transaction(fann *, fann_type *, uint16_t, uint32_t, unsigned int);
@@ -27,5 +28,5 @@ public:
   bool done_in();
   bool done_out();
   bool new_read();
-  void update_error();
+  void update_error(double);
 };

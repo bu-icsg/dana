@@ -433,25 +433,52 @@ class TransactionTable extends XFilesModule {
   // asserting its ready signal.
   assert(!(io.arbiter.rocc.cmd.valid && cmd.readOrWrite && cmd.isNew &&
     !hasFree),
-    "Inbound arbiter request when TTable has no free entries")
+    "TTable saw new write req, but doesn't have any free entries")
 
   // Only one inbound request or response on the same line can
-  // currently be handled
-  assert(!(io.arbiter.rocc.cmd.valid && io.control.resp.valid &&
-    (cmd.readOrWrite && cmd.isNew &&
-      (io.control.resp.bits.tableIndex === nextFree) ||
-      (!cmd.readOrWrite &&
-        (io.control.resp.bits.tableIndex === derefTidIndex)))),
-    "Received simultaneous requests on the TransactionTable")
+  // currently be handled. Due to the split nature of cache and
+  // register file responses, both have to be checked.
+  assert(!(io.arbiter.rocc.cmd.valid && cmd.readOrWrite && cmd.isNew &&
+    io.control.resp.bits.cacheValid &&
+    (io.control.resp.bits.tableIndex === nextFree)),
+    "TTable saw new write req on same entry as control resp from Cache")
+  assert(!(io.arbiter.rocc.cmd.valid && cmd.readOrWrite && cmd.isNew &&
+    io.control.resp.bits.layerValid &&
+    (io.control.resp.bits.layerValidIndex === nextFree)),
+    "TTable saw new write req on same entry as control resp from Reg File")
+
+  assert(!(io.arbiter.rocc.cmd.valid && cmd.readOrWrite && !cmd.isNew &&
+    io.control.resp.bits.cacheValid &&
+    (io.control.resp.bits.tableIndex === derefTidIndex)),
+    "TTable saw non-new write req on same entry as control resp from Cache")
+  assert(!(io.arbiter.rocc.cmd.valid && cmd.readOrWrite && !cmd.isNew &&
+    io.control.resp.bits.layerValid &&
+    (io.control.resp.bits.layerValidIndex === derefTidIndex)),
+    "TTable saw non-new write req on same entry as control resp from Reg File")
+
+  assert(!(io.arbiter.rocc.cmd.valid && !cmd.readOrWrite &&
+    io.control.resp.bits.cacheValid &&
+    (io.control.resp.bits.tableIndex === derefTidIndex)),
+    "TTable saw read req on same entry as control resp from Cache")
+  assert(!(io.arbiter.rocc.cmd.valid && !cmd.readOrWrite &&
+    io.control.resp.bits.layerValid &&
+    (io.control.resp.bits.layerValidIndex === derefTidIndex)),
+    "TTable saw read req on same entry as control resp from Reg File")
 
   // Valid should never be true if reserved is not true
   for (i <- 0 until transactionTableNumEntries)
     assert(!table(i).valid || table(i).reserved,
       "Valid asserted with reserved de-asserted on TTable " + i)
 
-  // A read request should hit a valid entry
-  assert(foundTid || !io.arbiter.rocc.cmd.valid || cmd.readOrWrite,
-    "X-FILES performed a read request on a non-existent TID")
+  // A read request or a non-new write request should hit a valid
+  // entry
+  assert(!(!foundTid && io.arbiter.rocc.cmd.valid &&
+    (!cmd.readOrWrite || (cmd.readOrWrite && !cmd.isNew))),
+    "TTable saw read or non-new write req on a non-existent ASID/TID")
+  // A new write request should not hit a tid
+  assert(!(foundTid && io.arbiter.rocc.cmd.valid &&
+    cmd.readOrWrite && cmd.isNew),
+    "TTable saw new write req on an existing ASID/TID")
 
   // A response from the Control module should never be dually valid
   // in terms of actions on the same transaction table index. This

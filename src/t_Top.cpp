@@ -120,12 +120,14 @@ public:
   // file are run in order and one at a time on DANA.
   int testbench_fann(const char *,
                      const char *,
-                     const char *, test_type, bool, uint64_t);
+                     const char *, test_type, bool, uint64_t,
+                     double);
 
   // Generic method that throw multiple FANN networks at DANA.
   int testbench_fann(std::vector<const char *> *,
                      std::vector<const char *> *,
-                     std::vector<const char *> *, test_type, bool, uint64_t);
+                     std::vector<const char *> *, test_type, bool, uint64_t,
+                     double);
 
   // Run a single transaction to completion
   int run_single(transaction *, bool, uint64_t);
@@ -184,7 +186,6 @@ int t_Top::read_parameters(const string file_string_parameters) {
 
 t_Top::t_Top() {
   seed = time(NULL);
-  // seed = 0x556e5aa0;
   srand(seed);
   top = new Top_t();
   top->init();
@@ -197,7 +198,6 @@ t_Top::t_Top() {
 
 t_Top::t_Top(const string file_string_vcd) {
   seed = time(NULL);
-  // seed = 0x556e5aa0;
   srand(seed);
   top = new Top_t();
   top->init();
@@ -1038,13 +1038,14 @@ int t_Top::testbench_fann(const char * file_net,
                           const char * file_cache,
                           test_type type,
                           bool debug = false,
-                          uint64_t cycle_limit = 0) {
+                          uint64_t cycle_limit = 0,
+                          double error_bound = 0.1) {
   struct fann *ann = NULL;
   struct fann_train_data *data = NULL;
   fann_type * output_fann;
   fann_layer * layer_it;
   int i, j;
-  int decimal_point, total_bit_failures, total_outputs;
+  int decimal_point, total_bound_failures, total_bit_failures, total_outputs;
   uint32_t nnid;
   uint16_t asid;
   double error, error_mean, error_mse;
@@ -1063,8 +1064,6 @@ int t_Top::testbench_fann(const char * file_net,
 
   // Assertions checking that the sizing of X-FILES/DANA is okay for
   // the selected NN configuration
-  printf("num_input: %d\nnum_output: %d\n", ann->num_input, ann->num_output);
-  printf("num_sram: %d\n", parameters.transaction_table_sram_elements);
   assert(ann->num_input <= parameters.transaction_table_sram_elements);
   assert(ann->num_output <= parameters.transaction_table_sram_elements);
   for (layer_it = ann->first_layer + 1; layer_it != ann->last_layer - 1; layer_it++) {
@@ -1077,9 +1076,11 @@ int t_Top::testbench_fann(const char * file_net,
   error_mean = 0.0;
   error_mse = 0.0;
   total_outputs = 0;
+  total_bound_failures = 0;
   total_bit_failures = 0;
   edges = 0;
   cycle_start = cycle;
+  cycle_limit = cycle_limit ? cycle_limit + cycle_start : 0;
 
   // Create an array of transactions from the input data
   for (i = 0; i < data->num_data; i++) {
@@ -1090,34 +1091,30 @@ int t_Top::testbench_fann(const char * file_net,
   switch (type) {
   case e_SINGLE:
     // Execute the transactions and populate error metrics
-    for (i = 0; i < transactions.size(); i++) {
+    for (i = 0; i < transactions.size(); i++)
       if (run_single(transactions[i], debug, cycle_limit))
         goto failure;
-      transactions[i]->update_error();
-      error_mean += transactions[i]->error;
-      error_mse += transactions[i]->error_squared;
-      total_outputs += transactions[i]->num_output;
-      total_bit_failures += transactions[i]->bit_failures;
-      edges += ann->total_connections;
-    }
     break;
   case e_SMP:
     if (run_smp(&transactions, debug, cycle_limit))
       goto failure;
-    for (i = 0; i < transactions.size(); i++) {
-      transactions[i]->update_error();
-      error_mean += transactions[i]->error;
-      error_mse += transactions[i]->error_squared;
-      total_outputs += transactions[i]->num_output;
-      total_bit_failures += transactions[i]->bit_failures;
-      edges += ann->total_connections;
-    }
     break;
   default:
     printf("[ERROR] Unknown test type %d\n", type);
     goto failure;
   }
   cycle_stop = cycle;
+
+  // Compute the error for all the executed transactions
+  for (i = 0; i < transactions.size(); i++) {
+    transactions[i]->update_error(error_bound);
+    error_mean += transactions[i]->error;
+    error_mse += transactions[i]->error_squared;
+    total_outputs += transactions[i]->num_output;
+    total_bound_failures += transactions[i]->bound_failures;
+    total_bit_failures += transactions[i]->bit_failures;
+    edges += ann->total_connections;
+  }
 
   // for (i = 0; i < transactions.size(); i++) {
   //   printf("[%2d]: ", i);
@@ -1134,6 +1131,7 @@ int t_Top::testbench_fann(const char * file_net,
          error_mean / (fann_type) total_outputs);
   printf("[INFO] Mean squared error: %0.10f\n",
          error_mse / (fann_type) total_outputs);
+  printf("[INFO] Total bound failures: %d\n", total_bound_failures);
   printf("[INFO] Total bit failures: %d\n", total_bit_failures);
   printf("[INFO] Throughput: %0.4f edges/cycle (%0.0f%% of max)\n",
          (double) edges / (cycle_stop - cycle_start),
@@ -1157,12 +1155,13 @@ int t_Top::testbench_fann(std::vector<const char *> * files_net,
                           std::vector<const char *> * files_cache,
                           test_type type,
                           bool debug = false,
-                          uint64_t cycle_limit = 0) {
+                          uint64_t cycle_limit = 0,
+                          double error_bound = 0.1) {
   struct fann *ann = NULL;
   struct fann_train_data *data = NULL;
   fann_type * output_fann;
   int i, j;
-  int decimal_point, total_bit_failures, total_outputs;
+  int decimal_point, total_bound_failures, total_bit_failures, total_outputs;
   uint32_t nnid;
   double error, error_mean, error_mse;
   uint64_t cycle_start, cycle_stop, edges;
@@ -1242,20 +1241,24 @@ int main(int argc, char* argv[]) {
   api->set_teefile(tee);
 
   // Run the simulation
-  api->testbench_fann("../workloads/data/rsa.net",
-                      "../workloads/data/rsa.train.4",
-                      "../workloads/data/rsa-fixed",
-                      e_SINGLE,
-                      // e_SMP,
-                      debug,
-                      64 * 1024);
+  if (api->testbench_fann("../workloads/data/rsa.net",
+                          "../workloads/data/rsa.train.100",
+                          "../workloads/data/rsa-fixed",
+                          e_SINGLE,
+                          // e_SMP,
+                          debug,
+                          0,
+                          0.05))
+    return 1;
 
-  api->testbench_fann("../workloads/data/rsa.net",
-                      "../workloads/data/rsa.train.4",
-                      "../workloads/data/rsa-fixed",
-                      e_SMP,
-                      debug,
-                      64 * 1024);
+  if (api->testbench_fann("../workloads/data/rsa.net",
+                          "../workloads/data/rsa.train.100",
+                          "../workloads/data/rsa-fixed",
+                          e_SMP,
+                          debug,
+                          0,
+                          0.05))
+    return 1;
 
   if (tee) fclose(tee);
   return 0;

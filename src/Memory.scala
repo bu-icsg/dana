@@ -23,6 +23,6 @@ class Memory extends DanaModule {
   // This module doesn't do anything, but we should be concerned if
   // the cache starts talking to it. Consequently, I have an assertion
   // here that will fire if we see an inbound request.
-  assert(io.cache.req.valid === Bool(false),
+  assert(!(io.cache.req.valid === Bool(true)),
     "Black box memory module received a valid request from the cache")
 }
