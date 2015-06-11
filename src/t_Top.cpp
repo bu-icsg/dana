@@ -40,6 +40,8 @@ private:
     uint64_t feedback_width;
     uint64_t element_width;
     uint64_t num_cores;
+    uint64_t decimal_point_offset;
+    uint64_t decimal_point_width;
   } parameters;
 
 public:
@@ -175,6 +177,10 @@ int t_Top::read_parameters(const string file_string_parameters) {
       parameters.asid_width = stoi(value, NULL, 10);
     else if (key.compare("NUM_CORES") == 0)
       parameters.num_cores = stoi(value, NULL, 10);
+    else if (key.compare("DECIMAL_POINT_OFFSET") == 0)
+      parameters.decimal_point_offset = stoi(value, NULL, 10);
+    else if (key.compare("DECIMAL_POINT_WIDTH") == 0)
+      parameters.decimal_point_width = stoi(value, NULL, 10);
     else
       std::cout << "[ERROR] Unknown parameter key (" << key << ") found" << std::endl;
     std::cout << "[INFO]     " << key << " -> " << value << std::endl;
@@ -1062,16 +1068,36 @@ int t_Top::testbench_fann(const char * file_net,
   if ((ann = fann_create_from_file(file_net)) == 0) goto failure;
   if ((data = fann_read_train_from_file(file_train)) == 0) goto failure;
 
-  // Assertions checking that the sizing of X-FILES/DANA is okay for
-  // the selected NN configuration
-  assert(ann->num_input <= parameters.transaction_table_sram_elements);
-  assert(ann->num_output <= parameters.transaction_table_sram_elements);
+  // Check that the sizing of X-FILES/DANA is okay for the selected NN
+  // configuration
+  if (ann->num_input > parameters.transaction_table_sram_elements) {
+    printf("[ERROR] Num inputs (%d) in NN > TTable SRAM elements (%d)",
+           ann->num_input, parameters.transaction_table_sram_elements);
+    goto failure;
+  }
+  if (ann->num_output > parameters.transaction_table_sram_elements) {
+    printf("[ERROR] Num outputs (%d) in NN > TTable SRAM elements (%d)",
+           ann->num_input, parameters.transaction_table_sram_elements);
+    goto failure;
+  }
   for (layer_it = ann->first_layer + 1; layer_it != ann->last_layer - 1; layer_it++) {
-    assert(layer_it->last_neuron - layer_it->first_neuron <=
-           parameters.register_file_num_elements);
+    if (layer_it->last_neuron - layer_it->first_neuron >
+        parameters.register_file_num_elements) {
+      printf("[ERROR] Num internal layer outputs (%d) in NN > RegFile num elements (%d)",
+             layer_it->last_neuron - layer_it->first_neuron,
+             parameters.register_file_num_elements);
+      goto failure;
+    }
   }
 
   decimal_point = fann_save_to_fixed(ann, "/dev/null");
+  printf("[INFO] Decimal point: %d\n", decimal_point);
+  if (decimal_point < parameters.decimal_point_offset ||
+      decimal_point > parameters.decimal_point_offset +
+      pow(2, parameters.decimal_point_width) - 1) {
+    printf("[ERROR] Decimal point is outside of range");
+    goto failure;
+  }
 
   error_mean = 0.0;
   error_mse = 0.0;
@@ -1090,7 +1116,7 @@ int t_Top::testbench_fann(const char * file_net,
 
   switch (type) {
   case e_SINGLE:
-    // Execute the transactions and populate error metrics
+    // Execute the transactions
     for (i = 0; i < transactions.size(); i++)
       if (run_single(transactions[i], debug, cycle_limit))
         goto failure;
@@ -1113,17 +1139,8 @@ int t_Top::testbench_fann(const char * file_net,
     total_outputs += transactions[i]->num_output;
     total_bound_failures += transactions[i]->bound_failures;
     total_bit_failures += transactions[i]->bit_failures;
-    edges += ann->total_connections;
+    edges += transactions[i]->ann->total_connections;
   }
-
-  // for (i = 0; i < transactions.size(); i++) {
-  //   printf("[%2d]: ", i);
-  //   for (int j = 0; j < transactions[i]->outputs.size(); j++) {
-  //     printf("(%d, %0.0f) ", transactions[i]->outputs[j],
-  //            transactions[i]->outputs_fann[j] * pow(2,decimal_point));
-  //   }
-  //   printf("\n");
-  // }
 
   printf("[INFO] Outputs tested: %d\n", total_outputs);
   printf("[INFO] Total cycles: %d\n", cycle_stop - cycle_start);
@@ -1157,30 +1174,142 @@ int t_Top::testbench_fann(std::vector<const char *> * files_net,
                           bool debug = false,
                           uint64_t cycle_limit = 0,
                           double error_bound = 0.1) {
-  struct fann *ann = NULL;
-  struct fann_train_data *data = NULL;
+  std::vector<struct fann *> ann;
+  std::vector<struct fann_train_data *> data;
   fann_type * output_fann;
+  fann_layer * layer_it;
   int i, j;
-  int decimal_point, total_bound_failures, total_bit_failures, total_outputs;
-  uint32_t nnid;
+  std::vector<int> decimal_point;
+  int total_bound_failures, total_bit_failures, total_outputs;
+  std::vector<uint32_t> nnid;
+  uint16_t asid;
   double error, error_mean, error_mse;
   uint64_t cycle_start, cycle_stop, edges;
   std::vector<transaction*> transactions;
 
-  // Preload the cache
+  // Preload the cache and set the ASID
   if (files_cache->size() > parameters.cache_num_entries) {
     printf("[ERROR] Specified %d cache files, but cache is of size %d\n",
            files_cache->size(), parameters.cache_num_entries);
     goto failure;
   }
+  asid = (uint16_t) rand();
   for (i = 0; i < files_cache->size(); i++) {
-    nnid = rand();
-    cache_load(0, nnid, (*files_cache)[i], debug);
+    nnid.push_back((uint32_t) rand());
+    cache_load(i, nnid[i], (*files_cache)[i], debug);
+    if (debug) info();
+  }
+  set_asid(asid);
+
+  ann.resize(files_net->size());
+  data.resize(files_train->size());
+  decimal_point.resize(files_net->size());
+  for (i = 0; i < files_net->size(); i++) {
+    if ((ann[i] = fann_create_from_file((*files_net)[i])) == 0) goto failure;
+    if ((data[i] = fann_read_train_from_file((*files_train)[i])) == 0) goto failure;
+    // Check that the sizing of X-FILES/DANA is okay for the selected NN
+    // configuration
+    if (ann[i]->num_input > parameters.transaction_table_sram_elements) {
+      printf("[ERROR] Num inputs (%d) in NN > TTable SRAM elements (%d)",
+             ann[i]->num_input, parameters.transaction_table_sram_elements);
+      goto failure;
+    }
+    if (ann[i]->num_output > parameters.transaction_table_sram_elements) {
+      printf("[ERROR] Num outputs (%d) in NN > TTable SRAM elements (%d)",
+             ann[i]->num_input, parameters.transaction_table_sram_elements);
+      goto failure;
+    }
+    for (layer_it = ann[i]->first_layer + 1; layer_it != ann[i]->last_layer - 1; layer_it++) {
+      if (layer_it->last_neuron - layer_it->first_neuron >
+          parameters.register_file_num_elements) {
+        printf("[ERROR] Num internal layer outputs (%d) in NN > RegFile num elements (%d)",
+               layer_it->last_neuron - layer_it->first_neuron,
+               parameters.register_file_num_elements);
+        goto failure;
+      }
+    }
+    decimal_point[i] = fann_save_to_fixed(ann[i], "/dev/null");
+    printf("[INFO] Decimal point: %d\n", decimal_point[i]);
+    if (decimal_point[i] < parameters.decimal_point_offset ||
+        decimal_point[i] > parameters.decimal_point_offset +
+        pow(2, parameters.decimal_point_width) - 1) {
+      printf("[ERROR] Decimal point is outside of range");
+      goto failure;
+    }
   }
 
+  error_mean = 0.0;
+  error_mse = 0.0;
+  total_outputs = 0;
+  total_bound_failures = 0;
+  total_bit_failures = 0;
+  edges = 0;
+  cycle_start = cycle;
+  cycle_limit = cycle_limit ? cycle_limit + cycle_start : 0;
+
+  // Create an array of transactions from the input data
+  for (i = 0; i < ann.size(); i++) {
+    for (j = 0; j < data[i]->num_data; j++) {
+      transactions.push_back(new transaction(ann[i], data[i]->input[j], asid, nnid[i],
+                                             decimal_point[i]));
+    }
+  }
+
+  switch (type) {
+  case e_SINGLE:
+    // Execute the transactions
+    for (i = 0; i < transactions.size(); i++)
+      if (run_single(transactions[i], debug, cycle_limit))
+        goto failure;
+    break;
+  case e_SMP:
+    if (run_smp(&transactions, debug, cycle_limit))
+      goto failure;
+    break;
+  default:
+    printf("[ERROR] Unknown test type %d\n", type);
+    goto failure;
+  }
+  cycle_stop = cycle;
+
+  // Compute the error for all the executed transactions
+  for (i = 0; i < transactions.size(); i++) {
+    transactions[i]->update_error(error_bound);
+    error_mean += transactions[i]->error;
+    error_mse += transactions[i]->error_squared;
+    total_outputs += transactions[i]->num_output;
+    total_bound_failures += transactions[i]->bound_failures;
+    total_bit_failures += transactions[i]->bit_failures;
+    edges += transactions[i]->ann->total_connections;
+  }
+
+  printf("[INFO] Outputs tested: %d\n", total_outputs);
+  printf("[INFO] Total cycles: %d\n", cycle_stop - cycle_start);
+  printf("[INFO] Total edges: %d\n", edges);
+  printf("[INFO] Mean error: %0.10f\n",
+         error_mean / (fann_type) total_outputs);
+  printf("[INFO] Mean squared error: %0.10f\n",
+         error_mse / (fann_type) total_outputs);
+  printf("[INFO] Total bound failures: %d\n", total_bound_failures);
+  printf("[INFO] Total bit failures: %d\n", total_bit_failures);
+  printf("[INFO] Throughput: %0.4f edges/cycle (%0.0f%% of max)\n",
+         (double) edges / (cycle_stop - cycle_start),
+         (double) edges / (cycle_stop - cycle_start) / parameters.num_pes *100);
+
+  for (i = 0; i < transactions.size(); i++)
+    delete transactions[i];
+
+  for (i = 0; i < ann.size(); i++) {
+    fann_destroy(ann[i]);
+    fann_destroy_train(data[i]);
+  }
   return 0;
 
  failure:
+  for (i = 0; i < ann.size(); i++) {
+    fann_destroy(ann[i]);
+    fann_destroy_train(data[i]);
+  }
   return 1;
 };
 
@@ -1240,20 +1369,29 @@ int main(int argc, char* argv[]) {
   FILE *tee = NULL;
   api->set_teefile(tee);
 
-  // Run the simulation
-  if (api->testbench_fann("../workloads/data/rsa.net",
-                          "../workloads/data/rsa.train.100",
-                          "../workloads/data/rsa-fixed",
+  std::vector<const char *> files_net;
+  std::vector<const char *> files_train;
+  std::vector<const char *> files_cache;
+  files_net.push_back("../workloads/data/rsa.net");
+  files_train.push_back("../workloads/data/rsa.train.100");
+  files_cache.push_back("../workloads/data/rsa-fixed");
+
+  files_net.push_back("../workloads/data/sobel.net");
+  files_train.push_back("../workloads/data/sobel.train.100");
+  files_cache.push_back("../workloads/data/sobel-fixed");
+
+  if (api->testbench_fann(&files_net,
+                          &files_train,
+                          &files_cache,
                           e_SINGLE,
-                          // e_SMP,
                           debug,
                           0,
                           0.05))
     return 1;
 
-  if (api->testbench_fann("../workloads/data/rsa.net",
-                          "../workloads/data/rsa.train.100",
-                          "../workloads/data/rsa-fixed",
+  if (api->testbench_fann(&files_net,
+                          &files_train,
+                          &files_cache,
                           e_SMP,
                           debug,
                           0,

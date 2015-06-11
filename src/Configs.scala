@@ -15,8 +15,8 @@ class DefaultConfig extends ChiselConfig (
       case AsidWidth => Dump("ASID_WIDTH", 16)
       case ActivationFunctionWidth => 5
       case NnidWidth => Dump("NNID_WIDTH", 16)
-      case DecimalPointOffset => 7
-      case DecimalPointWidth => 3
+      case DecimalPointOffset => Dump("DECIMAL_POINT_OFFSET", 7)
+      case DecimalPointWidth => Dump("DECIMAL_POINT_WIDTH", 3)
       case SteepnessWidth => 3
       case FeedbackWidth => Dump("FEEDBACK_WIDTH", 12)
       // Processing Element Table

@@ -15,7 +15,7 @@ transaction::transaction(fann * _ann, fann_type * _inputs,
   inputs.resize(num_input);
   outputs_fann.resize(num_output);
   for (int i = 0; i < num_input; i++)
-    inputs[i] = (int32_t) _inputs[i] << decimal_point;
+    inputs[i] = (int32_t) (_inputs[i] * pow(2, decimal_point));
   fann_type * tmp = fann_run(ann, _inputs);
   for (int i = 0; i < num_output; i++)
     outputs_fann[i] = tmp[i];

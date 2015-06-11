@@ -6,11 +6,11 @@
 
 class transaction {
 private:
-  fann * ann;
   unsigned int count_in, count_out, count_reads, decimal_point;
   int output_fann_th, output_dana_th;
 
 public:
+  struct fann * ann;
   unsigned int num_input, num_output;
   std::vector<int32_t> inputs;
   std::vector<int32_t> outputs;
