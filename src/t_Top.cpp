@@ -532,11 +532,14 @@ void t_Top::info_cache_table() {
 }
 
 void t_Top::info_petable() {
-  std::cout << "--------------------------------------------------------------------------------------------------------------\n";
-  std::cout << "|S|IV|WV|ASID| TID|tIdx|CIdx|Node|inLoc|outLoc|InIdx|OutIdx|   &N|   &W|DP|#W|AF|S|    Bias|     Acc| DataOut| <- PE Table\n";
-  std::cout << "--------------------------------------------------------------------------------------------------------------\n";
+  std::cout << "---------------------------------------------------------------------------------------------------------\n";
+  std::cout << "|S|IV|WV|ASID| TID|tIdx|CIdx|inLoc|outLoc|InIdx|OutIdx|   &N|   &W|DP|#W|AF|S|    Bias|     Acc| DataOut| <- PE Table\n";
+  std::cout << "---------------------------------------------------------------------------------------------------------\n";
   std::string string_table("Top.dana.peTable.table_");
   std::string string_pe("Top.dana.peTable.ProcessingElement");
+  std::string string_transaction_table("Top.xFilesArbiter.tTable.table_");
+  std::string tIdx;
+  bool valid;
   std::stringstream string_field("");
   for (int i = 0; i < parameters.num_pes; i++) {
     // State
@@ -545,6 +548,7 @@ void t_Top::info_petable() {
     if (i > 0) string_field << "_" << i;
     string_field << ".state";
     std::cout << "|" << get_dat_by_name(string_field.str())->get_value().erase(0,2);
+    valid = get_dat_by_name(string_field.str())->get_value().erase(0,2) != "0";
     // [TODO] This should read out the state of the PE managed by this
     // PE Table entry
     // Input Valid
@@ -555,14 +559,35 @@ void t_Top::info_petable() {
     string_field.str("");
     string_field << string_table << i << "_weightValid";
     std::cout << "| " << get_dat_by_name(string_field.str())->get_value().erase(0,2);
-    // ASID
-    string_field.str("");
-    string_field << string_table << i << "_asid";
-    std::cout << "|" << get_dat_by_name(string_field.str())->get_value().erase(0,2);
-    // Transaction ID
-    string_field.str("");
-    string_field << string_table << i << "_tid";
-    std::cout << "|" << get_dat_by_name(string_field.str())->get_value().erase(0,2);
+    // The TID and ASID are technically not stored in the PE Table (as
+    // these are superfluous to its operation). However, these are
+    // useful to view when debugging, so we dereference the
+    // Transaction Index (tIdx) into the Transaction Table to figure
+    // out what the ASID and TID are.
+    if (valid) {
+      string_field.str("");
+      string_field << string_table << i << "_tIdx";
+      tIdx = get_dat_by_name(string_field.str())->get_value().erase(0,2);
+      // ASID
+      string_field.str("");
+      string_field << string_transaction_table << tIdx << "_asid";
+      std::cout << "|" << get_dat_by_name(string_field.str())->get_value().erase(0,2);
+      // TID
+      string_field.str("");
+      string_field << string_transaction_table << tIdx << "_tid";
+      std::cout << "|" << get_dat_by_name(string_field.str())->get_value().erase(0,2);
+    }
+    else {
+      std::cout << "|----|----";
+    }
+    // // ASID
+    // string_field.str("");
+    // string_field << string_table << i << "_asid";
+    // std::cout << "|" << get_dat_by_name(string_field.str())->get_value().erase(0,2);
+    // // TID
+    // string_field.str("");
+    // string_field << string_table << i << "_tid";
+    // std::cout << "|" << get_dat_by_name(string_field.str())->get_value().erase(0,2);
     // Transaction Index
     string_field.str("");
     string_field << string_table << i << "_tIdx";
@@ -571,10 +596,6 @@ void t_Top::info_petable() {
     string_field.str("");
     string_field << string_table << i << "_cIdx";
     std::cout << "|   " << get_dat_by_name(string_field.str())->get_value().erase(0,2);
-    // Current Neuron (in this layer)
-    string_field.str("");
-    string_field << string_table << i << "_nnNode";
-    std::cout << "| " << get_dat_by_name(string_field.str())->get_value().erase(0,2);
     // Input Location (IO Storage or first/second Register File Partition)
     string_field.str("");
     string_field << string_table << i << "_inLoc";
@@ -645,7 +666,7 @@ void t_Top::info_petable() {
     string_field << string_table << i << "_inBlock";
     std::cout << "|" << get_dat_by_name(string_field.str())->get_value().erase(0,2)
               << "|" << std::endl
-              << "                                                                                                             ";
+              << "                                                                                                        ";
     // Weights for this PE
     string_field.str("");
     string_field << string_table << i << "_weightBlock";
@@ -1411,7 +1432,7 @@ int main(int argc, char* argv[]) {
   if (api->testbench_fann(&files_net,
                           &files_train,
                           &files_cache,
-                          e_SINGLE,
+                          e_SMP,
                           debug,
                           0,
                           0.1))

@@ -41,10 +41,7 @@ class ControlPETableInterface extends DanaBundle with ControlParameters {
     // new_state -- this should be unnecessary as all we need to do is
     // give the PE a kick, which should be accomplished with the
     // decoupled valid signal
-    val asid = UInt(width = asidWidth)
-    val tid = UInt(width = tidWidth)
     val tIdx = UInt(width = log2Up(transactionTableNumEntries))
-    val neuronIndex = UInt(width = 10) // [TODO] fragile
     val locationInput = UInt()
     val locationOutput = UInt()
     val inputIndex = UInt(width = ioIdxWidth)
@@ -90,15 +87,12 @@ class Control extends DanaModule {
     io.cache.req.bits.location := location
   }
   def reqPETable(valid: Bool, cacheIndex: UInt, asid: UInt, tid: UInt,
-    tIdx: UInt, neuronIndex: UInt, locationInput: UInt, locationOutput: UInt,
+    tIdx: UInt, locationInput: UInt, locationOutput: UInt,
     inputIndex: UInt, outputIndex: UInt, neuronPointer: UInt,
     decimalPoint: UInt) {
     io.peTable.req.valid := valid
     io.peTable.req.bits.cacheIndex := cacheIndex
-    io.peTable.req.bits.asid := asid
-    io.peTable.req.bits.tid := tid
     io.peTable.req.bits.tIdx := tIdx
-    io.peTable.req.bits.neuronIndex := neuronIndex
     io.peTable.req.bits.locationInput := locationInput
     io.peTable.req.bits.locationOutput := locationOutput
     io.peTable.req.bits.inputIndex := inputIndex
@@ -126,7 +120,7 @@ class Control extends DanaModule {
   io.cache.resp.ready := Bool(true) // [TODO] not correct
   reqCache(Bool(false), UInt(0), UInt(0), UInt(0), UInt(0), UInt(0))
   // io.petable defaults
-  reqPETable(Bool(false), UInt(0), UInt(0), UInt(0), UInt(0), UInt(0), UInt(0),
+  reqPETable(Bool(false), UInt(0), UInt(0), UInt(0), UInt(0), UInt(0),
     UInt(0), UInt(0), UInt(0), UInt(0), UInt(0))
   // io.regFile defaults
   io.regFile.req.valid := Bool(false)
@@ -197,10 +191,6 @@ class Control extends DanaModule {
         io.tTable.req.bits.asid,
         io.tTable.req.bits.tid,
         io.tTable.req.bits.tableIndex,
-        // The neuron index is just the current neuron in the layer
-        // that's being processed. This information is redundant with
-        // the output index
-        io.tTable.req.bits.currentNodeInLayer, // neuronIndex
         // Clever input/output location determination
         Mux(io.tTable.req.bits.inFirst, e_LOCATION_IO,
           !io.tTable.req.bits.currentLayer(0)), // locationInput
