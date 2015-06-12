@@ -25,7 +25,7 @@ class XFilesArbiterInterface extends DanaBundle {
   val resp = Decoupled(new XFilesArbiterResp).flip
 }
 
-class Top extends Module {
+class Top extends DanaModule with XFilesParameters {
   val io = new TopInterface
 
   val xFilesArbiter = Module(new XFilesArbiter)
@@ -33,4 +33,17 @@ class Top extends Module {
 
   io.arbiter <> xFilesArbiter.io.core
   xFilesArbiter.io.dana <> dana.io
+
+  // Assertions
+
+  // If there are no valid transactions, then all cache entries should
+  // have an in use count of zero. [TODO] This violates a cross module
+  // reference, but there should be a way to do this.
+  // def isValid(x: TransactionState): Bool = { x.valid === Bool(true) }
+  // def isZero(x: CacheState): Bool = { x.inUseCount === UInt(0) }
+  // assert(!(Vec((0 until transactionTableNumEntries).map(i =>
+  //   xFilesArbiter.tTable.table(i))).forall(isValid(_)) &&
+  //   Vec((0 until cacheNumEntries).map(i =>
+  //     dana.cache.table(i))).forall(isZero(_))),
+  //   "TTable has no valid entries, but Cache has > 1 non-zero in use count")
 }

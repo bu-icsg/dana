@@ -11,8 +11,9 @@ object Testbench {
           chiselMainTest(cliArgs, () => Module(new ProcessingElement)) {
             c => new ProcessingElementTests(c, false)}
         case "ActivationFunction" =>
-          chiselMainTest(cliArgs, () => Module(new ActivationFunction)){
-            c => new ActivationFunctionTests(c, false)}
+          chiselMain.run(cliArgs, () => new ActivationFunction)
+          // chiselMainTest(cliArgs, () => Module(new ActivationFunction)){
+          //   c => new ActivationFunctionTests(c, false)}
         case "TransactionTable" =>
           chiselMainTest(cliArgs, () => Module(new TransactionTable)){
             c => new TransactionTableTests(c, false)}

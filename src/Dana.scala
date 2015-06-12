@@ -11,6 +11,7 @@ case object NnidWidth extends Field[Int]
 case object DecimalPointOffset extends Field[Int]
 case object DecimalPointWidth extends Field[Int]
 case object SteepnessWidth extends Field[Int]
+case object SteepnessOffset extends Field[Int]
 case object FeedbackWidth extends Field[Int]
 case object PeTableNumEntries extends Field[Int]
 case object TransactionTableNumEntries extends Field[Int]
@@ -35,6 +36,7 @@ abstract trait DanaParameters extends UsesParameters {
   // Steepness width increases will break:
   //   * ProcessingElementTable logic for indexing into cache data
   val steepnessWidth = params(SteepnessWidth)
+  val steepnessOffset = params(SteepnessOffset)
   val feedbackWidth = params(FeedbackWidth)
 
   // Processing Element Table

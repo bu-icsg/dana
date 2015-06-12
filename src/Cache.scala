@@ -93,7 +93,7 @@ class Cache extends DanaModule {
   // Helper functions for examing the cache entries
   def isFree(x: CacheState): Bool = {!x.valid}
   def isUnused(x: CacheState): Bool = {x.inUseCount === UInt(0)}
-  def derefNnid(x: CacheState, y: UInt): Bool = {x.nnid === y}
+  def derefNnid(x: CacheState, y: UInt): Bool = {x.valid && x.nnid === y}
 
   // State that we need to derive from the cache
   val hasFree = Bool()
@@ -107,7 +107,11 @@ class Cache extends DanaModule {
   foundNnid := table.exists(derefNnid(_, io.control.req.bits.nnid))
   derefNnid := table.indexWhere(derefNnid(_, io.control.req.bits.nnid))
 
-  io.control.req.ready := hasFree | hasUnused
+  // I think the cache is always ready. This should not be gated on
+  // hasFree or hasUnused as this precludes cache hits on used entries
+  // (a case which comes up when you have the Cache and Transaction
+  // Table completely filled).
+  io.control.req.ready := Bool(true)
 
   // Default values
   io.mem.req.valid := Bool(false)
@@ -314,14 +318,28 @@ class Cache extends DanaModule {
   io.pe.resp.bits := peRespPipe(1).bits
 
   // Assertions
+
+  // The control module shouldn't be sending requests if the cache is
+  // not ready.
   assert(!(!io.control.req.ready && io.control.req.valid),
     "Cache received valid control request when not ready")
+
+  // The cache shouldn't be sending responses to the control module
+  // when the control module isn't ready.
   assert(!(io.control.resp.valid && !io.control.resp.ready),
     "Cache trying to send response to Control when Control not ready")
+
+  // We currently have no way of handling simultaneous requests.
   assert(!(io.control.req.valid && io.pe.req.valid && io.mem.req.valid),
     "Multiple simultaneous requests on the cache (dropped requests possible)")
+
+  // The in use count should never be decremented below zero.
   assert(!(io.control.req.valid &&
     io.control.req.bits.request === e_CACHE_DECREMENT_IN_USE_COUNT &&
     table(derefNnid).inUseCount === UInt(0)),
     "Cache received control request to decrement count of zero-valued inUseCount")
+
+  // [TODO] Write an assertion that makes sure the sum of the
+  // inUseCount fields is less than the number of Transaction Table
+  // entries.
 }

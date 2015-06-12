@@ -18,6 +18,9 @@ class DefaultConfig extends ChiselConfig (
       case DecimalPointOffset => Dump("DECIMAL_POINT_OFFSET", 7)
       case DecimalPointWidth => Dump("DECIMAL_POINT_WIDTH", 3)
       case SteepnessWidth => 3
+      // The steepness offset is the value you subtract from the
+      // steepness to get the actual steepness
+      case SteepnessOffset => 4
       case FeedbackWidth => Dump("FEEDBACK_WIDTH", 12)
       // Processing Element Table
       case PeTableNumEntries => Dump(Knob("NUM_PES"))
@@ -41,7 +44,7 @@ class DefaultConfig extends ChiselConfig (
     case "NUM_PES" => 6
     case "TRANSACTION_TABLE_NUM_ENTRIES" => 4
     case "TRANSACTION_TABLE_SRAM_ELEMENTS" => 64
-    case "CACHE_NUM_ENTRIES" => 4
+    case "CACHE_NUM_ENTRIES" => 8
     case "REGISTER_FILE_NUM_ELEMENTS" => 80
   }
 )

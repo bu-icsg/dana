@@ -9,6 +9,7 @@ class TransactionState extends XFilesBundle {
   val waiting = Bool()
   val needsLayerInfo = Bool()
   val done = Bool()
+  val decInUse = Bool()
   val request = Bool()
   val inFirst = Bool()
   val inLast = Bool()
@@ -193,6 +194,7 @@ class TransactionTable extends XFilesModule {
         table(nextFree).request := Bool(false)
         table(nextFree).countFeedback := cmd.countFeedback
         table(nextFree).done := Bool(false)
+        table(nextFree).decInUse := Bool(false)
         table(nextFree).indexElement := UInt(0)
         table(nextFree).countPeWrites := UInt(0)
         table(nextFree).readIdx := UInt(0)
@@ -316,8 +318,9 @@ class TransactionTable extends XFilesModule {
         table(io.peTable.req.bits.tableIndex).countPeWrites + UInt(1)
       when (table(io.peTable.req.bits.tableIndex).countPeWrites ===
         table(io.peTable.req.bits.tableIndex).nodesInCurrentLayer - UInt(1)) {
-        table(io.peTable.req.bits.tableIndex).done := Bool(true)
-        table(io.peTable.req.bits.tableIndex).waiting := Bool(true)
+        table(io.peTable.req.bits.tableIndex).done := Bool(false)
+        table(io.peTable.req.bits.tableIndex).decInUse := Bool(true)
+        table(io.peTable.req.bits.tableIndex).waiting := Bool(false)
       }
     }
   }
@@ -345,7 +348,7 @@ class TransactionTable extends XFilesModule {
     // the currentNode and numNodes to actually do this comparison).
     entryArbiter.io.in(i).valid := table(i).valid && !table(i).waiting &&
       Reg(next = !entryArbiter.io.out.valid) &&
-      ((readyCache && (table(i).done || !table(i).cacheValid ||
+      ((readyCache && (table(i).decInUse || !table(i).cacheValid ||
         table(i).needsLayerInfo)) ||
        (readyPeTable && (table(i).currentNode != table(i).numNodes)))
     // The other data connections are just aliases to the contents of
@@ -356,7 +359,7 @@ class TransactionTable extends XFilesModule {
     entryArbiter.io.in(i).bits.request := table(i).request
     entryArbiter.io.in(i).bits.inFirst := table(i).inFirst
     entryArbiter.io.in(i).bits.inLast := table(i).inLast
-    entryArbiter.io.in(i).bits.isDone := table(i).done
+    entryArbiter.io.in(i).bits.isDone := table(i).decInUse
     // Global info
     entryArbiter.io.in(i).bits.tableIndex := UInt(i)
     entryArbiter.io.in(i).bits.cacheIndex := table(i).cacheIndex
@@ -386,7 +389,8 @@ class TransactionTable extends XFilesModule {
       entryArbiter.io.out.bits.isDone)
   val isPeReq = entryArbiter.io.out.valid &&
     (entryArbiter.io.out.bits.cacheValid &&
-      !entryArbiter.io.out.bits.needsLayerInfo)
+      !entryArbiter.io.out.bits.needsLayerInfo) &&
+    !entryArbiter.io.out.bits.isDone
   // If this is a transition into a layer which is not the first
   // layer, then the Transaction Table requests need to block
   // until the Register File has all valid data. [TODO] This is
@@ -395,7 +399,11 @@ class TransactionTable extends XFilesModule {
   // but I'm leaving this the way it is due to the lack of a
   // non-trivial path to add this functionality.
   when (isCacheReq) {
-    table(entryArbiter.io.out.bits.tableIndex).waiting := Bool(true)}
+    table(entryArbiter.io.out.bits.tableIndex).waiting := Bool(true)
+    when (entryArbiter.io.out.bits.isDone) {
+      table(entryArbiter.io.out.bits.tableIndex).done := Bool(true)
+    }
+  }
   when (isPeReq) {
     table(entryArbiter.io.out.bits.tableIndex).currentNode :=
       table(entryArbiter.io.out.bits.tableIndex).currentNode + UInt(1)
@@ -502,6 +510,11 @@ class TransactionTable extends XFilesModule {
   assert(!Vec((0 until transactionTableNumEntries).map(i =>
     table(i).valid && (table(i).currentNode > table(i).numNodes))).contains(Bool(true)),
     "A TTable entry has a currentNode count greater than the total numNodes")
+
+  // Inbound read requests should only hit a done entry
+  assert(!(io.arbiter.rocc.cmd.valid && !cmd.readOrWrite &&
+    !table(derefTidIndex).done),
+    "TTable saw read request on entry that is not done")
 }
 
 class TransactionTableTests(uut: TransactionTable, isTrace: Boolean = true)

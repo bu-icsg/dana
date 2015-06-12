@@ -175,18 +175,18 @@ class Control extends DanaModule {
       reqCache(Bool(true), e_CACHE_LOAD, io.tTable.req.bits.nnid,
         io.tTable.req.bits.tableIndex, UInt(0), UInt(0))
     }
-    when (io.tTable.req.bits.cacheValid && io.tTable.req.bits.needsLayerInfo) {
+      .elsewhen (io.tTable.req.bits.cacheValid && io.tTable.req.bits.needsLayerInfo) {
       // Send a request to the storage module
       reqCache(Bool(true), e_CACHE_LAYER_INFO, io.tTable.req.bits.nnid,
         io.tTable.req.bits.tableIndex, io.tTable.req.bits.currentLayer,
         io.tTable.req.bits.currentLayer(0))
     }
     // If this entry is done, then its cache entry needs to be invalidated
-    when (io.tTable.req.bits.isDone) {
+      .elsewhen (io.tTable.req.bits.isDone) {
       reqCache(Bool(true), e_CACHE_DECREMENT_IN_USE_COUNT, io.tTable.req.bits.nnid,
         UInt(0), UInt(0), UInt(0))
     }
-    when (io.tTable.req.bits.cacheValid && !io.tTable.req.bits.needsLayerInfo &&
+      .elsewhen (io.tTable.req.bits.cacheValid && !io.tTable.req.bits.needsLayerInfo &&
       io.peTable.req.ready) {
       // Go ahead and allocate an entry in the Processing Element
       reqPETable(Bool(true), // valid

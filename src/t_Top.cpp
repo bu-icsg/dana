@@ -261,7 +261,7 @@ int t_Top::tick(int num_cycles = 1, int reset = 0,
                                        parameters.element_width / 4);
       r.unused = std::stoi(string_asid, NULL, 16);
       r.tid = std::stoi(string_tid, NULL, 16);
-      r.data = std::stoi(string_data, NULL, 16);
+      r.data = std::stol(string_data, NULL, 16);
       if (output != NULL) {
         output->push_back(r);
       }
@@ -374,9 +374,9 @@ void t_Top::info() {
 }
 
 void t_Top::info_ttable() {
-  std::cout << "----------------------------------------------------------------------------------------------------\n";
-  std::cout << "|V|R|W|CV|F?|L?|NL|D|ASID| Tid|Nnid|  #L|  #N|  CL|  CN|CNinL|#NcL|#NnL|idxE|#PeW|RidX| &N|Cache|DP| <- TTable\n";
-  std::cout << "----------------------------------------------------------------------------------------------------\n";
+  std::cout << "-------------------------------------------------------------------------------------------------------\n";
+  std::cout << "|V|R|W|CV|F?|L?|NL|-C|D|ASID| Tid|Nnid|  #L|  #N|  CL|  CN|CNinL|#NcL|#NnL|idxE|#PeW|RidX| &N|Cache|DP| <- TTable\n";
+  std::cout << "-------------------------------------------------------------------------------------------------------\n";
   std::string string_table("Top.xFilesArbiter.tTable.table_");
   std::stringstream string_field("");
   for (int i = 0; i < parameters.transaction_table_num_entries; i++) {
@@ -408,7 +408,11 @@ void t_Top::info_ttable() {
     string_field.str("");
     string_field << string_table << i << "_needsLayerInfo";
     std::cout << "| " << get_dat_by_name(string_field.str())->get_value().erase(0,2);
-    // Done [TODO] this is a placeholder until done is actually set/used
+    // Decrement Caceh in use (almost done)
+    string_field.str("");
+    string_field << string_table << i << "_decInUse";
+    std::cout << "| " << get_dat_by_name(string_field.str())->get_value().erase(0,2);
+    // Done
     string_field.str("");
     string_field << string_table << i << "_done";
     std::cout << "|" << get_dat_by_name(string_field.str())->get_value().erase(0,2);
@@ -1091,7 +1095,7 @@ int t_Top::testbench_fann(const char * file_net,
   }
 
   decimal_point = fann_save_to_fixed(ann, "/dev/null");
-  printf("[INFO] Decimal point: %d\n", decimal_point);
+  printf("[INFO] Found decimal point: %d\n", decimal_point);
   if (decimal_point < parameters.decimal_point_offset ||
       decimal_point > parameters.decimal_point_offset +
       pow(2, parameters.decimal_point_width) - 1) {
@@ -1229,7 +1233,7 @@ int t_Top::testbench_fann(std::vector<const char *> * files_net,
       }
     }
     decimal_point[i] = fann_save_to_fixed(ann[i], "/dev/null");
-    printf("[INFO] Decimal point: %d\n", decimal_point[i]);
+    printf("[INFO] Found decimal point: %d\n", decimal_point[i]);
     if (decimal_point[i] < parameters.decimal_point_offset ||
         decimal_point[i] > parameters.decimal_point_offset +
         pow(2, parameters.decimal_point_width) - 1) {
@@ -1372,13 +1376,37 @@ int main(int argc, char* argv[]) {
   std::vector<const char *> files_net;
   std::vector<const char *> files_train;
   std::vector<const char *> files_cache;
-  files_net.push_back("../workloads/data/rsa.net");
-  files_train.push_back("../workloads/data/rsa.train.100");
-  files_cache.push_back("../workloads/data/rsa-fixed");
+  files_net.push_back("../workloads/data/blackscholes.net");
+  files_train.push_back("../workloads/data/blackscholes.train.100");
+  files_cache.push_back("../workloads/data/blackscholes-fixed");
+
+  files_net.push_back("../workloads/data/fft.net");
+  files_train.push_back("../workloads/data/fft.train.100");
+  files_cache.push_back("../workloads/data/fft-fixed");
+
+  files_net.push_back("../workloads/data/inversek2j.net");
+  files_train.push_back("../workloads/data/inversek2j.train.100");
+  files_cache.push_back("../workloads/data/inversek2j-fixed");
+
+  files_net.push_back("../workloads/data/jmeint.net");
+  files_train.push_back("../workloads/data/jmeint.train.100");
+  files_cache.push_back("../workloads/data/jmeint-fixed");
+
+  files_net.push_back("../workloads/data/jpeg.net");
+  files_train.push_back("../workloads/data/jpeg.train.100");
+  files_cache.push_back("../workloads/data/jpeg-fixed");
+
+  files_net.push_back("../workloads/data/kmeans.net");
+  files_train.push_back("../workloads/data/kmeans.train.100");
+  files_cache.push_back("../workloads/data/kmeans-fixed");
 
   files_net.push_back("../workloads/data/sobel.net");
   files_train.push_back("../workloads/data/sobel.train.100");
   files_cache.push_back("../workloads/data/sobel-fixed");
+
+  files_net.push_back("../workloads/data/rsa.net");
+  files_train.push_back("../workloads/data/rsa.train.100");
+  files_cache.push_back("../workloads/data/rsa-fixed");
 
   if (api->testbench_fann(&files_net,
                           &files_train,
@@ -1386,7 +1414,7 @@ int main(int argc, char* argv[]) {
                           e_SINGLE,
                           debug,
                           0,
-                          0.05))
+                          0.1))
     return 1;
 
   if (api->testbench_fann(&files_net,
@@ -1395,7 +1423,7 @@ int main(int argc, char* argv[]) {
                           e_SMP,
                           debug,
                           0,
-                          0.05))
+                          0.1))
     return 1;
 
   if (tee) fclose(tee);

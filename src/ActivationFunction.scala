@@ -97,31 +97,38 @@ class ActivationFunction extends DanaModule {
 
   decimal := UInt(decimalPointOffset,
     width = decimalPointWidth + log2Up(decimalPointOffset)) + io.req.bits.decimal
-  inD0 := SInt(0)
 
-    // FANN_THRESHOLD
-  when(io.req.bits.activationFunction === e_FANN_THRESHOLD) {        // FANN_THRESHOLD
-    when (io.req.bits.in <= SInt(0)) { out := SInt(0)
+  def applySteepness(x: SInt, steepness: UInt): SInt = {
+    val tmp = SInt()
+    when (steepness < UInt(steepnessOffset)) {
+      tmp := x >> (UInt(steepnessOffset) - steepness)
+    } .elsewhen (steepness === UInt(steepnessOffset)) {
+      tmp := x
+    } .otherwise {
+      tmp := x << (steepness - UInt(steepnessOffset))
+    }
+    tmp
+  }
+
+  inD0 := applySteepness(io.req.bits.in, io.req.bits.steepness)
+  // FANN_LINEAR
+  when (io.req.bits.activationFunction === e_FANN_LINEAR) {
+    out := inD0
+  } // FANN_THRESHOLD
+    .elsewhen(io.req.bits.activationFunction === e_FANN_THRESHOLD) {
+    when (inD0 <= SInt(0)) { out := SInt(0)
     } .otherwise { out := SInt(1) << decimal }
   } // FANN_THRESHOLD_SYMMETRIC
     .elsewhen(io.req.bits.activationFunction === e_FANN_THRESHOLD_SYMMETRIC) {
-    when (io.req.bits.in < SInt(0)) {
+    when (inD0 < SInt(0)) {
       out := SInt(-1, width=elementWidth) << decimal
-    } .elsewhen(io.req.bits.in === SInt(0)) {
+    } .elsewhen(inD0 === SInt(0)) {
       out := SInt(0)
     } .otherwise {
       out := SInt(1) << decimal }
   } // FANN_SIGMOID and STEPWISE
     .elsewhen(io.req.bits.activationFunction === e_FANN_SIGMOID ||
     io.req.bits.activationFunction === e_FANN_SIGMOID_STEPWISE) {
-    // Adjust for the steepness
-    when (io.req.bits.steepness < UInt(4)) {
-      inD0 := io.req.bits.in >> (UInt(4) - io.req.bits.steepness)
-    } .elsewhen (io.req.bits.steepness === UInt(4)) {
-      inD0 := io.req.bits.in
-    } .otherwise {
-      inD0 := io.req.bits.in << (io.req.bits.steepness - UInt(4))
-    }
     // Compute the output
     when(inD0 < xmin) {
       out := SInt(0)
@@ -141,14 +148,6 @@ class ActivationFunction extends DanaModule {
   } // FANN_SIGMOID_SYMMETRIC and STEPWISE
     .elsewhen(io.req.bits.activationFunction === e_FANN_SIGMOID_SYMMETRIC ||
     io.req.bits.activationFunction === e_FANN_SIGMOID_SYMMETRIC_STEPWISE) {
-    // Adjust for the steepness
-    when (io.req.bits.steepness < UInt(4)) {
-      inD0 := io.req.bits.in >> (UInt(4) - io.req.bits.steepness)
-    } .elsewhen (io.req.bits.steepness === UInt(4)) {
-      inD0 := io.req.bits.in
-    } .otherwise {
-      inD0 := io.req.bits.in << (io.req.bits.steepness - UInt(4))
-    }
     // Compute the output
     when(inD0 < xmin) {
       out := SInt(-1, width = elementWidth) << decimal
