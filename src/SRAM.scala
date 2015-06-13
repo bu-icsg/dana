@@ -36,8 +36,26 @@ class SRAM (
   val sramDepth: Int = 64,
   val numReadPorts: Int = 0,
   val numWritePorts: Int = 0,
-  val numReadWritePorts: Int = 2
-) extends Module {
+  val numReadWritePorts: Int = 2,
+  val initSwitch: Int = -1,
+  val elementsPerBlock: Int = -1
+) extends BlackBox {
+  if (initSwitch >= 0) {
+    setVerilogParameters(
+      "#(.WIDTH(" + dataWidth + ")," +
+        ".DEPTH(" + sramDepth + ")," +
+        ".LG_DEPTH(" + log2Up(sramDepth) + ")," +
+        ".INIT_SWITCH(" + initSwitch + ")," +
+        ".ELEMENT_WIDTH(" + elementsPerBlock + ")," +
+        ".ELEMENTS_PER_BLOCK(" + elementsPerBlock + "))\n")
+    setName("sram_infer_preloaded_cache")}
+  else {
+    setVerilogParameters(
+      "#(.WIDTH(" + dataWidth + ")," +
+        ".DEPTH(" + sramDepth + ")," +
+        ".LG_DEPTH(" + log2Up(sramDepth) + "))\n ")
+    setName("sram")}
+
   val io = new SRAMInterface(
     numReadPorts = numReadPorts,
     numWritePorts = numWritePorts,

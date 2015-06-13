@@ -56,8 +56,8 @@ abstract trait DanaParameters extends UsesParameters {
   val regFileNumBlocks =
     divUp(params(RegisterFileNumElements), params(ElementsPerBlock))
   val cacheNumBlocks =
-    divUp(divUp(params(CacheDataSize), params(ElementsPerBlock)),
-      params(ElementWidth)) * 8
+    divUp(divUp((params(CacheDataSize) * 8), params(ElementWidth)),
+      params(ElementsPerBlock))
   val ioIdxWidth = if (params(TransactionTableSramElements) > params(RegisterFileNumElements))
     log2Up(params(TransactionTableSramElements) * params(ElementWidth)) else
       log2Up(params(RegisterFileNumElements) * params(ElementWidth))

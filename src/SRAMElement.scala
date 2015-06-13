@@ -65,6 +65,12 @@ class SRAMElement (
     numReadWritePorts = 0
   ))
 
+  // Set the name of the verilog backend
+  if (numPorts == 1)
+    sram.setName("sram_r" + numPorts + "_w" + numPorts + "_rw" + 0);
+  else
+    sram.setName("UNDEFINED_SRAM_BACKEND_FOR_NUM_PORTS_" + numPorts);
+
   def divUp (dividend: Int, divisor: Int): Int = {
     (dividend + divisor - 1) / divisor}
 

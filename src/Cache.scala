@@ -2,6 +2,8 @@ package dana
 
 import Chisel._
 
+case object PreloadCache extends Field[Bool]
+
 class CacheState extends DanaBundle {
   // nnsim-hdl equivalent:
   //   cache_types::cache_config_entry_struct
@@ -64,15 +66,15 @@ class Cache extends DanaModule {
 
   // Create the table of cache entries
   val table = Vec.fill(cacheNumEntries){Reg(new CacheState)}
-  // Each cache entry gets one two-ported SRAM
-  val mem = Vec.fill(cacheNumEntries){
-    Module(new SRAM(
-      dataWidth = elementWidth * elementsPerBlock,
-      numReadPorts = 0,
-      numWritePorts = 0,
-      numReadWritePorts = 2,
-      sramDepth = cacheNumBlocks // [TODO] I think this is the correct parameter
-    )).io}
+  val mem = Vec((0 until cacheNumEntries).map(i => Module(new SRAM(
+    dataWidth = elementWidth * elementsPerBlock,
+    numReadPorts = 0,
+    numWritePorts = 0,
+    numReadWritePorts = 2,
+    sramDepth = cacheNumBlocks, // [TODO] I think this is the correct parameter
+    initSwitch = i,
+    elementsPerBlock = elementsPerBlock
+    )).io))
 
   // Response Pipelines for Control module and PEs. Responses take multiple
   // cycles to generate due to the fact that data needs to be read out
@@ -318,9 +320,20 @@ class Cache extends DanaModule {
   io.pe.resp.bits := peRespPipe(1).bits
 
   // Reset
-  when (reset) {for (i <- 0 until cacheNumEntries) {
-    table(i).valid := Bool(false)
-    }}
+  if (params(PreloadCache)) {
+    when (reset) {for (i <- 0 until cacheNumEntries) {
+      table(i).valid := Bool(true)
+      table(i).notifyFlag := Bool(false)
+      table(i).fetch := Bool(false)
+      table(i).notifyIndex := UInt(0)
+      table(i).notifyMask := UInt(0)
+      table(i).nnid := UInt(i)
+      table(i).inUseCount := UInt(0)
+    }}}
+    else {
+    when (reset) {for (i <- 0 until cacheNumEntries) {
+      table(i).valid := Bool(false)
+    }}}
 
   // Assertions
 

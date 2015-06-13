@@ -32,6 +32,8 @@ class DefaultConfig extends ChiselConfig (
       case CacheDataSize => 32 * 1024
       // Register File
       case RegisterFileNumElements => Dump(Knob("REGISTER_FILE_NUM_ELEMENTS"))
+      // Cache Preload
+      case PreloadCache => false
     }},
   // [TODO] Add constraints
   // topConstraints = List(
@@ -48,3 +50,12 @@ class DefaultConfig extends ChiselConfig (
     case "REGISTER_FILE_NUM_ELEMENTS" => 80
   }
 )
+
+// The Verilog conig needs to define cache preloading
+class PreloadCacheConfig extends ChiselConfig (
+  (pname,site,here) => pname match {
+    case PreloadCache => true
+  }
+)
+
+class DefaultFPGAConfig extends ChiselConfig(new PreloadCacheConfig ++ new DefaultConfig)
