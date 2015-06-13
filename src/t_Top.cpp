@@ -154,33 +154,33 @@ int t_Top::read_parameters(const string file_string_parameters) {
     key = line.substr(1, pos_del - 1);
     value = line.substr(pos_del + 1, pos_eol - pos_del - 1);
     if (key.compare("NUM_PES") == 0)
-      parameters.num_pes = stoi(value, NULL, 10);
+      parameters.num_pes = stoll(value, NULL, 10);
     else if (key.compare("CACHE_NUM_ENTRIES") == 0)
-      parameters.cache_num_entries = stoi(value, NULL, 10);
+      parameters.cache_num_entries = stoll(value, NULL, 10);
     else if (key.compare("ELEMENTS_PER_BLOCK") == 0)
-      parameters.elements_per_block = stoi(value, NULL, 10);
+      parameters.elements_per_block = stoll(value, NULL, 10);
     else if (key.compare("TRANSACTION_TABLE_NUM_ENTRIES") == 0)
-      parameters.transaction_table_num_entries = stoi(value, NULL, 10);
+      parameters.transaction_table_num_entries = stoll(value, NULL, 10);
     else if (key.compare("TRANSACTION_TABLE_SRAM_ELEMENTS") == 0)
-      parameters.transaction_table_sram_elements = stoi(value, NULL, 10);
+      parameters.transaction_table_sram_elements = stoll(value, NULL, 10);
     else if (key.compare("REGISTER_FILE_NUM_ELEMENTS") == 0)
-      parameters.register_file_num_elements = stoi(value, NULL, 10);
+      parameters.register_file_num_elements = stoll(value, NULL, 10);
     else if (key.compare("TID_WIDTH") == 0)
-      parameters.tid_width = stoi(value, NULL, 10);
+      parameters.tid_width = stoll(value, NULL, 10);
     else if (key.compare("NNID_WIDTH") == 0)
-      parameters.nnid_width = stoi(value, NULL, 10);
+      parameters.nnid_width = stoll(value, NULL, 10);
     else if (key.compare("FEEDBACK_WIDTH") == 0)
-      parameters.feedback_width = stoi(value, NULL, 10);
+      parameters.feedback_width = stoll(value, NULL, 10);
     else if (key.compare("ELEMENT_WIDTH") == 0)
-      parameters.element_width = stoi(value, NULL, 10);
+      parameters.element_width = stoll(value, NULL, 10);
     else if (key.compare("ASID_WIDTH") == 0)
-      parameters.asid_width = stoi(value, NULL, 10);
+      parameters.asid_width = stoll(value, NULL, 10);
     else if (key.compare("NUM_CORES") == 0)
-      parameters.num_cores = stoi(value, NULL, 10);
+      parameters.num_cores = stoll(value, NULL, 10);
     else if (key.compare("DECIMAL_POINT_OFFSET") == 0)
-      parameters.decimal_point_offset = stoi(value, NULL, 10);
+      parameters.decimal_point_offset = stoll(value, NULL, 10);
     else if (key.compare("DECIMAL_POINT_WIDTH") == 0)
-      parameters.decimal_point_width = stoi(value, NULL, 10);
+      parameters.decimal_point_width = stoll(value, NULL, 10);
     else
       std::cout << "[ERROR] Unknown parameter key (" << key << ") found" << std::endl;
     std::cout << "[INFO]     " << key << " -> " << value << std::endl;
@@ -194,7 +194,7 @@ t_Top::t_Top() {
   seed = time(NULL);
   srand(seed);
   top = new Top_t();
-  top->init();
+  top->init(seed);
   init(top);
   cycle = 0;
   vcd_flag = false;
@@ -206,7 +206,7 @@ t_Top::t_Top(const string file_string_vcd) {
   seed = time(NULL);
   srand(seed);
   top = new Top_t();
-  top->init();
+  top->init(seed);
   init(top);
   cycle = 0;
   vcd_flag = true;
@@ -261,7 +261,7 @@ int t_Top::tick(int num_cycles = 1, int reset = 0,
                                        parameters.element_width / 4);
       r.unused = std::stoi(string_asid, NULL, 16);
       r.tid = std::stoi(string_tid, NULL, 16);
-      r.data = std::stol(string_data, NULL, 16);
+      r.data = std::stoll(string_data, NULL, 16);
       if (output != NULL) {
         output->push_back(r);
       }
@@ -506,8 +506,8 @@ void t_Top::info_cache_table() {
     // Fetch
     string_field.str("");
     string_field << string_table << i << "_fetch";
-    // std::cout << "|" << get_dat_by_name(string_field.str())->get_value().erase(0,2);
-    std::cout << "| ";
+    std::cout << "|" << get_dat_by_name(string_field.str())->get_value().erase(0,2);
+    // std::cout << "| ";
     // Notify Index
     string_field.str("");
     string_field << string_table << i << "_notifyIndex";
@@ -677,12 +677,16 @@ void t_Top::info_petable() {
 }
 
 void t_Top::info_reg_file() {
-  std::cout << "---------------------------------\n"
-            << "|E[Wr](0)|#Wr(0)|E[Wr](1)|#Wr(1)| <- Register File\n"
-            << "---------------------------------\n";
+  std::cout << "-----------------------------------\n"
+            << "|V|E[Wr](0)|#Wr(0)|E[Wr](1)|#Wr(1)| <- Register File\n"
+            << "-----------------------------------\n";
   std::string string_table("Top.dana.regFile.state_");
   std::stringstream string_field("");
   for (int i = 0; i < parameters.transaction_table_num_entries; i++) {
+    // Valid
+    string_field.str("");
+    string_field << string_table << i * 2 << "_valid";
+    std::cout << "|" << get_dat_by_name(string_field.str())->get_value().erase(0,2);
     // Total number of expected writes
     string_field.str("");
     string_field << string_table << i * 2 << "_totalWrites";
@@ -770,6 +774,12 @@ void t_Top::cache_load(int index, uint32_t nnid, const char * file,
   ss << "Top.dana.cache.table_" << index << "_nnid";
   val << nnid;
   get_dat_by_name(ss.str())->set_value(val.str());
+  ss.str("");
+  ss << "Top.dana.cache.table_" << index << "_inUseCount";
+  get_dat_by_name(ss.str())->set_value("0");
+  ss.str("");
+  ss << "Top.dana.cache.table_" << index << "_fetch";
+  get_dat_by_name(ss.str())->set_value("0");
 
   // Set the cache SRAM
   ifstream config;
@@ -1385,11 +1395,14 @@ int main(int argc, char* argv[]) {
   if (has_vcd) api = new t_Top(file_vcd);
   else api = new t_Top();
 
-  // Apply a multi-cycle reset
-  api->reset(8);
-
   // Load the parameters
   api->read_parameters(file_parameters);
+
+  // Apply a multi-cycle reset
+  std::cout << "[INFO] Applying reset" << std::endl;
+  api->reset(8);
+  std::cout << "[INFO] De-asserting reset" << std::endl;
+
   // No tee file is used, currently
   FILE *tee = NULL;
   api->set_teefile(tee);
@@ -1398,35 +1411,35 @@ int main(int argc, char* argv[]) {
   std::vector<const char *> files_train;
   std::vector<const char *> files_cache;
   files_net.push_back("../workloads/data/blackscholes.net");
-  files_train.push_back("../workloads/data/blackscholes.train.100");
+  files_train.push_back("../workloads/data/blackscholes.train.10");
   files_cache.push_back("../workloads/data/blackscholes-fixed");
 
   files_net.push_back("../workloads/data/fft.net");
-  files_train.push_back("../workloads/data/fft.train.100");
+  files_train.push_back("../workloads/data/fft.train.10");
   files_cache.push_back("../workloads/data/fft-fixed");
 
   files_net.push_back("../workloads/data/inversek2j.net");
-  files_train.push_back("../workloads/data/inversek2j.train.100");
+  files_train.push_back("../workloads/data/inversek2j.train.10");
   files_cache.push_back("../workloads/data/inversek2j-fixed");
 
   files_net.push_back("../workloads/data/jmeint.net");
-  files_train.push_back("../workloads/data/jmeint.train.100");
+  files_train.push_back("../workloads/data/jmeint.train.10");
   files_cache.push_back("../workloads/data/jmeint-fixed");
 
   files_net.push_back("../workloads/data/jpeg.net");
-  files_train.push_back("../workloads/data/jpeg.train.100");
+  files_train.push_back("../workloads/data/jpeg.train.10");
   files_cache.push_back("../workloads/data/jpeg-fixed");
 
   files_net.push_back("../workloads/data/kmeans.net");
-  files_train.push_back("../workloads/data/kmeans.train.100");
+  files_train.push_back("../workloads/data/kmeans.train.10");
   files_cache.push_back("../workloads/data/kmeans-fixed");
 
   files_net.push_back("../workloads/data/sobel.net");
-  files_train.push_back("../workloads/data/sobel.train.100");
+  files_train.push_back("../workloads/data/sobel.train.10");
   files_cache.push_back("../workloads/data/sobel-fixed");
 
   files_net.push_back("../workloads/data/rsa.net");
-  files_train.push_back("../workloads/data/rsa.train.100");
+  files_train.push_back("../workloads/data/rsa.train.10");
   files_cache.push_back("../workloads/data/rsa-fixed");
 
   if (api->testbench_fann(&files_net,

@@ -317,6 +317,11 @@ class Cache extends DanaModule {
   io.pe.resp.valid := peRespPipe(1).valid
   io.pe.resp.bits := peRespPipe(1).bits
 
+  // Reset
+  when (reset) {for (i <- 0 until cacheNumEntries) {
+    table(i).valid := Bool(false)
+    }}
+
   // Assertions
 
   // The control module shouldn't be sending requests if the cache is

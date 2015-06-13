@@ -1,3 +1,4 @@
+`timescale 1ns/1ps
 `include "Top.DefaultConfig.v"
 
 module t_top;
@@ -8,57 +9,82 @@ module t_top;
 `define CQ_DELAY 0.100
 
   logic clk, rst;
+  int clk_count;
 
-  struct packed {
-    // cmd
-    logic cmd_ready;
-    logic cmd_valid;
-    logic [6:0] cmd_bits_inst_funct;
-    logic [4:0] cmd_bits_inst_rs2;
-    logic [4:0] cmd_bits_inst_rs1;
-    logic cmd_bits_inst_xd;
-    logic cmd_bits_inst_xs1;
-    logic cmd_bits_inst_xs2;
-    logic [4:0] cmd_bits_inst_rd;
-    logic [6:0] cmd_bits_inst_opcode;
-    logic [63:0] cmd_bits_rs1;
-    logic [63:0] cmd_bits_rs2;
+  // cmd
+  wire io_0_cmd_ready;
+  logic io_0_cmd_valid;
+  logic [6:0] io_0_cmd_bits_inst_funct;
+  logic [4:0] io_0_cmd_bits_inst_rs2;
+  logic [4:0] io_0_cmd_bits_inst_rs1;
+  logic io_0_cmd_bits_inst_xd;
+  logic io_0_cmd_bits_inst_xs1;
+  logic io_0_cmd_bits_inst_xs2;
+  logic [4:0] io_0_cmd_bits_inst_rd;
+  logic [6:0] io_0_cmd_bits_inst_opcode;
+  logic [63:0] io_0_cmd_bits_rs1;
+  logic [63:0] io_0_cmd_bits_rs2;
 
-    // resp
-    logic resp_ready;
-    logic resp_valid;
-    logic [4:0] resp_bits_rd;
-    logic [63:0] resp_bits_data;
-    logic busy;
-    logic s;
-    logic interrupt;
-    } io_0, io_1;
+  // resp
+  logic io_0_resp_ready;
+  logic io_0_resp_valid;
+  logic [4:0] io_0_resp_bits_rd;
+  logic [63:0] io_0_resp_bits_data;
+  logic io_0_busy;
+  logic io_0_s;
+  logic io_0_interrupt;
 
   // rocc io_0, io_1;
 
-  // function info_ttable;
-  // endfunction
+  task info;
+    info_ttable();
+  endtask
+
+  task info_ttable;
+    $display("-----");
+    $display("|V|R|W|CV|F?|L?|NL|-C|D|ASID| Tid|Nnid|  #L|  #N|  CL|  CN|CNinL|#NcL|#NnL|idxE|#PeW|RidX| &N|Cache|DP| <- TTable");
+    $display("|%d|%d|%d|%2d|%2d|%2d|%2d|%2d|%d|%4x|",
+             u_top.xFilesArbiter.tTable.table__0_valid,
+             u_top.xFilesArbiter.tTable.table__0_reserved,
+             u_top.xFilesArbiter.tTable.table__0_waiting,
+             u_top.xFilesArbiter.tTable.table__0_cacheValid,
+             u_top.xFilesArbiter.tTable.table__0_inFirst,
+             u_top.xFilesArbiter.tTable.table__0_inLast,
+             u_top.xFilesArbiter.tTable.table__0_needsLayerInfo,
+             u_top.xFilesArbiter.tTable.table__0_decInUse,
+             u_top.xFilesArbiter.tTable.table__0_done,
+             u_top.xFilesArbiter.tTable.table__0_asid);
+    $display("|%d|%d|",
+             u_top.xFilesArbiter.tTable.table__1_valid,
+             u_top.xFilesArbiter.tTable.table__1_reserved);
+    $display("|%d|%d|",
+             u_top.xFilesArbiter.tTable.table__2_valid,
+             u_top.xFilesArbiter.tTable.table__2_reserved);
+    $display("|%d|%d|",
+             u_top.xFilesArbiter.tTable.table__3_valid,
+             u_top.xFilesArbiter.tTable.table__3_reserved);
+    $display("-----");
+  endtask
 
   initial begin
     clk = 0;
     rst = 0;
-    io_0.cmd_valid = 0;
-    io_0.cmd_bits_inst_funct = 0;
-    io_0.cmd_bits_inst_rs2 = 0;
-    io_0.cmd_bits_inst_rs1 = 0;
-    io_0.cmd_bits_inst_xd = 0;
-    io_0.cmd_bits_inst_xs1 = 0;
-    io_0.cmd_bits_inst_xs2 = 0;
-    io_0.cmd_bits_inst_rd = 0;
-    io_0.cmd_bits_inst_opcode = 0;
-    io_0.cmd_bits_rs1 = 0;
-    io_0.cmd_bits_rs2 = 0;
-    io_0.resp_ready = 0;
-    io_0.s = 0;
-    #(`PERIOD * 5) rst = 1; $display("[INFO] Reset asserted");
-    #(`HALF_PERIOD * 4) rst = 0; $display("[INFO] Reset de-asserted");
+    clk_count = 0;
+    io_0_cmd_valid = 0;
+    io_0_cmd_bits_inst_funct = 0;
+    io_0_cmd_bits_inst_rs2 = 0;
+    io_0_cmd_bits_inst_rs1 = 0;
+    io_0_cmd_bits_inst_xd = 0;
+    io_0_cmd_bits_inst_xs1 = 0;
+    io_0_cmd_bits_inst_xs2 = 0;
+    io_0_cmd_bits_inst_rd = 0;
+    io_0_cmd_bits_inst_opcode = 0;
+    io_0_cmd_bits_rs1 = 0;
+    io_0_cmd_bits_rs2 = 0;
+    io_0_resp_ready = 0;
+    io_0_s = 0;
+    #(`HALF_PERIOD * 100) rst = 1; $display("[INFO] Reset de-asserted");
     // Set the ASID
-
     // New Write Request
 
     // Write Data
@@ -69,56 +95,56 @@ module t_top;
   end
 
   always #`HALF_PERIOD begin
-    if (clk)
-      $fwrite(32'h80000001, "Tick\n");
-    else
-      $fwrite(32'h80000001, "Tock\n");
+    if (clk) begin
+      info();
+      clk_count++;
+    end
     clk = ~clk;
   end
 
   Top u_top
     (.clk(clk),
-     .reset(rst),
+     .reset(!rst),
      // Core 1
-     .io_arbiter_1_cmd_ready(io_1.cmd_ready), // output
-     .io_arbiter_1_cmd_valid(io_1.cmd_valid), // input
-     .io_arbiter_1_cmd_bits_inst_funct(io_1.cmd_bits_inst_funct), // input [6:0]
-     .io_arbiter_1_cmd_bits_inst_rs2(io_1.cmd_bits_inst_rs2), // input [4:0]
-     .io_arbiter_1_cmd_bits_inst_rs1(io_1.cmd_bits_inst_rs1), // input [4:0]
-     .io_arbiter_1_cmd_bits_inst_xd(io_1.cmd_bits_inst_xd), // input
-     .io_arbiter_1_cmd_bits_inst_xs1(io_1.cmd_bits_inst_xs1), // input
-     .io_arbiter_1_cmd_bits_inst_xs2(io_1.cmd_bits_inst_xs2), // input
-     .io_arbiter_1_cmd_bits_inst_rd(io_1.cmd_bits_inst_rd), // input [4:0]
-     .io_arbiter_1_cmd_bits_inst_opcode(io_1.cmd_bits_inst_opcode), // input [6:0]
-     .io_arbiter_1_cmd_bits_rs1(io_1.cmd_bits_rs1), // input [63:0]
-     .io_arbiter_1_cmd_bits_rs2(io_1.cmd_bits_rs2), // input [63:0]
-     .io_arbiter_1_resp_ready(io_1.resp_ready), // input
-     .io_arbiter_1_resp_valid(io_1.resp_valid), // output
-     .io_arbiter_1_resp_bits_rd(io_1.resp_bits_rd), // output[4:0]
-     .io_arbiter_1_resp_bits_data(io_1.resp_bits_data), // output[63:0]
-     .io_arbiter_1_busy(io_1.busy), // output
-     .io_arbiter_1_s(io_1.s), // input
-     .io_arbiter_1_interrupt(io_1.interrupt), // output
+     .io_arbiter_1_cmd_ready(), // output
+     .io_arbiter_1_cmd_valid('0), // input
+     .io_arbiter_1_cmd_bits_inst_funct('0), // input [6:0]
+     .io_arbiter_1_cmd_bits_inst_rs2('0), // input [4:0]
+     .io_arbiter_1_cmd_bits_inst_rs1('0), // input [4:0]
+     .io_arbiter_1_cmd_bits_inst_xd('0), // input
+     .io_arbiter_1_cmd_bits_inst_xs1('0), // input
+     .io_arbiter_1_cmd_bits_inst_xs2('0), // input
+     .io_arbiter_1_cmd_bits_inst_rd('0), // input [4:0]
+     .io_arbiter_1_cmd_bits_inst_opcode('0), // input [6:0]
+     .io_arbiter_1_cmd_bits_rs1('0), // input [63:0]
+     .io_arbiter_1_cmd_bits_rs2('0), // input [63:0]
+     .io_arbiter_1_resp_ready('0), // input
+     .io_arbiter_1_resp_valid(), // output
+     .io_arbiter_1_resp_bits_rd(), // output[4:0]
+     .io_arbiter_1_resp_bits_data(), // output[63:0]
+     .io_arbiter_1_busy(), // output
+     .io_arbiter_1_s('0), // input
+     .io_arbiter_1_interrupt(), // output
      // Core 0
-     .io_arbiter_0_cmd_ready(io_0.cmd_ready), // output
-     .io_arbiter_0_cmd_valid(io_0.cmd_valid), // input
-     .io_arbiter_0_cmd_bits_inst_funct(io_0.cmd_bits_inst_funct), // input [6:0]
-     .io_arbiter_0_cmd_bits_inst_rs2(io_0.cmd_bits_inst_rs2), // input [4:0]
-     .io_arbiter_0_cmd_bits_inst_rs1(io_0.cmd_bits_inst_rs1), // input [4:0]
-     .io_arbiter_0_cmd_bits_inst_xd(io_0.cmd_bits_inst_xd), // input
-     .io_arbiter_0_cmd_bits_inst_xs1(io_0.cmd_bits_inst_xs1), // input
-     .io_arbiter_0_cmd_bits_inst_xs2(io_0.cmd_bits_inst_xs2), // input
-     .io_arbiter_0_cmd_bits_inst_rd(io_0.cmd_bits_inst_rd), // input [4:0]
-     .io_arbiter_0_cmd_bits_inst_opcode(io_0.cmd_bits_inst_opcode), // input [6:0]
-     .io_arbiter_0_cmd_bits_rs1(io_0.cmd_bits_rs1), // input [63:0]
-     .io_arbiter_0_cmd_bits_rs2(io_0.cmd_bits_rs2), // input [63:0]
-     .io_arbiter_0_resp_ready(io_0.resp_ready), // input
-     .io_arbiter_0_resp_valid(io_0.resp_valid), // output
-     .io_arbiter_0_resp_bits_rd(io_0.resp_bits_rd), // output[4:0]
-     .io_arbiter_0_resp_bits_data(io_0.resp_bits_data), // output[63:0]
-     .io_arbiter_0_busy(io_0.busy), // output
-     .io_arbiter_0_s(io_0.s), // input
-     .io_arbiter_0_interrupt(io_0.interrupt) // output
+     .io_arbiter_0_cmd_ready(io_0_cmd_ready), // output
+     .io_arbiter_0_cmd_valid(io_0_cmd_valid), // input
+     .io_arbiter_0_cmd_bits_inst_funct(io_0_cmd_bits_inst_funct), // input [6:0]
+     .io_arbiter_0_cmd_bits_inst_rs2(io_0_cmd_bits_inst_rs2), // input [4:0]
+     .io_arbiter_0_cmd_bits_inst_rs1(io_0_cmd_bits_inst_rs1), // input [4:0]
+     .io_arbiter_0_cmd_bits_inst_xd(io_0_cmd_bits_inst_xd), // input
+     .io_arbiter_0_cmd_bits_inst_xs1(io_0_cmd_bits_inst_xs1), // input
+     .io_arbiter_0_cmd_bits_inst_xs2(io_0_cmd_bits_inst_xs2), // input
+     .io_arbiter_0_cmd_bits_inst_rd(io_0_cmd_bits_inst_rd), // input [4:0]
+     .io_arbiter_0_cmd_bits_inst_opcode(io_0_cmd_bits_inst_opcode), // input [6:0]
+     .io_arbiter_0_cmd_bits_rs1(io_0_cmd_bits_rs1), // input [63:0]
+     .io_arbiter_0_cmd_bits_rs2(io_0_cmd_bits_rs2), // input [63:0]
+     .io_arbiter_0_resp_ready(io_0_resp_ready), // input
+     .io_arbiter_0_resp_valid(io_0_resp_valid), // output
+     .io_arbiter_0_resp_bits_rd(io_0_resp_bits_rd), // output[4:0]
+     .io_arbiter_0_resp_bits_data(io_0_resp_bits_data), // output[63:0]
+     .io_arbiter_0_busy(io_0_busy), // output
+     .io_arbiter_0_s(io_0_s), // input
+     .io_arbiter_0_interrupt(io_0_interrupt) // output
      );
 
 endmodule

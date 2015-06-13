@@ -35,6 +35,11 @@ class AsidUnit extends DanaModule with XFilesParameters {
   io.asid := asidReg.asid
   io.tid := asidReg.tid
 
+  // Reset
+  when (reset) {
+    asidReg.valid := Bool(false)
+  }
+
   // Assertions
   // There shouldn't be a new request on an invalid TID
   assert(!(newRequest && !asidReg.valid),

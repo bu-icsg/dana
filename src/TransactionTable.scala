@@ -116,6 +116,7 @@ class TransactionTable extends XFilesModule {
 
   // Vector of all the table entries
   val table = Vec.fill(transactionTableNumEntries){Reg(new TransactionState)}
+
   // Vector of the table entry memories
   val mem = Vec.fill(transactionTableNumEntries){
     Module(new SRAMElement(
@@ -434,6 +435,11 @@ class TransactionTable extends XFilesModule {
       table(entryArbiter.io.out.bits.tableIndex).currentLayer :=
         table(entryArbiter.io.out.bits.tableIndex).currentLayer
     }}
+
+  // Reset Condition
+  when (reset) {for (i <- 0 until transactionTableNumEntries) {
+    table(i).valid := Bool(false)
+    table(i).reserved := Bool(false)}}
 
   // Assertions
 

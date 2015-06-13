@@ -11,6 +11,7 @@ class Memory extends DanaModule {
 
   // The output is connected, but does not do anything. So, these
   // values are just set to defaults.
+  io.cache.req.ready := Bool(true)
   io.cache.resp.valid := Bool(false)
   io.cache.resp.bits.done := Bool(false)
   io.cache.resp.bits.data := UInt(0, width = elementsPerBlock * elementWidth)

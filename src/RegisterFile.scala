@@ -9,6 +9,7 @@ class RegisterFileInterface extends DanaBundle {
 }
 
 class RegisterFileState extends DanaBundle {
+  val valid = Bool()
   val totalWrites = UInt(width = 16) // [TODO] fragile
   val countWrites = UInt(width = 16) // [TODO] fragile
 }
@@ -64,6 +65,8 @@ class RegisterFile extends DanaModule {
   // Requests from the Control module
   when (io.control.req.valid) {
     state(io.control.req.bits.tIdx << UInt(1) |
+      io.control.req.bits.location).valid := Bool(true)
+    state(io.control.req.bits.tIdx << UInt(1) |
       io.control.req.bits.location).totalWrites :=
       io.control.req.bits.totalWrites
     state(io.control.req.bits.tIdx << UInt(1) |
@@ -77,11 +80,16 @@ class RegisterFile extends DanaModule {
   io.pe.resp.bits.peIndex := peIndex_d0
   io.pe.resp.bits.data := mem.io.dout(0)
 
+  // Reset
+  when (reset) {for (i <- 0 until transactionTableNumEntries * 2) {
+    state(i).valid := Bool(false)}}
+
   // Assertions
 
   // The number of writes that we've seen should never be greater than
   // the number of expected writes.
   assert(!Vec((0 until transactionTableNumEntries * 2).map(
-    i => (state(i).countWrites > state(i).totalWrites))).contains(Bool(true)),
+    i => (state(i).valid &&
+      state(i).countWrites > state(i).totalWrites))).contains(Bool(true)),
     "The total writes to a Regsiter File entry exceeded the number expected")
 }
