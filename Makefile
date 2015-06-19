@@ -1,5 +1,10 @@
 # Common configuration
-DIR_SRC		= src
+DIR_SRC_SCALA	= src/main/scala
+DIR_SRC_V	= src/main/verilog
+DIR_SRC_CPP	= src/main/cpp
+DIR_TEST_SCALA	= src/test/scala
+DIR_TEST_V	= src/test/verilog
+DIR_TEST_CPP	= src/test/cpp
 DIR_BUILD	= build
 
 # Chisel/Scala configuration
@@ -37,7 +42,7 @@ COMMA    = ,
 
 # Chisel Target Backends
 EXECUTABLES	= Top
-ALL_MODULES	= $(notdir $(wildcard $(DIR_SRC)/*.scala))
+ALL_MODULES	= $(notdir $(wildcard $(DIR_SRC_SCALA)/*.scala))
 BACKEND_CPP	= $(EXECUTABLES:%=$(DIR_BUILD)/%$(CHISEL_CONFIG_DOT).cpp)
 BACKEND_VERILOG = $(EXECUTABLES:%=$(DIR_BUILD)/%$(FPGA_CONFIG_DOT).v)
 BACKEND_DOT	= $(EXECUTABLES:%=$(DIR_BUILD)/%$(CHISEL_CONFIG_DOT).dot)
@@ -55,7 +60,9 @@ STRIPPED         = $(EXECUTABLES:%=$(DIR_BUILD)/%-emulator-nomain.o)
 TESTS_V            = t_Top.v
 TEST_V_EXECUTABLES = $(TESTS_V:%.v=$(DIR_BUILD)/%$(FPGA_CONFIG_DOT).vvp)
 VCDS_V             = $(TESTS_V:%.v=$(DIR_BUILD)/%$(FPGA_CONFIG_DOT)-v.vcd)
-INCLUDE_V          = $(DIR_BUILD) $(DIR_BUILD)/cache $(DIR_SRC) \
+INCLUDE_V          = $(DIR_BUILD) $(DIR_BUILD)/cache \
+	$(DIR_TEST_V) \
+	$(DIR_SRC_V) \
 	$(shell readlink -f ../submodules/verilog/src/) \
 	$(shell readlink -f ../nnsim-hdl/src)
 FLAGS_V            = -g2012 $(addprefix -I, $(INCLUDE_V))
@@ -76,10 +83,11 @@ LIB_LIBS      = m fann
 LFLAGS        = $(addprefix -Wl$(COMMA)-R, $(shell readlink -f $(LIB_PATHS))) \
 	$(LIB_PATHS:%=-L %) $(LIB_LIBS:%=-l %)
 
-vpath %.scala $(DIR_SRC)
-vpath %.cpp $(DIR_SRC)
+vpath %.scala $(DIR_SRC_SCALA)
+vpath %.cpp $(DIR_TEST_CPP)
 vpath %.cpp $(DIR_BUILD)
-vpath %.v $(DIR_SRC)
+vpath %.v $(DIR_TEST_V)
+vpath %.v $(DIR_SRC_V)
 vpath %.v $(DIR_BUILD)
 
 .PHONY: all clean cpp debug dot run run-verilog vcd vcd-verilog verilog
@@ -149,5 +157,5 @@ $(DIR_BUILD)/%$(FPGA_CONFIG_DOT)-vcd.vvp: %.v $(BACKEND_VERILOG) $(HEADERS_V)
 
 #------------------- Utility Targets
 clean:
-	rm -f $(DIR_BUILD)/*
+	rm -rf $(DIR_BUILD)/*
 	rm -rf target

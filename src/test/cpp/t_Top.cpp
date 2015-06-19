@@ -106,6 +106,7 @@ public:
   void cache_load(int, uint32_t, const char *, bool);
 
   // Check to see if any entries in the Transaction Table are done
+  // [TODO] This method is possibly broken.
   int any_done();
 
   // Check for valid entries in the Transaction Table
@@ -816,6 +817,7 @@ void t_Top::cache_load(int index, uint32_t nnid, const char * file,
   if (debug) std::cout << "[INFO]   Done!" << std::endl;
 }
 
+// [TODO] any_done is possibly broken
 int t_Top::any_done () {
   std::string string_table("Top.xFilesArbiter.tTable.table_");
   std::stringstream string_field("");
@@ -886,7 +888,7 @@ int t_Top::run_single(transaction * t, bool debug = false,
   // Once we have a TID, we can start writing data
   for (unsigned int i = 0; i < t->inputs.size(); i++)
     write_data(t->tid, t->get_input(), t->done_in(), &responses, debug);
-  while (!any_done()) {
+  while (is_done(t->asid, t->tid) < 0) {
     tick(1, 0, NULL, debug);
     if (debug) info();
     if (cycle_limit && get_cycles() > cycle_limit) {
@@ -1445,7 +1447,7 @@ int main(int argc, char* argv[]) {
   if (api->testbench_fann(&files_net,
                           &files_train,
                           &files_cache,
-                          e_SMP,
+                          e_SINGLE,
                           debug,
                           0,
                           0.1))
