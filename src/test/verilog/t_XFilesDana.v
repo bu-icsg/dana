@@ -1,11 +1,11 @@
 `timescale 1ns/1ps
 `define RAM_INFER_OVERRIDE
 
-`include "Top.DefaultFPGAConfig.v"
+`include "XFilesDana.DefaultFPGAConfig.v"
 `include "sram_r1_w1_rw0.v"
 `include "sram_infer_preloaded_cache.v"
 
-module t_top;
+module t_xfiles_dana;
 `define PERIOD_TARGET 3.0
 `define SLACK 0
 `define PERIOD (`PERIOD_TARGET-(`SLACK))
@@ -53,64 +53,64 @@ module t_top;
     $display("|V|R|W|CV|F?|L?|NL|-C|D|ASID| Tid|Nnid|  #L|  #N|  CL|  CN|CNinL|#NcL|#NnL|idxE|#PeW|RdX| &N|Cache|DP| <- TTable");
     $display("------------------------------------------------------------------------------------------------------");
     $display("|%d|%d|%d|%2d|%2d|%2d|%2d|%2d|%d|%4x|%4x|%4x|%4x|%4x|%4x|%4x|%5x|%4x|%4x|%4x|%4x|%3x|%3x|%5x|%2d|",
-             u_top.xFilesArbiter.tTable.table__0_valid,
-             u_top.xFilesArbiter.tTable.table__0_reserved,
-             u_top.xFilesArbiter.tTable.table__0_waiting,
-             u_top.xFilesArbiter.tTable.table__0_cacheValid,
-             u_top.xFilesArbiter.tTable.table__0_inFirst,
-             u_top.xFilesArbiter.tTable.table__0_inLast,
-             u_top.xFilesArbiter.tTable.table__0_needsLayerInfo,
-             u_top.xFilesArbiter.tTable.table__0_decInUse,
-             u_top.xFilesArbiter.tTable.table__0_done,
-             u_top.xFilesArbiter.tTable.table__0_asid,
-             u_top.xFilesArbiter.tTable.table__0_tid,
-             u_top.xFilesArbiter.tTable.table__0_nnid,
-             u_top.xFilesArbiter.tTable.table__0_numLayers,
-             u_top.xFilesArbiter.tTable.table__0_numNodes,
-             u_top.xFilesArbiter.tTable.table__0_currentLayer,
-             u_top.xFilesArbiter.tTable.table__0_currentNode,
-             u_top.xFilesArbiter.tTable.table__0_currentNodeInLayer,
-             u_top.xFilesArbiter.tTable.table__0_nodesInCurrentLayer,
-             u_top.xFilesArbiter.tTable.table__0_nodesInNextLayer,
-             u_top.xFilesArbiter.tTable.table__0_indexElement,
-             u_top.xFilesArbiter.tTable.table__0_countPeWrites,
-             u_top.xFilesArbiter.tTable.table__0_readIdx,
-             u_top.xFilesArbiter.tTable.table__0_neuronPointer,
-             u_top.xFilesArbiter.tTable.table__0_cacheIndex,
-             u_top.xFilesArbiter.tTable.table__0_decimalPoint);
+             u_xfiles_dana.xFilesArbiter.tTable.table__0_valid,
+             u_xfiles_dana.xFilesArbiter.tTable.table__0_reserved,
+             u_xfiles_dana.xFilesArbiter.tTable.table__0_waiting,
+             u_xfiles_dana.xFilesArbiter.tTable.table__0_cacheValid,
+             u_xfiles_dana.xFilesArbiter.tTable.table__0_inFirst,
+             u_xfiles_dana.xFilesArbiter.tTable.table__0_inLast,
+             u_xfiles_dana.xFilesArbiter.tTable.table__0_needsLayerInfo,
+             u_xfiles_dana.xFilesArbiter.tTable.table__0_decInUse,
+             u_xfiles_dana.xFilesArbiter.tTable.table__0_done,
+             u_xfiles_dana.xFilesArbiter.tTable.table__0_asid,
+             u_xfiles_dana.xFilesArbiter.tTable.table__0_tid,
+             u_xfiles_dana.xFilesArbiter.tTable.table__0_nnid,
+             u_xfiles_dana.xFilesArbiter.tTable.table__0_numLayers,
+             u_xfiles_dana.xFilesArbiter.tTable.table__0_numNodes,
+             u_xfiles_dana.xFilesArbiter.tTable.table__0_currentLayer,
+             u_xfiles_dana.xFilesArbiter.tTable.table__0_currentNode,
+             u_xfiles_dana.xFilesArbiter.tTable.table__0_currentNodeInLayer,
+             u_xfiles_dana.xFilesArbiter.tTable.table__0_nodesInCurrentLayer,
+             u_xfiles_dana.xFilesArbiter.tTable.table__0_nodesInNextLayer,
+             u_xfiles_dana.xFilesArbiter.tTable.table__0_indexElement,
+             u_xfiles_dana.xFilesArbiter.tTable.table__0_countPeWrites,
+             u_xfiles_dana.xFilesArbiter.tTable.table__0_readIdx,
+             u_xfiles_dana.xFilesArbiter.tTable.table__0_neuronPointer,
+             u_xfiles_dana.xFilesArbiter.tTable.table__0_cacheIndex,
+             u_xfiles_dana.xFilesArbiter.tTable.table__0_decimalPoint);
     $display("|%d|%d|%d|%2d|%2d|%2d|%2d|%2d|%d|%4x|",
-             u_top.xFilesArbiter.tTable.table__1_valid,
-             u_top.xFilesArbiter.tTable.table__1_reserved,
-             u_top.xFilesArbiter.tTable.table__1_waiting,
-             u_top.xFilesArbiter.tTable.table__1_cacheValid,
-             u_top.xFilesArbiter.tTable.table__1_inFirst,
-             u_top.xFilesArbiter.tTable.table__1_inLast,
-             u_top.xFilesArbiter.tTable.table__1_needsLayerInfo,
-             u_top.xFilesArbiter.tTable.table__1_decInUse,
-             u_top.xFilesArbiter.tTable.table__1_done,
-             u_top.xFilesArbiter.tTable.table__1_asid);
+             u_xfiles_dana.xFilesArbiter.tTable.table__1_valid,
+             u_xfiles_dana.xFilesArbiter.tTable.table__1_reserved,
+             u_xfiles_dana.xFilesArbiter.tTable.table__1_waiting,
+             u_xfiles_dana.xFilesArbiter.tTable.table__1_cacheValid,
+             u_xfiles_dana.xFilesArbiter.tTable.table__1_inFirst,
+             u_xfiles_dana.xFilesArbiter.tTable.table__1_inLast,
+             u_xfiles_dana.xFilesArbiter.tTable.table__1_needsLayerInfo,
+             u_xfiles_dana.xFilesArbiter.tTable.table__1_decInUse,
+             u_xfiles_dana.xFilesArbiter.tTable.table__1_done,
+             u_xfiles_dana.xFilesArbiter.tTable.table__1_asid);
     $display("|%d|%d|%d|%2d|%2d|%2d|%2d|%2d|%d|%4x|",
-             u_top.xFilesArbiter.tTable.table__2_valid,
-             u_top.xFilesArbiter.tTable.table__2_reserved,
-             u_top.xFilesArbiter.tTable.table__2_waiting,
-             u_top.xFilesArbiter.tTable.table__2_cacheValid,
-             u_top.xFilesArbiter.tTable.table__2_inFirst,
-             u_top.xFilesArbiter.tTable.table__2_inLast,
-             u_top.xFilesArbiter.tTable.table__2_needsLayerInfo,
-             u_top.xFilesArbiter.tTable.table__2_decInUse,
-             u_top.xFilesArbiter.tTable.table__2_done,
-             u_top.xFilesArbiter.tTable.table__2_asid);
+             u_xfiles_dana.xFilesArbiter.tTable.table__2_valid,
+             u_xfiles_dana.xFilesArbiter.tTable.table__2_reserved,
+             u_xfiles_dana.xFilesArbiter.tTable.table__2_waiting,
+             u_xfiles_dana.xFilesArbiter.tTable.table__2_cacheValid,
+             u_xfiles_dana.xFilesArbiter.tTable.table__2_inFirst,
+             u_xfiles_dana.xFilesArbiter.tTable.table__2_inLast,
+             u_xfiles_dana.xFilesArbiter.tTable.table__2_needsLayerInfo,
+             u_xfiles_dana.xFilesArbiter.tTable.table__2_decInUse,
+             u_xfiles_dana.xFilesArbiter.tTable.table__2_done,
+             u_xfiles_dana.xFilesArbiter.tTable.table__2_asid);
     $display("|%d|%d|%d|%2d|%2d|%2d|%2d|%2d|%d|%4x|",
-             u_top.xFilesArbiter.tTable.table__3_valid,
-             u_top.xFilesArbiter.tTable.table__3_reserved,
-             u_top.xFilesArbiter.tTable.table__3_waiting,
-             u_top.xFilesArbiter.tTable.table__3_cacheValid,
-             u_top.xFilesArbiter.tTable.table__3_inFirst,
-             u_top.xFilesArbiter.tTable.table__3_inLast,
-             u_top.xFilesArbiter.tTable.table__3_needsLayerInfo,
-             u_top.xFilesArbiter.tTable.table__3_decInUse,
-             u_top.xFilesArbiter.tTable.table__3_done,
-             u_top.xFilesArbiter.tTable.table__3_asid);
+             u_xfiles_dana.xFilesArbiter.tTable.table__3_valid,
+             u_xfiles_dana.xFilesArbiter.tTable.table__3_reserved,
+             u_xfiles_dana.xFilesArbiter.tTable.table__3_waiting,
+             u_xfiles_dana.xFilesArbiter.tTable.table__3_cacheValid,
+             u_xfiles_dana.xFilesArbiter.tTable.table__3_inFirst,
+             u_xfiles_dana.xFilesArbiter.tTable.table__3_inLast,
+             u_xfiles_dana.xFilesArbiter.tTable.table__3_needsLayerInfo,
+             u_xfiles_dana.xFilesArbiter.tTable.table__3_decInUse,
+             u_xfiles_dana.xFilesArbiter.tTable.table__3_done,
+             u_xfiles_dana.xFilesArbiter.tTable.table__3_asid);
     $display("");
   endtask
 
@@ -120,14 +120,14 @@ module t_top;
     $display("------------------");
     $display("|%4d|%d|%4x|%4x|",
              0,
-             u_top.xFilesArbiter.AsidUnit.asidReg_valid,
-             u_top.xFilesArbiter.AsidUnit.asidReg_asid,
-             u_top.xFilesArbiter.AsidUnit.asidReg_tid);
+             u_xfiles_dana.xFilesArbiter.AsidUnit.asidReg_valid,
+             u_xfiles_dana.xFilesArbiter.AsidUnit.asidReg_asid,
+             u_xfiles_dana.xFilesArbiter.AsidUnit.asidReg_tid);
     $display("|%4d|%d|%4x|%4x|",
              1,
-             u_top.xFilesArbiter.AsidUnit_1.asidReg_valid,
-             u_top.xFilesArbiter.AsidUnit_1.asidReg_asid,
-             u_top.xFilesArbiter.AsidUnit_1.asidReg_tid);
+             u_xfiles_dana.xFilesArbiter.AsidUnit_1.asidReg_valid,
+             u_xfiles_dana.xFilesArbiter.AsidUnit_1.asidReg_asid,
+             u_xfiles_dana.xFilesArbiter.AsidUnit_1.asidReg_tid);
     $display("");
   endtask
 
@@ -191,7 +191,7 @@ module t_top;
   initial begin
 `ifdef DUMP_VCD
     $dumpfile(`DUMP_VCD);
-    $dumpvars(0, u_top);
+    $dumpvars(0, u_xfiles_dana);
 `endif
 
     inputs[0] = 1024;
@@ -247,7 +247,7 @@ module t_top;
       tick();
     end
     // Wait until done
-    wait(u_top.xFilesArbiter.tTable.table__0_done);
+    wait(u_xfiles_dana.xFilesArbiter.tTable.table__0_done);
     flag_read = 1;
 
     // Read Data
@@ -281,7 +281,7 @@ module t_top;
     clk = ~clk;
   end
 
-  Top u_top
+  XFilesDana u_xfiles_dana
     (.clk(clk),
      .reset(!rst),
      // Core 1

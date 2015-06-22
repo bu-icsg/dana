@@ -20,12 +20,12 @@ typedef struct {
   uint64_t data;
 } response;
 
-class t_Top : public Top_api_t {
+class t_XFilesDana : public XFilesDana_api_t {
 private:
   uint64_t cycle;
   bool vcd_flag;
   FILE * vcd;
-  Top_t * top;
+  XFilesDana_t * xfiles_dana;
   unsigned int seed;
   struct {
     uint64_t num_pes;
@@ -46,10 +46,10 @@ private:
 
 public:
   // Constructors
-  t_Top();
-  t_Top(const string);
+  t_XFilesDana();
+  t_XFilesDana(const string);
   // Destructor
-  ~t_Top();
+  ~t_XFilesDana();
 
   // Drive the clock low
   void tick_lo(int);
@@ -142,7 +142,7 @@ public:
   int read_parameters(const string);
 };
 
-int t_Top::read_parameters(const string file_string_parameters) {
+int t_XFilesDana::read_parameters(const string file_string_parameters) {
   std::string line, key, value;
   int pos_del, pos_eol;
   std::ifstream file_params(file_string_parameters, std::ifstream::in);
@@ -191,50 +191,50 @@ int t_Top::read_parameters(const string file_string_parameters) {
   return 0;
 }
 
-t_Top::t_Top() {
+t_XFilesDana::t_XFilesDana() {
   seed = time(NULL);
   srand(seed);
-  top = new Top_t();
-  top->init(seed);
-  init(top);
+  xfiles_dana = new XFilesDana_t();
+  xfiles_dana->init(seed);
+  init(xfiles_dana);
   cycle = 0;
   vcd_flag = false;
   std::cout << "[INFO] Using seed: " << std::hex << seed << std::endl;
   std::cout << "[INFO] No vcd file output specified" << std::endl;
 }
 
-t_Top::t_Top(const string file_string_vcd) {
+t_XFilesDana::t_XFilesDana(const string file_string_vcd) {
   seed = time(NULL);
   srand(seed);
-  top = new Top_t();
-  top->init(seed);
-  init(top);
+  xfiles_dana = new XFilesDana_t();
+  xfiles_dana->init(seed);
+  init(xfiles_dana);
   cycle = 0;
   vcd_flag = true;
   vcd = fopen(file_string_vcd.c_str(), "w");
   assert(vcd);
   std::cout << "[INFO] Using seed: " << std::hex << seed << std::endl;
   std::cout << "[INFO] Using vcd file:\n[INFO]   " << file_string_vcd << std::endl;
-  top->set_dumpfile(vcd);
+  xfiles_dana->set_dumpfile(vcd);
 }
 
-t_Top::~t_Top() {
+t_XFilesDana::~t_XFilesDana() {
   if (vcd_flag)
     fclose(vcd);
 }
 
-void t_Top::tick_lo(int reset) {
-  top->clock_lo(dat_t<1>(reset));
+void t_XFilesDana::tick_lo(int reset) {
+  xfiles_dana->clock_lo(dat_t<1>(reset));
 }
 
-void t_Top::tick_hi(int reset) {
+void t_XFilesDana::tick_hi(int reset) {
   if (vcd_flag)
-    top->dump(vcd, cycle);
-  top->clock_hi(dat_t<1>(reset));
+    xfiles_dana->dump(vcd, cycle);
+  xfiles_dana->clock_hi(dat_t<1>(reset));
   cycle++;
 }
 
-int t_Top::tick(int num_cycles = 1, int reset = 0,
+int t_XFilesDana::tick(int num_cycles = 1, int reset = 0,
                 std::vector<response> * output = NULL, bool debug = false) {
   // [TODO] This needs to support reads from all core lines.
   int responses_seen = 0;
@@ -245,8 +245,8 @@ int t_Top::tick(int num_cycles = 1, int reset = 0,
     tick_lo(reset);
     tick_hi(reset);
     if (debug) info();
-    if (top->Top__io_arbiter_0_resp_valid == 1) {
-      string_full = get_dat_by_name("Top.io_arbiter_0_resp_bits_data")->get_value().erase(0,2);
+    if (xfiles_dana->XFilesDana__io_arbiter_0_resp_valid == 1) {
+      string_full = get_dat_by_name("XFilesDana.io_arbiter_0_resp_bits_data")->get_value().erase(0,2);
       // If any of the following parameters are not divisible by 4
       // (and consequently aligned on nibble boundaries), the lazy
       // logic below to split up the string into asid, tid, and data
@@ -279,13 +279,13 @@ int t_Top::tick(int num_cycles = 1, int reset = 0,
   return responses_seen;
 }
 
-void t_Top::reset(int num_cycles) {
+void t_XFilesDana::reset(int num_cycles) {
   for(int i = 0; i < num_cycles; i++) {
     tick(1,1);
   }
 }
 
-int t_Top::new_write_request(uint32_t nnid, std::vector<response> * outputs = NULL,
+int t_XFilesDana::new_write_request(uint32_t nnid, std::vector<response> * outputs = NULL,
                               bool debug = false) {
   uint64_t funct, rs1, rs2;
   // Compute the underlying fields
@@ -293,20 +293,20 @@ int t_Top::new_write_request(uint32_t nnid, std::vector<response> * outputs = NU
   rs1 = 0 & ~(~(~0 << parameters.feedback_width) << parameters.tid_width);
   rs2 = nnid;
   // Assign the fields to the input wires for core 0
-  top->Top__io_arbiter_0_cmd_valid = 1;
-  top->Top__io_arbiter_0_cmd_bits_inst_funct = funct;
-  top->Top__io_arbiter_0_cmd_bits_rs1 = rs1;
-  top->Top__io_arbiter_0_cmd_bits_rs2 = rs2;
+  xfiles_dana->XFilesDana__io_arbiter_0_cmd_valid = 1;
+  xfiles_dana->XFilesDana__io_arbiter_0_cmd_bits_inst_funct = funct;
+  xfiles_dana->XFilesDana__io_arbiter_0_cmd_bits_rs1 = rs1;
+  xfiles_dana->XFilesDana__io_arbiter_0_cmd_bits_rs2 = rs2;
   int responses_seen = tick(1,0, outputs);
   if (debug) info();
-  top->Top__io_arbiter_0_cmd_valid = 0;
-  top->Top__io_arbiter_0_cmd_bits_inst_funct = 0;
-  top->Top__io_arbiter_0_cmd_bits_rs1 = 0;
-  top->Top__io_arbiter_0_cmd_bits_rs2 = 0;
+  xfiles_dana->XFilesDana__io_arbiter_0_cmd_valid = 0;
+  xfiles_dana->XFilesDana__io_arbiter_0_cmd_bits_inst_funct = 0;
+  xfiles_dana->XFilesDana__io_arbiter_0_cmd_bits_rs1 = 0;
+  xfiles_dana->XFilesDana__io_arbiter_0_cmd_bits_rs2 = 0;
   return responses_seen;
 }
 
-void t_Top::write_data(int tid, int32_t data, int is_last,
+void t_XFilesDana::write_data(int tid, int32_t data, int is_last,
                        std::vector<response> * outputs = NULL,
                        bool debug = false) {
   uint64_t funct, rs1, rs2;
@@ -317,24 +317,24 @@ void t_Top::write_data(int tid, int32_t data, int is_last,
   rs1 = tid;
   rs2 = data;
   // Assign the fields to the input wires of core 0
-  top->Top__io_arbiter_0_cmd_valid = 1;
-  top->Top__io_arbiter_0_cmd_bits_inst_funct = funct;
-  top->Top__io_arbiter_0_cmd_bits_rs1 = rs1;
-  top->Top__io_arbiter_0_cmd_bits_rs2 = rs2;
+  xfiles_dana->XFilesDana__io_arbiter_0_cmd_valid = 1;
+  xfiles_dana->XFilesDana__io_arbiter_0_cmd_bits_inst_funct = funct;
+  xfiles_dana->XFilesDana__io_arbiter_0_cmd_bits_rs1 = rs1;
+  xfiles_dana->XFilesDana__io_arbiter_0_cmd_bits_rs2 = rs2;
   tick(1, 0, outputs);
   if (debug) info();
-  top->Top__io_arbiter_0_cmd_valid = 0;
-  top->Top__io_arbiter_0_cmd_bits_inst_funct = 0;
-  top->Top__io_arbiter_0_cmd_bits_rs1 = 0;
-  top->Top__io_arbiter_0_cmd_bits_rs2 = 0;
+  xfiles_dana->XFilesDana__io_arbiter_0_cmd_valid = 0;
+  xfiles_dana->XFilesDana__io_arbiter_0_cmd_bits_inst_funct = 0;
+  xfiles_dana->XFilesDana__io_arbiter_0_cmd_bits_rs1 = 0;
+  xfiles_dana->XFilesDana__io_arbiter_0_cmd_bits_rs2 = 0;
 }
 
-void t_Top::write_rnd_data(int tid, int num, int decimal) {
+void t_XFilesDana::write_rnd_data(int tid, int num, int decimal) {
   for (int i = 0; i < num; i++)
     write_data(tid, 256, (i == num - 1));
 }
 
-int t_Top::new_read_request(int tid, std::vector<response> * outputs = NULL,
+int t_XFilesDana::new_read_request(int tid, std::vector<response> * outputs = NULL,
                             bool debug = false) {
   uint64_t funct, rs1, rs2;
   // Compute the fields;
@@ -342,29 +342,29 @@ int t_Top::new_read_request(int tid, std::vector<response> * outputs = NULL,
   rs1 = tid;
   rs2 = 0;
   // Assign the fields
-  top->Top__io_arbiter_0_cmd_valid = 1;
-  top->Top__io_arbiter_0_cmd_bits_inst_funct = funct;
-  top->Top__io_arbiter_0_cmd_bits_rs1 = rs1;
-  top->Top__io_arbiter_0_cmd_bits_rs2 = rs2;
+  xfiles_dana->XFilesDana__io_arbiter_0_cmd_valid = 1;
+  xfiles_dana->XFilesDana__io_arbiter_0_cmd_bits_inst_funct = funct;
+  xfiles_dana->XFilesDana__io_arbiter_0_cmd_bits_rs1 = rs1;
+  xfiles_dana->XFilesDana__io_arbiter_0_cmd_bits_rs2 = rs2;
   int responses_seen = tick(1, 0, outputs, debug);
-  top->Top__io_arbiter_0_cmd_valid = 0;
-  top->Top__io_arbiter_0_cmd_bits_inst_funct = 0;
-  top->Top__io_arbiter_0_cmd_bits_rs1 = 0;
-  top->Top__io_arbiter_0_cmd_bits_rs2 = 0;
+  xfiles_dana->XFilesDana__io_arbiter_0_cmd_valid = 0;
+  xfiles_dana->XFilesDana__io_arbiter_0_cmd_bits_inst_funct = 0;
+  xfiles_dana->XFilesDana__io_arbiter_0_cmd_bits_rs1 = 0;
+  xfiles_dana->XFilesDana__io_arbiter_0_cmd_bits_rs2 = 0;
   return responses_seen;
 }
 
-void t_Top::set_asid(uint16_t asid) {
+void t_XFilesDana::set_asid(uint16_t asid) {
   std::cout << "[INFO] Changing ASID to: 0x" << std::hex << asid << std::endl;
-  top->Top__io_arbiter_0_s = 1;
-  top->Top__io_arbiter_0_cmd_valid = 1;
-  top->Top__io_arbiter_0_cmd_bits_rs1 = asid;
+  xfiles_dana->XFilesDana__io_arbiter_0_s = 1;
+  xfiles_dana->XFilesDana__io_arbiter_0_cmd_valid = 1;
+  xfiles_dana->XFilesDana__io_arbiter_0_cmd_bits_rs1 = asid;
   tick(1,0);
-  top->Top__io_arbiter_0_cmd_valid = 0;
-  top->Top__io_arbiter_0_s = 0;
+  xfiles_dana->XFilesDana__io_arbiter_0_cmd_valid = 0;
+  xfiles_dana->XFilesDana__io_arbiter_0_s = 0;
 }
 
-void t_Top::info() {
+void t_XFilesDana::info() {
   std::cout << "[INFO] Dumping tables at cycle " << std::dec << cycle
             << std::endl;
   info_ttable();
@@ -374,11 +374,11 @@ void t_Top::info() {
   info_asids();
 }
 
-void t_Top::info_ttable() {
+void t_XFilesDana::info_ttable() {
   std::cout << "-------------------------------------------------------------------------------------------------------\n";
   std::cout << "|V|R|W|CV|F?|L?|NL|-C|D|ASID| Tid|Nnid|  #L|  #N|  CL|  CN|CNinL|#NcL|#NnL|idxE|#PeW|RidX| &N|Cache|DP| <- TTable\n";
   std::cout << "-------------------------------------------------------------------------------------------------------\n";
-  std::string string_table("Top.xFilesArbiter.tTable.table_");
+  std::string string_table("XFilesDana.xFilesArbiter.tTable.table_");
   std::stringstream string_field("");
   for (int i = 0; i < parameters.transaction_table_num_entries; i++) {
     // Valid
@@ -488,11 +488,11 @@ void t_Top::info_ttable() {
   std::cout << std::endl;
 }
 
-void t_Top::info_cache_table() {
+void t_XFilesDana::info_cache_table() {
   std::cout << "---------------------------\n";
   std::cout << "|V|N|F|NIdx|NMask|Nnid|IUC| <- Cache Table\n";
   std::cout << "---------------------------\n";
-  std::string string_table("Top.dana.cache.table_");
+  std::string string_table("XFilesDana.dana.cache.table_");
   std::stringstream string_field("");
   for (int i = 0; i < parameters.cache_num_entries; i++) {
     // Valid
@@ -532,13 +532,13 @@ void t_Top::info_cache_table() {
   std::cout << std::endl;
 }
 
-void t_Top::info_petable() {
+void t_XFilesDana::info_petable() {
   std::cout << "---------------------------------------------------------------------------------------------------------\n";
   std::cout << "|S|IV|WV|ASID| TID|tIdx|CIdx|inLoc|outLoc|InIdx|OutIdx|   &N|   &W|DP|#W|AF|S|    Bias|     Acc| DataOut| <- PE Table\n";
   std::cout << "---------------------------------------------------------------------------------------------------------\n";
-  std::string string_table("Top.dana.peTable.table_");
-  std::string string_pe("Top.dana.peTable.ProcessingElement");
-  std::string string_transaction_table("Top.xFilesArbiter.tTable.table_");
+  std::string string_table("XFilesDana.dana.peTable.table_");
+  std::string string_pe("XFilesDana.dana.peTable.ProcessingElement");
+  std::string string_transaction_table("XFilesDana.xFilesArbiter.tTable.table_");
   std::string tIdx;
   bool valid;
   std::stringstream string_field("");
@@ -677,11 +677,11 @@ void t_Top::info_petable() {
   std::cout << std::endl;
 }
 
-void t_Top::info_reg_file() {
+void t_XFilesDana::info_reg_file() {
   std::cout << "-----------------------------------\n"
             << "|V|E[Wr](0)|#Wr(0)|E[Wr](1)|#Wr(1)| <- Register File\n"
             << "-----------------------------------\n";
-  std::string string_table("Top.dana.regFile.state_");
+  std::string string_table("XFilesDana.dana.regFile.state_");
   std::stringstream string_field("");
   for (int i = 0; i < parameters.transaction_table_num_entries; i++) {
     // Valid
@@ -710,11 +710,11 @@ void t_Top::info_reg_file() {
   std::cout << std::endl;
 }
 
-void t_Top::info_asids() {
+void t_XFilesDana::info_asids() {
   std::cout << "------------------\n"
             << "|Core|V|ASID|nTID| <- ASIDs in X-FILES arbiter\n"
             << "------------------\n";
-  std::string string_table("Top.xFilesArbiter.AsidUnit");
+  std::string string_table("XFilesDana.xFilesArbiter.AsidUnit");
   std::stringstream string_field("");
   for (int i = 0; i < parameters.num_cores; i++) {
     // Core Index
@@ -739,7 +739,7 @@ void t_Top::info_asids() {
   std::cout << std::endl;
 }
 
-void t_Top::cache_load(int index, uint32_t nnid, const char * file,
+void t_XFilesDana::cache_load(int index, uint32_t nnid, const char * file,
                         bool debug = false) {
   std::stringstream ss("");
   std::stringstream val("");
@@ -769,24 +769,24 @@ void t_Top::cache_load(int index, uint32_t nnid, const char * file,
   }
 
   // Set the cache table
-  ss << "Top.dana.cache.table_" << index << "_valid";
+  ss << "XFilesDana.dana.cache.table_" << index << "_valid";
   get_dat_by_name(ss.str())->set_value("1");
   ss.str("");
-  ss << "Top.dana.cache.table_" << index << "_nnid";
+  ss << "XFilesDana.dana.cache.table_" << index << "_nnid";
   val << nnid;
   get_dat_by_name(ss.str())->set_value(val.str());
   ss.str("");
-  ss << "Top.dana.cache.table_" << index << "_inUseCount";
+  ss << "XFilesDana.dana.cache.table_" << index << "_inUseCount";
   get_dat_by_name(ss.str())->set_value("0");
   ss.str("");
-  ss << "Top.dana.cache.table_" << index << "_fetch";
+  ss << "XFilesDana.dana.cache.table_" << index << "_fetch";
   get_dat_by_name(ss.str())->set_value("0");
 
   // Set the cache SRAM
   ifstream config;
   config.open(file + file_extension, ios::in | ios::binary);
   ss.str("");
-  ss << "Top.dana.cache.SRAM";
+  ss << "XFilesDana.dana.cache.SRAM";
   if (index > 0) ss << "_" << index;
   ss << ".mem";
   i = 0;
@@ -818,8 +818,8 @@ void t_Top::cache_load(int index, uint32_t nnid, const char * file,
 }
 
 // [TODO] any_done is possibly broken
-int t_Top::any_done () {
-  std::string string_table("Top.xFilesArbiter.tTable.table_");
+int t_XFilesDana::any_done () {
+  std::string string_table("XFilesDana.xFilesArbiter.tTable.table_");
   std::stringstream string_field("");
   for (int i = 0; i < parameters.transaction_table_num_entries; i++) {
     string_field.str("");
@@ -831,8 +831,8 @@ int t_Top::any_done () {
   return 0;
 }
 
-int t_Top::any_valid () {
-  std::string string_table("Top.xFilesArbiter.tTable.table_");
+int t_XFilesDana::any_valid () {
+  std::string string_table("XFilesDana.xFilesArbiter.tTable.table_");
   std::stringstream string_field("");
   for (int i = 0; i < parameters.transaction_table_num_entries; i++) {
     string_field.str("");
@@ -844,8 +844,8 @@ int t_Top::any_valid () {
   return 0;
 }
 
-int t_Top::is_done (uint16_t _asid, uint16_t _tid) {
-  std::string string_table("Top.xFilesArbiter.tTable.table_");
+int t_XFilesDana::is_done (uint16_t _asid, uint16_t _tid) {
+  std::string string_table("XFilesDana.xFilesArbiter.tTable.table_");
   std::stringstream string_field("");
   for (int i = 0; i < parameters.transaction_table_num_entries; i++) {
     uint16_t asid, tid;
@@ -868,11 +868,11 @@ int t_Top::is_done (uint16_t _asid, uint16_t _tid) {
   return -1;
 }
 
-uint64_t t_Top::get_cycles() {
+uint64_t t_XFilesDana::get_cycles() {
   return cycle;
 }
 
-int t_Top::run_single(transaction * t, bool debug = false,
+int t_XFilesDana::run_single(transaction * t, bool debug = false,
                       uint64_t cycle_limit = 0) {
   std::vector<response> responses;
   if (debug) info();
@@ -911,7 +911,7 @@ int t_Top::run_single(transaction * t, bool debug = false,
   return 0;
 }
 
-int t_Top::run_smp(std::vector<transaction *> * transactions,
+int t_XFilesDana::run_smp(std::vector<transaction *> * transactions,
                    bool debug = false, uint64_t cycle_limit =0) {
   typedef enum {UNUSED, NEW_WRITE, NEW_WRITE_WAIT,
                 WRITE, EXECUTING, READ, READ_WAIT} action_type;
@@ -1076,7 +1076,7 @@ int t_Top::run_smp(std::vector<transaction *> * transactions,
   return 1;
 }
 
-int t_Top::testbench_fann(const char * file_net,
+int t_XFilesDana::testbench_fann(const char * file_net,
                           const char * file_train,
                           const char * file_cache,
                           test_type type,
@@ -1204,7 +1204,7 @@ int t_Top::testbench_fann(const char * file_net,
   return 1;
 }
 
-int t_Top::testbench_fann(std::vector<const char *> * files_net,
+int t_XFilesDana::testbench_fann(std::vector<const char *> * files_net,
                           std::vector<const char *> * files_train,
                           std::vector<const char *> * files_cache,
                           test_type type,
@@ -1362,8 +1362,8 @@ void usage(const char * bin) {
 }
 
 int main(int argc, char* argv[]) {
-  // t_Top* api = new t_Top("build/t_Top.vcd");
-  t_Top * api;
+  // t_XFilesDana* api = new t_XFilesDana("build/t_XFilesDana.vcd");
+  t_XFilesDana * api;
   bool has_vcd = false, debug = false;
   std::string file_parameters, file_vcd;
 
@@ -1392,10 +1392,10 @@ int main(int argc, char* argv[]) {
   }
   file_parameters = argv[optind];
 
-  // Run the constructor for t_Top specifying a vcd file if we have
+  // Run the constructor for t_XFilesDana specifying a vcd file if we have
   // one
-  if (has_vcd) api = new t_Top(file_vcd);
-  else api = new t_Top();
+  if (has_vcd) api = new t_XFilesDana(file_vcd);
+  else api = new t_XFilesDana();
 
   // Load the parameters
   api->read_parameters(file_parameters);

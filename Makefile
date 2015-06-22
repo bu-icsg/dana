@@ -41,14 +41,14 @@ _CHISEL_FLAGS		= --genHarness \
 COMMA    = ,
 
 # Chisel Target Backends
-EXECUTABLES	= Top
+EXECUTABLES	= XFilesDana
 ALL_MODULES	= $(notdir $(wildcard $(DIR_SRC_SCALA)/*.scala))
 BACKEND_CPP	= $(EXECUTABLES:%=$(DIR_BUILD)/%$(CHISEL_CONFIG_DOT).cpp)
 BACKEND_VERILOG = $(EXECUTABLES:%=$(DIR_BUILD)/%$(FPGA_CONFIG_DOT).v)
 BACKEND_DOT	= $(EXECUTABLES:%=$(DIR_BUILD)/%$(CHISEL_CONFIG_DOT).dot)
 
 # C++ Backend Specific Targets
-TESTS            = t_Top.cpp
+TESTS            = t_XFilesDana.cpp
 TEST_EXECUTABLES = $(TESTS:%.cpp=$(DIR_BUILD)/%$(CHISEL_CONFIG_DOT))
 SOURCES          = transaction.cpp
 OBJECTS          = $(BACKEND_CPP:%.cpp=%.o) $(TESTS:%.cpp=$(DIR_BUILD)/%.o) \
@@ -57,7 +57,7 @@ VCDS             = $(TESTS:%.cpp=$(DIR_BUILD)/%.vcd)
 STRIPPED         = $(EXECUTABLES:%=$(DIR_BUILD)/%-emulator-nomain.o)
 
 # Verilog Backend Specific Targets
-TESTS_V            = t_Top.v
+TESTS_V            = t_XFilesDana.v
 TEST_V_EXECUTABLES = $(TESTS_V:%.v=$(DIR_BUILD)/%$(FPGA_CONFIG_DOT).vvp)
 VCDS_V             = $(TESTS_V:%.v=$(DIR_BUILD)/%$(FPGA_CONFIG_DOT)-v.vcd)
 INCLUDE_V          = $(DIR_BUILD) $(DIR_BUILD)/cache \
@@ -103,7 +103,7 @@ dot: $(BACKEND_DOT)
 
 verilog: $(BACKEND_VERILOG)
 
-vcd: $(DIR_BUILD)/t_Top$(CHISEL_CONFIG_DOT).vcd Makefile
+vcd: $(DIR_BUILD)/t_XFilesDana$(CHISEL_CONFIG_DOT).vcd Makefile
 	scripts/gtkwave $<
 
 run: $(TEST_EXECUTABLES) Makefile
@@ -112,7 +112,7 @@ run: $(TEST_EXECUTABLES) Makefile
 run-verilog: $(TEST_V_EXECUTABLES) Makefile
 	vvp $<
 
-vcd-verilog: $(DIR_BUILD)/t_Top$(FPGA_CONFIG_DOT)-vcd.vvp Makefile
+vcd-verilog: $(DIR_BUILD)/t_XFilesDana$(FPGA_CONFIG_DOT)-vcd.vvp Makefile
 	vvp $<
 	scripts/gtkwave $<.vcd
 
@@ -145,7 +145,7 @@ $(DIR_BUILD)/%.o: %.cpp Makefile
 $(DIR_BUILD)/%.vcd: $(DIR_BUILD)/% Makefile
 	$< -v $<.vcd $(<:$(DIR_BUILD)/t_%=$(DIR_BUILD)/%.prm)
 
-$(DIR_BUILD)/t_Top$(CHISEL_CONFIG_DOT): $(OBJECTS)
+$(DIR_BUILD)/t_XFilesDana$(CHISEL_CONFIG_DOT): $(OBJECTS)
 	$(GPP) $(GPP_FLAGS) $(OBJECTS) $(EMULATOR_OBJECTS) $(LFLAGS) -o $@
 
 #------------------- Verilog Backend Targets
