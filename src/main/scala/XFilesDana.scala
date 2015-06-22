@@ -2,7 +2,7 @@ package dana
 
 import Chisel._
 
-class TopInterface extends DanaBundle with XFilesParameters {
+class CoreXFilesInterface extends DanaBundle with XFilesParameters {
   val arbiter = Vec.fill(numCores){ new RoCCInterface }
 }
 
@@ -25,8 +25,8 @@ class XFilesArbiterInterface extends DanaBundle {
   val resp = Decoupled(new XFilesArbiterResp).flip
 }
 
-class Top extends DanaModule with XFilesParameters {
-  val io = new TopInterface
+class XFilesDana extends DanaModule with XFilesParameters {
+  val io = new CoreXFilesInterface
 
   val xFilesArbiter = Module(new XFilesArbiter)
   val dana = Module(new Dana)
