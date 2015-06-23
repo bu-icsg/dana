@@ -1,7 +1,7 @@
 `timescale 1ns/1ps
 `define RAM_INFER_OVERRIDE
 
-`include "XFilesDana.DefaultFPGAConfig.v"
+`include "XFilesDana.DefaultXFilesDanaFPGAConfig.v"
 `include "sram_r1_w1_rw0.v"
 `include "sram_infer_preloaded_cache.v"
 
