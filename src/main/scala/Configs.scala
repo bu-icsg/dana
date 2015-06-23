@@ -2,7 +2,7 @@ package dana
 
 import Chisel._
 
-class DefaultConfig extends ChiselConfig (
+class DefaultXFilesDanaConfig extends ChiselConfig (
   topDefinitions = { (pname,site,here) =>
     pname match {
       // Core parameters
@@ -58,4 +58,5 @@ class PreloadCacheConfig extends ChiselConfig (
   }
 )
 
-class DefaultFPGAConfig extends ChiselConfig(new PreloadCacheConfig ++ new DefaultConfig)
+class DefaultXFilesDanaFPGAConfig extends ChiselConfig(new PreloadCacheConfig ++
+  new DefaultXFilesDanaConfig)

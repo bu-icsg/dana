@@ -13,9 +13,9 @@ SBT			?= sbt
 _SBT_FLAGS		?= -Dsbt.log.noformat=true
 SBT_FLAGS		?=
 CHISEL_TOP		= dana
-CHISEL_CONFIG		= DefaultConfig
+CHISEL_CONFIG		= DefaultXFilesDanaConfig
 CHISEL_CONFIG_DOT 	= .$(CHISEL_CONFIG)
-FPGA_CONFIG             = DefaultFPGAConfig
+FPGA_CONFIG             = DefaultXFilesDanaFPGAConfig
 FPGA_CONFIG_DOT 	= .$(FPGA_CONFIG)
 CHISEL_FLAGS		= --targetDir $(DIR_BUILD) \
 	--configDump \
