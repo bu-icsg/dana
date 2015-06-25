@@ -5,6 +5,7 @@ DIR_SRC_CPP	= src/main/cpp
 DIR_TEST_SCALA	= src/test/scala
 DIR_TEST_V	= src/test/verilog
 DIR_TEST_CPP	= src/test/cpp
+DIR_TEST_RV     = src/test/rv
 DIR_BUILD	= build
 
 # Chisel/Scala configuration
@@ -70,6 +71,11 @@ HEADERS_V          = ../nnsim-hdl/src/ram_infer_preloaded_cache.v \
 	../submodules/verilog/src/ram_infer.v \
 	$(wildcard ../nnsim-hdl/src/initial/*.v)
 
+# RISCV Tests Targets
+RV_TESTS             = $(notdir $(wildcard $(DIR_TEST_RV)/*.c))
+RV_TESTS_EXECUTABLES = $(RV_TESTS:%.c=$(DIR_BUILD)/%.rv)
+RV_TESTS_DISASM      = $(RV_TESTS:%.c=$(DIR_BUILD)/%.rvS)
+
 # Compiler related options
 GPP           = g++
 INCLUDE_PATHS = $(DIR_BUILD) ../usr/include
@@ -86,6 +92,7 @@ LFLAGS        = $(addprefix -Wl$(COMMA)-R, $(shell readlink -f $(LIB_PATHS))) \
 vpath %.scala $(DIR_SRC_SCALA)
 vpath %.cpp $(DIR_TEST_CPP)
 vpath %.cpp $(DIR_BUILD)
+vpath %.c $(DIR_TEST_RV)
 vpath %.v $(DIR_TEST_V)
 vpath %.v $(DIR_SRC_V)
 vpath %.v $(DIR_BUILD)
@@ -118,6 +125,8 @@ vcd-verilog: $(DIR_BUILD)/t_XFilesDana$(FPGA_CONFIG_DOT)-vcd.vvp Makefile
 
 debug: $(TEST_EXECUTABLES) Makefile
 	$< -d $(<:$(DIR_BUILD)/t_%=$(DIR_BUILD)/%.prm)
+
+rv: $(RV_TESTS_EXECUTABLES) $(RV_TESTS_DISASM)
 
 #------------------- Chisel Build Targets
 $(DIR_BUILD)/%$(CHISEL_CONFIG_DOT).cpp: %.scala $(ALL_MODULES)
@@ -154,6 +163,13 @@ $(DIR_BUILD)/%$(FPGA_CONFIG_DOT).vvp: %.v $(BACKEND_VERILOG) $(HEADERS_V)
 
 $(DIR_BUILD)/%$(FPGA_CONFIG_DOT)-vcd.vvp: %.v $(BACKEND_VERILOG) $(HEADERS_V)
 	iverilog $(FLAGS_V) -D DUMP_VCD=\"$@.vcd\" -o $@ $<
+
+#------------------- RISC-V Tests
+$(DIR_BUILD)/%.rv: %.c
+	riscv64-unknown-elf-gcc $< -o $@ $(RV_FLAGS_EXECUTABLES)
+
+$(DIR_BUILD)/%.rvS: $(DIR_BUILD)/%.rv
+	riscv64-unknown-elf-objdump -S $< > $@
 
 #------------------- Utility Targets
 clean:

@@ -41,7 +41,7 @@ class DefaultXFilesDanaConfig extends ChiselConfig (
   //   { ex => ex(ActivationFunctionWidth) <= 5 }
   // ),
   knobValues = {
-    case "NUM_CORES" => 2
+    case "NUM_CORES" => 1
     case "ELEMENTS_PER_BLOCK" => 8
     case "NUM_PES" => 6
     case "TRANSACTION_TABLE_NUM_ENTRIES" => 4

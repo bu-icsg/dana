@@ -34,6 +34,7 @@ class XFilesArbiter extends XFilesModule {
     io.core(i).resp.valid := Bool(false)
     io.core(i).resp.bits.rd := UInt(0)
     io.core(i).resp.bits.data := UInt(0)
+    io.core(i).interrupt := Bool(false)
   }
   tTable.io.arbiter.rocc.resp.ready := Bool(true)
 

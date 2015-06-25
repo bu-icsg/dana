@@ -2,6 +2,8 @@ package dana
 
 import Chisel._
 
+import rocket._
+
 class CoreXFilesInterface extends DanaBundle with XFilesParameters {
   val arbiter = Vec.fill(numCores){ new RoCCInterface }
 }
@@ -25,13 +27,35 @@ class XFilesArbiterInterface extends DanaBundle {
   val resp = Decoupled(new XFilesArbiterResp).flip
 }
 
-class XFilesDana extends DanaModule with XFilesParameters {
-  val io = new CoreXFilesInterface
+class XFilesDana extends RoCC with XFilesParameters {
+  // val io = new CoreXFilesInterface
 
   val xFilesArbiter = Module(new XFilesArbiter)
   val dana = Module(new Dana)
 
-  io.arbiter <> xFilesArbiter.io.core
+  // io.arbiter <> xFilesArbiter.io.core
+  io.cmd <> xFilesArbiter.io.core(0).cmd
+  io.resp <> xFilesArbiter.io.core(0).resp
+
+  io.mem.req.valid := Bool(false)
+
+  // io.mem.xcpt.ma := Bool(false)
+  // io.mem.xcpt.pf := Bool(false)
+  io.mem.ptw.req.ready := Bool(false)
+  io.mem.ptw.invalidate := Bool(false)
+  io.mem.ptw.sret := Bool(false)
+
+  io.busy := xFilesArbiter.io.core(0).busy
+  xFilesArbiter.io.core(0).s := io.s
+  io.interrupt := xFilesArbiter.io.core(0).interrupt
+
+  io.imem.acquire.valid := Bool(false)
+  io.imem.grant.ready := Bool(true)
+  io.imem.finish.valid := Bool(false)
+  io.iptw.req.valid := Bool(false)
+  io.dptw.req.valid := Bool(false)
+  io.pptw.req.valid := Bool(false)
+
   xFilesArbiter.io.dana <> dana.io
 
   // Assertions
