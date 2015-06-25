@@ -78,6 +78,7 @@ class XFilesArbiterRespPipe extends XFilesBundle {
   val tidIdx = UInt(width = log2Up(transactionTableNumEntries))
   val readIdx = UInt(width = log2Up(transactionTableSramElements))
   val coreIdx = UInt(width = log2Up(numCores))
+  val rd = UInt(width = 5) // Dependent on rocc.scala defined width
 }
 
 class TTableControlInterface extends XFilesBundle {
@@ -112,6 +113,7 @@ class TransactionTable extends XFilesModule {
         asidWidth + tidWidth)
     val nnid = io.arbiter.rocc.cmd.bits.rs2(nnidWidth - 1, 0)
     val data = io.arbiter.rocc.cmd.bits.rs2
+    val rd = io.arbiter.rocc.cmd.bits.inst.rd
   }
 
   // Vector of all the table entries
@@ -142,6 +144,7 @@ class TransactionTable extends XFilesModule {
   // io.arbiter.rocc.cmd.ready := hasFree
   io.arbiter.rocc.cmd.ready := Bool(true)
   io.arbiter.rocc.resp.valid := Bool(false)
+  io.arbiter.rocc.resp.bits.rd := UInt(0)
   io.arbiter.rocc.resp.bits.data := UInt(0)
 
   // Response pipeline to arbiter
@@ -153,6 +156,7 @@ class TransactionTable extends XFilesModule {
   arbiterRespPipe.bits.readIdx := UInt(0)
   arbiterRespPipe.bits.tidIdx := UInt(0)
   arbiterRespPipe.bits.coreIdx := UInt(0)
+  arbiterRespPipe.bits.rd := UInt(0)
   io.arbiter.rocc.resp.valid := arbiterRespPipe.valid
   val memDataVec = Vec((0 until elementsPerBlock).map(i => (mem(arbiterRespPipe.bits.tidIdx).dout(0) >> (UInt(elementWidth) * UInt(i)))(elementWidth - 1, 0)))
   switch (arbiterRespPipe.bits.respType) {
@@ -165,7 +169,12 @@ class TransactionTable extends XFilesModule {
         arbiterRespPipe.bits.tid ##
         memDataVec(arbiterRespPipe.bits.readIdx(log2Up(elementsPerBlock) -1, 0))
     }
+    is (e_NOT_DONE) {
+      io.arbiter.rocc.resp.bits.data := arbiterRespPipe.bits.respType ##
+        arbiterRespPipe.bits.tid ## UInt(0, width = elementWidth)
+    }
   }
+  io.arbiter.rocc.resp.bits.rd := arbiterRespPipe.bits.rd
   io.arbiter.indexOut := arbiterRespPipe.bits.coreIdx
 
   // Default value assignment
@@ -206,6 +215,8 @@ class TransactionTable extends XFilesModule {
         arbiterRespPipe.bits.tid := cmd.tid
         arbiterRespPipe.bits.tidIdx := derefTidIndex
         arbiterRespPipe.bits.coreIdx := cmd.coreIdx
+        arbiterRespPipe.bits.rd := cmd.rd
+        printf("[INFO] X-Files saw new write request for NNID %x\n", cmd.nnid)
       }
         .elsewhen(cmd.isLast) {
         mem(derefTidIndex).we(0) := Bool(true)
@@ -214,6 +225,8 @@ class TransactionTable extends XFilesModule {
         table(derefTidIndex).indexElement :=
           table(derefTidIndex).indexElement + UInt(1)
         table(derefTidIndex).valid := Bool(true)
+        printf("[INFO] X-Files saw LAST write request on TID %x with data %x\n",
+          cmd.tid, cmd.data);
       }
         // This is an input packet
         .otherwise {
@@ -222,24 +235,38 @@ class TransactionTable extends XFilesModule {
         mem(derefTidIndex).addr(0) := table(derefTidIndex).indexElement
         table(derefTidIndex).indexElement :=
           table(derefTidIndex).indexElement + UInt(1)
+        printf("[INFO] X-Files saw write request on TID %x with data %x\n",
+          cmd.tid, cmd.data);
         // table(derefTidIndex).data() :=
       }
-    } .otherwise { // Ths is a read packet
-      mem(derefTidIndex).addr(0) := table(derefTidIndex).readIdx
-      arbiterRespPipe.valid := Bool(true)
-      arbiterRespPipe.bits.respType := e_READ
-      arbiterRespPipe.bits.asid := cmd.asid
-      arbiterRespPipe.bits.tid := cmd.tid
-      arbiterRespPipe.bits.tidIdx := derefTidIndex
-      arbiterRespPipe.bits.readIdx := table(derefTidIndex).readIdx
-      arbiterRespPipe.bits.coreIdx := cmd.coreIdx
-      // Check to see if all outputs have been read
-      when (table(derefTidIndex).readIdx ===
-        table(derefTidIndex).nodesInCurrentLayer - UInt(1)) {
-        table(derefTidIndex).valid := Bool(false)
-        table(derefTidIndex).reserved := Bool(false)
+    } .otherwise { // Ths is a read packet.
+      when (table(derefTidIndex).done) {
+        mem(derefTidIndex).addr(0) := table(derefTidIndex).readIdx
+        arbiterRespPipe.valid := Bool(true)
+        arbiterRespPipe.bits.respType := e_READ
+        arbiterRespPipe.bits.asid := cmd.asid
+        arbiterRespPipe.bits.tid := cmd.tid
+        arbiterRespPipe.bits.tidIdx := derefTidIndex
+        arbiterRespPipe.bits.readIdx := table(derefTidIndex).readIdx
+        arbiterRespPipe.bits.coreIdx := cmd.coreIdx
+        arbiterRespPipe.bits.rd := cmd.rd
+        // Check to see if all outputs have been read
+        when (table(derefTidIndex).readIdx ===
+          table(derefTidIndex).nodesInCurrentLayer - UInt(1)) {
+          table(derefTidIndex).valid := Bool(false)
+          table(derefTidIndex).reserved := Bool(false)
+        }
+        table(derefTidIndex).readIdx := table(derefTidIndex).readIdx + UInt(1)
+        printf("[INFO] X-Files saw read request on TID %x\n",
+          cmd.tid);
+      } .otherwise {
+        arbiterRespPipe.valid := Bool(true)
+        arbiterRespPipe.bits.respType := e_NOT_DONE
+        arbiterRespPipe.bits.coreIdx := cmd.coreIdx
+        arbiterRespPipe.bits.rd := cmd.rd
+        printf("[INFO] X-Files saw read request on TID %x, but transaction not done!\n",
+          cmd.tid);
       }
-      table(derefTidIndex).readIdx := table(derefTidIndex).readIdx + UInt(1)
     }
   }
 
@@ -323,6 +350,11 @@ class TransactionTable extends XFilesModule {
         table(io.peTable.req.bits.tableIndex).decInUse := Bool(true)
         table(io.peTable.req.bits.tableIndex).waiting := Bool(false)
       }
+      printf("[INFO] TTable saw PE-write on ASID/TID %x/%x for data[%d] of %d\n",
+        table(io.peTable.req.bits.tableIndex).asid,
+        table(io.peTable.req.bits.tableIndex).tid,
+        io.peTable.req.bits.addr,
+        io.peTable.req.bits.data);
     }
   }
   // Package up the memory response for the response to the PE Table
@@ -402,6 +434,9 @@ class TransactionTable extends XFilesModule {
   when (isCacheReq) {
     table(entryArbiter.io.out.bits.tableIndex).waiting := Bool(true)
     when (entryArbiter.io.out.bits.isDone) {
+      printf("[INFO] TTable entry for ASID/TID %x/%x is done\n",
+        table(entryArbiter.io.out.bits.tableIndex).asid,
+        table(entryArbiter.io.out.bits.tableIndex).tid);
       table(entryArbiter.io.out.bits.tableIndex).done := Bool(true)
     }
   }
@@ -517,10 +552,16 @@ class TransactionTable extends XFilesModule {
     table(i).valid && (table(i).currentNode > table(i).numNodes))).contains(Bool(true)),
     "A TTable entry has a currentNode count greater than the total numNodes")
 
-  // Inbound read requests should only hit a done entry
-  assert(!(io.arbiter.rocc.cmd.valid && !cmd.readOrWrite &&
-    !table(derefTidIndex).done),
-    "TTable saw read request on entry that is not done")
+  // Don't send a response to the core unless it's ready
+  assert(!(io.arbiter.rocc.resp.valid && !io.arbiter.rocc.resp.ready),
+    "TTable tried to send a valid response when core was not ready")
+
+  // Inbound read requests should only hit a done entry. [TODO] I'm
+  // currently generating e_NOT_DONE responses when this happens.
+  // Assertion is getting turned off, consequently.
+  // assert(!(io.arbiter.rocc.cmd.valid && !cmd.readOrWrite &&
+  //   !table(derefTidIndex).done),
+  //   "TTable saw read request on entry that is not done")
 }
 
 class TransactionTableTests(uut: TransactionTable, isTrace: Boolean = true)

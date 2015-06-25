@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+
+(cd ../src/main/scala && ln -sf ../../../xfiles-dana/config/XFilesDanaConfigs.scala)
+(cd ../csrc && ln -sf ../xfiles-dana/src/test/cpp/xfiles_dana.cc)
+(cd ../csrc && ln -sf ../xfiles-dana/src/test/cpp/xfiles_dana.h)

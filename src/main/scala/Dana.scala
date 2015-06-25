@@ -130,9 +130,10 @@ abstract class DanaModule extends Module with DanaParameters {
     e_FANN_CO ::                         // 17
     Nil) = Enum(UInt(), 18)
   // Response type that will be sent to a core
-  val (e_TID :: // 0
-    e_READ :: // 1
-    Nil) = Enum(UInt(), 2)
+  val (e_TID ::   // 0
+    e_READ ::     // 1
+    e_NOT_DONE :: // 2
+    Nil) = Enum(UInt(), 3)
 }
 
 // Base class for all Bundle classes used in DANA. This sets all the

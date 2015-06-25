@@ -37,7 +37,8 @@ class AsidUnit extends DanaModule with XFilesParameters {
 
   // Reset
   when (reset) {
-    asidReg.valid := Bool(false)
+    asidReg.valid := Bool(true)
+    asidReg.tid := UInt(5)
   }
 
   // Assertions
