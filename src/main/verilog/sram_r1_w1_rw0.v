@@ -6,7 +6,7 @@ module sram_r1_w1_rw0
     WIDTH = 8,
     DEPTH = 64,
     LG_DEPTH = 6,
-    INIT_VAL = '0
+    INIT_VAL = 0
     )
   (input clk,
    input [WIDTH - 1:0] io_dinW_0,
