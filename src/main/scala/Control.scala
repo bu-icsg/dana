@@ -86,7 +86,7 @@ class Control extends DanaModule {
     io.cache.req.bits.layer := layer
     io.cache.req.bits.location := location
   }
-  def reqPETable(valid: Bool, cacheIndex: UInt, asid: UInt, tid: UInt,
+  def reqPETable(valid: Bool, cacheIndex: UInt,
     tIdx: UInt, locationInput: UInt, locationOutput: UInt,
     inputIndex: UInt, outputIndex: UInt, neuronPointer: UInt,
     decimalPoint: UInt) {
@@ -120,7 +120,7 @@ class Control extends DanaModule {
   io.cache.resp.ready := Bool(true) // [TODO] not correct
   reqCache(Bool(false), UInt(0), UInt(0), UInt(0), UInt(0), UInt(0))
   // io.petable defaults
-  reqPETable(Bool(false), UInt(0), UInt(0), UInt(0), UInt(0), UInt(0),
+  reqPETable(Bool(false), UInt(0), UInt(0), UInt(0),
     UInt(0), UInt(0), UInt(0), UInt(0), UInt(0))
   // io.regFile defaults
   io.regFile.req.valid := Bool(false)
@@ -187,9 +187,7 @@ class Control extends DanaModule {
         // The specific cache entry where the NN configuration for
         // this PE is located
         io.tTable.req.bits.cacheIndex, // cacheIndex
-        // Transaction Table index (ASID/TID) aren't needed?
-        io.tTable.req.bits.asid,
-        io.tTable.req.bits.tid,
+        // Table Index, no ASID/TID are used
         io.tTable.req.bits.tableIndex,
         // Clever input/output location determination
         Mux(io.tTable.req.bits.inFirst, e_LOCATION_IO,

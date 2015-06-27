@@ -271,9 +271,7 @@ class Cache extends DanaModule {
       // Number of neurons in this layer
       controlRespPipe(1).bits.data(0) :=
         compressedLayers(controlRespPipe(0).bits.data(0))(12 + 10 - 1, 12)
-      // Number of neurons in the next layer
-      controlRespPipe(1).bits.data(1) :=
-        compressedLayers(controlRespPipe(0).bits.data(0))(22 + 10 - 1, 22)
+      // data(1) is currently unused
       // Pointer to the first neuron
       controlRespPipe(1).bits.data(2) :=
         compressedLayers(controlRespPipe(0).bits.data(0))(12 - 1, 0)
