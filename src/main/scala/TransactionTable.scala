@@ -25,7 +25,6 @@ class TransactionState extends XFilesBundle {
   val currentNodeInLayer = UInt(width = 16) // [TODO] fragile
   val currentLayer = UInt(width = 16) // [TODO] fragile
   val nodesInCurrentLayer = UInt(width = 16) // [TODO] fragile
-  val nodesInNextLayer = UInt(width = 16) // [TODO] fragile
   val neuronPointer = UInt(width = 11) // [TODO] fragile
   val countFeedback = UInt(width = feedbackWidth)
   val countPeWrites = UInt(width = 16) // [TODO] fragile
@@ -47,14 +46,9 @@ class ControlReq extends XFilesBundle {
   val tableIndex = UInt(width = log2Up(transactionTableNumEntries))
   val cacheIndex = UInt(width = log2Up(cacheNumEntries))
   val nnid = UInt(width = nnidWidth) // formerly nn_hash
-  val asid = UInt(width = asidWidth)
-  val tid = UInt(width = tidWidth)
   // State info
-  val currentNode = UInt(width = 16) // [TODO] fragile
   val currentNodeInLayer = UInt(width = 16) // [TODO] fragile
   val currentLayer = UInt(width = 16) // [TODO] fragile
-  val nodesInCurrentLayer = UInt(width = 16) // [TODO] fragile
-  val nodesInNextLayer = UInt(width = 16) // [TODO] fragile
   val neuronPointer = UInt(width = 11) // [TODO] fragile
   val decimalPoint = UInt(width = decimalPointWidth)
 }
@@ -292,7 +286,6 @@ class TransactionTable extends XFilesModule {
           table(io.control.resp.bits.tableIndex).needsLayerInfo := Bool(false)
           table(io.control.resp.bits.tableIndex).currentNodeInLayer := UInt(0)
           table(io.control.resp.bits.tableIndex).nodesInCurrentLayer := io.control.resp.bits.data(0)
-          table(io.control.resp.bits.tableIndex).nodesInNextLayer := io.control.resp.bits.data(1)
           table(io.control.resp.bits.tableIndex).neuronPointer := io.control.resp.bits.data(2)
           // Update the inFirst and inLast Bools. The currentLayer
           // should have already been updated when the request went out.
@@ -397,14 +390,9 @@ class TransactionTable extends XFilesModule {
     entryArbiter.io.in(i).bits.tableIndex := UInt(i)
     entryArbiter.io.in(i).bits.cacheIndex := table(i).cacheIndex
     entryArbiter.io.in(i).bits.nnid := table(i).nnid
-    entryArbiter.io.in(i).bits.asid := table(i).asid
-    entryArbiter.io.in(i).bits.tid := table(i).tid
     // State info
-    entryArbiter.io.in(i).bits.currentNode := table(i).currentNode
     entryArbiter.io.in(i).bits.currentNodeInLayer := table(i).currentNodeInLayer
     entryArbiter.io.in(i).bits.currentLayer := table(i).currentLayer
-    entryArbiter.io.in(i).bits.nodesInCurrentLayer :=table(i).nodesInCurrentLayer
-    entryArbiter.io.in(i).bits.nodesInNextLayer := table(i).nodesInNextLayer
     entryArbiter.io.in(i).bits.neuronPointer := table(i).neuronPointer
     entryArbiter.io.in(i).bits.decimalPoint := table(i).decimalPoint
   }
