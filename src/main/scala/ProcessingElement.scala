@@ -44,7 +44,6 @@ class ProcessingElement extends DanaModule {
   val af = Module(new ActivationFunction)
 
   val index = Reg(init = UInt(0, width = log2Up(elementsPerBlock)))
-  val indexBlock = Reg(init = UInt(0, width = log2Up(transactionTableSramBlocks)))
   val acc = Reg(init = SInt(0, width = elementWidth))
   val dataOut = Reg(init = SInt(0, width = elementWidth))
 
@@ -63,7 +62,6 @@ class ProcessingElement extends DanaModule {
   io.resp.bits.index := io.req.bits.index
   io.resp.bits.data := UInt(0)
   index := index
-  indexBlock := indexBlock
   af.io.req.valid := Bool(false)
 
   // State-driven logic
@@ -72,7 +70,6 @@ class ProcessingElement extends DanaModule {
     io.req.ready := Bool(true)
     acc := SInt(0)
     index := UInt(0)
-    indexBlock := UInt(0)
     hasBias := Bool(false)
   } .elsewhen (state === e_PE_GET_INFO) {
     state := Mux(io.req.valid, e_PE_WAIT_FOR_INFO, state)
@@ -96,12 +93,11 @@ class ProcessingElement extends DanaModule {
       state := e_PE_ACTIVATION_FUNCTION
     } .elsewhen (index === UInt(elementsPerBlock - 1)) {
       state := e_PE_REQUEST_INPUTS_AND_WEIGHTS
-      indexBlock := indexBlock + UInt(1)
     } .otherwise {
       state := state
     }
     acc := acc + ((io.req.bits.iBlock(index) * io.req.bits.wBlock(index)) >>
-      (io.req.bits.decimalPoint) >> UInt(decimalPointOffset))
+      (io.req.bits.decimalPoint + UInt(decimalPointOffset, width = decimalPointWidth + 1)))
     index := index + UInt(1)
   } .elsewhen (state === e_PE_ACTIVATION_FUNCTION) {
     af.io.req.valid := Bool(true)
