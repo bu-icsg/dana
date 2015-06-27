@@ -110,6 +110,57 @@ class ActivationFunction extends DanaModule {
     tmp
   }
 
+  val one = SInt(1, width = elementWidth) << decimal
+  val negOne = SInt(-1, width = elementWidth) << decimal
+  val offsetX = SInt(width = 32)
+  val offsetSigY = SInt(width = 32)
+  val offsetSymY = SInt(width = 32)
+  val slopeSig = SInt(width = 32)
+  val slopeSym = SInt(width = 32)
+  when(inD0 < xmin) {
+    offsetX    := SInt(0)
+    offsetSigY := SInt(0)
+    offsetSymY := negOne
+    slopeSig   := SInt(0)
+    slopeSym   := SInt(0)
+  } .elsewhen((xmin <= inD0) && (inD0 < x1)) {
+    offsetX    := xmin
+    offsetSigY := sigy0
+    offsetSymY := symy0
+    slopeSig   := slope1
+    slopeSym   := sslope1
+  } .elsewhen((x1 <= inD0) && (inD0 < x2)) {
+    offsetX    := x1
+    offsetSigY := sigy1
+    offsetSymY := symy1
+    slopeSig   := slope2
+    slopeSym   := sslope2
+  } .elsewhen((x2 <= inD0) && (inD0 < x3)) {
+    offsetX    := x2
+    offsetSigY := sigy2
+    offsetSymY := symy2
+    slopeSig   := slope3
+    slopeSym   := sslope3
+  } .elsewhen((x3 <= inD0) && (inD0 < x4)) {
+    offsetX    := x3
+    offsetSigY := sigy3
+    offsetSymY := symy3
+    slopeSig   := slope4
+    slopeSym   := sslope4
+  } .elsewhen((xmin <= inD0) && (inD0 < xmax)) {
+    offsetX    := x4
+    offsetSigY := sigy4
+    offsetSymY := symy4
+    slopeSig   := slope5
+    slopeSym   := sslope5
+  } .otherwise {
+    offsetX    := SInt(0)
+    offsetSigY := one
+    offsetSymY := one
+    slopeSig   := SInt(0)
+    slopeSym   := SInt(0)
+  }
+
   inD0 := applySteepness(io.req.bits.in, io.req.bits.steepness)
   // FANN_LINEAR
   when (io.req.bits.activationFunction === e_FANN_LINEAR) {
@@ -117,7 +168,7 @@ class ActivationFunction extends DanaModule {
   } // FANN_THRESHOLD
     .elsewhen(io.req.bits.activationFunction === e_FANN_THRESHOLD) {
     when (inD0 <= SInt(0)) { out := SInt(0)
-    } .otherwise { out := SInt(1) << decimal }
+    } .otherwise { out := one }
   } // FANN_THRESHOLD_SYMMETRIC
     .elsewhen(io.req.bits.activationFunction === e_FANN_THRESHOLD_SYMMETRIC) {
     when (inD0 < SInt(0)) {
@@ -125,45 +176,17 @@ class ActivationFunction extends DanaModule {
     } .elsewhen(inD0 === SInt(0)) {
       out := SInt(0)
     } .otherwise {
-      out := SInt(1) << decimal }
+      out := one }
   } // FANN_SIGMOID and STEPWISE
     .elsewhen(io.req.bits.activationFunction === e_FANN_SIGMOID ||
     io.req.bits.activationFunction === e_FANN_SIGMOID_STEPWISE) {
     // Compute the output
-    when(inD0 < xmin) {
-      out := SInt(0)
-    } .elsewhen((xmin <= inD0) && (inD0 < x1)) {
-      out := ((slope1*(inD0-xmin) >> decimal) + sigy0)
-    } .elsewhen((x1 <= inD0) && (inD0 < x2)) {
-      out := ((slope2*(inD0-x1) >> decimal) + sigy1)
-    } .elsewhen((x2 <= inD0) && (inD0 < x3)) {
-      out := ((slope3*(inD0-x2) >> decimal) + sigy2)
-    } .elsewhen((x3 <= inD0) && (inD0 < x4)) {
-      out := ((slope4*(inD0-x3) >> decimal) + sigy3)
-    } .elsewhen((x4 <= inD0) && (inD0 < xmax)) {
-      out := ((slope5*(inD0-x4) >> decimal) + sigy4)
-    } .otherwise {
-      out := SInt(1) << decimal
-    }
+    out := ((slopeSig*(inD0-offsetX) >> decimal) + offsetSigY)
   } // FANN_SIGMOID_SYMMETRIC and STEPWISE
     .elsewhen(io.req.bits.activationFunction === e_FANN_SIGMOID_SYMMETRIC ||
     io.req.bits.activationFunction === e_FANN_SIGMOID_SYMMETRIC_STEPWISE) {
     // Compute the output
-    when(inD0 < xmin) {
-      out := SInt(-1, width = elementWidth) << decimal
-    } .elsewhen((xmin <= inD0) && (inD0 < x1)) {
-      out := ((sslope1*(inD0-xmin) >> decimal) + symy0)
-    } .elsewhen((x1 <= inD0) && (inD0 < x2)) {
-      out := ((sslope2*(inD0-x1) >> decimal) + symy1)
-    } .elsewhen((x2 <= inD0) && (inD0 < x3)) {
-      out := ((sslope3*(inD0-x2) >> decimal) + symy2)
-    } .elsewhen((x3 <= inD0) && (inD0 < x4)) {
-      out := ((sslope4*(inD0-x3) >> decimal) + symy3)
-    } .elsewhen((x4 <= inD0) && (inD0 < xmax)) {
-      out := ((sslope5*(inD0-x4) >> decimal) + symy4)
-    } .otherwise {
-      out := SInt(1) << decimal
-    }
+    out := ((slopeSym*(inD0-offsetX) >> decimal) + offsetSymY)
   } // Dump out some garbage (the largest 32-bit integer)
     .otherwise {
     out := SInt(429496792)
