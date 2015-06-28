@@ -183,14 +183,12 @@ class ActivationFunction extends DanaModule {
     // Compute the output
     out := ((slopeSig*(inD0-offsetX) >> decimal) + offsetSigY)
   } // FANN_SIGMOID_SYMMETRIC and STEPWISE
-    .elsewhen(io.req.bits.activationFunction === e_FANN_SIGMOID_SYMMETRIC ||
-    io.req.bits.activationFunction === e_FANN_SIGMOID_SYMMETRIC_STEPWISE) {
+    // .elsewhen(io.req.bits.activationFunction === e_FANN_SIGMOID_SYMMETRIC ||
+    // io.req.bits.activationFunction === e_FANN_SIGMOID_SYMMETRIC_STEPWISE) {
+    .otherwise {
     // Compute the output
     out := ((slopeSym*(inD0-offsetX) >> decimal) + offsetSymY)
   } // Dump out some garbage (the largest 32-bit integer)
-    .otherwise {
-    out := SInt(429496792)
-  }
 
   // All activation functions currently take two cycles, so the output
   // valid signal is delayed by two cycles.

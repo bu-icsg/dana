@@ -43,9 +43,9 @@ class ProcessingElement extends DanaModule {
   // Activation Function module
   val af = Module(new ActivationFunction)
 
-  val index = Reg(init = UInt(0, width = log2Up(elementsPerBlock)))
-  val acc = Reg(init = SInt(0, width = elementWidth))
-  val dataOut = Reg(init = SInt(0, width = elementWidth))
+  val index = Reg(UInt(width = log2Up(elementsPerBlock)))
+  val acc = Reg(SInt(width = elementWidth))
+  val dataOut = Reg(SInt(width = elementWidth))
 
   // [TODO] fragile on PE stateu enum (Common.scala)
   val state = Reg(UInt(width = log2Up(8)), init = e_PE_UNALLOCATED)
@@ -60,7 +60,7 @@ class ProcessingElement extends DanaModule {
   io.resp.valid := Bool(false)
   io.resp.bits.state := state
   io.resp.bits.index := io.req.bits.index
-  io.resp.bits.data := UInt(0)
+  io.resp.bits.data := dataOut
   index := index
   af.io.req.valid := Bool(false)
 
@@ -68,7 +68,6 @@ class ProcessingElement extends DanaModule {
   when (state === e_PE_UNALLOCATED) {
     state := Mux(io.req.valid, e_PE_GET_INFO, state)
     io.req.ready := Bool(true)
-    acc := SInt(0)
     index := UInt(0)
     hasBias := Bool(false)
   } .elsewhen (state === e_PE_GET_INFO) {
@@ -97,14 +96,13 @@ class ProcessingElement extends DanaModule {
       state := state
     }
     acc := acc + ((io.req.bits.iBlock(index) * io.req.bits.wBlock(index)) >>
-      (io.req.bits.decimalPoint + UInt(decimalPointOffset, width = decimalPointWidth + 1)))
+      (io.req.bits.decimalPoint + UInt(decimalPointOffset, width = decimalPointWidth + 1)))(elementWidth,0)
     index := index + UInt(1)
   } .elsewhen (state === e_PE_ACTIVATION_FUNCTION) {
     af.io.req.valid := Bool(true)
     state := Mux(af.io.resp.valid, e_PE_DONE, state)
   } .elsewhen (state === e_PE_DONE) {
     state := Mux(io.req.valid, e_PE_UNALLOCATED, state)
-    io.resp.bits.data := dataOut
     io.resp.valid := Bool(true)
   } .otherwise {
     // [TODO] currently unused, should this fire an assertion or
