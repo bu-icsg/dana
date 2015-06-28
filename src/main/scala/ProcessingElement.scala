@@ -23,7 +23,7 @@ class ProcessingElementResp extends DanaBundle {
   //   * next_state
   //   * invalidate_inputs
   val data = UInt(width = elementWidth)
-  val state = UInt(width = log2Up(7)) // [TODO] fragile on PE state enum
+  val state = UInt() // [TODO] fragile on PE state enum
   val index = UInt()
 }
 
@@ -48,7 +48,7 @@ class ProcessingElement extends DanaModule {
   val dataOut = Reg(SInt(width = elementWidth))
 
   // [TODO] fragile on PE stateu enum (Common.scala)
-  val state = Reg(UInt(width = log2Up(8)), init = e_PE_UNALLOCATED)
+  val state = Reg(UInt(), init = e_PE_UNALLOCATED)
 
   // Local state storage. Any and all of these are possible kludges
   // which could be implemented more cleanly.
