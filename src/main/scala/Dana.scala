@@ -103,7 +103,7 @@ abstract class DanaModule extends Module with DanaParameters {
     e_PE_RUN ::                         // 5
     e_PE_ACTIVATION_FUNCTION ::         // 6
     e_PE_DONE ::                        // 7
-    Nil) = Enum(UInt(), 8)
+    Nil) = Enum(UInt(), 8).map(i => (UInt(1) << i)(7, 0))
   // Location of inputs and outputs
   val (e_LOCATION_REG_0 :: // 0
     e_LOCATION_REG_1 ::    // 1
