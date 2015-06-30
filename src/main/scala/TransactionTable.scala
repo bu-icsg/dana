@@ -152,7 +152,8 @@ class TransactionTable extends XFilesModule {
   arbiterRespPipe.bits.coreIdx := UInt(0)
   arbiterRespPipe.bits.rd := UInt(0)
   io.arbiter.rocc.resp.valid := arbiterRespPipe.valid
-  val memDataVec = Vec((0 until elementsPerBlock).map(i => (mem(arbiterRespPipe.bits.tidIdx).dout(0) >> (UInt(elementWidth) * UInt(i)))(elementWidth - 1, 0)))
+  val memDataVec = Vec((0 until elementsPerBlock).map(i =>
+    (mem(arbiterRespPipe.bits.tidIdx).dout(0))(elementWidth * (i + 1) - 1, elementWidth * i)))
   switch (arbiterRespPipe.bits.respType) {
     is (e_TID) {
       io.arbiter.rocc.resp.bits.data := arbiterRespPipe.bits.respType ##

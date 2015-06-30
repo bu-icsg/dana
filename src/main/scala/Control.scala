@@ -12,7 +12,7 @@ class ControlCacheInterfaceResp extends DanaBundle with ControlParameters {
   val cacheIndex = UInt(width = log2Up(cacheNumEntries))
   val data = Vec.fill(3){UInt(width = 16)} // [TODO] possibly fragile
   val decimalPoint = UInt(INPUT, decimalPointWidth)
-  val field = UInt(width = log2Up(4)) // [TODO] fragile on Constants.scala
+  val field = UInt(width = log2Up(7)) // [TODO] fragile on Constants.scala
   val location = UInt(width = 1)
 }
 

@@ -65,48 +65,54 @@ class ProcessingElement extends DanaModule {
   af.io.req.valid := Bool(false)
 
   // State-driven logic
-  when (state === e_PE_UNALLOCATED) {
-    state := Mux(io.req.valid, e_PE_GET_INFO, state)
-    io.req.ready := Bool(true)
-    index := UInt(0)
-    hasBias := Bool(false)
-  } .elsewhen (state === e_PE_GET_INFO) {
-    state := Mux(io.req.valid, e_PE_WAIT_FOR_INFO, state)
-    io.resp.valid := Bool(true)
-  } .elsewhen (state === e_PE_WAIT_FOR_INFO) {
-    state := Mux(io.req.valid, e_PE_REQUEST_INPUTS_AND_WEIGHTS, state)
-  } .elsewhen (state === e_PE_REQUEST_INPUTS_AND_WEIGHTS) {
-    state := Mux(io.req.valid, e_PE_WAIT_FOR_INPUTS_AND_WEIGHTS, state)
-    io.resp.valid := Bool(true)
-    // If hasBias is false, then this is the first time we're in this
-    // state and we need to load the bias into the accumulator
-    when (hasBias === Bool(false)) {
-      hasBias := Bool(true)
-      acc := io.req.bits.bias
+  switch (state) {
+    is (e_PE_UNALLOCATED) {
+      state := Mux(io.req.valid, e_PE_GET_INFO, state)
+      io.req.ready := Bool(true)
+      index := UInt(0)
+      hasBias := Bool(false)
     }
-  } .elsewhen (state === e_PE_WAIT_FOR_INPUTS_AND_WEIGHTS) {
-    state := Mux(io.req.valid, e_PE_RUN, state)
-  } .elsewhen (state === e_PE_RUN) {
-    // [TOOD] This logic is broken for some reason
-    when (index === (io.req.bits.numWeights - UInt(1))) {
-      state := e_PE_ACTIVATION_FUNCTION
-    } .elsewhen (index === UInt(elementsPerBlock - 1)) {
-      state := e_PE_REQUEST_INPUTS_AND_WEIGHTS
-    } .otherwise {
-      state := state
+    is (e_PE_GET_INFO) {
+      state := Mux(io.req.valid, e_PE_WAIT_FOR_INFO, state)
+      io.resp.valid := Bool(true)
     }
-    acc := acc + ((io.req.bits.iBlock(index) * io.req.bits.wBlock(index)) >>
-      (io.req.bits.decimalPoint + UInt(decimalPointOffset, width = decimalPointWidth + 1)))(elementWidth,0)
-    index := index + UInt(1)
-  } .elsewhen (state === e_PE_ACTIVATION_FUNCTION) {
-    af.io.req.valid := Bool(true)
-    state := Mux(af.io.resp.valid, e_PE_DONE, state)
-  } .elsewhen (state === e_PE_DONE) {
-    state := Mux(io.req.valid, e_PE_UNALLOCATED, state)
-    io.resp.valid := Bool(true)
-  } .otherwise {
-    // [TODO] currently unused, should this fire an assertion or
-    // something?
+    is (e_PE_WAIT_FOR_INFO) {
+      state := Mux(io.req.valid, e_PE_REQUEST_INPUTS_AND_WEIGHTS, state)
+    }
+    is (e_PE_REQUEST_INPUTS_AND_WEIGHTS) {
+      state := Mux(io.req.valid, e_PE_WAIT_FOR_INPUTS_AND_WEIGHTS, state)
+      io.resp.valid := Bool(true)
+      // If hasBias is false, then this is the first time we're in this
+      // state and we need to load the bias into the accumulator
+      when (hasBias === Bool(false)) {
+        hasBias := Bool(true)
+        acc := io.req.bits.bias
+      }
+    }
+    is (e_PE_WAIT_FOR_INPUTS_AND_WEIGHTS) {
+      state := Mux(io.req.valid, e_PE_RUN, state)
+    }
+    is (e_PE_RUN) {
+      // [TOOD] This logic is broken for some reason
+      when (index === (io.req.bits.numWeights - UInt(1))) {
+        state := e_PE_ACTIVATION_FUNCTION
+      } .elsewhen (index === UInt(elementsPerBlock - 1)) {
+        state := e_PE_REQUEST_INPUTS_AND_WEIGHTS
+      } .otherwise {
+        state := state
+      }
+      acc := acc + ((io.req.bits.iBlock(index) * io.req.bits.wBlock(index)) >>
+        (io.req.bits.decimalPoint + UInt(decimalPointOffset, width = decimalPointWidth + 1)))(elementWidth,0)
+      index := index + UInt(1)
+    }
+    is (e_PE_ACTIVATION_FUNCTION) {
+      af.io.req.valid := Bool(true)
+      state := Mux(af.io.resp.valid, e_PE_DONE, state)
+    }
+    is (e_PE_DONE) {
+      state := Mux(io.req.valid, e_PE_UNALLOCATED, state)
+      io.resp.valid := Bool(true)
+    }
   }
 
   af.io.req.bits.in := acc
