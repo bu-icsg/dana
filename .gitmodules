@@ -1,0 +1,3 @@
+[submodule "submodules/verilog"]
+	path = submodules/verilog
+	url = git://github.com/seldridge/verilog.git
