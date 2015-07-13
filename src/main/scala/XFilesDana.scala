@@ -38,12 +38,13 @@ class XFilesDana extends RoCC with XFilesParameters {
   io.resp <> xFilesArbiter.io.core(0).resp
 
   io.mem.req.valid := Bool(false)
+  io.mem.invalidate_lr := Bool(false)
 
   // io.mem.xcpt.ma := Bool(false)
   // io.mem.xcpt.pf := Bool(false)
-  io.mem.ptw.req.ready := Bool(false)
-  io.mem.ptw.invalidate := Bool(false)
-  io.mem.ptw.sret := Bool(false)
+  // io.mem.ptw.req.ready := Bool(false)
+  // io.mem.ptw.invalidate := Bool(false)
+  // io.mem.ptw.sret := Bool(false)
 
   io.busy := xFilesArbiter.io.core(0).busy
   xFilesArbiter.io.core(0).s := io.s
@@ -51,7 +52,10 @@ class XFilesDana extends RoCC with XFilesParameters {
 
   io.imem.acquire.valid := Bool(false)
   io.imem.grant.ready := Bool(true)
-  io.imem.finish.valid := Bool(false)
+
+  io.dmem.acquire.valid := Bool(false)
+  io.dmem.grant.ready := Bool(true)
+
   io.iptw.req.valid := Bool(false)
   io.dptw.req.valid := Bool(false)
   io.pptw.req.valid := Bool(false)

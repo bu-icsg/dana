@@ -60,7 +60,7 @@ int xfiles_dana_helper::read_parameters(const string file_string_parameters) {
 int xfiles_dana_helper::cache_load(int index, uint32_t nnid,
                                    const char * file, bool debug = false) {
 
-  std::string cache("Top.RocketTile.XFilesDana.dana.cache");
+  std::string cache("Top.temp.RocketTile.XFilesDana.dana.cache");
   std::stringstream ss("");
   std::stringstream val("");
   std::stringstream i_s("");
@@ -111,8 +111,8 @@ int xfiles_dana_helper::cache_load(int index, uint32_t nnid,
   }
   ss.str("");
   ss << cache << ".SRAM";
-  // if (index > 0) ss << "_" << index;
-  ss << "_" << index;
+  if (index > 0) ss << "_" << index;
+  // ss << "_" << index;
   ss << ".mem";
   i = 0;
   // Go through the whole file and dump the data into the SRAM

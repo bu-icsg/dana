@@ -11,6 +11,7 @@ class XFilesDanaConfig extends ChiselConfig (
   topDefinitions = { (pname,site,here) =>
     pname match {
       case BuildRoCC => Some(() => (Module(new XFilesDana, { case CoreName => "XFilesDana" })))
+      case RoCCMaxTaggedMemXacts => 1
     }}
 )
 
