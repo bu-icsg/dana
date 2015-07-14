@@ -60,7 +60,7 @@ int xfiles_dana_helper::read_parameters(const string file_string_parameters) {
 int xfiles_dana_helper::cache_load(int index, uint32_t nnid,
                                    const char * file, bool debug = false) {
 
-  std::string cache("Top.temp.RocketTile.XFilesDana.dana.cache");
+  std::string cache("Top.MultiChannelTop.RocketTile.XFilesDana.dana.cache");
   std::stringstream ss("");
   std::stringstream val("");
   std::stringstream i_s("");
