@@ -166,7 +166,7 @@ $(DIR_BUILD)/%$(FPGA_CONFIG_DOT)-vcd.vvp: %.v $(BACKEND_VERILOG) $(HEADERS_V)
 
 #------------------- RISC-V Tests
 $(DIR_BUILD)/%.rv: %.c
-	riscv64-unknown-elf-gcc $< -o $@ $(RV_FLAGS_EXECUTABLES)
+	riscv64-unknown-elf-gcc -march=RV64IMAFDXcustom $< -o $@ $(RV_FLAGS_EXECUTABLES)
 
 $(DIR_BUILD)/%.rvS: $(DIR_BUILD)/%.rv
 	riscv64-unknown-elf-objdump -S $< > $@
