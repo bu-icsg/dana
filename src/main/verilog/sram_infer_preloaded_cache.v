@@ -7,7 +7,6 @@ module sram_infer_preloaded_cache
     DEPTH = 64,
     LG_DEPTH = 6,
     INIT_SWITCH = 0,
-    ELEMENT_WIDTH = 32,
     ELEMENTS_PER_BLOCK = 4
     )
   (input clk,
@@ -15,8 +14,8 @@ module sram_infer_preloaded_cache
    input [WIDTH - 1:0] io_din_0,
    output [WIDTH - 1:0] io_dout_1,
    output [WIDTH - 1:0] io_dout_0,
-   output [LG_DEPTH - 1:0] io_addr_1,
-   output [LG_DEPTH - 1:0] io_addr_0,
+   input [LG_DEPTH - 1:0] io_addr_1,
+   input [LG_DEPTH - 1:0] io_addr_0,
    input io_we_1,
    input io_we_0
    );
@@ -26,7 +25,6 @@ module sram_infer_preloaded_cache
       .DEPTH(DEPTH),
       .LG_DEPTH(LG_DEPTH),
       .INIT_SWITCH(INIT_SWITCH),
-      .ELEMENT_WIDTH(ELEMENT_WIDTH),
       .ELEMENTS_PER_BLOCK(ELEMENTS_PER_BLOCK)
       )
   u_ram_infer_preloaded_cache

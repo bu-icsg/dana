@@ -46,7 +46,6 @@ class SRAM (
         ".DEPTH(" + sramDepth + ")," +
         ".LG_DEPTH(" + log2Up(sramDepth) + ")," +
         ".INIT_SWITCH(" + initSwitch + ")," +
-        ".ELEMENT_WIDTH(" + elementsPerBlock + ")," +
         ".ELEMENTS_PER_BLOCK(" + elementsPerBlock + "))\n")
     setName("sram_infer_preloaded_cache")}
   else {

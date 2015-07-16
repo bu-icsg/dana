@@ -24,7 +24,6 @@ module ram_infer_preloaded_cache
     DEPTH = 64,
     LG_DEPTH = 6,
     INIT_SWITCH = 0,
-    ELEMENT_WIDTH = 32,
     ELEMENTS_PER_BLOCK = 4
     )
   (
@@ -36,8 +35,6 @@ module ram_infer_preloaded_cache
 
   reg [WIDTH-1:0]         ram [DEPTH-1:0];
   reg [WIDTH-1:0]         doa, dob;
-
-  genvar                  i;
 
   // Initialize the cache based on the the available initial blocks
   generate
