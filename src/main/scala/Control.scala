@@ -200,11 +200,12 @@ class Control extends DanaModule {
         // The output index is simply the index of the current node
         // being processed
         io.tTable.req.bits.currentNodeInLayer, // outputIndex
+
         // The neuron pointer is going to be the base pointer that
         // lives in the Transaction Table plus an offset based on the
-        // current node that we're processing. [TODO] I'm unsure why
-        // I'm using the left shift by 3 and need to check how this is
-        // being used for the cache lookup by the PE.
+        // current node that we're processing. The shift by 3 is to
+        // convert a neuron number into a memory address. This is
+        // fragile on the neuron size of 64 bits.
         io.tTable.req.bits.neuronPointer + // neuronPointer
           (io.tTable.req.bits.currentNodeInLayer << UInt(3)),
         // Pass along the decimal point

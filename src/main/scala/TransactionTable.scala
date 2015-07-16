@@ -66,13 +66,13 @@ class ControlResp extends XFilesBundle {
 }
 
 class XFilesArbiterRespPipe extends XFilesBundle {
-  val respType = UInt(width = log2Up(2)) // [TODO] Fragile on Dana enum
-  val asid = UInt(width = asidWidth)
+  val respType = UInt(width = log2Up(3)) // [TODO] Fragile on Dana enum
   val tid = UInt(width = tidWidth)
   val tidIdx = UInt(width = log2Up(transactionTableNumEntries))
   val readIdx = UInt(width = log2Up(transactionTableSramElements))
   val coreIdx = UInt(width = log2Up(numCores))
   val rd = UInt(width = 5) // Dependent on rocc.scala defined width
+  val status = UInt(width = elementWidth)
 }
 
 class TTableControlInterface extends XFilesBundle {
@@ -145,28 +145,33 @@ class TransactionTable extends XFilesModule {
   val arbiterRespPipe = Reg(Valid(new XFilesArbiterRespPipe))
   arbiterRespPipe.valid := Bool(false)
   arbiterRespPipe.bits.respType := UInt(0)
-  arbiterRespPipe.bits.asid := UInt(0)
   arbiterRespPipe.bits.tid := UInt(0)
   arbiterRespPipe.bits.readIdx := UInt(0)
   arbiterRespPipe.bits.tidIdx := UInt(0)
   arbiterRespPipe.bits.coreIdx := UInt(0)
   arbiterRespPipe.bits.rd := UInt(0)
+  arbiterRespPipe.bits.status := UInt(0)
   io.arbiter.rocc.resp.valid := arbiterRespPipe.valid
   val memDataVec = Vec((0 until elementsPerBlock).map(i =>
     (mem(arbiterRespPipe.bits.tidIdx).dout(0))(elementWidth * (i + 1) - 1, elementWidth * i)))
   switch (arbiterRespPipe.bits.respType) {
     is (e_TID) {
       io.arbiter.rocc.resp.bits.data := arbiterRespPipe.bits.respType ##
-        arbiterRespPipe.bits.tid ## UInt(0, width = elementWidth)
+        UInt(0, width = 14) ##
+        arbiterRespPipe.bits.tid ##
+        UInt(0, width = elementWidth)
     }
     is (e_READ) {
       io.arbiter.rocc.resp.bits.data := arbiterRespPipe.bits.respType ##
+        UInt(0, width = 14) ##
         arbiterRespPipe.bits.tid ##
         memDataVec(arbiterRespPipe.bits.readIdx(log2Up(elementsPerBlock) -1, 0))
     }
     is (e_NOT_DONE) {
       io.arbiter.rocc.resp.bits.data := arbiterRespPipe.bits.respType ##
-        arbiterRespPipe.bits.tid ## UInt(0, width = elementWidth)
+        UInt(0, width = 14) ##
+        arbiterRespPipe.bits.tid ##
+        arbiterRespPipe.bits.status
     }
   }
   io.arbiter.rocc.resp.bits.rd := arbiterRespPipe.bits.rd
@@ -206,7 +211,6 @@ class TransactionTable extends XFilesModule {
         arbiterRespPipe.valid := Bool(true)
         // Initiate a response that will containt the TID
         arbiterRespPipe.bits.respType := e_TID
-        arbiterRespPipe.bits.asid := cmd.asid
         arbiterRespPipe.bits.tid := cmd.tid
         arbiterRespPipe.bits.tidIdx := derefTidIndex
         arbiterRespPipe.bits.coreIdx := cmd.coreIdx
@@ -239,7 +243,6 @@ class TransactionTable extends XFilesModule {
         mem(derefTidIndex).addr(0) := table(derefTidIndex).readIdx
         arbiterRespPipe.valid := Bool(true)
         arbiterRespPipe.bits.respType := e_READ
-        arbiterRespPipe.bits.asid := cmd.asid
         arbiterRespPipe.bits.tid := cmd.tid
         arbiterRespPipe.bits.tidIdx := derefTidIndex
         arbiterRespPipe.bits.readIdx := table(derefTidIndex).readIdx
@@ -256,9 +259,22 @@ class TransactionTable extends XFilesModule {
           cmd.tid);
       } .otherwise {
         arbiterRespPipe.valid := Bool(true)
+        arbiterRespPipe.bits.tid := cmd.tid
         arbiterRespPipe.bits.respType := e_NOT_DONE
         arbiterRespPipe.bits.coreIdx := cmd.coreIdx
         arbiterRespPipe.bits.rd := cmd.rd
+        arbiterRespPipe.bits.status :=
+          table(derefTidIndex).valid ##
+          table(derefTidIndex).reserved ##
+          table(derefTidIndex).cacheValid ##
+          table(derefTidIndex).waiting ##
+          table(derefTidIndex).needsLayerInfo ##
+          table(derefTidIndex).done ##
+          table(derefTidIndex).inFirst ##
+          table(derefTidIndex).inLast ##
+          table(derefTidIndex).neuronPointer(7,0) ##
+          table(derefTidIndex).currentNodeInLayer(7,0) ##
+          table(derefTidIndex).numNodes(7,0)
         printf("[INFO] X-Files saw read request on TID %x, but transaction not done!\n",
           cmd.tid);
       }
@@ -288,6 +304,7 @@ class TransactionTable extends XFilesModule {
           table(io.control.resp.bits.tableIndex).currentNodeInLayer := UInt(0)
           table(io.control.resp.bits.tableIndex).nodesInCurrentLayer := io.control.resp.bits.data(0)
           table(io.control.resp.bits.tableIndex).neuronPointer := io.control.resp.bits.data(2)
+          printf("[INFO] Saw neuron pointer %x\n", io.control.resp.bits.data(2))
           // Update the inFirst and inLast Bools. The currentLayer
           // should have already been updated when the request went out.
           table(io.control.resp.bits.tableIndex).inFirst :=
@@ -494,14 +511,16 @@ class TransactionTable extends XFilesModule {
     (io.control.resp.bits.layerValidIndex === derefTidIndex)),
     "TTable saw non-new write req on same entry as control resp from Reg File")
 
-  assert(!(io.arbiter.rocc.cmd.valid && !cmd.readOrWrite &&
-    io.control.resp.bits.cacheValid &&
-    (io.control.resp.bits.tableIndex === derefTidIndex)),
-    "TTable saw read req on same entry as control resp from Cache")
-  assert(!(io.arbiter.rocc.cmd.valid && !cmd.readOrWrite &&
-    io.control.resp.bits.layerValid &&
-    (io.control.resp.bits.layerValidIndex === derefTidIndex)),
-    "TTable saw read req on same entry as control resp from Reg File")
+  // Receiving a read request on the same entry should be okay as this
+  // will only generate a "not done" response.
+  // assert(!(io.arbiter.rocc.cmd.valid && !cmd.readOrWrite &&
+  //   io.control.resp.bits.cacheValid &&
+  //   (io.control.resp.bits.tableIndex === derefTidIndex)),
+  //   "TTable saw read req on same entry as control resp from Cache")
+  // assert(!(io.arbiter.rocc.cmd.valid && !cmd.readOrWrite &&
+  //   io.control.resp.bits.layerValid &&
+  //   (io.control.resp.bits.layerValidIndex === derefTidIndex)),
+  //   "TTable saw read req on same entry as control resp from Reg File")
 
   // Valid should never be true if reserved is not true
   for (i <- 0 until transactionTableNumEntries)

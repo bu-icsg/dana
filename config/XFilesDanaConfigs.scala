@@ -19,4 +19,7 @@ class XFilesDanaCPPConfig extends ChiselConfig(new XFilesDanaConfig ++
   new DefaultXFilesDanaFPGAConfig ++ new DefaultCPPConfig)
 
 class XFilesDanaFPGAConfig extends ChiselConfig(new XFilesDanaConfig ++
+  new DefaultXFilesDanaFPGAConfig ++ new DefaultFPGAConfig)
+
+class XFilesDanaFPGASmallConfig extends ChiselConfig(new XFilesDanaConfig ++
   new DefaultXFilesDanaFPGAConfig ++ new DefaultFPGASmallConfig)

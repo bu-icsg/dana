@@ -172,16 +172,10 @@ class ProcessingElementTable extends DanaModule {
     table(nextFree).inLoc := io.control.req.bits.locationInput
     table(nextFree).outLoc := io.control.req.bits.locationOutput
     table(nextFree).neuronPtr := io.control.req.bits.neuronPointer
-    table(nextFree).weightPtr := SInt(-1)
     table(nextFree).decimalPoint := io.control.req.bits.decimalPoint
     table(nextFree).inIdx := io.control.req.bits.inputIndex
     table(nextFree).outIdx := io.control.req.bits.outputIndex
-    table(nextFree).inBlock := SInt(-1)
-    table(nextFree).weightBlock := SInt(-1)
     table(nextFree).numWeights := SInt(-1)
-    table(nextFree).activationFunction := SInt(-1)
-    table(nextFree).steepness := SInt(-1)
-    table(nextFree).bias := UInt(0)
     table(nextFree).weightValid := Bool(false)
     table(nextFree).inValid := Bool(false)
     // [TODO] Kick the PE
