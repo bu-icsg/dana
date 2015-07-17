@@ -5,6 +5,20 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+typedef uint32_t nnid_type;
+typedef uint16_t tid_type;
+typedef int32_t element_type;
+
+//-------------------------------------- Userland
+
+tid_type new_write_request(nnid_type);
+
+void write_data(tid_type, element_type *, size_t);
+
+uint64_t spin_read_data(tid_type, element_type *, size_t);
+
+//-------------------------------------- Supervisor
+
 typedef struct {
   uint64_t * data;
   int size;

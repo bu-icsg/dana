@@ -78,10 +78,16 @@ RV_TESTS_DISASM      = $(RV_TESTS:%.c=$(DIR_BUILD)/%.rvS)
 
 # Compiler related options
 GPP           = g++
+GCC           = gcc
 INCLUDE_PATHS = $(DIR_BUILD) ../usr/include
 INCLUDES      = $(addprefix -include $(DIR_BUILD)/, \
 	$(EXECUTABLES:%=%$(CHISEL_CONFIG_DOT).h))
 GPP_FLAGS     = $(INCLUDES) $(INCLUDE_PATHS:%=-I %) -g -std=c++11
+
+# RISC-V related options
+RV_GCC        = riscv64-unknown-elf-gcc
+RV_AR         = riscv64-unknown-elf-ar
+RV_OBJDUMP    = riscv64-unknown-elf-objdump
 
 # Linker related options
 LIB_PATHS     = ../usr/lib
@@ -89,15 +95,21 @@ LIB_LIBS      = m fann
 LFLAGS        = $(addprefix -Wl$(COMMA)-R, $(shell readlink -f $(LIB_PATHS))) \
 	$(LIB_PATHS:%=-L %) $(LIB_LIBS:%=-l %)
 
+# X-FILES libraries related
+XFILES_LIBRARIES = $(DIR_BUILD)/libxfiles.a
+#$(DIR_BUILD)/libxfiles.so
+XFILES_LIBRARIES_OBJECTS = $(DIR_BUILD)/xfiles-user.o
+
 vpath %.scala $(DIR_SRC_SCALA)
 vpath %.cpp $(DIR_TEST_CPP)
 vpath %.cpp $(DIR_BUILD)
-vpath %.c $(DIR_TEST_RV)
+vpath %.c $(DIR_TEST_RV) src/main/c
+vpath %.h src/main/c
 vpath %.v $(DIR_TEST_V)
 vpath %.v $(DIR_SRC_V)
 vpath %.v $(DIR_BUILD)
 
-.PHONY: all clean cpp debug dot run run-verilog vcd vcd-verilog verilog
+.PHONY: all clean cpp debug dot libraries run run-verilog vcd vcd-verilog verilog
 
 default: all
 
@@ -107,6 +119,8 @@ all: $(TEST_EXECUTABLES)
 cpp: $(BACKEND_CPP)
 
 dot: $(BACKEND_DOT)
+
+libraries: $(XFILES_LIBRARIES)
 
 verilog: $(BACKEND_VERILOG)
 
@@ -126,7 +140,14 @@ vcd-verilog: $(DIR_BUILD)/t_XFilesDana$(FPGA_CONFIG_DOT)-vcd.vvp Makefile
 debug: $(TEST_EXECUTABLES) Makefile
 	$< -d $(<:$(DIR_BUILD)/t_%=$(DIR_BUILD)/%.prm)
 
-rv: $(RV_TESTS_EXECUTABLES) $(RV_TESTS_DISASM)
+rv: libraries $(RV_TESTS_EXECUTABLES) $(RV_TESTS_DISASM)
+
+#------------------- Library Targets
+$(DIR_BUILD)/xfiles-user.o: xfiles-user.c
+	$(RV_GCC) -march=RV64IMAFDXcustom -c $< -o $@
+
+$(DIR_BUILD)/libxfiles.a: $(XFILES_LIBRARIES_OBJECTS) xfiles.h
+	$(RV_AR) rcs $@ $<
 
 #------------------- Chisel Build Targets
 $(DIR_BUILD)/%$(CHISEL_CONFIG_DOT).cpp: %.scala $(ALL_MODULES)
@@ -166,10 +187,10 @@ $(DIR_BUILD)/%$(FPGA_CONFIG_DOT)-vcd.vvp: %.v $(BACKEND_VERILOG) $(HEADERS_V)
 
 #------------------- RISC-V Tests
 $(DIR_BUILD)/%.rv: %.c
-	riscv64-unknown-elf-gcc -march=RV64IMAFDXcustom $< -o $@ $(RV_FLAGS_EXECUTABLES)
+	$(RV_GCC) -static -march=RV64IMAFDXcustom -Isrc/main/c $< -o $@ -L$(DIR_BUILD) -lxfiles
 
 $(DIR_BUILD)/%.rvS: $(DIR_BUILD)/%.rv
-	riscv64-unknown-elf-objdump -S $< > $@
+	$(RV_OBJDUMP) -S $< > $@
 
 #------------------- Utility Targets
 clean:
