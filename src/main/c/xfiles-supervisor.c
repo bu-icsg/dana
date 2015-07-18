@@ -92,24 +92,24 @@ int attach_nn_configuration(asid_nnid_table ** table, uint16_t asid,
   return ++(*table)->entry[asid].num_valid;
 }
 
-int main() {
-  asid_nnid_table * table;
+// int main() {
+//   asid_nnid_table * table;
 
-  // Create a table
-  asid_nnid_table_create(&table, 4, 16);
+//   // Create a table
+//   asid_nnid_table_create(&table, 4, 16);
 
-  // Attach some NN configurations
-  if (attach_nn_configuration(&table, 0, "/home/se/research_local/nn-hardware/workloads/data/rsa-fixed.16bin")<0) {
-    printf("Failed to allocate\n");
-    return -1;
-  };
-  if (attach_nn_configuration(&table, 1, "/home/se/research_local/nn-hardware/workloads/data/sobel-fixed.16bin")<0) {
-    printf("Failed to allocate\n");
-    return -1;
-  };
+//   // Attach some NN configurations
+//   if (attach_nn_configuration(&table, 0, "/home/se/research_local/nn-hardware/workloads/data/rsa-fixed.16bin")<0) {
+//     printf("Failed to allocate\n");
+//     return -1;
+//   };
+//   if (attach_nn_configuration(&table, 1, "/home/se/research_local/nn-hardware/workloads/data/sobel-fixed.16bin")<0) {
+//     printf("Failed to allocate\n");
+//     return -1;
+//   };
 
-  // Destroy everything
-  asid_nnid_table_destroy(&table);
+//   // Destroy everything
+//   asid_nnid_table_destroy(&table);
 
-  return 0;
-}
+//   return 0;
+// }

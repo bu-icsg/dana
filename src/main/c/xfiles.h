@@ -5,19 +5,37 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+// [TODO] Any changes to these types need to occur in conjunction with
+// the Chisel code and with the TID extraction part of
+// new_write_request.
 typedef uint32_t nnid_type;
 typedef uint16_t tid_type;
 typedef int32_t element_type;
 
 //-------------------------------------- Userland
 
-tid_type new_write_request(nnid_type);
+// Initiate a new Transaction for a specific NNID. The X-Files Arbiter
+// will then assign and return a TID necessary for other userland
+// functions.
+tid_type new_write_request(nnid_type nnid);
 
-void write_data(tid_type, element_type *, size_t);
+// Write the contents of an input array of some size to the X-Files
+// Arbiter. After completing this function, the transaction is deemed
+// valid and will start executing on Dana.
+void write_data(tid_type tid,
+                element_type * input_data_array,
+                size_t count);
 
-uint64_t spin_read_data(tid_type, element_type *, size_t);
+// Read all the output data for a specific transaction. This throws
+// the CPU into a spinlock repeatedly checking the validity of the
+// X-Files response.
+uint64_t read_data_spinlock(tid_type tid,
+                            element_type * output_data_array,
+                            size_t count);
 
 //-------------------------------------- Supervisor
+
+// Incomplete and undocumented / here be dragons...
 
 typedef struct {
   uint64_t * data;

@@ -144,7 +144,7 @@ rv: libraries $(RV_TESTS_EXECUTABLES) $(RV_TESTS_DISASM)
 
 #------------------- Library Targets
 $(DIR_BUILD)/xfiles-user.o: xfiles-user.c
-	$(RV_GCC) -march=RV64IMAFDXcustom -c $< -o $@
+	$(RV_GCC) -Wall -Werror -march=RV64IMAFDXcustom -c $< -o $@
 
 $(DIR_BUILD)/libxfiles.a: $(XFILES_LIBRARIES_OBJECTS) xfiles.h
 	$(RV_AR) rcs $@ $<
@@ -187,7 +187,7 @@ $(DIR_BUILD)/%$(FPGA_CONFIG_DOT)-vcd.vvp: %.v $(BACKEND_VERILOG) $(HEADERS_V)
 
 #------------------- RISC-V Tests
 $(DIR_BUILD)/%.rv: %.c
-	$(RV_GCC) -static -march=RV64IMAFDXcustom -Isrc/main/c $< -o $@ -L$(DIR_BUILD) -lxfiles
+	$(RV_GCC) -Wall -Werror -static -march=RV64IMAFDXcustom -Isrc/main/c $< -o $@ -L$(DIR_BUILD) -lxfiles
 
 $(DIR_BUILD)/%.rvS: $(DIR_BUILD)/%.rv
 	$(RV_OBJDUMP) -S $< > $@
