@@ -17,7 +17,6 @@ class Memory extends DanaModule {
   io.cache.resp.bits.data := UInt(0, width = elementsPerBlock * elementWidth)
   io.cache.resp.bits.cacheIndex := UInt(0, width = log2Up(cacheNumEntries))
   io.cache.resp.bits.addr := UInt(0, log2Up(cacheNumBlocks))
-  io.cache.resp.bits.inUse := Bool(false)
 
   // Assertions
 

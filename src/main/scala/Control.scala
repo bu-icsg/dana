@@ -21,10 +21,12 @@ class ControlCacheInterface extends DanaBundle with ControlParameters {
   //   cache_types::ctl2storage_struct
   val req = Decoupled(new DanaBundle {
     val request = UInt(width = log2Up(3)) // [TODO] fragile on Constants.scala
+    val asid = UInt(width = asidWidth)
     val nnid = UInt(width = nnidWidth)
     val tableIndex = UInt(width = log2Up(transactionTableNumEntries))
     val layer = UInt(width = 16) // [TODO] fragile
     val location = UInt(width = 1) // [TODO] fragile
+    val coreIdx = UInt(width = log2Up(numCores))
   })
   // Inbound response. nnsim-hdl equivalent:
   //   cache_types::cache2ctl_struct
@@ -77,12 +79,14 @@ class Control extends DanaModule {
   val io = new ControlInterface
 
   // IO Driver Functions
-  def reqCache(valid: Bool, request: UInt, nnid: UInt, tableIndex: UInt,
-    layer: UInt, location: UInt) {
+  def reqCache(valid: Bool, request: UInt, asid: UInt, nnid: UInt,
+    tableIndex: UInt, coreIdx: UInt, layer: UInt, location: UInt) {
     io.cache.req.valid := valid
     io.cache.req.bits.request := request
+    io.cache.req.bits.asid := asid
     io.cache.req.bits.nnid := nnid
     io.cache.req.bits.tableIndex := tableIndex
+    io.cache.req.bits.coreIdx := coreIdx
     io.cache.req.bits.layer := layer
     io.cache.req.bits.location := location
   }
@@ -118,7 +122,8 @@ class Control extends DanaModule {
   io.tTable.resp.bits.layerValidIndex := UInt(0)
   // io.cache defaults
   io.cache.resp.ready := Bool(true) // [TODO] not correct
-  reqCache(Bool(false), UInt(0), UInt(0), UInt(0), UInt(0), UInt(0))
+  reqCache(Bool(false), UInt(0), UInt(0), UInt(0), UInt(0), UInt(0), UInt(0),
+    UInt(0))
   // io.petable defaults
   reqPETable(Bool(false), UInt(0), UInt(0), UInt(0),
     UInt(0), UInt(0), UInt(0), UInt(0), UInt(0))
@@ -162,23 +167,30 @@ class Control extends DanaModule {
   // No inbound requests, so we just handle whatever is valid coming
   // from the Transaction Table
   when (io.tTable.req.valid) {
+    printf("[INFO] Control sees core index: %d\n",
+      io.tTable.req.bits.coreIdx)
     // Cache state is unknown and we're not waiting for the cache to
     // respond
     when (!io.tTable.req.bits.cacheValid && !io.tTable.req.bits.waiting) {
       // Send a request to the cache
-      reqCache(Bool(true), e_CACHE_LOAD, io.tTable.req.bits.nnid,
-        io.tTable.req.bits.tableIndex, UInt(0), UInt(0))
+      reqCache(Bool(true), e_CACHE_LOAD, io.tTable.req.bits.asid,
+        io.tTable.req.bits.nnid, io.tTable.req.bits.tableIndex,
+        io.tTable.req.bits.coreIdx, UInt(0), UInt(0))
     }
       .elsewhen (io.tTable.req.bits.cacheValid && io.tTable.req.bits.needsLayerInfo) {
       // Send a request to the storage module
-      reqCache(Bool(true), e_CACHE_LAYER_INFO, io.tTable.req.bits.nnid,
-        io.tTable.req.bits.tableIndex, io.tTable.req.bits.currentLayer,
+      reqCache(Bool(true), e_CACHE_LAYER_INFO, io.tTable.req.bits.asid,
+        io.tTable.req.bits.nnid, io.tTable.req.bits.tableIndex,
+        io.tTable.req.bits.coreIdx, io.tTable.req.bits.currentLayer,
         io.tTable.req.bits.currentLayer(0))
     }
     // If this entry is done, then its cache entry needs to be invalidated
       .elsewhen (io.tTable.req.bits.isDone) {
-      reqCache(Bool(true), e_CACHE_DECREMENT_IN_USE_COUNT, io.tTable.req.bits.nnid,
-        UInt(0), UInt(0), UInt(0))
+      // [TODO] This passes no information about the core index which
+      // _may_ be needed to close out any final cache updates.
+      reqCache(Bool(true), e_CACHE_DECREMENT_IN_USE_COUNT,
+        io.tTable.req.bits.asid, io.tTable.req.bits.nnid,
+        UInt(0), UInt(0), UInt(0), UInt(0))
     }
       .elsewhen (io.tTable.req.bits.cacheValid && !io.tTable.req.bits.needsLayerInfo &&
       io.peTable.req.ready) {

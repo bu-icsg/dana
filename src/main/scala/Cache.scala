@@ -2,7 +2,11 @@ package dana
 
 import Chisel._
 
-case object PreloadCache extends Field[Bool]
+// [TODO]
+//   * The notifyMask/tableMask isn't being set in the response, but
+//     this needs to be used
+//   * I don't think that the location bit is used at all. Remove this
+//     if it isn't
 
 class CacheState extends DanaBundle {
   // nnsim-hdl equivalent:
@@ -12,28 +16,32 @@ class CacheState extends DanaBundle {
   val fetch = Bool()
   val notifyIndex = UInt(width = log2Up(transactionTableNumEntries))
   val notifyMask = UInt(width = transactionTableNumEntries)
+  val asid = UInt(width = asidWidth)
   val nnid = UInt(width = nnidWidth)
   val inUseCount = UInt(width = log2Up(transactionTableNumEntries) + 1)
+}
+
+class CacheMemReq extends DanaBundle {
+  val asid = UInt(width = asidWidth)
+  val nnid = UInt(width = nnidWidth)
+  val cacheIndex = UInt(width = log2Up(cacheNumEntries))
+  val coreIndex = UInt(width = log2Up(numCores))
+}
+
+class CacheMemResp extends DanaBundle {
+  val done = Bool()
+  val data = UInt(width = elementsPerBlock * elementWidth)
+  val cacheIndex = UInt(width = log2Up(cacheNumEntries))
+  val addr = UInt(width = log2Up(cacheNumBlocks))
 }
 
 class CacheMemInterface extends DanaBundle {
   // Outbound request. nnsim-hdl equivalent:
   //   cache_types::cache2mem_struct
-  val req = Decoupled(new DanaBundle {
-    val nnid = UInt(width = nnidWidth)
-    // [TODO] I'm not sure if the following is needed
-    val tTableIndex = UInt(width = log2Up(transactionTableNumEntries))
-    val cacheIndex = UInt(width = log2Up(cacheNumEntries))
-  })
+  val req = Decoupled(new CacheMemReq)
   // Response from memory. nnsim-hdl equivalent:
   //   cache_types::mem2cache_struct
-  val resp = Decoupled(new DanaBundle {
-    val done = Bool()
-    val data = UInt(width = elementsPerBlock * elementWidth)
-    val cacheIndex = UInt(width = log2Up(cacheNumEntries))
-    val addr = UInt(width = log2Up(cacheNumBlocks))
-    val inUse = Bool()
-  }).flip
+  val resp = Decoupled(new CacheMemResp).flip
 }
 
 class CacheInterface extends Bundle {
@@ -72,7 +80,7 @@ class Cache extends DanaModule {
     numWritePorts = 0,
     numReadWritePorts = 2,
     sramDepth = cacheNumBlocks, // [TODO] I think this is the correct parameter
-    initSwitch = i,
+    initSwitch = if (preloadCache) i else -1,
     elementsPerBlock = elementsPerBlock
     )).io))
 
@@ -96,6 +104,7 @@ class Cache extends DanaModule {
   def isFree(x: CacheState): Bool = {!x.valid}
   def isUnused(x: CacheState): Bool = {x.inUseCount === UInt(0)}
   def derefNnid(x: CacheState, y: UInt): Bool = {x.valid && x.nnid === y}
+  def isDoneFetching(x: CacheState): Bool = {x.notifyFlag}
 
   // State that we need to derive from the cache
   val hasFree = Bool()
@@ -103,11 +112,15 @@ class Cache extends DanaModule {
   val nextFree = UInt()
   val foundNnid = Bool()
   val derefNnid = UInt()
+  val hasNotify = Bool()
+  val idxNotify = UInt()
   hasFree := table.exists(isFree)
   hasUnused := table.exists(isUnused)
   nextFree := table.indexWhere(isFree)
   foundNnid := table.exists(derefNnid(_, io.control.req.bits.nnid))
   derefNnid := table.indexWhere(derefNnid(_, io.control.req.bits.nnid))
+  hasNotify := table.exists(isDoneFetching)
+  idxNotify := table.indexWhere(isDoneFetching)
 
   // I think the cache is always ready. This should not be gated on
   // hasFree or hasUnused as this precludes cache hits on used entries
@@ -117,9 +130,10 @@ class Cache extends DanaModule {
 
   // Default values
   io.mem.req.valid := Bool(false)
+  io.mem.req.bits.asid := UInt(0)
   io.mem.req.bits.nnid := UInt(0)
-  io.mem.req.bits.tTableIndex := UInt(0)
   io.mem.req.bits.cacheIndex := UInt(0)
+  io.mem.req.bits.coreIndex := UInt(0)
 
   io.control.resp.valid := Bool(false)
   io.control.resp.bits.fetch := Bool(false)
@@ -184,15 +198,21 @@ class Cache extends DanaModule {
 
           // Reserve the new cache entry
           table(nextFree).valid := Bool(true)
+          table(nextFree).asid := io.control.req.bits.asid
           table(nextFree).nnid := io.control.req.bits.nnid
+          table(nextFree).fetch := Bool(true)
+          table(nextFree).notifyFlag := Bool(false)
           table(nextFree).notifyIndex := io.control.req.bits.tableIndex
           table(nextFree).inUseCount := UInt(1)
 
           // Generate a request to memory
           io.mem.req.valid := Bool(true)
+          io.mem.req.bits.asid := io.control.req.bits.asid
           io.mem.req.bits.nnid := io.control.req.bits.nnid
-          io.mem.req.bits.tTableIndex := io.control.req.bits.tableIndex
           io.mem.req.bits.cacheIndex := nextFree
+          io.mem.req.bits.coreIndex := io.control.req.bits.coreIdx
+          printf("[INFO] Cache saw request by Core %d uncached NNID 0x%x\n",
+            io.control.req.bits.coreIdx, io.control.req.bits.nnid);
         } .elsewhen (table(derefNnid).fetch) {
           // The nnid was found, but the data is currently being
           // loaded from memory. This happens if a second request for
@@ -200,6 +220,8 @@ class Cache extends DanaModule {
           table(derefNnid).inUseCount := table(derefNnid).inUseCount + UInt(1)
           table(derefNnid).notifyMask := table(derefNnid).notifyMask |
             UIntToOH(io.control.req.bits.tableIndex)
+          printf("[INFO] Cache saw request on currently being cached NNID 0x%x\n",
+            io.control.req.bits.nnid);
         } .otherwise {
           // The NNID was found and the data has already been loaded
           table(derefNnid).inUseCount := table(derefNnid).inUseCount + UInt(1)
@@ -216,6 +238,8 @@ class Cache extends DanaModule {
           // Read the requested information from the cache
           // mem(derefNnid).addr(0) := UInt(0) // Info is in first blocks
           // cacheRead(derefNnid) := UInt(0)
+          printf("[INFO] Cache saw request by Core %d for cached NNID 0x%x\n",
+            io.control.req.bits.coreIdx, io.control.req.bits.nnid);
         }
       }
       is (e_CACHE_LAYER_INFO) {
@@ -242,6 +266,18 @@ class Cache extends DanaModule {
           table(derefNnid).inUseCount := table(derefNnid).inUseCount - UInt(1)
       }
     }
+  } .elsewhen (hasNotify) {
+    // Start a response to the control unit
+    controlRespPipe(0).valid := Bool(true)
+    controlRespPipe(0).bits.tableIndex := table(idxNotify).notifyIndex
+    controlRespPipe(0).bits.tableMask := table(idxNotify).notifyMask
+    controlRespPipe(0).bits.cacheIndex := idxNotify
+    controlRespPipe(0).bits.field := e_CACHE_INFO
+    // [TODO] The location bit should isn't used? Remove this?
+    controlRespPipe(0).bits.location := UInt(0)
+    // Now that this is away, we can deassert some table bits
+    table(idxNotify).fetch := Bool(false)
+    table(idxNotify).notifyFlag := Bool(false)
   }
 
   // Pipeline second stage (SRAM read)
@@ -317,8 +353,27 @@ class Cache extends DanaModule {
   io.pe.resp.valid := peRespPipe(1).valid
   io.pe.resp.bits := peRespPipe(1).bits
 
+  // Handle responses from memory (ANTW or similar)
+  when (io.mem.resp.valid) {
+    printf("[INFO] Cache: saw write to SRAM_%x(%x) <= %x\n",
+      io.mem.resp.bits.cacheIndex,
+      io.mem.resp.bits.addr,
+      io.mem.resp.bits.data)
+    mem(io.mem.resp.bits.cacheIndex).we(0) := Bool(true)
+    mem(io.mem.resp.bits.cacheIndex).addr(0) := io.mem.resp.bits.addr
+    mem(io.mem.resp.bits.cacheIndex).din(0) := io.mem.resp.bits.data
+    // If this is done, then set the notify flag which will cause the
+    // when block above to generate a response when the cache isn't
+    // dealing with other requests
+    when (io.mem.resp.bits.done) {
+      printf("[INFO] Cache: SRAM_%x received DONE response\n",
+        io.mem.resp.bits.cacheIndex)
+      table(io.mem.resp.bits.cacheIndex).notifyFlag := Bool(true)
+    }
+  }
+
   // Reset
-  if (params(PreloadCache)) {
+  if (preloadCache) {
     when (reset) {for (i <- 0 until cacheNumEntries) {
       table(i).valid := Bool(true)
       table(i).notifyFlag := Bool(false)

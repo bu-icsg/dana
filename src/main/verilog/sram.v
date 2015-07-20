@@ -6,15 +6,15 @@ module sram
     WIDTH = 8,
     DEPTH = 64,
     LG_DEPTH = 6,
-    INIT_VAL = '0
+    INIT_VAL = 0
     )
   (input clk,
    input [WIDTH - 1:0] io_din_1,
    input [WIDTH - 1:0] io_din_0,
    output [WIDTH - 1:0] io_dout_1,
    output [WIDTH - 1:0] io_dout_0,
-   output [LG_DEPTH - 1:0] io_addr_1,
-   output [LG_DEPTH - 1:0] io_addr_0,
+   input [LG_DEPTH - 1:0] io_addr_1,
+   input [LG_DEPTH - 1:0] io_addr_0,
    input io_we_1,
    input io_we_0
    );

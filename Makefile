@@ -98,7 +98,7 @@ LFLAGS        = $(addprefix -Wl$(COMMA)-R, $(shell readlink -f $(LIB_PATHS))) \
 # X-FILES libraries related
 XFILES_LIBRARIES = $(DIR_BUILD)/libxfiles.a
 #$(DIR_BUILD)/libxfiles.so
-XFILES_LIBRARIES_OBJECTS = $(DIR_BUILD)/xfiles-user.o
+XFILES_LIBRARIES_OBJECTS = $(DIR_BUILD)/xfiles-user.o $(DIR_BUILD)/xfiles-supervisor.o
 
 vpath %.scala $(DIR_SRC_SCALA)
 vpath %.cpp $(DIR_TEST_CPP)
@@ -146,8 +146,11 @@ rv: libraries $(RV_TESTS_EXECUTABLES) $(RV_TESTS_DISASM)
 $(DIR_BUILD)/xfiles-user.o: xfiles-user.c
 	$(RV_GCC) -Wall -Werror -march=RV64IMAFDXcustom -c $< -o $@
 
+$(DIR_BUILD)/xfiles-supervisor.o: xfiles-supervisor.c
+	$(RV_GCC) -Wall -Werror -march=RV64IMAFDXcustom -c $< -o $@
+
 $(DIR_BUILD)/libxfiles.a: $(XFILES_LIBRARIES_OBJECTS) xfiles.h
-	$(RV_AR) rcs $@ $<
+	$(RV_AR) rcs $@ $(XFILES_LIBRARIES_OBJECTS)
 
 #------------------- Chisel Build Targets
 $(DIR_BUILD)/%$(CHISEL_CONFIG_DOT).cpp: %.scala $(ALL_MODULES)
@@ -186,7 +189,7 @@ $(DIR_BUILD)/%$(FPGA_CONFIG_DOT)-vcd.vvp: %.v $(BACKEND_VERILOG) $(HEADERS_V)
 	iverilog $(FLAGS_V) -D DUMP_VCD=\"$@.vcd\" -o $@ $<
 
 #------------------- RISC-V Tests
-$(DIR_BUILD)/%.rv: %.c
+$(DIR_BUILD)/%.rv: %.c $(XFILES_LIBRARIES)
 	$(RV_GCC) -Wall -Werror -static -march=RV64IMAFDXcustom -Isrc/main/c $< -o $@ -L$(DIR_BUILD) -lxfiles
 
 $(DIR_BUILD)/%.rvS: $(DIR_BUILD)/%.rv

@@ -37,8 +37,9 @@ class XFilesDana extends RoCC with XFilesParameters {
   io.cmd <> xFilesArbiter.io.core(0).cmd
   io.resp <> xFilesArbiter.io.core(0).resp
 
-  io.mem.req.valid := Bool(false)
-  io.mem.invalidate_lr := Bool(false)
+  // io.mem.req.valid := Bool(false)
+  // io.mem.invalidate_lr := Bool(false)
+  io.mem <> xFilesArbiter.io.core(0).mem
 
   // io.mem.xcpt.ma := Bool(false)
   // io.mem.xcpt.pf := Bool(false)
