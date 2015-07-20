@@ -19,6 +19,8 @@ case object CacheNumEntries extends Field[Int]
 case object CacheDataSize extends Field[Int]
 case object TransactionTableSramElements extends Field[Int]
 case object RegisterFileNumElements extends Field[Int]
+case object PreloadCache extends Field[Boolean]
+case object XLen extends Field[Int]
 
 abstract trait DanaParameters extends UsesParameters {
   def divUp (dividend: Int, divisor: Int): Int = {
@@ -27,6 +29,7 @@ abstract trait DanaParameters extends UsesParameters {
   val elementsPerBlock = params(ElementsPerBlock)
   val tidWidth = params(TidWidth)
   val asidWidth = params(AsidWidth)
+  val preloadCache = params(PreloadCache)
   // Activation Function width increases will break:
   //   * ProcessingElementTable logic for indexing into cache data
   val activationFunctionWidth = params(ActivationFunctionWidth)
@@ -66,7 +69,8 @@ abstract trait DanaParameters extends UsesParameters {
 
 // An abstract base class for anything associated with DANA (and the
 // X-FILES framework?). This defines all shared DANA parameters.
-abstract class DanaModule extends Module with DanaParameters {
+abstract class DanaModule extends Module with DanaParameters
+    with XFilesParameters {
   // Transaction Table State Entries. nnsim-hdl equivalent:
   //   controL_types::field_enum
   val (e_TTABLE_VALID ::       // 0
@@ -140,6 +144,7 @@ abstract class DanaModule extends Module with DanaParameters {
 // parameters that should be shared. All parameters defined here
 // should be the same as in DanaModule.
 abstract class DanaBundle extends Bundle with DanaParameters
+    with XFilesParameters
 
 class Dana extends DanaModule {
   val io = (new XFilesDanaInterface).flip
@@ -148,7 +153,6 @@ class Dana extends DanaModule {
   // val tTable = Module(new TransactionTable)
   val control = Module(new Control)
   val cache = Module(new Cache)
-  val mem = Module(new Memory)
   val peTable = Module(new ProcessingElementTable)
   val regFile = Module(new RegisterFile)
 
@@ -157,13 +161,13 @@ class Dana extends DanaModule {
   // tTable.io.control <> control.io.tTable
   io.control <> control.io.tTable
   cache.io.control <> control.io.cache
-  cache.io.mem <> mem.io.cache
   control.io.peTable <> peTable.io.control
   control.io.regFile <> regFile.io.control
   peTable.io.cache <> cache.io.pe
   // peTable.io.tTable <> tTable.io.peTable
   peTable.io.tTable <> io.peTable
   peTable.io.regFile <> regFile.io.pe
+  cache.io.mem <> io.cache
 }
 
 class DanaTests(uut: Dana, isTrace: Boolean = true)

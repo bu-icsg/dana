@@ -2,6 +2,8 @@ package dana
 
 import Chisel._
 
+import rocket._
+
 class TransactionState extends XFilesBundle {
   val valid = Bool()
   val reserved = Bool()
@@ -29,6 +31,7 @@ class TransactionState extends XFilesBundle {
   val countFeedback = UInt(width = feedbackWidth)
   val countPeWrites = UInt(width = 16) // [TODO] fragile
   val readIdx = UInt(width = log2Up(transactionTableSramElements))
+  val coreIdx = UInt(width = log2Up(numCores))
   // Additional crap which may be redundant
   val indexElement = UInt(width = log2Up(transactionTableSramElements))
 }
@@ -45,7 +48,9 @@ class ControlReq extends XFilesBundle {
   // Global info
   val tableIndex = UInt(width = log2Up(transactionTableNumEntries))
   val cacheIndex = UInt(width = log2Up(cacheNumEntries))
+  val asid = UInt(width = asidWidth)
   val nnid = UInt(width = nnidWidth) // formerly nn_hash
+  val coreIdx = UInt(width = log2Up(numCores))
   // State info
   val currentNodeInLayer = UInt(width = 16) // [TODO] fragile
   val currentLayer = UInt(width = 16) // [TODO] fragile
@@ -208,6 +213,7 @@ class TransactionTable extends XFilesModule {
         table(nextFree).indexElement := UInt(0)
         table(nextFree).countPeWrites := UInt(0)
         table(nextFree).readIdx := UInt(0)
+        table(nextFree).coreIdx := cmd.coreIdx
         arbiterRespPipe.valid := Bool(true)
         // Initiate a response that will containt the TID
         arbiterRespPipe.bits.respType := e_TID
@@ -407,6 +413,7 @@ class TransactionTable extends XFilesModule {
     // Global info
     entryArbiter.io.in(i).bits.tableIndex := UInt(i)
     entryArbiter.io.in(i).bits.cacheIndex := table(i).cacheIndex
+    entryArbiter.io.in(i).bits.asid := table(i).asid
     entryArbiter.io.in(i).bits.nnid := table(i).nnid
     // State info
     entryArbiter.io.in(i).bits.currentNodeInLayer := table(i).currentNodeInLayer

@@ -8,6 +8,8 @@ class DefaultXFilesDanaConfig extends ChiselConfig (
       // Core parameters
       case NumCores => Dump(Knob("NUM_CORES"))
       case XLen => 64
+      // ANTW Parameters
+      case AntwRobEntries => 16
       // Field widths
       case ElementWidth => Dump("ELEMENT_WIDTH", 32)
       case ElementsPerBlock => Dump(Knob("ELEMENTS_PER_BLOCK"))
@@ -43,7 +45,7 @@ class DefaultXFilesDanaConfig extends ChiselConfig (
   knobValues = {
     case "NUM_CORES" => 1
     case "ELEMENTS_PER_BLOCK" => 4
-    case "NUM_PES" => 1
+    case "NUM_PES" => 4
     case "TRANSACTION_TABLE_NUM_ENTRIES" => 2
     case "TRANSACTION_TABLE_SRAM_ELEMENTS" => 64
     case "CACHE_NUM_ENTRIES" => 8
@@ -58,5 +60,6 @@ class PreloadCacheConfig extends ChiselConfig (
   }
 )
 
-class DefaultXFilesDanaFPGAConfig extends ChiselConfig(new PreloadCacheConfig ++
-  new DefaultXFilesDanaConfig)
+// class DefaultXFilesDanaFPGAConfig extends ChiselConfig(new PreloadCacheConfig ++
+//   new DefaultXFilesDanaConfig)
+class DefaultXFilesDanaFPGAConfig extends ChiselConfig(new DefaultXFilesDanaConfig)

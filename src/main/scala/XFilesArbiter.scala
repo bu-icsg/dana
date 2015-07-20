@@ -2,10 +2,14 @@ package dana
 
 import Chisel._
 
+import rocket._
+
 case object NumCores extends Field[Int]
+case object AntwRobEntries extends Field[Int]
 
 abstract trait XFilesParameters extends UsesParameters {
   val numCores = params(NumCores)
+  val antwRobEntries = params(AntwRobEntries)
 }
 
 abstract class XFilesModule extends DanaModule with XFilesParameters
@@ -14,6 +18,7 @@ abstract class XFilesBundle extends DanaBundle with XFilesParameters
 class XFilesDanaInterface extends XFilesBundle {
   val control = new TTableControlInterface
   val peTable = (new PETransactionTableInterface).flip
+  val cache = (new CacheMemInterface).flip
 }
 
 class XFilesInterface extends XFilesBundle {
@@ -26,6 +31,7 @@ class XFilesArbiter extends XFilesModule {
 
   // Module instatiation
   val tTable = Module(new TransactionTable)
+  val antw = Module(new AsidNnidTableWalker)
   val asidRegs = Vec.fill(numCores){ Module(new AsidUnit).io }
   val coreQueue = Vec.fill(numCores){ Module(new Queue(new RoCCCommand, 4)).io }
 
@@ -82,6 +88,8 @@ class XFilesArbiter extends XFilesModule {
     asidRegs(i).core.cmd.valid := io.core(i).cmd.valid
     asidRegs(i).core.cmd.bits := io.core(i).cmd.bits
     asidRegs(i).core.s := io.core(i).s
+    // [TODO] Attach the ASID Units to the ANTW
+    asidRegs(i).antw <> antw.io.asidUnit(i)
   }
 
   // When we see a valid response from the Transaction Table, we let
@@ -97,6 +105,8 @@ class XFilesArbiter extends XFilesModule {
   tTable.io.arbiter.coreIdx := coreArbiter.io.chosen
   io.dana.control <> tTable.io.control
   io.dana.peTable <> tTable.io.peTable
+  io.dana.cache <> antw.io.cache
+  (0 until numCores).map(i => io.core(i).mem <> antw.io.mem(i))
 
   // Assertions
 }
