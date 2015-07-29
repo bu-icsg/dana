@@ -1,0 +1,45 @@
+#!/usr/bin/perl
+
+use strict;
+use warnings;
+
+sub usage() {
+    print << 'END';
+Usage: normalize
+END
+}
+
+my @headers;
+my @base_values;
+my @other_values;
+
+my $line_count = 0;
+while (<>) {
+    if (not $line_count) {
+        print $_;
+        # @headers = split(" ", $_);
+    }
+    elsif ($line_count == 1) {
+        @base_values = split(" ", $_);
+        my $val_count = 0;
+        for (my $i = 0; $i < $#base_values + 1; $i++) {
+            if (not $i) { print "$base_values[$i] " }
+            else { print $base_values[$i]/$base_values[$i]." " };
+        }
+        print "\n";
+    }
+    else {
+        @other_values = split(" ", $_);
+        my $val_count = 0;
+        for (my $i = 0; $i < $#other_values + 1; $i++) {
+            if (not $i) { print "$other_values[$i] " }
+            else { print $other_values[$i]/$base_values[$i]." " };
+        }
+        print "\n";
+    }
+    $line_count++;
+}
+
+foreach (@headers) {
+    print $_."\n";
+}

@@ -1,0 +1,144 @@
+#!/usr/bin/perl
+
+use strict;
+use warnings;
+use Getopt::Long;
+
+sub usage() {
+    print << 'END';
+Usage: dana-asc-power-performance [OPTIONS] -t [TRACE FILE]
+Computes the power--performance for an ASC-enabled system using DANA
+with specified parameters.
+
+Options
+  -a, --accelerator-power    The computed power (in mW) for one DANA prediction
+  -b, --cpu-latency          The time (in ns) for one unit of CPU computation
+  -c, --cpu-power            The compute power for the CPU
+  -d, --degree               The degree of speculation to allow
+  -h, --help                 Print this help text
+  -l, --accelerator-latency  The time (in ns) for one prediction
+  -p, --output-for-plotting  Print an output suitable for plotting
+  -q, --output-with-header   Print a header as well
+  -t, --trace-file           Trace file of correct/incorrect predictions
+END
+}
+
+# Defaults
+my $accelerator_power = 150;
+my $cpu_latency = 0.5 * 1000 * 1000 * 1000;
+my $cpu_power = 5.3 * 1000;
+my $degree = 1;
+my $accelerator_latency = 4000 / (140e6) * 1000 * 1000 * 1000;
+my $trace_file;
+my $help = 0;
+my $output_for_plotting = 0;
+my $output_with_header = 0;
+
+GetOptions(
+    'a|accelerator-power=f' => \$accelerator_power,
+    'b|cpu-latency=f' => \$cpu_latency,
+    'c|cpu-power=f' => \$cpu_power,
+    'd|degree=i' => \$degree,
+    'h|help' => \$help,
+    'l|accelerator-latency=f' => \$accelerator_latency,
+    'p|output-for-plotting' => \$output_for_plotting,
+    'q|output-with-header' => \$output_with_header,
+    't|trace-file=s' => \$trace_file
+    ) or usage() and die "Incorrect usage";
+
+usage() and exit if $help or not $trace_file;
+
+if (not $output_for_plotting) {
+    print << "END";
+Configuration:
+  Accelerator Power:   $accelerator_power mW
+  Accelerator Latency: $accelerator_latency ns
+  CPU Latency:         $cpu_latency ns
+  CPU Power:           $cpu_power mW
+  Degree:              $degree
+END
+}
+
+# Read in the trace file
+my @breakpoint_correct;
+open FILE, "<$trace_file" or die "Unable to open $trace_file for reading";
+while (<FILE>) {
+    push @breakpoint_correct, $_;
+}
+close FILE;
+
+# Run the actual experiment
+my $speedup;
+my $total_energy = 0;
+my $total_time = 0;
+for (my $i = 0; $i < $#breakpoint_correct; $i += $speedup) {
+    # Compute the energy required for the prediction
+    my $energy_prediction = $accelerator_power * $accelerator_latency * $degree;
+    # Compute the energy required for the CPU. This depends on the
+    # correctness of the predictions.
+    my $prediction = 1;
+    my $energy_cpu = $cpu_power * $cpu_latency;
+    my $time = $cpu_latency;
+    $speedup = 1;
+    my $stop_condition = $degree;
+    if ($i + $degree - 1 > $#breakpoint_correct) {
+        $stop_condition = $#breakpoint_correct - $i;
+    }
+    for (my $j = 0; $j < $stop_condition; $j++) {
+        # If the prection is correct and we haven't encountered a
+        # previuosly incorrect prediction, then the full CPU energy is
+        # added to the energy count. Also, the speedup is increased by
+        # one.
+        if ($breakpoint_correct[$i+$j] == 1 and $prediction == 1) {
+            $energy_cpu += $cpu_power * $cpu_latency;
+            $speedup++;
+            $time += $accelerator_latency;
+        }
+        # Otherwise, the prediction was incorrect or we had an earlier
+        # misprediction. In this case, make sure that the prediction
+        # is false (indicating a bad prediction for further
+        # iterations). The CPU energy is the fractional of the energy
+        # spent up until we realized that we had a bad prediction.
+        else {
+            $prediction = 0;
+            $energy_cpu +=
+                $cpu_power * ($cpu_latency - $accelerator_latency * ($j + 1));
+        }
+    }
+    # Update the total energy and time
+    $total_energy += $energy_prediction + $energy_cpu;
+    $total_time += $time;
+}
+
+# Convert everything to nicer units
+#   Energy: pJ -> J
+#   Time:   ns -> s
+$total_energy = $total_energy / 10**12;
+$total_time = $total_time / 10**9;
+
+my $total_power = $total_energy / $total_time;
+my @edp;
+$edp[0] = $total_energy * $total_time;
+$edp[1] = $total_energy * $total_time ** 2;
+$edp[2] = $total_energy * $total_time ** 3;
+if (not $output_for_plotting) {
+    print << "END";
+Results:
+  Total Time:   $total_time s
+  Total Energy: $total_energy J
+  Total Power:  $total_power W
+  EDP:          $edp[0] Js
+  ED^2P:        $edp[1] Js^2
+  ED^3P:        $edp[2] Js^3
+END
+}
+else {
+    if ($output_with_header) {
+        print << 'END';
+degree totalTime totalEnergy totalPower edp1 edp2 edp3
+END
+    }
+    print << "END";
+$degree $total_time $total_energy $total_power $edp[0] $edp[1] $edp[2]
+END
+}

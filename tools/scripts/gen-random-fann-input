@@ -1,0 +1,44 @@
+#!/usr/bin/perl
+
+use strict;
+use warnings;
+use Getopt::Long;
+
+sub usage() {
+    print << "END"
+Usage: gen-random-fann-input -i [number inputs] -o [number outputs] \
+                             -n [number to generate] [OPTION]...
+
+  -d, --decimal-point        Generate fixed-point data with `decimal-point` bits
+                               of fractional precision
+  -i, --number-of-inputs     The network has this many inputs
+  -o, --number-of-outputs    The network has this many outputs
+  -n, --number-to-generate   The number of random input/output pairs to generate
+END
+}
+
+my $decimal_point = 0;
+my $number_of_inputs;
+my $number_of_outputs;
+my $number_to_generate;
+GetOptions ("d|decimal-point=i" => \$decimal_point,
+            "i|number-of-inputs=i" => \$number_of_inputs,
+            "o|number-of-outputs=i" => \$number_of_outputs,
+            "n|number-to-generate=i" => \$number_to_generate)
+    or usage() and die "Bad options";
+
+usage() and die "Insufficient options" if
+    not $number_of_inputs or not $number_of_outputs or not $number_to_generate;
+
+print "$number_to_generate $number_of_inputs $number_of_outputs\n";
+for (my $i = 0; $i < $number_to_generate; $i++) {
+    for (my $j = 0; $j < $number_of_inputs; $j++) {
+        print int(rand(2)) << $decimal_point," ";
+    }
+    print "\n";
+    for (my $j = 0; $j < $number_of_outputs; $j++) {
+        print int(rand(2)) << $decimal_point," ";
+
+    }
+    print "\n";
+}

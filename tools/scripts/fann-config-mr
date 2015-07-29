@@ -1,0 +1,135 @@
+#!/usr/bin/perl
+
+use strict;
+use warnings;
+use Getopt::Long;
+
+sub usage {
+    print << "END"
+Usage: fann-config-mr [OPTIONS]
+Create an equivalent FANN configuration file with a specified amount of modular
+redundancy
+
+Required Options:
+  -i, --input                input FANN configuration
+  -r, --modular-redundancy   the specified amount of modular redundancy
+END
+}
+
+my ($config_input,
+    $mr);
+GetOptions ( "i|input=s" => \$config_input,
+             "r|modular-redundancy=i" => \$mr)
+    or usage() and die "Bad options";
+
+usage() and die "Unspecified required options" if
+    not $config_input or not $mr;
+
+open FILE, "<$config_input" or die "Unable to open <$config_input";
+
+my (@layers, @layers_new,
+    @neurons, @neurons_new,
+    @connections, @connections_new,
+    $total_layers);
+while(my $line = <FILE>) {
+    # Convert the layer sizes line
+    if ($line =~ /^layer_sizes=(.+)$/) {
+        @layers = split(/ /, $1);
+        next;
+    }
+    # Convert the neurons line
+    if ($line =~ /^neurons.+=(.+)$/) {
+        @neurons = split(/(?<=\)) /, $1);
+        next;
+    }
+    # Convert the connections line
+    if ($line =~ /^connections.+=(.+)$/) {
+        @connections = split(/(?<=\)) /, $1);
+        next
+    }
+    print $line;
+}
+
+# Take care of the layers
+print "layer_sizes=";
+my $count_layer = 0;
+foreach (@layers) {
+    # If we're in the first or last layer, then nothing changes
+    if ($count_layer == 0 or $count_layer == $#layers) {
+        print "$_ ";
+        push @layers_new, $_;
+    }
+    # Hidden neurons are all replicated $mr times
+    else {
+        print ((($_ - 1) * $mr + 1)." ");
+        push @layers_new, ($_ - 1) * $mr + 1;
+    }
+    $count_layer++;
+}
+print "\n";
+$total_layers = $count_layer;
+
+# Take care of the neurons
+my ($i, $r, $p, $j, $k, $count_neuron);
+$count_neuron = 0;
+my $neuron_offset = 0;
+my $conn_offset = 0;
+my $string_neurons =
+    "neurons (num_inputs, activation_function, activation_steepness)=";
+my $string_connections =
+    "connections (connected_to_neuron, weight)=";
+# Loop over all the layers in the network
+for ($i = 0; $i <= $#layers; $i++) {
+    # Store, in separate variables, the multipliers that we use for neurons,
+    # inputs, and connections
+    my $multiplier = ($i == 0 or $i == $#layers) ? 1 : $mr;
+    my $multiplier_inputs = ($i < 2) ? 1 : $mr;
+    # print "######################################## $multiplier, $multiplier_inputs\n";
+    my $num_conn_base = 0;
+    my $num_conn = 0;
+    # Loop over all the neurons in the network $multiplier times
+    for ($r = 0; $r < $multiplier; $r++) {
+        for ($j = 0; $j < $layers[$i] - 1; $j++) {
+            # print "$i-$j-".($neuron_offset + $j).": ";
+            $neurons[$neuron_offset + $j] =~ /\((\d+), (.+)\)/;
+            $num_conn_base = $1;
+            $num_conn = ($1 - 1) * $multiplier_inputs + 1;
+            my $tmp_neuron = "($num_conn, $2)";
+            # print "$tmp_neuron\n";
+            $string_neurons .= "$tmp_neuron ";
+            my $conn_index = 0;
+            for ($p = 0; $p < $multiplier_inputs; $p++) {
+                for ($k = 0; $k < $num_conn_base - 1; $k++) {
+                    $conn_index = $conn_offset + $num_conn_base * $j + $k - 1;
+                    $connections[$conn_index] =~ /\(([-\d]+), ([-\d]+)\)/;
+                    my $index = $1 + ($num_conn_base - 1) * $p;
+                    my $weight = int($2/$multiplier_inputs);
+                    $string_connections .= "($index, $weight) ";
+                    # print "($index, $weight)\n";
+                    # print $conn_index." ";
+                    # $string_connections .= "$connections[$conn_index] ";
+                }
+                # $connections[$conn_index] =~ /\(([-\d]+), ([-\d]+)\)/;
+            }
+            $connections[$conn_index + 1] =~ /\(([-\d]+), ([-\d]+)\)/;
+            my $index = $1 + ($num_conn_base - 1) * ($p - 1);
+            my $weight = $2;
+            $string_connections .= "($index, $weight) " if $k;
+            # print (($conn_index + 1)." ") if $k;
+            # print "\n" if $k;
+            # $conn_offset += $num_conn;
+        }
+    }
+    $conn_offset += $num_conn_base * ($j - 1) + ($k) + 1;
+    # Handle bias
+    # print "$i--$j--".($neuron_offset + $j)." (B): ";
+    $string_neurons .= "$neurons[$neuron_offset + $j] ";
+    # print "$neurons[$neuron_offset + $j]\n";
+    $neuron_offset += $layers[$i];
+}
+print "$string_neurons\n";
+print "$string_connections\n";
+
+# Take care of the connections
+
+close FILE;
