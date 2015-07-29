@@ -1,3 +1,6 @@
 [submodule "submodules/verilog"]
 	path = submodules/verilog
 	url = git://github.com/seldridge/verilog.git
+[submodule "submodules/fann"]
+	path = submodules/fann
+	url = https://github.com/libfann/fann.git
