@@ -1,4 +1,5 @@
 # Common configuration
+JOBS            = 4
 DIR_SRC_SCALA	= src/main/scala
 DIR_SRC_V	= src/main/verilog
 DIR_SRC_CPP	= src/main/cpp
@@ -7,6 +8,11 @@ DIR_TEST_V	= src/test/verilog
 DIR_TEST_CPP	= src/test/cpp
 DIR_TEST_RV     = src/test/rv
 DIR_BUILD	= build
+DIR_MAIN_RES    = src/main/resources
+DIR_USR         = usr
+DIR_USR_BIN     = usr/bin
+DIR_USR_LIB     = usr/lib
+DIR_USR_INCLUDE = usr/include
 
 # Chisel/Scala configuration
 SBT			?= sbt
@@ -100,6 +106,33 @@ XFILES_LIBRARIES = $(DIR_BUILD)/libxfiles.a
 #$(DIR_BUILD)/libxfiles.so
 XFILES_LIBRARIES_OBJECTS = $(DIR_BUILD)/xfiles-user.o $(DIR_BUILD)/xfiles-supervisor.o
 
+# Network Configurations
+NETS=3sum collatz rsa ll edip blackscholes fft inversek2j jmeint jpeg kmeans sobel amos
+NETS_THRESHOLD=3sum collatz ll rsa amos
+NETS_BIN=$(addprefix $(DIR_BUILD)/nets/, $(addsuffix -fixed.16bin, $(NETS)) \
+	$(addsuffix -fixed.32bin, $(NETS)) \
+	$(addsuffix -fixed.64bin, $(NETS)) \
+	$(addsuffix -fixed.128bin, $(NETS)))
+# [TODO] Skip threshold nets as I don't have floating point *.net sources
+# NETS_BIN+=$(addprefix $(DIR_BUILD)/nets/, \
+# 	$(addsuffix -threshold-fixed.16bin, $(NETS_THRESHOLD)) \
+# 	$(addsuffix -threshold-fixed.32bin, $(NETS_THRESHOLD)) \
+# 	$(addsuffix -threshold-fixed.64bin, $(NETS_THRESHOLD)) \
+# 	$(addsuffix -threshold-fixed.128bin, $(NETS_THRESHOLD)))
+NETS_H+=$(addprefix $(DIR_BUILD)/nets/, $(addsuffix -fixed-16bin-32.h, $(NETS)) \
+	$(addsuffix -fixed-32bin-32.h, $(NETS)) \
+	$(addsuffix -fixed-64bin-32.h, $(NETS)) \
+	$(addsuffix -fixed-128bin-32.h, $(NETS)))
+NETS_H+=$(addprefix $(DIR_BUILD)/nets/, $(addsuffix -fixed-16bin-64.h, $(NETS)) \
+	$(addsuffix -fixed-32bin-64.h, $(NETS)) \
+	$(addsuffix -fixed-64bin-64.h, $(NETS)) \
+	$(addsuffix -fixed-128bin-64.h, $(NETS)))
+FLOAT_TO_FIXED=$(DIR_USR_BIN)/fann-float-to-fixed
+WRITE_FANN_CONFIG=$(DIR_USR_BIN)/write-fann-config-for-accelerator
+BIN_TO_C_HEADER=$(DIR_USR_BIN)/bin-config-to-c-header
+NETS_TOOLS = $(FLOAT_TO_FIXED) $(WRITE_FANN_CONFIG) $(BIN_TO_C_HEADER)
+DECIMAL_POINT_OFFSET=7
+
 vpath %.scala $(DIR_SRC_SCALA)
 vpath %.cpp $(DIR_TEST_CPP)
 vpath %.cpp $(DIR_BUILD)
@@ -108,8 +141,12 @@ vpath %.h src/main/c
 vpath %.v $(DIR_TEST_V)
 vpath %.v $(DIR_SRC_V)
 vpath %.v $(DIR_BUILD)
+vpath %.net $(DIR_MAIN_RES) $(DIR_BUILD)/nets
+vpath %.train $(DIR_MAIN_RES) # This is missing *.train.X, e.g., *.train.100
+vpath %bin $(DIR_BUILD)/nets
 
-.PHONY: all clean cpp debug dot libraries run run-verilog vcd vcd-verilog verilog
+.PHONY: all clean cpp debug dot fann libraries mrproper nets run run-verilog \
+	tools vcd vcd-verilog verilog
 
 default: all
 
@@ -119,6 +156,11 @@ all: $(TEST_EXECUTABLES)
 cpp: $(BACKEND_CPP)
 
 dot: $(BACKEND_DOT)
+
+fann:
+	cd submodules/fann && cmake . && make -j$(JOBS)
+
+nets: build/nets $(NETS_BIN) $(NETS_H)
 
 libraries: $(XFILES_LIBRARIES)
 
@@ -133,6 +175,9 @@ run: $(TEST_EXECUTABLES) Makefile
 run-verilog: $(TEST_V_EXECUTABLES) Makefile
 	vvp $<
 
+tools: fann
+	make -j$(JOBS) -C tools
+
 vcd-verilog: $(DIR_BUILD)/t_XFilesDana$(FPGA_CONFIG_DOT)-vcd.vvp Makefile
 	vvp $<
 	scripts/gtkwave $<.vcd
@@ -140,7 +185,12 @@ vcd-verilog: $(DIR_BUILD)/t_XFilesDana$(FPGA_CONFIG_DOT)-vcd.vvp Makefile
 debug: $(TEST_EXECUTABLES) Makefile
 	$< -d $(<:$(DIR_BUILD)/t_%=$(DIR_BUILD)/%.prm)
 
-rv: libraries $(RV_TESTS_EXECUTABLES) $(RV_TESTS_DISASM)
+rv: libraries nets $(DIR_BUILD)/cache $(RV_TESTS_EXECUTABLES) $(RV_TESTS_DISASM)
+
+#------------------- Dependent Programs
+$(FLOAT_TO_FIXED): tools
+$(WRITE_FANN_CONFIG): tools
+$(BIN_TO_C_HEADER): tools
 
 #------------------- Library Targets
 $(DIR_BUILD)/xfiles-user.o: xfiles-user.c
@@ -190,12 +240,65 @@ $(DIR_BUILD)/%$(FPGA_CONFIG_DOT)-vcd.vvp: %.v $(BACKEND_VERILOG) $(HEADERS_V)
 
 #------------------- RISC-V Tests
 $(DIR_BUILD)/%.rv: %.c $(XFILES_LIBRARIES)
-	$(RV_GCC) -Wall -Werror -static -march=RV64IMAFDXcustom -Isrc/main/c $< -o $@ -L$(DIR_BUILD) -lxfiles
+	$(RV_GCC) -Wall -Werror -static -march=RV64IMAFDXcustom -Isrc/main/c -Ibuild/nets $< -o $@ -L$(DIR_BUILD) -lxfiles
 
 $(DIR_BUILD)/%.rvS: $(DIR_BUILD)/%.rv
 	$(RV_OBJDUMP) -S $< > $@
+
+#------------------- Tools
+
+#------------------- Nets
+$(DIR_BUILD)/nets/%-fixed.net: %.net $(NETS_TOOLS)
+	$(FLOAT_TO_FIXED) $< $@
+
+$(DIR_BUILD)/nets/%.16bin: $(DIR_BUILD)/nets/%.net $(NETS_TOOLS)
+	$(WRITE_FANN_CONFIG) 16 $< $@ $(DECIMAL_POINT_OFFSET)
+
+$(DIR_BUILD)/nets/%.32bin: $(DIR_BUILD)/nets/%.net $(NETS_TOOLS)
+	$(WRITE_FANN_CONFIG) 32 $< $@ $(DECIMAL_POINT_OFFSET)
+
+$(DIR_BUILD)/nets/%.64bin: $(DIR_BUILD)/nets/%.net $(NETS_TOOLS)
+	$(WRITE_FANN_CONFIG) 64 $< $@ $(DECIMAL_POINT_OFFSET)
+
+$(DIR_BUILD)/nets/%.128bin: $(DIR_BUILD)/nets/%.net $(NETS_TOOLS)
+	$(WRITE_FANN_CONFIG) 128 $< $@ $(DECIMAL_POINT_OFFSET)
+
+$(DIR_BUILD)/nets/%-16bin-32.h: $(DIR_BUILD)/nets/%.16bin $(NETS_TOOLS)
+	$(BIN_TO_C_HEADER) $< $(subst -,_,init-$(basename $(notdir $<))-16bin-32) 32 > $@
+
+$(DIR_BUILD)/nets/%-16bin-64.h: $(DIR_BUILD)/nets/%.16bin $(NETS_TOOLS)
+	$(BIN_TO_C_HEADER) $< $(subst -,_,init-$(basename $(notdir $<))-16bin-64) 64 > $@
+
+$(DIR_BUILD)/nets/%-32bin-32.h: $(DIR_BUILD)/nets/%.32bin $(NETS_TOOLS)
+	$(BIN_TO_C_HEADER) $< $(subst -,_,init-$(basename $(notdir $<))-32bin-32) 32 > $@
+
+$(DIR_BUILD)/nets/%-32bin-64.h: $(DIR_BUILD)/nets/%.32bin $(NETS_TOOLS)
+	$(BIN_TO_C_HEADER) $< $(subst -,_,init-$(basename $(notdir $<))-32bin-64) 64 > $@
+
+$(DIR_BUILD)/nets/%-64bin-32.h: $(DIR_BUILD)/nets/%.64bin $(NETS_TOOLS)
+	$(BIN_TO_C_HEADER) $< $(subst -,_,init-$(basename $(notdir $<))-64bin-32) 32 > $@
+
+$(DIR_BUILD)/nets/%-64bin-64.h: $(DIR_BUILD)/nets/%.64bin $(NETS_TOOLS)
+	$(BIN_TO_C_HEADER) $< $(subst -,_,init-$(basename $(notdir $<))-64bin-64) 64 > $@
+
+$(DIR_BUILD)/nets/%-128bin-32.h: $(DIR_BUILD)/nets/%.128bin $(NETS_TOOLS)
+	$(BIN_TO_C_HEADER) $< $(subst -,_,init-$(basename $(notdir $<))-128bin-32) 32 > $@
+
+$(DIR_BUILD)/nets/%-128bin-64.h: $(DIR_BUILD)/nets/%.128bin $(NETS_TOOLS)
+	$(BIN_TO_C_HEADER) $< $(subst -,_,init-$(basename $(notdir $<))-128bin-64) 64 > $@
+
+$(DIR_BUILD)/nets:
+	mkdir $@
+
+#------------------- Populate a dummy cache (shouldn't be needed!)
+$(DIR_BUILD)/cache:
+	$(DIR_USR_BIN)/danaCache $@ src/main/resources/fft.net
 
 #------------------- Utility Targets
 clean:
 	rm -rf $(DIR_BUILD)/*
 	rm -rf target
+
+mrproper: clean
+	make clean -C tools
+	make clean -C submodules/fann

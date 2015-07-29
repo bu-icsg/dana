@@ -1,0 +1,41 @@
+#!/usr/bin/perl
+
+use strict;
+use warnings;
+
+sub usage {
+    my $usage = <<'END';
+Usage:
+  ./fann-data-to-fixed <input> <output> <decimal point>
+END
+    print $usage;
+}
+
+if ($#ARGV != 2) {
+    usage();
+    die "[ERROR] Wrong number of inputs";
+}
+
+my $file_input    = $ARGV[0];
+my $file_output   = $ARGV[1];
+my $decimal_point = $ARGV[2];
+
+open FILE_IN, "<$file_input" or
+    die "[ERROR] Unable to open <$file_input";
+open FILE_OUT, ">$file_output" or
+    die "[ERROR] Unable to open >$file_output";
+
+# Ignore the first line
+my $first_line = <FILE_IN>;
+print FILE_OUT $first_line;
+
+while (<FILE_IN>) {
+    my @inputs = split(" ", $_);
+    foreach (@inputs) {
+        print FILE_OUT int($_ * 2 ** $decimal_point)." ";
+    }
+    print FILE_OUT "\n";
+}
+
+close FILE_OUT;
+close FILE_IN;

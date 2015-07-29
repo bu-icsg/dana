@@ -1,0 +1,188 @@
+#!/bin/bash
+#set -x
+# FIXME: use tempfile -d $cache to generate network base name
+
+export USAGE="$0 <path of cache> <fann network file>"
+
+# Absolute path to this script. /home/user/bin/foo.sh
+SCRIPT=$(readlink -f $0)
+# Absolute path this script is in. /home/user/bin
+SCRIPTPATH=$(dirname $SCRIPT)
+
+export PATH=$PATH:$SCRIPTPATH/../../usr/bin
+
+DANA_DEV=${DANA_DEV:-/dev/ttyUSB0}
+FLOATTOFIXEDCMD=fann-float-to-fixed
+WRITECONFIGCMD=write-fann-config-for-accelerator
+BIN2RAMINITCMD=binary-to-ram-init
+BLOCKWIDTHS="16 32 64 128"
+DECIMAL_POINT_OFFSET=7
+NUMENTRIES=6
+
+typeset cache=$1
+typeset net=$2
+typeset -i input_size
+typeset -i output_size
+typeset netfixed
+typeset -i decimal_bits
+typeset freelink
+typeset freenum
+
+verify()
+{
+   if ! type -a $FLOATTOFIXEDCMD  > /dev/null
+   then
+     echo "ERROR: can't find $FLOATTOFIXEDCMD in your path"
+     exit -1
+   fi
+
+   if ! type -a $WRITECONFIGCMD > /dev/null
+   then
+     echo "ERROR: can't find $FLOATTOFIXEDCMD in your path"
+     exit -1
+   fi
+}  
+
+trim()
+{
+    trimmed=$1
+    trimmed=${trimmed%% }
+    trimmed=${trimmed## }
+
+    echo "$trimmed"
+}
+
+function calc_sizes()
+{
+    # compute input layer and output layer sizes
+    sizes=$(grep '^layer_sizes=' $cache/$net)
+    sizes=${sizes##layer_sizes=}
+    sizes=$(trim $sizes)
+
+    input_size=${sizes%% *}
+    output_size=${sizes##* }
+
+    # fann has bias node that needs to be removed 
+    (( input_size-- ))
+    (( output_size-- ))
+}
+
+function calc_decimal_bits()
+{
+    # compute input layer and output layer sizes
+    str=$(grep '^decimal_point=' $netfixed)
+    str=${str##decimal_point=}
+    decimal_bits=$(trim $str)
+}
+
+function create_fixed()
+{
+  nettype=$(head -1 $cache/$net)
+  netfixed=$cache/${net%%.net}-fixed.net
+
+ [[ -a $netfixed ]] && return
+
+  if [[ $nettype = *_FIX_* ]]; then
+     cp $cache/$net $netfixed
+  elif [[ $nettype = *_FLO_* ]]; then
+     if ! ${FLOATTOFIXEDCMD} $cache/$net $netfixed >/dev/null 2>&1; then
+        echo "ERROR: in float to fixed: likely due to missmatch in FANN versions" > /dev/stderr
+        ${FLOATTOFIXEDCMD}  $cache/$net /dev/null
+        exit -1
+     fi
+  else
+    echo "ERROR: unknown fann network type: $nettype"
+    exit -1
+  fi
+}
+
+function create_entrydata()
+{
+  for c in $BLOCKWIDTHS; do
+    bfile=$netfixed.${c}bin
+    $WRITECONFIGCMD $c $bw$netfixed $bfile $DECIMAL_POINT_OFFSET > /dev/null
+    $BIN2RAMINITCMD -i $bfile -w $c > ${netfixed}-${c}.v
+  done
+}
+
+function find_free()
+{
+  b=${BLOCKWIDTHS%% *}
+  freelink=$(ls -l $cache/entry_*-${b}.v | grep zero | head -1)
+  freelink=${freelink%% ->*}
+  freelink=${freelink##* }
+  freenum=${freelink##*entry_}
+  freenum=${freenum%%-*}
+  freelink=$(basename $freelink)
+  freelink=${freelink%%-*}
+}
+
+function assign() 
+{
+  source=$(basename $netfixed)
+  for b in $BLOCKWIDTHS; do
+      ln -fs ${source}-${b}.v $cache/entry_${freenum}-${b}.v
+  done
+}
+
+
+verify
+  
+if [[ -z $cache || -z $net ]]; then
+  echo $USAGE > /dev/stderr
+  exit -1
+fi
+
+if [[ ! -a $cache ]]; then 
+#   echo "Creating $cache" > /dev/stderr
+   mkdir -p $cache
+#   echo "populating with null enties"
+   cat > $cache/zero.v <<EOF
+// NULL ENTRY
+initial begin
+end
+EOF
+  for b in $BLOCKWIDTHS; do
+    for ((i=0; i< $NUMENTRIES; i++)); do
+        ln -s zero.v $cache/entry_$i-$b.v
+    done
+  done
+fi
+
+if [[ ! -a $cache/zero.v ]]; then
+   echo "ERROR:  $cache does not seem to be a Dana cache directory" > /dev/stderr
+   exit -1
+fi
+
+if [[ -a $cache/$(basename $net) ]]; then
+   echo "ERROR: $net is already in the cache" > /dev/stderr
+   exit -1
+fi
+
+if ! cp $net $cache; then
+  echo "ERROR: copying $net into the cache $cache" > /dev/stderr
+  exit -1
+fi
+
+net=$(basename $net)
+
+find_free
+
+if [[ -z $freelink ]]; then
+  echo "NO FREE ENTRIES"
+  exit -1
+fi
+
+calc_sizes
+
+create_fixed
+
+calc_decimal_bits
+
+create_entrydata
+
+assign
+
+echo "dana:$freenum,$input_size,$output_size,$decimal_bits,$DANA_DEV.net -> $net" > $cache/entry${freenum}.info
+cat $cache/entry${freenum}.info
+
