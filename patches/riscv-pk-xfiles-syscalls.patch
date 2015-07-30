@@ -1,0 +1,135 @@
+diff --git a/Makefile.in b/Makefile.in
+index 0c1a07e..5ba3311 100644
+--- a/Makefile.in
++++ b/Makefile.in
+@@ -32,6 +32,9 @@
+ default : all
+ .PHONY : default
+ 
++# Architecture to use to build everything
++ARCH ?= RV64IMAFDXcustom
++
+ project_name := @PACKAGE_TARNAME@
+ src_dir      := @srcdir@
+ scripts_dir  := $(src_dir)/scripts
+@@ -75,7 +78,7 @@ sprojs_include := -I. $(addprefix -I$(src_dir)/, $(sprojs_enabled))
+ VPATH := $(addprefix $(src_dir)/, $(sprojs_enabled))
+ 
+ #-------------------------------------------------------------------------
+-# Programs and flags 
++# Programs and flags
+ #-------------------------------------------------------------------------
+ 
+ # C++ compiler
+@@ -83,7 +86,7 @@ VPATH := $(addprefix $(src_dir)/, $(sprojs_enabled))
+ #  - CXXFLAGS : flags for C++ compiler (eg. -Wall,-g,-O3)
+ 
+ CC            := @CC@
+-CFLAGS        := @CFLAGS@ $(CFLAGS)
++CFLAGS        := @CFLAGS@ $(CFLAGS) -march=$(ARCH)
+ COMPILE       := $(CC) -MMD -MP $(CFLAGS) \
+                  $(sprojs_include)
+ # Linker
+@@ -129,7 +132,7 @@ dist_junk += $(sprojs_mk)
+ #-------------------------------------------------------------------------
+ # This function is used by the subproject template to reverse the list
+ # of dependencies. It uses recursion to perform the reversal.
+-# 
++#
+ # Arguments:
+ #  $(1)   : space separated input list
+ #  retval : input list in reverse order
+@@ -151,7 +154,7 @@ endef
+ # subprojects defining a certain set of make variables which are all
+ # prefixed with the subproject name. Since subproject names can have
+ # dashes in them (and the make variables are assumed to only use
+-# underscores) the template takes two arguments - one with the regular 
++# underscores) the template takes two arguments - one with the regular
+ # subproject name and one with dashes replaced with underscores.
+ #
+ # Arguments:
+@@ -281,7 +284,7 @@ clean-$(1) :
+ 
+ libs += lib$(1).a
+ objs += $$($(2)_c_objs)
+-srcs += $$(addprefix $(src_dir)/$(1)/, $$($(2)_c_srcs)) 
++srcs += $$(addprefix $(src_dir)/$(1)/, $$($(2)_c_srcs))
+ hdrs += $$(addprefix $(src_dir)/$(1)/, $$($(2)_hdrs))
+ junk += $$($(2)_junk)
+ deps += $$($(2)_c_deps)
+@@ -381,7 +384,7 @@ dist_junk += config.status config.h Makefile config.log
+ # Distribution
+ #-------------------------------------------------------------------------
+ # The distribution tarball is named project-ver.tar.gz and it includes
+-# both enabled and disabled subprojects. 
++# both enabled and disabled subprojects.
+ 
+ dist_files = \
+   $(sprojs) \
+diff --git a/pk/syscall.c b/pk/syscall.c
+index 44c62cd..39aa786 100644
+--- a/pk/syscall.c
++++ b/pk/syscall.c
+@@ -367,7 +367,7 @@ int sys_times(void* restrict loc)
+   put_long(loc, 1, 0);
+   put_long(loc, 2, 0);
+   put_long(loc, 3, 0);
+-  
++
+   return 0;
+ }
+ 
+@@ -378,7 +378,7 @@ int sys_gettimeofday(long* loc)
+   uintptr_t t = rdcycle();
+   put_long(loc, 0, t/CLOCK_FREQ);
+   put_long(loc, 1, (t % CLOCK_FREQ) / (CLOCK_FREQ / 1000000));
+-  
++
+   return 0;
+ }
+ 
+@@ -412,6 +412,20 @@ static int sys_stub_nosys()
+   return -ENOSYS;
+ }
+ 
++int sys_xfiles_dana_set_asid(uint16_t asid)
++{
++  asm volatile ("custom0 0, %[rs1], 0, 0"
++                :: [rs1] "r" (asid));
++  return 0;
++}
++
++int sys_xfiles_dana_set_antp(uint64_t antp, size_t size)
++{
++  asm volatile ("custom0 0, %[rs1], %[rs2], 1"
++                :: [rs1] "r" (antp), [rs2] "r" (size));
++  return 0;
++}
++
+ long do_syscall(long a0, long a1, long a2, long a3, long a4, long a5, unsigned long n)
+ {
+   const static void* syscall_table[] = {
+@@ -451,6 +465,8 @@ long do_syscall(long a0, long a1, long a2, long a3, long a4, long a5, unsigned l
+     [SYS_readlinkat] = sys_stub_nosys,
+     [SYS_rt_sigprocmask] = sys_stub_success,
+     [SYS_ioctl] = sys_stub_nosys,
++    [SYS_xfiles_dana_set_asid] = sys_xfiles_dana_set_asid,
++    [SYS_xfiles_dana_set_antp] = sys_xfiles_dana_set_antp,
+   };
+ 
+   const static void* old_syscall_table[] = {
+diff --git a/pk/syscall.h b/pk/syscall.h
+index a4a1522..c407adc 100644
+--- a/pk/syscall.h
++++ b/pk/syscall.h
+@@ -54,6 +54,10 @@
+ #define SYS_lstat 1039
+ #define SYS_time 1062
+ 
++// X-Files/Dana
++#define SYS_xfiles_dana_set_asid 1337
++#define SYS_xfiles_dana_set_antp 1338
++
+ #define IS_ERR_VALUE(x) ((unsigned long)(x) >= (unsigned long)-4096)
+ #define ERR_PTR(x) ((void*)(long)(x))
+ #define PTR_ERR(x) ((long)(x))
