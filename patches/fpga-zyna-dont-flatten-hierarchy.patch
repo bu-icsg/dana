@@ -1,0 +1,12 @@
+diff --git a/common/zynq_rocketchip.tcl b/common/zynq_rocketchip.tcl
+index a2ae542..eff9e17 100644
+--- a/common/zynq_rocketchip.tcl
++++ b/common/zynq_rocketchip.tcl
+@@ -100,6 +100,7 @@ if {[string equal [get_runs -quiet synth_1] ""]} {
+ set obj [get_runs synth_1]
+ set_property "needs_refresh" "1" $obj
+ set_property "part" "PART_NUMBER_HERE" $obj
++set_property "STEPS.SYNTH_DESIGN.ARGS.FLATTEN_HIERARCHY" "none" $obj
+ 
+ # Create 'impl_1' run (if not found)
+ if {[string equal [get_runs -quiet impl_1] ""]} {
