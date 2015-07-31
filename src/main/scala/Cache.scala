@@ -110,6 +110,7 @@ class Cache extends DanaModule {
   val hasFree = Bool()
   val hasUnused = Bool()
   val nextFree = UInt()
+  val nextUnused = UInt()
   val foundNnid = Bool()
   val derefNnid = UInt()
   val hasNotify = Bool()
@@ -117,10 +118,23 @@ class Cache extends DanaModule {
   hasFree := table.exists(isFree)
   hasUnused := table.exists(isUnused)
   nextFree := table.indexWhere(isFree)
+  nextUnused := table.indexWhere(isUnused)
   foundNnid := table.exists(derefNnid(_, io.control.req.bits.nnid))
   derefNnid := table.indexWhere(derefNnid(_, io.control.req.bits.nnid))
   hasNotify := table.exists(isDoneFetching)
   idxNotify := table.indexWhere(isDoneFetching)
+
+  // Helper functions for setting the table
+  def tableInit(index: UInt) {
+    // This initializes a new cache entry
+    table(index).valid := Bool(true)
+    table(index).asid := io.control.req.bits.asid
+    table(index).nnid := io.control.req.bits.nnid
+    table(index).fetch := Bool(true)
+    table(index).notifyFlag := Bool(false)
+    table(index).notifyIndex := io.control.req.bits.tableIndex
+    table(index).inUseCount := UInt(1)
+  }
 
   // I think the cache is always ready. This should not be gated on
   // hasFree or hasUnused as this precludes cache hits on used entries
@@ -193,26 +207,29 @@ class Cache extends DanaModule {
     switch (io.control.req.bits.request) {
       is (e_CACHE_LOAD) {
         when (!foundNnid) {
-          // The NNID was not found, so we need to generate a memory
-          // request to load it in.
+          // The NNID was not found, so we need to initialize the
+          // cache line and ask memory (ANTW or similar) to start
+          // loading this specific configuration. However, this can
+          // only happen if there is a free entry or an unused entry
+          // in the cache. However, if the cache is always sized
+          // larger than the Transcation Table, the case where there
+          // isn't a free cache entry should never occur.
+          when (hasFree | hasUnused) {
+            tableInit(Mux(hasFree, nextFree, nextUnused))
+            // Generate a request to memory
+            io.mem.req.valid := Bool(true)
+            io.mem.req.bits.asid := io.control.req.bits.asid
+            io.mem.req.bits.nnid := io.control.req.bits.nnid
+            io.mem.req.bits.cacheIndex := nextFree
+            io.mem.req.bits.coreIndex := io.control.req.bits.coreIdx
+            printf("[INFO] Cache: req Core/ASID/NNID %d/0x%x/0x%x miss\n",
+              io.control.req.bits.coreIdx, io.control.req.bits.asid,
+              io.control.req.bits.nnid);
+          } .otherwise {
+            printf("[ERROR] Cache: req ASID/NNID 0x%x/0x%x, no space\n",
+            io.control.req.bits.asid, io.control.req.bits.nnid)
+          }
 
-          // Reserve the new cache entry
-          table(nextFree).valid := Bool(true)
-          table(nextFree).asid := io.control.req.bits.asid
-          table(nextFree).nnid := io.control.req.bits.nnid
-          table(nextFree).fetch := Bool(true)
-          table(nextFree).notifyFlag := Bool(false)
-          table(nextFree).notifyIndex := io.control.req.bits.tableIndex
-          table(nextFree).inUseCount := UInt(1)
-
-          // Generate a request to memory
-          io.mem.req.valid := Bool(true)
-          io.mem.req.bits.asid := io.control.req.bits.asid
-          io.mem.req.bits.nnid := io.control.req.bits.nnid
-          io.mem.req.bits.cacheIndex := nextFree
-          io.mem.req.bits.coreIndex := io.control.req.bits.coreIdx
-          printf("[INFO] Cache saw request by Core %d uncached NNID 0x%x\n",
-            io.control.req.bits.coreIdx, io.control.req.bits.nnid);
         } .elsewhen (table(derefNnid).fetch) {
           // The nnid was found, but the data is currently being
           // loaded from memory. This happens if a second request for
@@ -220,7 +237,8 @@ class Cache extends DanaModule {
           table(derefNnid).inUseCount := table(derefNnid).inUseCount + UInt(1)
           table(derefNnid).notifyMask := table(derefNnid).notifyMask |
             UIntToOH(io.control.req.bits.tableIndex)
-          printf("[INFO] Cache saw request on currently being cached NNID 0x%x\n",
+          printf("[INFO] Cache: req Core/ASID/NNID %d/0x%x/0x%x miss (loading)\n",
+            io.control.req.bits.coreIdx, io.control.req.bits.asid,
             io.control.req.bits.nnid);
         } .otherwise {
           // The NNID was found and the data has already been loaded
@@ -235,11 +253,9 @@ class Cache extends DanaModule {
           controlRespPipe(0).bits.field := e_CACHE_INFO
           controlRespPipe(0).bits.location := io.control.req.bits.location
 
-          // Read the requested information from the cache
-          // mem(derefNnid).addr(0) := UInt(0) // Info is in first blocks
-          // cacheRead(derefNnid) := UInt(0)
-          printf("[INFO] Cache saw request by Core %d for cached NNID 0x%x\n",
-            io.control.req.bits.coreIdx, io.control.req.bits.nnid);
+          printf("[INFO] Cache: req Core/ASID/NNID %d/0x%x/0x%x hit\n",
+            io.control.req.bits.coreIdx, io.control.req.bits.asid,
+            io.control.req.bits.nnid);
         }
       }
       is (e_CACHE_LAYER_INFO) {
@@ -410,7 +426,13 @@ class Cache extends DanaModule {
     table(derefNnid).inUseCount === UInt(0)),
     "Cache received control request to decrement count of zero-valued inUseCount")
 
-  // [TODO] Write an assertion that makes sure the sum of the
-  // inUseCount fields is less than the number of Transaction Table
-  // entries.
+  // There is no way of handling a request from the Transaction Table
+  // that shows up when the cache has no free or unused entries.
+  // However, this should never happen if the Transaction Table is
+  // always smaller or equal to the number of cache entries.
+  assert(!(io.control.req.valid &&
+    io.control.req.bits.request === e_CACHE_LOAD &&
+    !foundNnid &&
+    (!hasFree && !hasUnused)),
+  "Cache missed on ASID/NNID req, but has no free/unused entries")
 }
