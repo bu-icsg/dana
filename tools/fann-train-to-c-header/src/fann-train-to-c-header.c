@@ -37,9 +37,12 @@ int main (int argc, char * argv[]) {
   fscanf(fp, "%d %d %d", &num_data, &num_input, &num_output);
   printf("// Automatically generated using:\n//   %s %s %s %s\n",
          argv[0], argv[1], argv[2], argv[3]);
-  printf("static int %s_num_data = %d;\n", argv[3], num_data);
-  printf("static int %s_num_input = %d;\n", argv[3], num_input);
-  printf("static int %s_num_output = %d;\n", argv[3], num_output);
+  printf("static int %s_num_data __attribute__((unused)) = %d;\n", argv[3],
+         num_data);
+  printf("static int %s_num_input __attribute__((unused)) = %d;\n", argv[3],
+         num_input);
+  printf("static int %s_num_output __attribute__((unused)) = %d;\n", argv[3],
+         num_output);
   inputs = (fann_type **) malloc(num_data * sizeof(fann_type *));
   outputs_expected = (fann_type **) malloc(num_data * sizeof(fann_type *));
   outputs_fann = (fann_type **) malloc(num_data * sizeof(fann_type *));
@@ -60,7 +63,8 @@ int main (int argc, char * argv[]) {
   }
 
   // Print out the inputs, expected, and actual outputs (what FANN produced)
-  printf("static int %s_inputs[%d][%d] = {\n", argv[3], num_data, num_input);
+  printf("static int %s_inputs[%d][%d] __attribute__((unused)) = {\n", argv[3],
+         num_data, num_input);
   for (i = 0; i < num_data; i++) {
     printf("  {");
     for (j = 0; j < num_input - 1; j++)
@@ -69,7 +73,8 @@ int main (int argc, char * argv[]) {
   }
   printf("};\n");
 
-  printf("static int %s_outputs_expected[%d][%d] = {\n", argv[3], num_data,
+  printf("static int %s_outputs_expected[%d][%d] __attribute__((unused)) = {\n",
+         argv[3], num_data,
          num_output);
   for (i = 0; i < num_data; i++) {
     printf("  {");
@@ -79,7 +84,8 @@ int main (int argc, char * argv[]) {
   }
   printf("};\n");
 
-  printf("static int %s_outputs_fann[%d][%d] = {\n", argv[3], num_data,
+  printf("static int %s_outputs_fann[%d][%d] __attribute__((unused)) = {\n",
+         argv[3], num_data,
          num_output);
   for (i = 0; i < num_data; i++) {
     printf("  {");
