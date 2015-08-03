@@ -148,6 +148,8 @@ vpath %bin $(DIR_BUILD)/nets
 .PHONY: all clean cpp debug dot fann libraries mrproper nets run run-verilog \
 	tools vcd vcd-verilog verilog
 
+.PRECIOUS: $(DIR_BUILD)/nets/%-fixed.net
+
 default: all
 
 all: $(TEST_EXECUTABLES)
