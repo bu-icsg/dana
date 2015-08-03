@@ -37,9 +37,9 @@ int main (int argc, char * argv[]) {
   fscanf(fp, "%d %d %d", &num_data, &num_input, &num_output);
   printf("// Automatically generated using:\n//   %s %s %s %s\n",
          argv[0], argv[1], argv[2], argv[3]);
-  printf("int %s_num_data = %d;\n", argv[3], num_data);
-  printf("int %s_num_input = %d;\n", argv[3], num_input);
-  printf("int %s_num_output = %d;\n", argv[3], num_output);
+  printf("static int %s_num_data = %d;\n", argv[3], num_data);
+  printf("static int %s_num_input = %d;\n", argv[3], num_input);
+  printf("static int %s_num_output = %d;\n", argv[3], num_output);
   inputs = (fann_type **) malloc(num_data * sizeof(fann_type *));
   outputs_expected = (fann_type **) malloc(num_data * sizeof(fann_type *));
   outputs_fann = (fann_type **) malloc(num_data * sizeof(fann_type *));
@@ -55,11 +55,12 @@ int main (int argc, char * argv[]) {
       fscanf(fp, "%f", &inputs[i][j]);
     for (j = 0; j < num_output; j++)
       fscanf(fp, "%f", &outputs_expected[i][j]);
-    memcpy(outputs_fann[i], fann_run(ann, inputs[i]), num_output * sizeof(fann_type));
+    memcpy(outputs_fann[i], fann_run(ann, inputs[i]),
+           num_output * sizeof(fann_type));
   }
 
   // Print out the inputs, expected, and actual outputs (what FANN produced)
-  printf("int %s_inputs[%d][%d] = {\n", argv[3], num_data, num_input);
+  printf("static int %s_inputs[%d][%d] = {\n", argv[3], num_data, num_input);
   for (i = 0; i < num_data; i++) {
     printf("  {");
     for (j = 0; j < num_input - 1; j++)
@@ -68,7 +69,8 @@ int main (int argc, char * argv[]) {
   }
   printf("};\n");
 
-  printf("int %s_outputs_expected[%d][%d] = {\n", argv[3], num_data, num_output);
+  printf("static int %s_outputs_expected[%d][%d] = {\n", argv[3], num_data,
+         num_output);
   for (i = 0; i < num_data; i++) {
     printf("  {");
     for (j = 0; j < num_output - 1; j++)
@@ -77,7 +79,8 @@ int main (int argc, char * argv[]) {
   }
   printf("};\n");
 
-  printf("int %s_outputs_fann[%d][%d] = {\n", argv[3], num_data, num_output);
+  printf("static int %s_outputs_fann[%d][%d] = {\n", argv[3], num_data,
+         num_output);
   for (i = 0; i < num_data; i++) {
     printf("  {");
     for (j = 0; j < num_output - 1; j++)
