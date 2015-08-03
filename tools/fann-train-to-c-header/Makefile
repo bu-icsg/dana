@@ -12,7 +12,7 @@ INCLUDE_PATHS	= ../../usr/include
 CFLAGS		= -Wall -Werror $(addprefix -I, $(INCLUDE_PATHS))
 
 LIB_PATHS	= ../../usr/lib
-LIBS		= fixedfann m
+LIBS		= fann m
 LFLAGS		= $(addprefix -Wl$(COMMA)-R, $(shell readlink -f $(LIB_PATHS))) \
             $(addprefix -L, $(LIB_PATHS)) \
             $(addprefix -l, $(LIBS))

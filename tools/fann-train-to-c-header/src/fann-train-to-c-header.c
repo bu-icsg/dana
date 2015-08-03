@@ -2,12 +2,12 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
-#include "fixedfann.h"
+#include "fann.h"
 
 int main (int argc, char * argv[]) {
   FILE * fp;
   struct fann * ann;
-  int i, j;
+  int i, j, decimal_point, multiplier;
   unsigned int num_data, num_input, num_output;
   fann_type ** inputs, ** outputs_expected, ** outputs_fann;
 
@@ -29,6 +29,10 @@ int main (int argc, char * argv[]) {
     return -2;
   }
 
+  // Figure out what the decimal point should be
+  decimal_point = fann_save_to_fixed(ann, "/dev/null");
+  multiplier = pow(2, decimal_point);
+
   // Read the header
   fscanf(fp, "%d %d %d", &num_data, &num_input, &num_output);
   printf("// Automatically generated using:\n//   %s %s %s %s\n",
@@ -48,10 +52,10 @@ int main (int argc, char * argv[]) {
   // Read all the input--output pairs
   for (i = 0; i < num_data; i++) {
     for (j = 0; j < num_input; j++)
-      fscanf(fp, FANNPRINTF, &inputs[i][j]);
+      fscanf(fp, "%f", &inputs[i][j]);
     for (j = 0; j < num_output; j++)
-      fscanf(fp, FANNPRINTF, &outputs_expected[i][j]);
-    memcpy(outputs_fann[i], fann_run(ann, inputs[i]), num_output);
+      fscanf(fp, "%f", &outputs_expected[i][j]);
+    memcpy(outputs_fann[i], fann_run(ann, inputs[i]), num_output * sizeof(fann_type));
   }
 
   // Print out the inputs, expected, and actual outputs (what FANN produced)
@@ -59,8 +63,8 @@ int main (int argc, char * argv[]) {
   for (i = 0; i < num_data; i++) {
     printf("  {");
     for (j = 0; j < num_input - 1; j++)
-      printf("%d,", inputs[i][j]);
-    printf("%d},\n", inputs[i][j]);
+      printf("%d,", (int) (inputs[i][j] * multiplier));
+    printf("%d},\n", (int) (inputs[i][j] * multiplier));
   }
   printf("};\n");
 
@@ -68,8 +72,8 @@ int main (int argc, char * argv[]) {
   for (i = 0; i < num_data; i++) {
     printf("  {");
     for (j = 0; j < num_output - 1; j++)
-      printf("%d,", outputs_expected[i][j]);
-    printf("%d},\n", outputs_expected[i][j]);
+      printf("%d,", (int) (outputs_expected[i][j] * multiplier));
+    printf("%d},\n", (int) (outputs_expected[i][j] * multiplier));
   }
   printf("};\n");
 
@@ -77,8 +81,8 @@ int main (int argc, char * argv[]) {
   for (i = 0; i < num_data; i++) {
     printf("  {");
     for (j = 0; j < num_output - 1; j++)
-      printf("%d,", outputs_fann[i][j]);
-    printf("%d},\n", outputs_fann[i][j]);
+      printf("%d,", (int) (outputs_fann[i][j] * multiplier));
+    printf("%d},\n", (int) (outputs_fann[i][j] * multiplier));
   }
   printf("};\n");
 

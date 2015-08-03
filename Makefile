@@ -109,6 +109,8 @@ XFILES_LIBRARIES_OBJECTS = $(DIR_BUILD)/xfiles-user.o $(DIR_BUILD)/xfiles-superv
 # Network Configurations
 NETS=3sum collatz rsa ll edip blackscholes fft inversek2j jmeint jpeg kmeans sobel amos
 NETS_THRESHOLD=3sum collatz ll rsa amos
+# Only certain networks have valid training files
+NETS_TRAIN=blackscholes fft inversek2j jmeint jpeg kmeans rsa sobel
 NETS_BIN=$(addprefix $(DIR_BUILD)/nets/, $(addsuffix -fixed.16bin, $(NETS)) \
 	$(addsuffix -fixed.32bin, $(NETS)) \
 	$(addsuffix -fixed.64bin, $(NETS)) \
@@ -127,9 +129,11 @@ NETS_H+=$(addprefix $(DIR_BUILD)/nets/, $(addsuffix -fixed-16bin-64.h, $(NETS)) 
 	$(addsuffix -fixed-32bin-64.h, $(NETS)) \
 	$(addsuffix -fixed-64bin-64.h, $(NETS)) \
 	$(addsuffix -fixed-128bin-64.h, $(NETS)))
+TRAIN_H=$(addprefix $(DIR_BUILD)/nets/, $(addsuffix _train.h, $(NETS_TRAIN)))
 FLOAT_TO_FIXED=$(DIR_USR_BIN)/fann-float-to-fixed
 WRITE_FANN_CONFIG=$(DIR_USR_BIN)/write-fann-config-for-accelerator
 BIN_TO_C_HEADER=$(DIR_USR_BIN)/bin-config-to-c-header
+TRAIN_TO_C_HEADER=$(DIR_USR_BIN)/fann-train-to-c-header
 NETS_TOOLS = $(FLOAT_TO_FIXED) $(WRITE_FANN_CONFIG) $(BIN_TO_C_HEADER)
 DECIMAL_POINT_OFFSET=7
 
@@ -162,7 +166,7 @@ dot: $(BACKEND_DOT)
 fann:
 	cd submodules/fann && cmake . && make -j$(JOBS)
 
-nets: build/nets $(NETS_BIN) $(NETS_H)
+nets: build/nets $(NETS_BIN) $(NETS_H) $(TRAIN_H)
 
 libraries: $(XFILES_LIBRARIES)
 
@@ -289,8 +293,11 @@ $(DIR_BUILD)/nets/%-128bin-32.h: $(DIR_BUILD)/nets/%.128bin $(NETS_TOOLS)
 $(DIR_BUILD)/nets/%-128bin-64.h: $(DIR_BUILD)/nets/%.128bin $(NETS_TOOLS)
 	$(BIN_TO_C_HEADER) $< $(subst -,_,init-$(basename $(notdir $<))-128bin-64) 64 > $@
 
+$(DIR_BUILD)/nets/%_train.h: %.train $(NETS_TOOLS)
+	$(TRAIN_TO_C_HEADER) $(basename $<).net $< $(basename $(notdir $<)) > $@
+
 $(DIR_BUILD)/nets:
-	mkdir $@
+	mkdir -p $@
 
 #------------------- Populate a dummy cache (shouldn't be needed!)
 $(DIR_BUILD)/cache:
