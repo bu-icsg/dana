@@ -85,10 +85,13 @@ class AsidNnidTableWalker extends XFilesModule {
   val indexResp = io.mem.indexWhere(respValid(_))
 
   def memRead(core: UInt, addr: UInt) {
+    // printf("[INFO] ANTW: Mem read req core/addr/tag(%x,%x) 0x%x/0x%x/0x%x\n",
+    //   UInt(params(CoreDCacheReqTagBits) - 1), UInt(0),
+    //   core, addr, addr(params(CoreDCacheReqTagBits) - 1, 0))
     io.mem(core).req.valid := Bool(true)
     io.mem(core).req.bits.addr := addr
     // [TODO] This is fragile on the number of tag bits in Rocket Chip!
-    io.mem(core).req.bits.tag := addr(9, 0)
+    io.mem(core).req.bits.tag := addr(params(CoreDCacheReqTagBits) - 1, 0)
     io.mem(core).req.bits.cmd := M_XRD
     io.mem(core).req.bits.typ := MT_D
   }
@@ -125,8 +128,8 @@ class AsidNnidTableWalker extends XFilesModule {
       io.mem(indexResp).resp.bits.data_subword
 
     // Print out the response [TODO] remove
-    printf("[INFO] ANTW: Resp addr/data 0x%x/0x%x\n",
-      respIdx, io.mem(indexResp).resp.bits.data_subword)
+    // printf("[INFO] ANTW: Resp addr/data 0x%x/0x%x\n",
+    //   respIdx, io.mem(indexResp).resp.bits.data_subword)
   }
 
   // Communication with the ASID Unit
@@ -157,7 +160,8 @@ class AsidNnidTableWalker extends XFilesModule {
 
   switch (state) {
     is (s_IDLE) {
-      when (hasCacheRequests) {
+      when (hasCacheRequests &&
+        io.mem(cacheReqQueue.io.deq.bits.coreIndex).req.ready) {
         // The base request offset is the ANTP plus the ASID *
         // size_of(asid_nnid_table_entry) which is 24 bytes
         val reqAddr = antpReg.antp + cacheReqQueue.io.deq.bits.asid * UInt(24)
@@ -168,11 +172,11 @@ class AsidNnidTableWalker extends XFilesModule {
         cacheReqCurrent.coreIndex := cacheReqQueue.io.deq.bits.coreIndex
         cacheReqQueue.io.deq.ready := Bool(true)
         printf("[INFO] ANTW: Dequeuing mem request for Core/ASID/NNID/Idx 0x%x/0x%x/0x%x/0x%x\n",
-          cacheReqCurrent.coreIndex, cacheReqCurrent.asid,
-          cacheReqCurrent.nnid, cacheReqCurrent.cacheIndex)
+          cacheReqQueue.io.deq.bits.coreIndex, cacheReqQueue.io.deq.bits.asid,
+          cacheReqQueue.io.deq.bits.nnid, cacheReqQueue.io.deq.bits.cacheIndex)
         // printf("[INFO] ANTW: New request addr/tag 0x%x/0x%x\n",
-        //   reqAddr, reqAddr(9, 0))
-        memRead(io.cache.req.bits.coreIndex, reqAddr)
+        //   reqAddr, reqAddr(params(CoreDCacheReqTagBits) - 1, 0))
+        memRead(cacheReqQueue.io.deq.bits.coreIndex, reqAddr)
         state := s_CHECK_NNID_WAIT
       }
     }
@@ -187,8 +191,6 @@ class AsidNnidTableWalker extends XFilesModule {
           val reqAddr = antpReg.antp + cacheReqCurrent.asid * UInt(32)
           memRead(io.cache.req.bits.coreIndex, reqAddr)
           state := s_READ_NNID_POINTER
-          // printf("[INFO] ANTW: New request addr/tag 0x%x/0x%x\n",
-          //   reqAddr, reqAddr(9, 0))
         } .otherwise {
           printf("[ERROR] ANTW: NNID reference would be invalid\n")
           state := s_ERROR
@@ -201,8 +203,6 @@ class AsidNnidTableWalker extends XFilesModule {
           cacheReqCurrent.nnid * UInt(16)
         configPtr := io.mem(indexResp).resp.bits.data_subword +
           cacheReqCurrent.nnid * UInt(16) + UInt(8)
-        // printf("[INFO] ANTW: New request addr/tag 0x%x/0x%x\n",
-        //   reqAddr, reqAddr(9, 0))
         memRead(io.cache.req.bits.coreIndex, reqAddr)
         state := s_READ_CONFIGSIZE
       }
@@ -210,8 +210,6 @@ class AsidNnidTableWalker extends XFilesModule {
     is (s_READ_CONFIGSIZE) {
       when (io.mem.exists(respValid)) {
         configSize := io.mem(indexResp).resp.bits.data_subword
-        // printf("[INFO] ANTW: Setting config size to 0x%x\n",
-        //   io.mem(indexResp).resp.bits.data_subword)
         val reqAddr = configPtr
         memRead(io.cache.req.bits.coreIndex, reqAddr)
         state := s_READ_CONFIGPTR
@@ -224,8 +222,6 @@ class AsidNnidTableWalker extends XFilesModule {
         configRespCount := UInt(0)
         configWbCount := UInt(0)
         val reqAddr = io.mem(indexResp).resp.bits.data_subword
-        // printf("[INFO] ANTW: New request addr/tag 0x%x/0x%x\n",
-        //   reqAddr, reqAddr(9, 0))
         memRead(io.cache.req.bits.coreIndex, reqAddr)
         state := s_READ_CONFIG
       }
@@ -235,8 +231,6 @@ class AsidNnidTableWalker extends XFilesModule {
       when (io.mem(io.cache.req.bits.coreIndex).req.ready) {
         configReqCount := configReqCount + UInt(1)
         val reqAddr = configPtr + configReqCount * UInt(params(XLen) / 8)
-        // printf("[INFO] ANTW: New request addr/tag 0x%x/0x%x\n",
-        //   reqAddr, reqAddr(9, 0))
         memRead(io.cache.req.bits.coreIndex, reqAddr)
         when (configReqCount === configSize - UInt(1)) {
           state := s_READ_CONFIG_WAIT
@@ -274,7 +268,7 @@ class AsidNnidTableWalker extends XFilesModule {
       configRob(configRobIdx).data.toBits,
       cacheReqCurrent.cacheIndex,
       configRob(configRobIdx).cacheAddr)
-    printf("[INFO] ANTW: configWbCount: 0x%x\n", configWbCount)
+    // printf("[INFO] ANTW: configWbCount: 0x%x\n", configWbCount)
     configRob(configRobIdx).valid := UInt(0)
     configWbCount := configWbCount + UInt(1)
   }

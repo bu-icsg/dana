@@ -415,6 +415,7 @@ class TransactionTable extends XFilesModule {
     entryArbiter.io.in(i).bits.cacheIndex := table(i).cacheIndex
     entryArbiter.io.in(i).bits.asid := table(i).asid
     entryArbiter.io.in(i).bits.nnid := table(i).nnid
+    entryArbiter.io.in(i).bits.coreIdx := table(i).coreIdx
     // State info
     entryArbiter.io.in(i).bits.currentNodeInLayer := table(i).currentNodeInLayer
     entryArbiter.io.in(i).bits.currentLayer := table(i).currentLayer
