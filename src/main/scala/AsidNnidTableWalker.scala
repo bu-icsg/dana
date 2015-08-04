@@ -17,6 +17,11 @@ class ConfigRobEntry extends XFilesBundle {
   val data = Vec.fill(bitsPerBlock / params(XLen)){UInt(width = params(XLen))}
 }
 
+class HellaCacheReqWithCore extends XFilesBundle {
+  val req = new HellaCacheReq
+  val core = UInt(width = log2Up(numCores))
+}
+
 class AsidNnidTableWalker extends XFilesModule {
   val io = new AsidNnidTableWalkerInterface
 
@@ -50,7 +55,9 @@ class AsidNnidTableWalker extends XFilesModule {
   val configRob = Vec.fill(antwRobEntries){ Reg(new ConfigRobEntry) }
 
   // Queue requests from the cache
+  // [TODO] Add parameters for these cache depths
   val cacheReqQueue = Module(new Queue(new CacheMemReq, 2))
+  val memReqQueue = Module(new Queue(new HellaCacheReqWithCore, 4))
   val cacheReqCurrent = Reg(new CacheMemReq)
 
   // Default values
@@ -78,6 +85,15 @@ class AsidNnidTableWalker extends XFilesModule {
   cacheReqQueue.io.enq.bits.coreIndex := UInt(0)
   cacheReqQueue.io.deq.ready := Bool(false)
   configWb := Bool(false)
+  // Memory Request Queue
+  memReqQueue.io.enq.valid := Bool(false)
+  memReqQueue.io.enq.bits.req.addr := UInt(0)
+  memReqQueue.io.enq.bits.req.tag := UInt(0)
+  memReqQueue.io.enq.bits.req.cmd := UInt(0)
+  memReqQueue.io.enq.bits.req.typ := UInt(0)
+  // memReqQueue.io.enq.bits.req.toBits := UInt(0)
+  memReqQueue.io.enq.bits.core := UInt(0)
+  memReqQueue.io.deq.ready := Bool(false)
 
   def reqValid(x: AsidUnitANTWInterface): Bool = { x.req.valid }
   def respValid(x: HellaCacheIO): Bool = { x.resp.valid }
@@ -85,15 +101,12 @@ class AsidNnidTableWalker extends XFilesModule {
   val indexResp = io.mem.indexWhere(respValid(_))
 
   def memRead(core: UInt, addr: UInt) {
-    // printf("[INFO] ANTW: Mem read req core/addr/tag(%x,%x) 0x%x/0x%x/0x%x\n",
-    //   UInt(params(CoreDCacheReqTagBits) - 1), UInt(0),
-    //   core, addr, addr(params(CoreDCacheReqTagBits) - 1, 0))
-    io.mem(core).req.valid := Bool(true)
-    io.mem(core).req.bits.addr := addr
-    // [TODO] This is fragile on the number of tag bits in Rocket Chip!
-    io.mem(core).req.bits.tag := addr(params(CoreDCacheReqTagBits) - 1, 0)
-    io.mem(core).req.bits.cmd := M_XRD
-    io.mem(core).req.bits.typ := MT_D
+    memReqQueue.io.enq.valid := Bool(true)
+    memReqQueue.io.enq.bits.req.addr := addr
+    memReqQueue.io.enq.bits.req.tag := addr(params(CoreDCacheReqTagBits) - 1, 0)
+    memReqQueue.io.enq.bits.req.cmd := M_XRD
+    memReqQueue.io.enq.bits.req.typ := MT_D
+    memReqQueue.io.enq.bits.core := core
   }
   def cacheResp(done: Bool, data: UInt, cacheIndex: UInt, addr: UInt) {
     io.cache.resp.valid := Bool(true)
@@ -149,6 +162,22 @@ class AsidNnidTableWalker extends XFilesModule {
       io.cache.req.bits.nnid, io.cache.req.bits.cacheIndex)
     cacheReqQueue.io.enq.valid := Bool(true)
     cacheReqQueue.io.enq.bits := io.cache.req.bits
+  }
+
+  // Pull memory requests out of the Memory Request Queue
+  when (memReqQueue.io.deq.valid && io.mem(memReqQueue.io.deq.bits.core).req.ready) {
+    val core = memReqQueue.io.deq.bits.core
+    memReqQueue.io.deq.ready := Bool(true)
+    io.mem(core).req.valid := Bool(true)
+    io.mem(core).req.bits.addr := memReqQueue.io.deq.bits.req.addr
+    io.mem(core).req.bits.tag :=
+      memReqQueue.io.deq.bits.req.addr(params(CoreDCacheReqTagBits) - 1, 0)
+    io.mem(core).req.bits.cmd := memReqQueue.io.deq.bits.req.cmd
+    io.mem(core).req.bits.typ := memReqQueue.io.deq.bits.req.typ
+    printf("[INFO] ANTW: Mem read req core/addr/tag(%x,%x) 0x%x/0x%x/0x%x\n",
+      UInt(params(CoreDCacheReqTagBits) - 1), UInt(0),
+      UInt(core), memReqQueue.io.deq.bits.req.addr,
+      memReqQueue.io.deq.bits.req.addr(params(CoreDCacheReqTagBits) - 1, 0))
   }
 
   // [TODO] Need a small controller that determines what to do next.
@@ -228,7 +257,7 @@ class AsidNnidTableWalker extends XFilesModule {
     }
     is (s_READ_CONFIG) {
       // Whenever the cache can accept a new request, send one
-      when (io.mem(io.cache.req.bits.coreIndex).req.ready) {
+      when (memReqQueue.io.enq.ready) {
         configReqCount := configReqCount + UInt(1)
         val reqAddr = configPtr + configReqCount * UInt(params(XLen) / 8)
         memRead(io.cache.req.bits.coreIndex, reqAddr)
@@ -306,6 +335,7 @@ class AsidNnidTableWalker extends XFilesModule {
   assert(Bool(isPow2(configBufSize)),
     "ANTW derived parameter configBufSize must be a power of 2")
   // Outbound memory requests shouldn't happen on
-  assert(!(io.mem(0).req.valid && !io.mem(0).req.ready),
-    "ANTW just sent memory read when memory was not ready")
+  (0 until numCores).map(core =>
+    assert(!(io.mem(core).req.valid && !io.mem(core).req.ready),
+      "ANTW just sent memory to a core when memory was not ready"))
 }
