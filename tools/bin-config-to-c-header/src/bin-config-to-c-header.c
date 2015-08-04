@@ -24,7 +24,8 @@ int main (int argc, char * argv[]) {
     file_size /= sizeof(uint32_t);
     data = (uint32_t *) malloc(file_size * sizeof(uint32_t));
     fread((uint32_t *) data, sizeof(uint32_t), file_size, fp);
-    printf("static uint32_t %s[%ld] = \n{", argv[2], file_size);
+    printf("static uint32_t %s[%ld] __attribute__((unused)) = \n{", argv[2],
+           file_size);
     for (i = 0; i < file_size - 1; i++) {
       printf("0x%08x,", ((uint32_t *)data)[i]);
       if ((i + 1) %4 == 0)
@@ -36,7 +37,8 @@ int main (int argc, char * argv[]) {
     file_size /= sizeof(uint64_t);
     data = (uint64_t *) malloc(file_size * sizeof(uint64_t));
     fread((uint64_t *) data, sizeof(uint64_t), file_size, fp);
-    printf("static uint64_t %s[%ld] = \n{", argv[2], file_size);
+    printf("static uint64_t %s[%ld] __attribute__((unused)) = \n{", argv[2],
+           file_size);
     for (i = 0; i < file_size - 1; i++) {
       printf("0x%016lx,", ((uint64_t *)data)[i]);
       if ((i + 1) %2 == 0)
