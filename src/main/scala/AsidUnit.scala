@@ -69,14 +69,11 @@ class AsidUnit extends DanaModule with XFilesParameters {
 
   // Reset
   when (reset) {
-    // [TODO] Once we're no longer doing any user testing, this must
-    // be removed.
-    asidReg.valid := Bool(true)
-    asidReg.tid := UInt(5)
+    asidReg.valid := Bool(false)
   }
 
   // Assertions
-  // There shouldn't be a new request on an invalid TID
-  assert(!(newRequest && !asidReg.valid),
+  // There shouldn't be a new request on an invalid ASID
+  assert(!(io.core.cmd.fire() && newRequest && !asidReg.valid),
     "New request on invalid ASID (a clean build may be needed)");
 }
