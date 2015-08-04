@@ -305,4 +305,7 @@ class AsidNnidTableWalker extends XFilesModule {
     "ANTW is in an error state")
   assert(Bool(isPow2(configBufSize)),
     "ANTW derived parameter configBufSize must be a power of 2")
+  // Outbound memory requests shouldn't happen on
+  assert(!(io.mem(0).req.valid && !io.mem(0).req.ready),
+    "ANTW just sent memory read when memory was not ready")
 }
