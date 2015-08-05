@@ -37,6 +37,8 @@ int main (int argc, char * argv[]) {
   fscanf(fp, "%d %d %d", &num_data, &num_input, &num_output);
   printf("// Automatically generated using:\n//   %s %s %s %s\n",
          argv[0], argv[1], argv[2], argv[3]);
+  printf("static int %s_decimal_point __attribute__((unused)) = %d;\n", argv[3],
+         decimal_point);
   printf("static int %s_num_data __attribute__((unused)) = %d;\n", argv[3],
          num_data);
   printf("static int %s_num_input __attribute__((unused)) = %d;\n", argv[3],
