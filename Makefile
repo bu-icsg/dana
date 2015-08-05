@@ -196,11 +196,6 @@ debug: $(TEST_EXECUTABLES) Makefile
 
 rv: libraries nets $(DIR_BUILD)/cache $(RV_TESTS_EXECUTABLES) $(RV_TESTS_DISASM)
 
-#------------------- Dependent Programs
-$(FLOAT_TO_FIXED): tools
-$(WRITE_FANN_CONFIG): tools
-$(BIN_TO_C_HEADER): tools
-
 #------------------- Library Targets
 $(DIR_BUILD)/xfiles-user.o: xfiles-user.c
 	$(RV_GCC) -Wall -Werror -march=RV64IMAFDXcustom -c $< -o $@
