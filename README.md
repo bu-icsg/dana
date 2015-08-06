@@ -19,28 +19,29 @@ A neural network framework, hardware arbiter, and backend accelerator to acceler
 
 This is not, at present, a standalone repository due to dependencies on classes and parameters defined in [rocket](https://www.github.com/ucb-bar/rocket), [uncore](https://www.github.com/ucb-bar/uncore), and [rocket-chip](https://www.github.com/ucb-bar/rocket-chip). Consequently, X-FILES/DANA cannot currently be tested outside of a rocket-chip environment. We intend to add this support eventually.
 
-Consequently, you need to grab a copy of rocket-chip first:
+Consequently, you need to grab a copy of rocket-chip first. I'm going to use the variable `$ROCKETCHIP` as the directory where you've cloned rocket-chip:
 ```bash
-git clone https://github.com/ucb-bar/rocket-chip
-cd rocket-chip
+git clone https://github.com/ucb-bar/rocket-chip $ROCKETCHIP
+cd $ROCKETCHIP
 git submodule update --init
 ```
 
 Then clone a copy of this repository (xfiles-dana) inside the rocket-chip repo. We then symlink in the files that rocket-chip needs to know about (`./install-symlinks`) and build some RISC-V test programs (`make rv`).
 ```bash
-git clone git@github.com:seldridge/xfiles-dana
-cd xfiles-dana
+git clone git@github.com:seldridge/xfiles-dana $ROCKETCHIP/xfiles-dana
+cd $ROCKETCHIP/xfiles-dana
 git submodule update --init
 ./install-symlinks
 make rv
 ```
-The `install-symlinks` script adds a symlink into `src/main/scala` which defines Rocket Chip configurations that include X-Files/Dana. These configurations, listed below, are used at various stages in the build process:
+The `install-symlinks` script adds a symlink into `$ROCKETCHIP/src/main/scala` which defines Rocket Chip configurations that include X-Files/Dana. These configurations, listed below, are used at various stages in the build process:
 * XFilesDanaCPPConfig -- Used for emulation
 * XFilesDanaFPGAConfig -- Used for "larger" development boards, like the Zedboard. This configuration is based on DefaultFPGAConfig
 * XFilesDanaFPGASmallConfig -- A smaller FPGA configuration based on DefaultFPGASmallConfig
 
 If you haven't already installed the RISC-V toolchain, you should go ahead and do that now. Instead of maintaining a separate toolchain, I usually just build whatever version is shipped with the rocket-chip repo. This build process relies on the existence of a `RISCV` environment variable, i.e., the location where the RISC-V tools will be installed. Some of the tests currently use special system calls added to the proxy kernel. The xfiles-dana repo includes a patch for the proxy kernel which will set this up for you. Note, if you already have a valid copy of the riscv-tools you can optionally just patch the proxy kernel, as done in the block following this.
 ```bash
+cd $ROCKETCHIP/riscv-tools
 git submodule update --init
 cd riscv-pk
 git apply ../../xfiles-dana/patches/riscv-pk-xfiles-syscalls.patch
@@ -49,14 +50,15 @@ export RISCV=/home/se/research_local/riscv
 ./build.sh
 ```
 
-If you just want to patch the proxy kernel, you can do the following.
+If you just want to patch the proxy kernel, you can do the following. Note, it's important that you build the proxy kernel _in it's own build directory_.
 ```bash
-cd ../riscv-tools
+cd $ROCKETCHIP/riscv-tools
 git submodule update --init riscv-pk
+cd riscv-pk
 git apply ../../xfiles-dana/patches/riscv-pk-xfiles-syscalls.patch
 mkdir build
 cd build
-../configure --prefix=$RISCV/riscv-unknown-elf --host=riscv64-unknown-elf
+../configure --prefix=$RISCV/riscv64-unknown-elf --host=riscv64-unknown-elf
 make
 ```
 
@@ -64,7 +66,7 @@ make
 
 We can then go back into the emulator directory and build a C++ emulator of a Rocket Chip with one Rocket Core and one X-Files/Dana instance. We have to tell the build process that we want to use the `XFilesDanaCPPConfig` configuration (defined in the symlink `src/main/scala/XFilesDanaConfigs.scala`) and that we have an "add-on" project called "xfiles-dana":
 ```bash
-cd ../../emulator
+cd $ROCKETCHIP/emulator
 make CONFIG=XFilesDanaCPPConfig ROCKETCHIP_ADDONS=xfiles-dana
 ```
 
