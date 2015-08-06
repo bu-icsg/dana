@@ -78,7 +78,7 @@ HEADERS_V          = ../nnsim-hdl/src/ram_infer_preloaded_cache.v \
 	$(wildcard ../nnsim-hdl/src/initial/*.v)
 
 # RISCV Tests Targets
-RV_TESTS             = $(notdir $(wildcard $(DIR_TEST_RV)/*.c))
+RV_TESTS             = hello.c rsa-rocc.c rsa-rocc-supervisor.c torture.c
 RV_TESTS_EXECUTABLES = $(RV_TESTS:%.c=$(DIR_BUILD)/%.rv)
 RV_TESTS_DISASM      = $(RV_TESTS:%.c=$(DIR_BUILD)/%.rvS)
 
@@ -244,7 +244,7 @@ $(DIR_BUILD)/%$(FPGA_CONFIG_DOT)-vcd.vvp: %.v $(BACKEND_VERILOG) $(HEADERS_V)
 
 #------------------- RISC-V Tests
 $(DIR_BUILD)/%.rv: %.c $(XFILES_LIBRARIES)
-	$(RV_GCC) -Wall -Werror -static -march=RV64IMAFDXcustom -Isrc/main/c -Ibuild/nets $< -o $@ -L$(DIR_BUILD) -lxfiles
+	$(RV_GCC) -Wall -Werror -static -march=RV64IMAFDXcustom -Isrc/main/c -Ibuild/nets $< -o $@ -L$(DIR_BUILD) -lm -lxfiles
 
 $(DIR_BUILD)/%.rvS: $(DIR_BUILD)/%.rv
 	$(RV_OBJDUMP) -S $< > $@
