@@ -162,3 +162,14 @@ se@se-lenovo:[schuyler=]~/research_local/rocket-chip/emulator$
 [INFO] output[29]: 0
 [INFO] Destroying ASID--NNID Table
 ```
+
+### Debugging
+At present, I don't have a good way to do full VCD debugging (i.e., dump every signal) due to the size of the combined rocket-chip + X-Files/Dana system and the use of the proxy kernel (this takes some time to start up). As a result, the best way that I've found to do debugging of X-Files/Dana is to use Chisel's builtin `printf()` function. You can use this to get the value of a signal on some condition or write whole "info" functions which show you the state of a module at every clock cycle. There are some gotchas here, though.
+
+Chisel's `printf` writes to STDERR, all `printf` statements are disabled by default, and enabling your statements also causes rocket-chip to dump state information every cycle. To get around this, I usually use a standard convention of prepending any `printf` with "[INFO]" or "[ERROR]" while assertions will lead with "Assertion". I can then grep for these in the output and ignore everything from rocket-chip.
+
+So, I pipe STDERR to STDOUT (`2>&1`), enable printfs (`+verbose`), and grep case insensitively for only the stuff I care about `| grep -i "info\|error\|assert"`. Using the example above, to dump xfiles-dana debug information:
+```
+se@se-lenovo:[schuyler=]~/research_local/rocket-chip/emulator$
+> ./emulator-Top-XFilesDanaCPPConfig +verbose pk ../xfiles-dana/build/rsa-rocc-supervisor.rv 2>&1 | grep -i "info\|error\|assert"
+```
