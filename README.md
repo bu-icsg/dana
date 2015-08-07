@@ -19,7 +19,7 @@ A neural network framework, hardware arbiter, and backend accelerator to acceler
 
 This is not, at present, a standalone repository due to dependencies on classes and parameters defined in [rocket](https://www.github.com/ucb-bar/rocket), [uncore](https://www.github.com/ucb-bar/uncore), and [rocket-chip](https://www.github.com/ucb-bar/rocket-chip). Consequently, X-FILES/DANA cannot currently be tested outside of a rocket-chip environment. We intend to add this support eventually.
 
-Consequently, you need to grab a copy of rocket-chip first. I'm going to use the variable `$ROCKETCHIP` as the directory where you've cloned rocket-chip:
+First, you need to grab a copy of rocket-chip. I'm going to use the variable `$ROCKETCHIP` as the directory where you've cloned rocket-chip:
 ```bash
 git clone https://github.com/ucb-bar/rocket-chip $ROCKETCHIP
 cd $ROCKETCHIP
@@ -60,6 +60,7 @@ mkdir build
 cd build
 ../configure --prefix=$RISCV/riscv64-unknown-elf --host=riscv64-unknown-elf
 make
+make install
 ```
 
 ## C++ Emulation
