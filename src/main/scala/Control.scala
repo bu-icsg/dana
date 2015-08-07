@@ -44,10 +44,9 @@ class ControlPETableInterface extends DanaBundle with ControlParameters {
     // give the PE a kick, which should be accomplished with the
     // decoupled valid signal
     val tIdx = UInt(width = log2Up(transactionTableNumEntries))
-    val locationInput = UInt()
-    val locationOutput = UInt()
-    val inputIndex = UInt(width = ioIdxWidth)
-    val outputIndex = UInt(width = ioIdxWidth)
+    val inAddr = UInt(width = ioIdxWidth)
+    val outAddr = UInt(width = ioIdxWidth)
+    val location = UInt(width = 1)
     val neuronPointer = UInt(width = 12) // [TODO] fragile
     val decimalPoint = UInt(width = decimalPointWidth)
   })
@@ -90,19 +89,16 @@ class Control extends DanaModule {
     io.cache.req.bits.layer := layer
     io.cache.req.bits.location := location
   }
-  def reqPETable(valid: Bool, cacheIndex: UInt,
-    tIdx: UInt, locationInput: UInt, locationOutput: UInt,
-    inputIndex: UInt, outputIndex: UInt, neuronPointer: UInt,
-    decimalPoint: UInt) {
+  def reqPETable(valid: Bool, cacheIndex: UInt, tIdx: UInt,  inAddr: UInt,
+    outAddr: UInt, neuronPointer: UInt, decimalPoint: UInt, location: UInt) {
     io.peTable.req.valid := valid
     io.peTable.req.bits.cacheIndex := cacheIndex
     io.peTable.req.bits.tIdx := tIdx
-    io.peTable.req.bits.locationInput := locationInput
-    io.peTable.req.bits.locationOutput := locationOutput
-    io.peTable.req.bits.inputIndex := inputIndex
-    io.peTable.req.bits.outputIndex := outputIndex
+    io.peTable.req.bits.inAddr := inAddr
+    io.peTable.req.bits.outAddr := outAddr
     io.peTable.req.bits.neuronPointer := neuronPointer
     io.peTable.req.bits.decimalPoint := decimalPoint
+    io.peTable.req.bits.location := location
   }
 
   // io.tTable defaults
@@ -125,8 +121,8 @@ class Control extends DanaModule {
   reqCache(Bool(false), UInt(0), UInt(0), UInt(0), UInt(0), UInt(0), UInt(0),
     UInt(0))
   // io.petable defaults
-  reqPETable(Bool(false), UInt(0), UInt(0), UInt(0),
-    UInt(0), UInt(0), UInt(0), UInt(0), UInt(0))
+  reqPETable(Bool(false), UInt(0), UInt(0), UInt(0), UInt(0), UInt(0), UInt(0),
+    UInt(0))
   // io.regFile defaults
   io.regFile.req.valid := Bool(false)
   io.regFile.req.bits.tIdx := UInt(0)
@@ -201,17 +197,11 @@ class Control extends DanaModule {
         io.tTable.req.bits.cacheIndex, // cacheIndex
         // Table Index, no ASID/TID are used
         io.tTable.req.bits.tableIndex,
-        // Clever input/output location determination
-        Mux(io.tTable.req.bits.inFirst, e_LOCATION_IO,
-          !io.tTable.req.bits.currentLayer(0)), // locationInput
-        Mux(io.tTable.req.bits.inLast, e_LOCATION_IO,
-          io.tTable.req.bits.currentLayer(0)), // locationOutput
-        // The input index is always zero as we need to start reading
-        // from the initial position of the IO Storage / Register File
-        UInt(0), // inputIndex is always zero
-        // The output index is simply the index of the current node
-        // being processed
-        io.tTable.req.bits.currentNodeInLayer, // outputIndex
+        // The input address is contained in the TTable request
+        io.tTable.req.bits.regFileAddrIn,
+        // The output address is a base output (specified by the
+        // TTable request) plus an offset (which neuron this is)
+        io.tTable.req.bits.regFileAddrOut+io.tTable.req.bits.currentNodeInLayer,
 
         // The neuron pointer is going to be the base pointer that
         // lives in the Transaction Table plus an offset based on the
@@ -221,7 +211,11 @@ class Control extends DanaModule {
         io.tTable.req.bits.neuronPointer + // neuronPointer
           (io.tTable.req.bits.currentNodeInLayer << UInt(3)),
         // Pass along the decimal point
-        io.tTable.req.bits.decimalPoint // decimalPoint
+        io.tTable.req.bits.decimalPoint, // decimalPoint
+        // Communicate the "location" which eventually the Register
+        // File will use to determine which of two locations is the
+        // "writeCount" for the current layer vs. the next layer
+        io.tTable.req.bits.currentLayer(0)
       )
     }
   }

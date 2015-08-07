@@ -17,7 +17,8 @@ abstract class XFilesBundle extends DanaBundle with XFilesParameters
 
 class XFilesDanaInterface extends XFilesBundle {
   val control = new TTableControlInterface
-  val peTable = (new PETransactionTableInterface).flip
+  // val peTable = (new PETransactionTableInterface).flip
+  val regFile = new TTableRegisterFileInterface
   val cache = (new CacheMemInterface).flip
 }
 
@@ -104,7 +105,8 @@ class XFilesArbiter extends XFilesModule {
   coreArbiter.io.out <> tTable.io.arbiter.rocc.cmd
   tTable.io.arbiter.coreIdx := coreArbiter.io.chosen
   io.dana.control <> tTable.io.control
-  io.dana.peTable <> tTable.io.peTable
+  // io.dana.peTable <> tTable.io.peTable
+  io.dana.regFile <> tTable.io.regFile
   io.dana.cache <> antw.io.cache
   (0 until numCores).map(i => io.core(i).mem <> antw.io.mem(i))
 
