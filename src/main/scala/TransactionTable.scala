@@ -30,10 +30,14 @@ class TransactionState extends XFilesBundle {
   val neuronPointer = UInt(width = 11) // [TODO] fragile
   val countFeedback = UInt(width = feedbackWidth)
   val countPeWrites = UInt(width = 16) // [TODO] fragile
-  val readIdx = UInt(width = log2Up(transactionTableSramElements))
+  // We need to keep track of where inputs and outputs should be
+  // written to in the Register File.
+  val regFileAddrIn = UInt(width = 16) // [TODO] fragile
+  val regFileAddrOut = UInt(width = 16) // [TODO] fragile
+  val readIdx = UInt(width = log2Up(regFileNumElements))
   val coreIdx = UInt(width = log2Up(numCores))
   // Additional crap which may be redundant
-  val indexElement = UInt(width = log2Up(transactionTableSramElements))
+  val indexElement = UInt(width = log2Up(regFileNumElements))
 }
 
 class ControlReq extends XFilesBundle {
@@ -56,6 +60,8 @@ class ControlReq extends XFilesBundle {
   val currentLayer = UInt(width = 16) // [TODO] fragile
   val neuronPointer = UInt(width = 11) // [TODO] fragile
   val decimalPoint = UInt(width = decimalPointWidth)
+  val regFileAddrIn = UInt(width = 16) // [TODO] fragile
+  val regFileAddrOut = UInt(width = 16) // [TODO] fragile
 }
 
 class ControlResp extends XFilesBundle {
@@ -74,7 +80,7 @@ class XFilesArbiterRespPipe extends XFilesBundle {
   val respType = UInt(width = log2Up(3)) // [TODO] Fragile on Dana enum
   val tid = UInt(width = tidWidth)
   val tidIdx = UInt(width = log2Up(transactionTableNumEntries))
-  val readIdx = UInt(width = log2Up(transactionTableSramElements))
+  val readIdx = UInt(width = log2Up(regFileNumElements))
   val coreIdx = UInt(width = log2Up(numCores))
   val rd = UInt(width = 5) // Dependent on rocc.scala defined width
   val status = UInt(width = elementWidth)
@@ -85,6 +91,22 @@ class TTableControlInterface extends XFilesBundle {
   val resp = Decoupled(new ControlResp).flip
 }
 
+class TTableRegisterFileReq extends XFilesBundle {
+  val reqType = UInt(width = log2Up(2)) // [TODO] Frgaile on Dana enum
+  val tidIdx = UInt(width = log2Up(transactionTableNumEntries))
+  val addr = UInt(width = log2Up(regFileNumElements))
+  val data = UInt(width = elementWidth)
+}
+
+class TTableRegisterFileResp extends XFilesBundle {
+  val data = UInt(width = elementWidth)
+}
+
+class TTableRegisterFileInterface extends XFilesBundle {
+  val req = Valid(new TTableRegisterFileReq)
+  val resp = Valid(new TTableRegisterFileResp).flip
+}
+
 class TransactionTableInterface extends XFilesBundle {
   val arbiter = new XFilesBundle {
     val rocc = new RoCCInterface
@@ -92,7 +114,7 @@ class TransactionTableInterface extends XFilesBundle {
     val indexOut = UInt(OUTPUT, width = log2Up(numCores))
   }
   val control = new TTableControlInterface
-  val peTable = (new PETransactionTableInterface).flip
+  val regFile = new TTableRegisterFileInterface
 }
 
 class TransactionTable extends XFilesModule {
@@ -118,13 +140,6 @@ class TransactionTable extends XFilesModule {
   // Vector of all the table entries
   val table = Vec.fill(transactionTableNumEntries){Reg(new TransactionState)}
 
-  // Vector of the table entry memories
-  val mem = Vec.fill(transactionTableNumEntries){
-    Module(new SRAMElement(
-      dataWidth = elementWidth * elementsPerBlock,
-      sramDepth = transactionTableSramBlocks,
-      numPorts = 1,
-      elementWidth = elementWidth)).io}
   // An entry is free if it is not valid and not reserved
   def isFree(x: TransactionState): Bool = { !x.valid && !x.reserved }
   def derefTid(x: TransactionState, asid: UInt, tid: UInt): Bool = {
@@ -145,6 +160,12 @@ class TransactionTable extends XFilesModule {
   io.arbiter.rocc.resp.valid := Bool(false)
   io.arbiter.rocc.resp.bits.rd := UInt(0)
   io.arbiter.rocc.resp.bits.data := UInt(0)
+  // Default register file connections
+  io.regFile.req.valid := Bool(false)
+  io.regFile.req.bits.reqType := UInt(0)
+  io.regFile.req.bits.tidIdx := UInt(0)
+  io.regFile.req.bits.addr := UInt(0)
+  io.regFile.req.bits.data := UInt(0)
 
   // Response pipeline to arbiter
   val arbiterRespPipe = Reg(Valid(new XFilesArbiterRespPipe))
@@ -157,8 +178,7 @@ class TransactionTable extends XFilesModule {
   arbiterRespPipe.bits.rd := UInt(0)
   arbiterRespPipe.bits.status := UInt(0)
   io.arbiter.rocc.resp.valid := arbiterRespPipe.valid
-  val memDataVec = Vec((0 until elementsPerBlock).map(i =>
-    (mem(arbiterRespPipe.bits.tidIdx).dout(0))(elementWidth * (i + 1) - 1, elementWidth * i)))
+
   switch (arbiterRespPipe.bits.respType) {
     is (e_TID) {
       io.arbiter.rocc.resp.bits.data := arbiterRespPipe.bits.respType ##
@@ -170,7 +190,7 @@ class TransactionTable extends XFilesModule {
       io.arbiter.rocc.resp.bits.data := arbiterRespPipe.bits.respType ##
         UInt(0, width = 14) ##
         arbiterRespPipe.bits.tid ##
-        memDataVec(arbiterRespPipe.bits.readIdx(log2Up(elementsPerBlock) -1, 0))
+        io.regFile.resp.bits.data
     }
     is (e_NOT_DONE) {
       io.arbiter.rocc.resp.bits.data := arbiterRespPipe.bits.respType ##
@@ -182,19 +202,12 @@ class TransactionTable extends XFilesModule {
   io.arbiter.rocc.resp.bits.rd := arbiterRespPipe.bits.rd
   io.arbiter.indexOut := arbiterRespPipe.bits.coreIdx
 
-  // Default value assignment
-  for (i <- 0 until transactionTableNumEntries) {
-    for (j <- 0 until mem(i).numPorts) {
-      mem(i).we(j) := Bool(false)
-      mem(i).din(j) := UInt(0)
-      mem(i).addr(j) := UInt(0)
-    }
-  }
-
   when (io.arbiter.rocc.cmd.valid) {
     // This is a new packet
     when (cmd.readOrWrite) { // Write == True
       when (cmd.isNew) {
+        // [TODO] A lot of this can be removed as not everything has
+        // to be initialized
         table(nextFree).reserved := Bool(true)
         table(nextFree).cacheValid := Bool(false)
         table(nextFree).waiting := Bool(false)
@@ -208,6 +221,8 @@ class TransactionTable extends XFilesModule {
         table(nextFree).currentLayer := UInt(0)
         table(nextFree).request := Bool(false)
         table(nextFree).countFeedback := cmd.countFeedback
+        table(nextFree).regFileAddrIn := UInt(0)
+        table(nextFree).regFileAddrOut := UInt(0)
         table(nextFree).done := Bool(false)
         table(nextFree).decInUse := Bool(false)
         table(nextFree).indexElement := UInt(0)
@@ -224,9 +239,13 @@ class TransactionTable extends XFilesModule {
         printf("[INFO] X-Files saw new write request for NNID %x\n", cmd.nnid)
       }
         .elsewhen(cmd.isLast) {
-        mem(derefTidIndex).we(0) := Bool(true)
-        mem(derefTidIndex).din(0) := cmd.data
-        mem(derefTidIndex).addr(0) := table(derefTidIndex).indexElement
+        // Write data to the Register File
+        io.regFile.req.valid := Bool(true)
+        io.regFile.req.bits.reqType := e_TTABLE_REGFILE_WRITE
+        io.regFile.req.bits.tidIdx := derefTidIndex
+        io.regFile.req.bits.addr := table(derefTidIndex).indexElement
+        io.regFile.req.bits.data := cmd.data
+        // Update the table entry
         table(derefTidIndex).indexElement :=
           table(derefTidIndex).indexElement + UInt(1)
         table(derefTidIndex).valid := Bool(true)
@@ -235,9 +254,13 @@ class TransactionTable extends XFilesModule {
       }
         // This is an input packet
         .otherwise {
-        mem(derefTidIndex).we(0) := Bool(true)
-        mem(derefTidIndex).din(0) := cmd.data
-        mem(derefTidIndex).addr(0) := table(derefTidIndex).indexElement
+        // Write data to the Register File
+        io.regFile.req.valid := Bool(true)
+        io.regFile.req.bits.reqType := e_TTABLE_REGFILE_WRITE
+        io.regFile.req.bits.tidIdx := derefTidIndex
+        io.regFile.req.bits.addr := table(derefTidIndex).indexElement
+        io.regFile.req.bits.data := cmd.data
+        // Update the table entry
         table(derefTidIndex).indexElement :=
           table(derefTidIndex).indexElement + UInt(1)
         printf("[INFO] X-Files saw write request on TID %x with data %x\n",
@@ -246,7 +269,13 @@ class TransactionTable extends XFilesModule {
       }
     } .otherwise { // Ths is a read packet.
       when (table(derefTidIndex).done) {
-        mem(derefTidIndex).addr(0) := table(derefTidIndex).readIdx
+        // Register File request
+        io.regFile.req.valid := Bool(true)
+        io.regFile.req.bits.addr := table(derefTidIndex).readIdx +
+          table(derefTidIndex).regFileAddrOut
+        // We initate the response in the arbiterRespPipe and fill in
+        // data from the _guaranteed_ response from the Register File
+        // on the next cycle
         arbiterRespPipe.valid := Bool(true)
         arbiterRespPipe.bits.respType := e_READ
         arbiterRespPipe.bits.tid := cmd.tid
@@ -289,36 +318,34 @@ class TransactionTable extends XFilesModule {
 
   // Update the table when we get a request from DANA
   when (io.control.resp.valid) {
-    // table(io.control.resp.bits.tableIndex).waiting := Bool(true)
+    val tIdx = io.control.resp.bits.tableIndex
+    // table(tIdx).waiting := Bool(true)
     when (io.control.resp.bits.cacheValid) {
       switch(io.control.resp.bits.field) {
         is(e_TTABLE_CACHE_VALID) {
-          table(io.control.resp.bits.tableIndex).cacheValid := Bool(true)
-          table(io.control.resp.bits.tableIndex).numLayers :=
-          io.control.resp.bits.data(0)
-          table(io.control.resp.bits.tableIndex).numNodes :=
-          io.control.resp.bits.data(1)
-          table(io.control.resp.bits.tableIndex).cacheIndex :=
-          io.control.resp.bits.data(2)
-          table(io.control.resp.bits.tableIndex).decimalPoint :=
-          io.control.resp.bits.decimalPoint
+          table(tIdx).cacheValid := Bool(true)
+          table(tIdx).numLayers := io.control.resp.bits.data(0)
+          table(tIdx).numNodes := io.control.resp.bits.data(1)
+          table(tIdx).cacheIndex := io.control.resp.bits.data(2)
+          table(tIdx).decimalPoint := io.control.resp.bits.decimalPoint
           // Once we know the cache is valid, this entry is no longer waiting
-          table(io.control.resp.bits.tableIndex).waiting := Bool(false)
+          table(tIdx).waiting := Bool(false)
         }
         is(e_TTABLE_LAYER) {
-          table(io.control.resp.bits.tableIndex).needsLayerInfo := Bool(false)
-          table(io.control.resp.bits.tableIndex).currentNodeInLayer := UInt(0)
-          table(io.control.resp.bits.tableIndex).nodesInCurrentLayer := io.control.resp.bits.data(0)
-          table(io.control.resp.bits.tableIndex).neuronPointer := io.control.resp.bits.data(2)
-          printf("[INFO] Saw neuron pointer %x\n", io.control.resp.bits.data(2))
+          table(tIdx).needsLayerInfo := Bool(false)
+          table(tIdx).currentNodeInLayer := UInt(0)
+          table(tIdx).nodesInCurrentLayer := io.control.resp.bits.data(0)
+          table(tIdx).neuronPointer := io.control.resp.bits.data(2)
           // Update the inFirst and inLast Bools. The currentLayer
           // should have already been updated when the request went out.
-          table(io.control.resp.bits.tableIndex).inFirst :=
-            table(io.control.resp.bits.tableIndex).currentLayer === UInt(0)
-          // table(io.control.resp.bits.tableIndex).numLayers - UInt(1)
-          table(io.control.resp.bits.tableIndex).inLast :=
-            table(io.control.resp.bits.tableIndex).currentLayer ===
-            table(io.control.resp.bits.tableIndex).numLayers - UInt(1)
+          // table(tIdx).numLayers - UInt(1)
+          // [TODO] Disabling inFirst/inLast here. This will cause inLast to
+          // assert as soon as the layer data comes back. However,
+          // this causes problems with using inLast to check when
+          // we're in the last layer and PE data comes back valid.
+          // table(tIdx).inFirst := table(tIdx).currentLayer === UInt(0)
+          // table(tIdx).inLast :=
+          //   table(tIdx).currentLayer === table(tIdx).numLayers - UInt(1)
           // If this is a transition into a layer which is not the first
           // layer, then the Transaction Table requests need to block
           // until the Register File has all valid data. [TODO] This is
@@ -326,8 +353,43 @@ class TransactionTable extends XFilesModule {
           // start before the Register File has _all_ of its valid data,
           // but I'm leaving this the way it is due to the lack of a
           // non-trivial path to add this functionality.
-          table(io.control.resp.bits.tableIndex).waiting :=
-            table(io.control.resp.bits.tableIndex).currentLayer > UInt(0)
+          table(tIdx).waiting := table(tIdx).currentLayer > UInt(0)
+          // Once we have layer information, we can update the
+          // previous and current layer addresses. These are adjusted
+          // to be on block boundaries, so there's an optional round
+          // term.
+          val nicl = io.control.resp.bits.data(0)
+          val niclMSBs = // Nodes in previous layer MSBs [TODO] fragile
+            nicl(15, log2Up(elementsPerBlock)) ##
+              UInt(0, width=log2Up(elementsPerBlock))
+          val niclLSBs = // Nodes in previous layer LSBs
+            nicl(log2Up(elementsPerBlock)-1, 0)
+          val round = Mux(niclLSBs != UInt(0), UInt(elementsPerBlock), UInt(0))
+          table(tIdx).regFileAddrIn := table(tIdx).regFileAddrOut
+          table(tIdx).regFileAddrOut := table(tIdx).regFileAddrOut + niclMSBs +
+            round
+          printf("[INFO] TTable: Updating cache layer...\n")
+          printf("[INFO]   total layers:            0x%x\n",
+            table(tIdx).numLayers)
+          printf("[INFO]   layer is:                0x%x\n",
+            table(tIdx).currentLayer)
+          printf("[INFO]   in first/in last?        0x%x/0x%x\n",
+            table(tIdx).currentLayer === UInt(0),
+            table(tIdx).currentLayer === table(tIdx).numLayers - UInt(1))
+          printf("[INFO]   neuron pointer:          0x%x\n",
+            io.control.resp.bits.data(2))
+          printf("[INFO]   nodes in current layer:  0x%x\n",
+            io.control.resp.bits.data(0))
+          printf("[INFO]   nodes in previous layer: 0x%x\n",
+            table(tIdx).nodesInCurrentLayer)
+          printf("[INFO]   nicl:                    0x%x\n", nicl)
+          printf("[INFO]   niclMSBs:                0x%x\n", niclMSBs)
+          printf("[INFO]   niclLSBs:                0x%x\n", niclLSBs)
+          printf("[INFO]   round:                   0x%x\n", round)
+          printf("[INFO]   regFileAddrIn:           0x%x\n",
+            table(tIdx).regFileAddrOut)
+          printf("[INFO]   regFileAddrOut:          0x%x\n",
+            table(tIdx).regFileAddrOut +  niclMSBs + round)
         }
       }
     }
@@ -335,53 +397,23 @@ class TransactionTable extends XFilesModule {
     // entry should stop waiting. Note, that this logic will correctly
     // overwrite that of the e_TTABLE_LAYER.
     when (io.control.resp.bits.layerValid) {
-      table(io.control.resp.bits.layerValidIndex).waiting := Bool(false)
-    }
-  }
-
-  // Deal with requests from the PE Table. [TODO] This is a somewhat
-  // verbose implementation with a largely unused portion of this
-  // response pipeline.
-  val peRespPipe = Vec.fill(2){Reg(Valid(new PETransactionTableInterfaceResp))}
-  val peRespIndex = Reg(next = io.peTable.req.bits.tableIndex)
-  peRespPipe(0).valid := Bool(false)
-  when (io.peTable.req.valid) {
-    // This is either a read or a write request
-    when (!io.peTable.req.bits.isWrite) { // This is a read req
-      // [TODO] This is using the first address, which should be fine,
-      // but there are technically two that we can play with if
-      // needed. There may be unintended consequences if some read
-      // happens to follow a read very closely.
-      mem(io.peTable.req.bits.tableIndex).addr(0) := io.peTable.req.bits.addr
-      peRespPipe(0).valid := Bool(true)
-      peRespPipe(0).bits.peIndex := io.peTable.req.bits.peIndex
-    } .otherwise { // This is a write req
-      mem(io.peTable.req.bits.tableIndex).we(0) := Bool(true)
-      mem(io.peTable.req.bits.tableIndex).addr(0) := io.peTable.req.bits.addr
-      mem(io.peTable.req.bits.tableIndex).din(0) := io.peTable.req.bits.data
-      table(io.peTable.req.bits.tableIndex).countPeWrites :=
-        table(io.peTable.req.bits.tableIndex).countPeWrites + UInt(1)
-      when (table(io.peTable.req.bits.tableIndex).countPeWrites ===
-        table(io.peTable.req.bits.tableIndex).nodesInCurrentLayer - UInt(1)) {
-        table(io.peTable.req.bits.tableIndex).done := Bool(false)
-        table(io.peTable.req.bits.tableIndex).decInUse := Bool(true)
-        table(io.peTable.req.bits.tableIndex).waiting := Bool(false)
+      val tIdx = io.control.resp.bits.layerValidIndex
+      when (!table(tIdx).inLast) {
+        table(tIdx).waiting := Bool(false)
+        printf("[INFO] TTable: RegFile has all data for layer of tIdx 0x%x\n",
+          io.control.resp.bits.layerValidIndex)
+        printf("[INFO]   inFirst/inLast?: 0x%x/0x%x\n",
+          table(tIdx).inFirst, table(tIdx).inLast)
+      } .otherwise {
+        table(tIdx).decInUse := Bool(true)
+        table(tIdx).waiting := Bool(false)
+        printf("[INFO] TTable: RegFile has all outputs of tIdx 0x%x\n",
+          io.control.resp.bits.layerValidIndex)
+        printf("[INFO]   inFirst/inLast?: 0x%x/0x%x\n",
+          table(tIdx).inFirst, table(tIdx).inLast)
       }
-      printf("[INFO] TTable saw PE-write on ASID/TID %x/%x for data[%d] of %d\n",
-        table(io.peTable.req.bits.tableIndex).asid,
-        table(io.peTable.req.bits.tableIndex).tid,
-        io.peTable.req.bits.addr,
-        io.peTable.req.bits.data);
     }
   }
-  // Package up the memory response for the response to the PE Table
-  peRespPipe(1) := peRespPipe(0)
-  when (peRespPipe(0).valid) {
-    peRespPipe(1).bits.data := mem(peRespIndex).dout(0)
-  }
-  io.peTable.resp.valid := peRespPipe(1).valid
-  io.peTable.resp.bits.peIndex := peRespPipe(1).bits.peIndex
-  io.peTable.resp.bits.data := peRespPipe(1).bits.data
 
   val readyCache = Reg(next = io.control.resp.bits.readyCache)
   val readyPeTable = Reg(next = io.control.resp.bits.readyPeTable)
@@ -421,6 +453,8 @@ class TransactionTable extends XFilesModule {
     entryArbiter.io.in(i).bits.currentLayer := table(i).currentLayer
     entryArbiter.io.in(i).bits.neuronPointer := table(i).neuronPointer
     entryArbiter.io.in(i).bits.decimalPoint := table(i).decimalPoint
+    entryArbiter.io.in(i).bits.regFileAddrIn := table(i).regFileAddrIn
+    entryArbiter.io.in(i).bits.regFileAddrOut := table(i).regFileAddrOut
   }
   io.control.req <> entryArbiter.io.out
 
@@ -462,6 +496,11 @@ class TransactionTable extends XFilesModule {
     // Info request gets serviced.
     table(entryArbiter.io.out.bits.tableIndex).currentNodeInLayer :=
       table(entryArbiter.io.out.bits.tableIndex).currentNodeInLayer + UInt(1)
+    // [TODO] I can either set inFirst/inLast here or when layer data
+    // comes back from the Cache. The latter approach is problematic
+    // as I'm still processing data from the previous layer, but this
+    // bit has been updated as if we're in the last layer.
+    // Consequently, I think it makes sense to only set inLast here.
     table(entryArbiter.io.out.bits.tableIndex).inFirst :=
       table(entryArbiter.io.out.bits.tableIndex).currentLayer === UInt(0)
     table(entryArbiter.io.out.bits.tableIndex).inLast :=
@@ -571,6 +610,13 @@ class TransactionTable extends XFilesModule {
   // Don't send a response to the core unless it's ready
   assert(!(io.arbiter.rocc.resp.valid && !io.arbiter.rocc.resp.ready),
     "TTable tried to send a valid response when core was not ready")
+
+  // Check to make sure that the Register File is producing the
+  // expected timing
+  assert(!(io.arbiter.rocc.resp.valid &&
+    arbiterRespPipe.bits.respType === e_READ &&
+    !io.regFile.resp.valid),
+    "TTable sending valid RoCC read response, but RegisterFile response not valid")
 
   // Inbound read requests should only hit a done entry. [TODO] I'm
   // currently generating e_NOT_DONE responses when this happens.

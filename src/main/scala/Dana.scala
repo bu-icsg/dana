@@ -17,7 +17,6 @@ case object PeTableNumEntries extends Field[Int]
 case object TransactionTableNumEntries extends Field[Int]
 case object CacheNumEntries extends Field[Int]
 case object CacheDataSize extends Field[Int]
-case object TransactionTableSramElements extends Field[Int]
 case object RegisterFileNumElements extends Field[Int]
 case object PreloadCache extends Field[Boolean]
 case object XLen extends Field[Int]
@@ -45,7 +44,6 @@ abstract trait DanaParameters extends UsesParameters {
   // Processing Element Table
   val peTableNumEntries = params(PeTableNumEntries)
   // Transaction Table
-  val transactionTableSramElements = params(TransactionTableSramElements)
   val transactionTableNumEntries = params(TransactionTableNumEntries)
   // Configuration Cache
   val cacheNumEntries = params(CacheNumEntries)
@@ -54,16 +52,12 @@ abstract trait DanaParameters extends UsesParameters {
   val regFileNumElements = params(RegisterFileNumElements)
 
   // Derived parameters
-  val transactionTableSramBlocks =
-    divUp(params(TransactionTableSramElements),  params(ElementsPerBlock))
   val regFileNumBlocks =
     divUp(params(RegisterFileNumElements), params(ElementsPerBlock))
   val cacheNumBlocks =
     divUp(divUp((params(CacheDataSize) * 8), params(ElementWidth)),
       params(ElementsPerBlock))
-  val ioIdxWidth = if (params(TransactionTableSramElements) > params(RegisterFileNumElements))
-    log2Up(params(TransactionTableSramElements) * params(ElementWidth)) else
-      log2Up(params(RegisterFileNumElements) * params(ElementWidth))
+  val ioIdxWidth = log2Up(params(RegisterFileNumElements) * params(ElementWidth))
   val bitsPerBlock = params(ElementsPerBlock) * params(ElementWidth)
 }
 
@@ -138,6 +132,10 @@ abstract class DanaModule extends Module with DanaParameters
     e_READ ::     // 1
     e_NOT_DONE :: // 2
     Nil) = Enum(UInt(), 3)
+  // Transaction Table to Register File Types
+  val (e_TTABLE_REGFILE_WRITE :: // 0
+    e_TTABLE_REGFILE_READ ::     // 1
+    Nil) = Enum(UInt(), 2)       // 2 Total
 }
 
 // Base class for all Bundle classes used in DANA. This sets all the
@@ -165,7 +163,8 @@ class Dana extends DanaModule {
   control.io.regFile <> regFile.io.control
   peTable.io.cache <> cache.io.pe
   // peTable.io.tTable <> tTable.io.peTable
-  peTable.io.tTable <> io.peTable
+  // peTable.io.tTable <> io.peTable
+  regFile.io.tTable <> io.regFile
   peTable.io.regFile <> regFile.io.pe
   cache.io.mem <> io.cache
 }

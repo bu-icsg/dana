@@ -28,7 +28,6 @@ class DefaultXFilesDanaConfig extends ChiselConfig (
       case PeTableNumEntries => Dump(Knob("NUM_PES"))
       // Transaction Table
       case TransactionTableNumEntries => Dump(Knob("TRANSACTION_TABLE_NUM_ENTRIES"))
-      case TransactionTableSramElements => Dump(Knob("TRANSACTION_TABLE_SRAM_ELEMENTS"))
       // Configuration Cache
       case CacheNumEntries => Dump(Knob("CACHE_NUM_ENTRIES"))
       case CacheDataSize => 32 * 1024
@@ -47,9 +46,8 @@ class DefaultXFilesDanaConfig extends ChiselConfig (
     case "ELEMENTS_PER_BLOCK" => 4
     case "NUM_PES" => 4
     case "TRANSACTION_TABLE_NUM_ENTRIES" => 2
-    case "TRANSACTION_TABLE_SRAM_ELEMENTS" => 64
     case "CACHE_NUM_ENTRIES" => 8
-    case "REGISTER_FILE_NUM_ELEMENTS" => 80
+    case "REGISTER_FILE_NUM_ELEMENTS" => 256
   }
 )
 
