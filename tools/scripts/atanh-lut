@@ -1,0 +1,188 @@
+#!/usr/bin/python
+
+import numpy
+import math
+import matplotlib.pyplot as plt
+import argparse
+
+# Exact copy of the way that FANN computes atanh for a
+# `train_error_function` value of `FANN_ERRORFUNC_TANH`
+def fann_atanh(x):
+    if (x < -.9999999):
+        return -17.0
+    elif (x > .9999999):
+        return 17.0
+    else:
+        return math.log((1.0 + x) / (1.0 - x))
+
+def slope(x_0, y_0, x_1, y_1):
+    return (y_1 - y_0) / (x_1 - x_0)
+
+def piecewise_linear(x, y, x_interp):
+    if (x_interp <= x[0]):
+        return y[0]
+    elif (x_interp >= x[x.size-1]):
+        return y[y.size-1]
+    for i in range(x.size-1):
+        if (x_interp > x[i] and x_interp <= x[i+1]):
+            a = slope(x[i], y[i], x[i+1], y[i+1])
+            b = y[i] - (a * x[i])
+            return a * x_interp + b
+
+def to_sint(x, x_max):
+    return int(round(x*2**(31-round(math.log2(x_max)))))
+
+parser = argparse.ArgumentParser(description='Generate Chisel code for an atanh piecewise linear represtnation')
+parser.add_argument('-k', '--num-knots', dest='num_knots', default=6, type=int,
+                    help='number of knots in piecewise linear function (default: %(default)s)')
+parser.add_argument('-s', '--samples', dest='num_samples', default=1000, type=int,
+                    help='number of samples to use for FANN atanh function (default: %(default)s)')
+parser.add_argument('-p', '--print-figure', dest='print_figure', action='store_true',
+                    help='print output figure')
+parser.add_argument('-d', '--debug', dest='debug', action='store_true',
+                    help='print debug information to stdout')
+
+args = parser.parse_args()
+
+x_min = -1
+x_max = 1
+# num_knots = 6
+
+# Construct linearly spaced spaces in x
+x = numpy.linspace(x_min, x_max, args.num_samples)
+y = numpy.zeros(args.num_samples)
+y_piecewise = numpy.zeros(args.num_samples)
+x_p = numpy.linspace(x_min, x_max, args.num_knots)
+y_p = numpy.zeros(args.num_knots)
+
+# Populate the y points for the actual and piecewise linear function
+for i in range(x.size):
+    y[i] = fann_atanh(x[i])
+for i in range(x_p.size):
+    y_p[i] = fann_atanh(x_p[i])
+
+# Algorithm: Compute the MSE of three possible actions for each
+# movable point in the piecewise-linear aproximation [x_p, y_p] of
+# sampled function [x, y]. These actions are moving a point x_p[i] to
+# the left by epsilon, to the right by epsilon, or not moving it. All
+# points are tentatively moved and then all updates are applied
+# simultaneously. If no action is possible, then epsilon is halved. Th
+# process ends once epsilon is below a threshold.
+#
+# This could be possibly improved in the following ways:
+#   * Use a finit differences approach where the derivative of the MSE
+#     for +-epsilon is used
+#   * The pieces to the immediate left and right about the point x_p
+#     are the only contribution to the MSE. It would be faster to make
+#     the action decision based on just these.
+#   * The end result should be symmetric, hence, you can exploit
+#     symmetry to only compute the x points for half of the function
+actions = numpy.ones(x_p.size-2)
+epsilon = 1.0/(2**4)
+epsilon_threshold = 1.0/(2**32)
+no_action = 0
+while epsilon > epsilon_threshold:
+    actions = numpy.zeros(x_p.size-2)
+    for j in range(x_p.size-2):
+        mse = [0, 0, 0]
+        mse[0] = 0.0
+        x_p[j+1] -= epsilon
+        y_p[j+1] = fann_atanh(x_p[j+1])
+        for i in range(x.size):
+            mse[0] += (y[i] - piecewise_linear(x_p, y_p, x[i]))**2
+
+        mse[1] = 0.0
+        x_p[j+1] += epsilon*2
+        y_p[j+1] = fann_atanh(x_p[j+1])
+        for i in range(x.size):
+            mse[1] += (y[i] - piecewise_linear(x_p, y_p, x[i]))**2
+
+        mse[2] = 0.0
+        x_p[j+1] -= epsilon
+        y_p[j+1] = fann_atanh(x_p[j+1])
+        for i in range(x.size):
+            mse[2] += (y[i] - piecewise_linear(x_p, y_p, x[i]))**2
+
+        mse[0] /= x.size
+        mse[1] /= x.size
+        mse[2] /= x.size
+        actions[j] = mse.index(min(mse))
+
+    no_action = 1
+    for j in range(x_p.size-2):
+        if (actions[j] == 0): # left
+            x_p[j+1] -= epsilon
+            no_action = 0
+        elif(actions[j] == 1): # right
+            x_p[j+1] += epsilon
+            no_action = 0
+        y_p[j+1] = fann_atanh(x_p[j+1])
+    mse[0] = 0.0
+    for j in range(x.size):
+        mse[0] += (y[j] - piecewise_linear(x_p, y_p, x[j]))**2
+    mse[0] /= x.size
+    if (args.debug): print("[INFO] MSE: {0}".format(mse[0]))
+    if (no_action):
+        epsilon /= 2
+        if (args.debug):
+            print("[INFO] Changing epsilon to: 2^{0}".format(math.log2(epsilon)))
+
+# Print out information that can be used in a LUT. These values need
+# to be stored in signed 32-bit integers.
+x_max = -1;
+y_max = -1;
+slope_max = -1;
+for i in range(x_p.size):
+    if (i > 0):
+        if (args.debug): print("[INFO] x[{0}]: {1}, y[{0}]: {2}, slope[{0}]: {3}".format(
+            i, x_p[i], y_p[i], slope(x_p[i-1], y_p[i-1], x_p[i], y_p[i])))
+        if (abs(slope(x_p[i-1], y_p[i-1], x_p[i], y_p[i])) > slope_max):
+            slope_max = slope(x_p[i-1], y_p[i-1], x_p[i], y_p[i])
+    else:
+        if (args.debug): print("[INFO] x[{0}]: {1}, y[{0}]: {2}".format(i, x_p[i], y_p[i]))
+    if (abs(x_p[i]) > x_max): x_max = x_p[i]
+    if (abs(y_p[i]) > y_max): y_max = y_p[i]
+
+if (args.debug):
+    print("[INFO] Max x: {0}, y: {1}, slope: {2}".format(x_max, y_max, slope_max))
+    print("[INFO] Max x: {0}, y: {1}, slope: {2}".format(math.log2(x_max),
+                                                         math.log2(y_max),
+                                                         math.log2(slope_max)))
+
+# Handle x
+print("  // Binary Point: {0:d}".format(int(31-round(math.log2(x_max)))))
+for i in range(x_p.size):
+    print("  val _atanh_x{0} = SInt({1:11d}) // {2}".format(
+        i, to_sint(x_p[i], x_max), x_p[i]))
+# Handle y
+print("  // Binary Point: {0:d}".format(int(31-round(math.log2(y_max)))))
+for i in range(y_p.size):
+    print("  val _atanh_y{0} = SInt({1:11d}) // {2}".format(
+        i, to_sint(y_p[i], y_max), y_p[i]))
+# Handle slope
+print("  // Binary Point: {0:d}".format(int(31-round(math.log2(slope_max)))))
+for i in range(y_p.size - 1):
+    print("  val _atanh_s{0} = SInt({1:11d}) // {2}".format(
+        i+1, to_sint(slope(x_p[i], y_p[i], x_p[i+1], y_p[i+1]), slope_max),
+        slope(x_p[i], y_p[i], x_p[i+1], y_p[i+1])))
+
+# Handle x
+print("  // Binary Point: {0:d}".format(int(31-round(math.log2(x_max)))))
+for i in range(x_p.size):
+    print("  val atanh_x{0} = _atanh_x{0} >> (UInt({1}-io.req.bits.decimal-UInt(decimalPointOffset)))".format(
+        i, int(31-round(math.log2(x_max)))))
+# Handle y
+print("  // Binary Point: {0:d}".format(int(31-round(math.log2(y_max)))))
+for i in range(y_p.size):
+    print("  val atanh_y{0} = _atanh_y{0} >> (UInt({1}-io.req.bits.decimal-UInt(decimalPointOffset)))".format(
+        i, int(31-round(math.log2(y_max)))))
+# Handle slope
+print("  // Binary Point: {0:d}".format(int(31-round(math.log2(slope_max)))))
+for i in range(y_p.size - 1):
+    print("  val atanh_s{0} = _atanh_s{0} >> (UInt({1}-io.req.bits.decimal-UInt(decimalPointOffset)))".format(
+        i+1, int(31-round(math.log2(slope_max)))))
+
+if (args.print_figure):
+    plt.plot(x, y)
+    plt.plot(x_p, y_p)
+    plt.show()
