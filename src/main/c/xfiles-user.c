@@ -56,6 +56,14 @@ void write_data(tid_type tid, element_type * data, size_t count) {
                 :: [rs1] "r" (tid), [rs2] "r" (data[i]));
 }
 
+void write_data_train_incremental(tid_type tid, element_type * input,
+                                  element_type * output, size_t count_input,
+                                  size_t count_output) {
+  // Simply write the exepcted outputs followed by the inputs.
+  write_data(tid, output, count_output);
+  write_data(tid, input, count_input);
+}
+
 uint64_t read_data_spinlock(tid_type tid, element_type * data, size_t count) {
   int i;
   uint64_t out;

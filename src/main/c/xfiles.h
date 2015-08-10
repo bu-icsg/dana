@@ -32,6 +32,15 @@ void write_data(tid_type tid,
                 element_type * input_data_array,
                 size_t count);
 
+// A special write data request used for incremental training. Here,
+// an input and an expected output vector are passed. The
+// configuration cache is updated inside the Configuration Cache.
+void write_data_train_incremental(tid_type tid,
+                                  element_type * input_data_array,
+                                  element_type * output_data_array,
+                                  size_t count_input,
+                                  size_t count_output);
+
 // Read all the output data for a specific transaction. This throws
 // the CPU into a spinlock repeatedly checking the validity of the
 // X-Files response.
