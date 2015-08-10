@@ -70,7 +70,7 @@ for i in range(x_p.size):
 # process ends once epsilon is below a threshold.
 #
 # This could be possibly improved in the following ways:
-#   * Use a finit differences approach where the derivative of the MSE
+#   * Use a finite differences approach where the derivative of the MSE
 #     for +-epsilon is used
 #   * The pieces to the immediate left and right about the point x_p
 #     are the only contribution to the MSE. It would be faster to make
@@ -169,17 +169,17 @@ for i in range(y_p.size - 1):
 # Handle x
 print("  // Binary Point: {0:d}".format(int(31-round(math.log2(x_max)))))
 for i in range(x_p.size):
-    print("  val atanh_x{0} = _atanh_x{0} >> (UInt({1}-io.req.bits.decimal-UInt(decimalPointOffset)))".format(
+    print("  val atanh_x{0} = _atanh_x{0} >> (UInt({1})-io.req.bits.decimal-UInt(decimalPointOffset))".format(
         i, int(31-round(math.log2(x_max)))))
 # Handle y
 print("  // Binary Point: {0:d}".format(int(31-round(math.log2(y_max)))))
 for i in range(y_p.size):
-    print("  val atanh_y{0} = _atanh_y{0} >> (UInt({1}-io.req.bits.decimal-UInt(decimalPointOffset)))".format(
+    print("  val atanh_y{0} = _atanh_y{0} >> (UInt({1})-io.req.bits.decimal-UInt(decimalPointOffset))".format(
         i, int(31-round(math.log2(y_max)))))
 # Handle slope
 print("  // Binary Point: {0:d}".format(int(31-round(math.log2(slope_max)))))
 for i in range(y_p.size - 1):
-    print("  val atanh_s{0} = _atanh_s{0} >> (UInt({1}-io.req.bits.decimal-UInt(decimalPointOffset)))".format(
+    print("  val atanh_s{0} = _atanh_s{0} >> (UInt({1})-io.req.bits.decimal-UInt(decimalPointOffset))".format(
         i+1, int(31-round(math.log2(slope_max)))))
 
 if (args.print_figure):
