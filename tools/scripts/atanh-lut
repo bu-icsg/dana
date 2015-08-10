@@ -29,8 +29,14 @@ def piecewise_linear(x, y, x_interp):
             b = y[i] - (a * x[i])
             return a * x_interp + b
 
+def compute_binary_point(x_max):
+    binary_point = 30
+    if (2**math.log2(x_max) == x_max):
+        binary_point = 29
+    return binary_point-round(math.log2(x_max))
+
 def to_sint(x, x_max):
-    return int(round(x*2**(31-round(math.log2(x_max)))))
+    return int(round(x*2**(compute_binary_point(x_max))))
 
 parser = argparse.ArgumentParser(description='Generate Chisel code for an atanh piecewise linear represtnation')
 parser.add_argument('-k', '--num-knots', dest='num_knots', default=6, type=int,
@@ -150,37 +156,37 @@ if (args.debug):
                                                          math.log2(slope_max)))
 
 # Handle x
-print("  // Binary Point: {0:d}".format(int(31-round(math.log2(x_max)))))
+print("  // Binary Point: {0:d}".format(int(compute_binary_point(x_max))))
 for i in range(x_p.size):
     print("  val _atanh_x{0} = SInt({1:11d}) // {2}".format(
         i, to_sint(x_p[i], x_max), x_p[i]))
 # Handle y
-print("  // Binary Point: {0:d}".format(int(31-round(math.log2(y_max)))))
+print("  // Binary Point: {0:d}".format(int(compute_binary_point(y_max))))
 for i in range(y_p.size):
     print("  val _atanh_y{0} = SInt({1:11d}) // {2}".format(
         i, to_sint(y_p[i], y_max), y_p[i]))
 # Handle slope
-print("  // Binary Point: {0:d}".format(int(31-round(math.log2(slope_max)))))
+print("  // Binary Point: {0:d}".format(int(compute_binary_point(slope_max))))
 for i in range(y_p.size - 1):
-    print("  val _atanh_s{0} = SInt({1:11d}) // {2}".format(
+    print("  val _atanh_s{0} = UInt({1:11d}) // {2}".format(
         i+1, to_sint(slope(x_p[i], y_p[i], x_p[i+1], y_p[i+1]), slope_max),
         slope(x_p[i], y_p[i], x_p[i+1], y_p[i+1])))
 
 # Handle x
-print("  // Binary Point: {0:d}".format(int(31-round(math.log2(x_max)))))
+print("  // Binary Point: {0:d}".format(int(compute_binary_point(x_max))))
 for i in range(x_p.size):
     print("  val atanh_x{0} = _atanh_x{0} >> (UInt({1})-io.req.bits.decimal-UInt(decimalPointOffset))".format(
-        i, int(31-round(math.log2(x_max)))))
+        i, int(compute_binary_point(x_max))))
 # Handle y
-print("  // Binary Point: {0:d}".format(int(31-round(math.log2(y_max)))))
+print("  // Binary Point: {0:d}".format(compute_binary_point(y_max)))
 for i in range(y_p.size):
     print("  val atanh_y{0} = _atanh_y{0} >> (UInt({1})-io.req.bits.decimal-UInt(decimalPointOffset))".format(
-        i, int(31-round(math.log2(y_max)))))
+        i, int(compute_binary_point(y_max))))
 # Handle slope
-print("  // Binary Point: {0:d}".format(int(31-round(math.log2(slope_max)))))
+print("  // Binary Point: {0:d}".format(int(compute_binary_point(slope_max))))
 for i in range(y_p.size - 1):
     print("  val atanh_s{0} = _atanh_s{0} >> (UInt({1})-io.req.bits.decimal-UInt(decimalPointOffset))".format(
-        i+1, int(31-round(math.log2(slope_max)))))
+        i+1, int(compute_binary_point(slope_max))))
 
 if (args.print_figure):
     plt.plot(x, y)
