@@ -18,10 +18,11 @@
 
 tid_type new_write_request(nnid_type nnid, int learning_type,
                            element_type num_train_outputs) {
-  uint64_t out;
-  uint64_t rs2;
+  uint64_t out, rs2;
 
-  rs2 = (uint64_t) num_train_outputs | (uint64_t) learning_type << 32;
+  rs2 = (uint64_t) nnid |
+    ((uint64_t) num_train_outputs << 32) |
+    ((uint64_t) learning_type << 48);
 
   // Initiate a new transaction by setting the "readOrWrite" (bit 0,
   // read == 0 / write == 1) and "isNew" (bit 1) flags of "funct",
@@ -29,7 +30,7 @@ tid_type new_write_request(nnid_type nnid, int learning_type,
   // in the varaible "out".
   asm volatile ("custom0 %[out], %[rs1], %[rs2], 3"
                 : [out] "=r" (out)
-                : [rs1] "r" (rs2), [rs2] "r" (nnid));
+                : [rs1] "r" (0), [rs2] "r" (rs2));
 
   // The TID is in bits [47:32] of what we get back. Pull out this
   // portion and return it. [TODO] This is fragile on tid and element
