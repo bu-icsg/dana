@@ -15,6 +15,8 @@ class TransactionState extends XFilesBundle {
   val request = Bool()
   val inFirst = Bool()
   val inLast = Bool()
+  val transactionType = UInt(width = log2Up(3)) // [TODO] fragile
+  val stateLearn = UInt(width = log2Up(4)) // [TODO] fragile
   // output_layer should be unused according to types.vh
   val cacheIndex = UInt(width = log2Up(cacheNumEntries))
   val asid = UInt(width = asidWidth)
@@ -30,10 +32,12 @@ class TransactionState extends XFilesBundle {
   val neuronPointer = UInt(width = 11) // [TODO] fragile
   val countFeedback = UInt(width = feedbackWidth)
   val countPeWrites = UInt(width = 16) // [TODO] fragile
+  val numTrainOutputs = UInt(width = 16) // [TODO] fragile
+  val mse = UInt(width = elementWidth)
   // We need to keep track of where inputs and outputs should be
   // written to in the Register File.
-  val regFileAddrIn = UInt(width = 16) // [TODO] fragile
-  val regFileAddrOut = UInt(width = 16) // [TODO] fragile
+  val regFileAddrIn = UInt(width = log2Up(regFileNumElements))
+  val regFileAddrOut = UInt(width = log2Up(regFileNumElements))
   val readIdx = UInt(width = log2Up(regFileNumElements))
   val coreIdx = UInt(width = log2Up(numCores))
   // Additional crap which may be redundant
@@ -60,8 +64,8 @@ class ControlReq extends XFilesBundle {
   val currentLayer = UInt(width = 16) // [TODO] fragile
   val neuronPointer = UInt(width = 11) // [TODO] fragile
   val decimalPoint = UInt(width = decimalPointWidth)
-  val regFileAddrIn = UInt(width = 16) // [TODO] fragile
-  val regFileAddrOut = UInt(width = 16) // [TODO] fragile
+  val regFileAddrIn = UInt(width = log2Up(regFileNumElements))
+  val regFileAddrOut = UInt(width = log2Up(regFileNumElements))
 }
 
 class ControlResp extends XFilesBundle {
@@ -126,6 +130,8 @@ class TransactionTable extends XFilesModule {
     val readOrWrite = io.arbiter.rocc.cmd.bits.inst.funct(0)
     val isNew = io.arbiter.rocc.cmd.bits.inst.funct(1)
     val isLast = io.arbiter.rocc.cmd.bits.inst.funct(2)
+    val transactionType = io.arbiter.rocc.cmd.bits.rs2(49,48)
+    val numTrainOutputs = io.arbiter.rocc.cmd.bits.rs2(47,32)
     val asid = io.arbiter.rocc.cmd.bits.rs1(asidWidth + tidWidth - 1, tidWidth)
     val tid = io.arbiter.rocc.cmd.bits.rs1(tidWidth - 1, 0)
     val coreIdx = io.arbiter.coreIdx
@@ -214,6 +220,14 @@ class TransactionTable extends XFilesModule {
         table(nextFree).needsLayerInfo := Bool(true)
         table(nextFree).inFirst := Bool(true)
         table(nextFree).inLast := Bool(false)
+        table(nextFree).transactionType := cmd.transactionType
+        when (cmd.transactionType === e_TTYPE_INCREMENTAL ||
+          cmd.transactionType === e_TTYPE_BATCH) {
+          table(nextFree).numTrainOutputs := cmd.numTrainOutputs
+          table(nextFree).stateLearn := e_TTABLE_STATE_LOAD_OUTPUTS
+        } .otherwise {
+          table(nextFree).stateLearn := e_TTABLE_STATE_FEEDFORWARD
+        }
         table(nextFree).asid := cmd.asid
         table(nextFree).tid := cmd.tid
         table(nextFree).nnid := cmd.nnid
@@ -236,7 +250,8 @@ class TransactionTable extends XFilesModule {
         arbiterRespPipe.bits.tidIdx := derefTidIndex
         arbiterRespPipe.bits.coreIdx := cmd.coreIdx
         arbiterRespPipe.bits.rd := cmd.rd
-        printf("[INFO] X-Files saw new write request for NNID %x\n", cmd.nnid)
+        printf("[INFO] X-Files saw new write request for NNID/TType 0x%x/0x%x\n",
+          cmd.nnid, cmd.transactionType)
       }
         .elsewhen(cmd.isLast) {
         // Write data to the Register File
@@ -245,12 +260,21 @@ class TransactionTable extends XFilesModule {
         io.regFile.req.bits.tidIdx := derefTidIndex
         io.regFile.req.bits.addr := table(derefTidIndex).indexElement
         io.regFile.req.bits.data := cmd.data
-        // Update the table entry
-        table(derefTidIndex).indexElement :=
-          table(derefTidIndex).indexElement + UInt(1)
-        table(derefTidIndex).valid := Bool(true)
-        printf("[INFO] X-Files saw LAST write request on TID %x with data %x\n",
-          cmd.tid, cmd.data);
+        // Update the table entry to the next block
+        val nextIndexBlock = (table(derefTidIndex).indexElement(
+          log2Up(regFileNumElements)-1,log2Up(elementsPerBlock)) ##
+          UInt(0, width=log2Up(elementsPerBlock))) + UInt(elementsPerBlock)
+        table(derefTidIndex).indexElement := nextIndexBlock
+        when (table(derefTidIndex).stateLearn === e_TTABLE_STATE_LOAD_OUTPUTS) {
+          table(derefTidIndex).stateLearn := e_TTABLE_STATE_FEEDFORWARD
+          table(derefTidIndex).regFileAddrOut := nextIndexBlock
+          printf("[INFO] TTable: LAST E[output] write TID/data 0x%x/0x%x\n",
+            cmd.tid, cmd.data);
+        } .otherwise {
+          table(derefTidIndex).valid := Bool(true)
+          printf("[INFO] TTable: LAST input write TID/data 0x%x/0x%x\n",
+            cmd.tid, cmd.data);
+        }
       }
         // This is an input packet
         .otherwise {
@@ -273,6 +297,7 @@ class TransactionTable extends XFilesModule {
         io.regFile.req.valid := Bool(true)
         io.regFile.req.bits.addr := table(derefTidIndex).readIdx +
           table(derefTidIndex).regFileAddrOut
+        io.regFile.req.bits.reqType := e_TTABLE_REGFILE_READ
         // We initate the response in the arbiterRespPipe and fill in
         // data from the _guaranteed_ response from the Register File
         // on the next cycle
@@ -503,6 +528,8 @@ class TransactionTable extends XFilesModule {
     // Consequently, I think it makes sense to only set inLast here.
     table(entryArbiter.io.out.bits.tableIndex).inFirst :=
       table(entryArbiter.io.out.bits.tableIndex).currentLayer === UInt(0)
+    // [TODO] This seems to indicate that inLast won't be set properly
+    // for the first PE assignment? Is this correct?
     table(entryArbiter.io.out.bits.tableIndex).inLast :=
       table(entryArbiter.io.out.bits.tableIndex).currentLayer ===
       table(entryArbiter.io.out.bits.tableIndex).numLayers - UInt(1)
@@ -617,6 +644,16 @@ class TransactionTable extends XFilesModule {
     arbiterRespPipe.bits.respType === e_READ &&
     !io.regFile.resp.valid),
     "TTable sending valid RoCC read response, but RegisterFile response not valid")
+
+  // Certain transaction types are not currently supported
+  assert(!(io.arbiter.rocc.cmd.valid && cmd.readOrWrite && cmd.isNew &&
+    cmd.transactionType === e_TTYPE_BATCH),
+    "TTable saw unsupported transaction type")
+
+  // No writes should show up if the transaction is already valid
+  assert(!(io.arbiter.rocc.cmd.valid && cmd.readOrWrite &&
+    table(derefTidIndex).valid),
+    "TTable saw write requests on valid TID")
 
   // Inbound read requests should only hit a done entry. [TODO] I'm
   // currently generating e_NOT_DONE responses when this happens.
