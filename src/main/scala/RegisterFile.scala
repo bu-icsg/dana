@@ -20,7 +20,7 @@ class RegisterFile extends DanaModule {
 
   // One SRAMElement for each Transaction Table entry
   val mem = Vec.fill(transactionTableNumEntries){
-    Module( new SRAMElement(
+    Module( new SRAMElementIncrement(
       dataWidth = bitsPerBlock,
       sramDepth = pow(2, log2Up(regFileNumBlocks)).toInt *
         transactionTableNumEntries * 2,
@@ -36,7 +36,8 @@ class RegisterFile extends DanaModule {
   for (transaction <- 0 until transactionTableNumEntries) {
     for (port <- 0 until mem(transaction).numPorts) {
       mem(transaction).we(port) := Bool(false)
-      mem(transaction).din(port) := UInt(0)
+      mem(transaction).wType(port) := UInt(0)
+      mem(transaction).dinElement(port) := UInt(0)
       mem(transaction).addr(port) := UInt(0)
     }
   }
@@ -55,7 +56,8 @@ class RegisterFile extends DanaModule {
     val sIdx = io.pe.req.bits.tIdx ## io.pe.req.bits.location
     when (io.pe.req.bits.isWrite) { // This is a Write
       mem(tIdx).we(0) := Bool(true)
-      mem(tIdx).din(0) := io.pe.req.bits.data
+      mem(tIdx).wType(0) := UInt(0)
+      mem(tIdx).dinElement(0) := io.pe.req.bits.data
       mem(tIdx).addr(0) := io.pe.req.bits.addr
       // Increment the write count and generate a response to the
       // control module if this puts us at the write count
@@ -70,6 +72,7 @@ class RegisterFile extends DanaModule {
         sIdx, state(sIdx).countWrites + UInt(1), state(sIdx).totalWrites)
     } .otherwise {                  // This is a read
       mem(tIdx).we(0) := Bool(false)
+      mem(tIdx).wType(0) := UInt(0)
       mem(tIdx).addr(0) := io.pe.req.bits.addr
       printf("[INFO] RegFile: PE read tIdx/Addr 0x%x/0x%x\n", tIdx,
         io.pe.req.bits.addr)
@@ -94,13 +97,14 @@ class RegisterFile extends DanaModule {
         printf("[INFO] RegFile: Saw TTable write idx/Addr/Data 0x%x/0x%x/0x%x\n",
           tIdx, io.tTable.req.bits.addr, io.tTable.req.bits.data)
         mem(tIdx).we(0) := Bool(true)
-        mem(tIdx).din(0) := io.tTable.req.bits.data
+        mem(tIdx).wType(0) := UInt(0)
+        mem(tIdx).dinElement(0) := io.tTable.req.bits.data
         mem(tIdx).addr(0) := io.tTable.req.bits.addr
       }
       is (e_TTABLE_REGFILE_READ) {
         printf("[INFO] RegFile: Saw TTable read Addr 0x%x\n",
           io.tTable.req.bits.addr)
-        mem(tIdx).din(0) := io.tTable.req.bits.data
+        mem(tIdx).dinElement(0) := io.tTable.req.bits.data
         mem(tIdx).addr(0) := io.tTable.req.bits.addr
       }
     }
