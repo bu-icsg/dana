@@ -118,7 +118,8 @@ class RegisterFile extends DanaModule {
       io.pe.resp.bits.peIndex, io.pe.resp.bits.data);
   }
   // Transaction Table Response
-  tTableRespValid := io.tTable.req.valid
+  tTableRespValid := io.tTable.req.valid &&
+    io.tTable.req.bits.reqType === e_TTABLE_REGFILE_READ
   tTableRespTIdx := io.tTable.req.bits.tidIdx
   tTableRespAddr := io.tTable.req.bits.addr
   when (tTableRespValid) {

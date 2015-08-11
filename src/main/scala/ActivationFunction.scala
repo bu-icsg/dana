@@ -95,6 +95,48 @@ class ActivationFunction extends DanaModule {
   val sslope4= _sslope4>>(UInt(32)-io.req.bits.decimal-UInt(decimalPointOffset))
   val sslope5= _sslope5>>(UInt(32)-io.req.bits.decimal-UInt(decimalPointOffset))
 
+  // atanh specific
+  // Binary Point: 29
+  val _atanh_x0 = SInt( -536870912) // -1.0
+  val _atanh_x1 = SInt( -534645862) // -0.9958555213175715
+  val _atanh_x2 = SInt( -469307369) // -0.8741530941799283
+  val _atanh_x3 = SInt(  469307368) // 0.8741530923172833
+  val _atanh_x4 = SInt(  534645862) // 0.9958555213175715
+  val _atanh_x5 = SInt(  536870912) // 1.0
+  // Binary Point: 26
+  val _atanh_y0 = SInt(-1140850688) // -17.0
+  val _atanh_y1 = SInt( -414534879) // -6.177051059686913
+  val _atanh_y2 = SInt( -181250708) // -2.7008460182347602
+  val _atanh_y3 = SInt(  181250707) // 2.7008460024400214
+  val _atanh_y4 = SInt(  414534879) // 6.177051059686913
+  val _atanh_y5 = SInt( 1140850688) // 17.0
+  // Binary Point: 19
+  val _atanh_s1 = UInt( 1369132933) // 2611.4138277992643
+  val _atanh_s2 = UInt(   14975318) // 28.563152956026325
+  val _atanh_s3 = UInt(    1619878) // 3.0896716275409672
+  val _atanh_s4 = UInt(   14975318) // 28.563152648651414
+  val _atanh_s5 = UInt( 1369132933) // 2611.4138277992643
+  // Binary Point: 29
+  val atanh_x0 = _atanh_x0 >> (UInt(29)-io.req.bits.decimal-UInt(decimalPointOffset))
+  val atanh_x1 = _atanh_x1 >> (UInt(29)-io.req.bits.decimal-UInt(decimalPointOffset))
+  val atanh_x2 = _atanh_x2 >> (UInt(29)-io.req.bits.decimal-UInt(decimalPointOffset))
+  val atanh_x3 = _atanh_x3 >> (UInt(29)-io.req.bits.decimal-UInt(decimalPointOffset))
+  val atanh_x4 = _atanh_x4 >> (UInt(29)-io.req.bits.decimal-UInt(decimalPointOffset))
+  val atanh_x5 = _atanh_x5 >> (UInt(29)-io.req.bits.decimal-UInt(decimalPointOffset))
+  // Binary Point: 26
+  val atanh_y0 = _atanh_y0 >> (UInt(26)-io.req.bits.decimal-UInt(decimalPointOffset))
+  val atanh_y1 = _atanh_y1 >> (UInt(26)-io.req.bits.decimal-UInt(decimalPointOffset))
+  val atanh_y2 = _atanh_y2 >> (UInt(26)-io.req.bits.decimal-UInt(decimalPointOffset))
+  val atanh_y3 = _atanh_y3 >> (UInt(26)-io.req.bits.decimal-UInt(decimalPointOffset))
+  val atanh_y4 = _atanh_y4 >> (UInt(26)-io.req.bits.decimal-UInt(decimalPointOffset))
+  val atanh_y5 = _atanh_y5 >> (UInt(26)-io.req.bits.decimal-UInt(decimalPointOffset))
+  // Binary Point: 19
+  val atanh_s1 = _atanh_s1 >> (UInt(19)-io.req.bits.decimal-UInt(decimalPointOffset))
+  val atanh_s2 = _atanh_s2 >> (UInt(19)-io.req.bits.decimal-UInt(decimalPointOffset))
+  val atanh_s3 = _atanh_s3 >> (UInt(19)-io.req.bits.decimal-UInt(decimalPointOffset))
+  val atanh_s4 = _atanh_s4 >> (UInt(19)-io.req.bits.decimal-UInt(decimalPointOffset))
+  val atanh_s5 = _atanh_s5 >> (UInt(19)-io.req.bits.decimal-UInt(decimalPointOffset))
+
   decimal := UInt(decimalPointOffset,
     width = decimalPointWidth + log2Up(decimalPointOffset)) + io.req.bits.decimal
 

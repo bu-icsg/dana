@@ -16,8 +16,13 @@
 //   |       [6:3]|       2|      1|            0|
 //   | **unused** | isLast | isNew | readOrWrite |
 
-tid_type new_write_request(nnid_type nnid) {
-  uint64_t out;
+tid_type new_write_request(nnid_type nnid, int learning_type,
+                           element_type num_train_outputs) {
+  uint64_t out, rs2;
+
+  rs2 = (uint64_t) nnid |
+    ((uint64_t) num_train_outputs << 32) |
+    ((uint64_t) learning_type << 48);
 
   // Initiate a new transaction by setting the "readOrWrite" (bit 0,
   // read == 0 / write == 1) and "isNew" (bit 1) flags of "funct",
@@ -25,7 +30,7 @@ tid_type new_write_request(nnid_type nnid) {
   // in the varaible "out".
   asm volatile ("custom0 %[out], %[rs1], %[rs2], 3"
                 : [out] "=r" (out)
-                : [rs1] "r" (0), [rs2] "r" (nnid));
+                : [rs1] "r" (0), [rs2] "r" (rs2));
 
   // The TID is in bits [47:32] of what we get back. Pull out this
   // portion and return it. [TODO] This is fragile on tid and element
@@ -49,6 +54,14 @@ void write_data(tid_type tid, element_type * data, size_t count) {
   // execution of the transaction.
   asm volatile ("custom0 0, %[rs1], %[rs2], 5"
                 :: [rs1] "r" (tid), [rs2] "r" (data[i]));
+}
+
+void write_data_train_incremental(tid_type tid, element_type * input,
+                                  element_type * output, size_t count_input,
+                                  size_t count_output) {
+  // Simply write the exepcted outputs followed by the inputs.
+  write_data(tid, output, count_output);
+  write_data(tid, input, count_input);
 }
 
 uint64_t read_data_spinlock(tid_type tid, element_type * data, size_t count) {

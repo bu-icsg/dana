@@ -63,6 +63,8 @@ class AsidUnit extends DanaModule with XFilesParameters {
   }
   when (io.core.cmd.fire() && newRequest) {
     asidReg.tid := asidReg.tid + UInt(1)
+    printf("[INFO] AsidUnit: Saw new request funct/rs1/rs2 0x%x/0x%x/0x%x\n",
+      io.core.cmd.bits.inst.funct, io.core.cmd.bits.rs1, io.core.cmd.bits.rs2)
   }
   io.asid := asidReg.asid
   io.tid := asidReg.tid

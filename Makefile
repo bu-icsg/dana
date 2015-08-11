@@ -78,7 +78,11 @@ HEADERS_V          = ../nnsim-hdl/src/ram_infer_preloaded_cache.v \
 	$(wildcard ../nnsim-hdl/src/initial/*.v)
 
 # RISCV Tests Targets
-RV_TESTS             = hello.c rsa-rocc.c rsa-rocc-supervisor.c torture.c
+RV_TESTS             = hello.c \
+	rsa-rocc.c \
+	rsa-rocc-supervisor.c \
+	rsa-rocc-supervisor-incremental.c \
+	torture.c
 RV_TESTS_EXECUTABLES = $(RV_TESTS:%.c=$(DIR_BUILD)/%.rv)
 RV_TESTS_DISASM      = $(RV_TESTS:%.c=$(DIR_BUILD)/%.rvS)
 

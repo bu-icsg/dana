@@ -19,8 +19,11 @@ typedef uint64_t x_len;
 
 // Initiate a new Transaction for a specific NNID. The X-Files Arbiter
 // will then assign and return a TID necessary for other userland
-// functions.
-tid_type new_write_request(nnid_type nnid);
+// functions. The second parameter, "num_train_outputs", when set to
+// zero indicates that this is a feedforward computation. If non-zero,
+// this is a learning request.
+tid_type new_write_request(nnid_type nnid, int learning_type,
+                           element_type num_train_outputs);
 
 // Write the contents of an input array of some size to the X-Files
 // Arbiter. After completing this function, the transaction is deemed
@@ -28,6 +31,15 @@ tid_type new_write_request(nnid_type nnid);
 void write_data(tid_type tid,
                 element_type * input_data_array,
                 size_t count);
+
+// A special write data request used for incremental training. Here,
+// an input and an expected output vector are passed. The
+// configuration cache is updated inside the Configuration Cache.
+void write_data_train_incremental(tid_type tid,
+                                  element_type * input_data_array,
+                                  element_type * output_data_array,
+                                  size_t count_input,
+                                  size_t count_output);
 
 // Read all the output data for a specific transaction. This throws
 // the CPU into a spinlock repeatedly checking the validity of the
