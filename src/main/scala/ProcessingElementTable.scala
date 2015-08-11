@@ -107,6 +107,7 @@ class ProcessingElementTable extends DanaModule {
       pe(i).req.bits.wBlock(j) :=
         table(i).weightBlock(elementWidth * (j + 1) - 1, elementWidth * j)
     }
+    pe(i).req.bits.expOut := UInt(2147483647)
   }
 
   def isFree(x: ProcessingElementInterface): Bool = { x.req.ready }
