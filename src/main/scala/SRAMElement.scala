@@ -73,10 +73,11 @@ class SRAMElement (
 
   def divUp (dividend: Int, divisor: Int): Int = {
     (dividend + divisor - 1) / divisor}
+  val elementsPerBlock = divUp(dataWidth, elementWidth)
 
   val addr = Vec.fill(numPorts){ new Bundle{
     val addrHi = UInt(width = log2Up(sramDepth))
-    val addrLo = UInt(width = log2Up(divUp(dataWidth, elementWidth)))}}
+    val addrLo = UInt(width = log2Up(elementsPerBlock))}}
 
   val writePending = Vec.fill(numPorts){Reg(new WritePendingBundle(
     elementWidth = elementWidth,
@@ -84,17 +85,17 @@ class SRAMElement (
     sramDepth = sramDepth))}
 
   val tmp = Vec.fill(numPorts){
-    Vec.fill(divUp(dataWidth, elementWidth)){ UInt(width = elementWidth) }}
+    Vec.fill(elementsPerBlock){ UInt(width = elementWidth) }}
   val forwarding = Vec.fill(numPorts){ Bool() }
 
   // Combinational Logic
   for (i <- 0 until numPorts) {
     // Assign the addresses
     addr(i).addrHi := io.addr(i).toBits()(
-      log2Up(sramDepth * divUp(dataWidth, elementWidth)) - 1,
-      log2Up(divUp(dataWidth, elementWidth)))
+      log2Up(sramDepth * elementsPerBlock) - 1,
+      log2Up(elementsPerBlock))
     addr(i).addrLo := io.addr(i).toBits()(
-      log2Up(divUp(dataWidth, elementWidth)) - 1, 0)
+      log2Up(elementsPerBlock) - 1, 0)
     // Connections to the sram
     sram.io.weW(i) := writePending(i).valid
     sram.io.dinW(i) := tmp(i).toBits()
@@ -105,7 +106,7 @@ class SRAMElement (
     tmp(i) := sram.io.doutR(i)
     sram.io.addrW(i) := writePending(i).addrHi
     when (writePending(i).valid) {
-      for (j <- 0 until divUp(dataWidth, elementWidth)) {
+      for (j <- 0 until elementsPerBlock) {
         when (UInt(j) === writePending(i).addrLo) {
           tmp(i)(j) := writePending(i).data
         } .elsewhen(addr(i).addrHi === writePending(i).addrHi &&
