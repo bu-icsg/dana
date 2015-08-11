@@ -18,6 +18,7 @@ class ProcessingElementReq extends DanaBundle {
   val wBlock = Vec.fill(elementsPerBlock){SInt(INPUT, elementWidth)}
   val stateLearn = UInt(width = log2Up(7)) // [TODO] fragile
   val inLast = Bool()
+  val expOut = UInt(INPUT, elementWidth)
 }
 
 class ProcessingElementResp extends DanaBundle {
@@ -27,6 +28,8 @@ class ProcessingElementResp extends DanaBundle {
   val data = UInt(width = elementWidth)
   val state = UInt() // [TODO] fragile on PE state enum
   val index = UInt()
+  val delta = UInt(width = elementWidth))
+  val error = UInt(width = elementWidth))
 }
 
 class ProcessingElementInterface extends DanaBundle {
@@ -48,6 +51,8 @@ class ProcessingElement extends DanaModule {
   val index = Reg(UInt(width = log2Up(elementsPerBlock)))
   val acc = Reg(SInt(width = elementWidth))
   val dataOut = Reg(SInt(width = elementWidth))
+  val derivative = Reg(SInt(width = elementWidth)) //delta
+  val errorOut = UInt(width = elementWidth)) //ek
 
   // [TODO] fragile on PE stateu enum (Common.scala)
   val state = Reg(UInt(), init = e_PE_UNALLOCATED)
@@ -63,66 +68,114 @@ class ProcessingElement extends DanaModule {
   io.resp.bits.state := state
   io.resp.bits.index := io.req.bits.index
   io.resp.bits.data := dataOut
+  io.resp.bits.delta := derivative
+  io.resp.bits.error := errorOut
   index := index
   af.io.req.valid := Bool(false)
 
   // State-driven logic
-  switch (state) {
-    is (e_PE_UNALLOCATED) {
-      state := Mux(io.req.valid, e_PE_GET_INFO, state)
-      io.req.ready := Bool(true)
-      index := UInt(0)
-      hasBias := Bool(false)
-    }
-    is (e_PE_GET_INFO) {
-      state := Mux(io.req.valid, e_PE_WAIT_FOR_INFO, state)
-      io.resp.valid := Bool(true)
-    }
-    is (e_PE_WAIT_FOR_INFO) {
-      state := Mux(io.req.valid, e_PE_REQUEST_INPUTS_AND_WEIGHTS, state)
-    }
-    is (e_PE_REQUEST_INPUTS_AND_WEIGHTS) {
-      state := Mux(io.req.valid, e_PE_WAIT_FOR_INPUTS_AND_WEIGHTS, state)
-      io.resp.valid := Bool(true)
-      // If hasBias is false, then this is the first time we're in this
-      // state and we need to load the bias into the accumulator
-      when (hasBias === Bool(false)) {
-        hasBias := Bool(true)
-        acc := io.req.bits.bias
+  when(io.req.bits.stateLearn === e_TTABLE_STATE_FEEDFORWARD){
+    switch (state) {
+      is (e_PE_UNALLOCATED) {
+        state := Mux(io.req.valid, e_PE_GET_INFO, state)
+        io.req.ready := Bool(true)
+        index := UInt(0)
+        hasBias := Bool(false)
+      }
+      is (e_PE_GET_INFO) {
+        state := Mux(io.req.valid, e_PE_WAIT_FOR_INFO, state)
+        io.resp.valid := Bool(true)
+      }
+      is (e_PE_WAIT_FOR_INFO) {
+        state := Mux(io.req.valid, e_PE_REQUEST_INPUTS_AND_WEIGHTS, state)
+      }
+      is (e_PE_REQUEST_INPUTS_AND_WEIGHTS) {
+        state := Mux(io.req.valid, e_PE_WAIT_FOR_INPUTS_AND_WEIGHTS, state)
+        io.resp.valid := Bool(true)
+        // If hasBias is false, then this is the first time we're in this
+        // state and we need to load the bias into the accumulator
+        when (hasBias === Bool(false)) {
+          hasBias := Bool(true)
+          acc := io.req.bits.bias
+        }
+      }
+      is (e_PE_WAIT_FOR_INPUTS_AND_WEIGHTS) {
+        state := Mux(io.req.valid, e_PE_RUN, state)
+      }
+      is (e_PE_RUN) {
+        // [TOOD] This logic is broken for some reason
+        when (index === (io.req.bits.numWeights - UInt(1))) {
+          state := e_PE_ACTIVATION_FUNCTION
+        } .elsewhen (index === UInt(elementsPerBlock - 1)) {
+          state := e_PE_REQUEST_INPUTS_AND_WEIGHTS
+        } .otherwise {
+          state := state
+        }
+        acc := acc + ((io.req.bits.iBlock(index) * io.req.bits.wBlock(index)) >>
+          (io.req.bits.decimalPoint + UInt(decimalPointOffset, width = decimalPointWidth + 1)))(elementWidth,0)
+        index := index + UInt(1)
+      }
+      is (e_PE_ACTIVATION_FUNCTION) {
+        af.io.req.valid := Bool(true)
+        state := Mux(af.io.resp.valid, e_PE_DONE, state)
+      }
+      is (e_PE_DONE) {
+        state := Mux(io.req.valid, e_PE_UNALLOCATED, state)
+        when(inLast === true){
+          errorOut := af.io.resp.bits.out - io.req.bits.expOut
+        }
+        io.resp.valid := Bool(true)
       }
     }
-    is (e_PE_WAIT_FOR_INPUTS_AND_WEIGHTS) {
-      state := Mux(io.req.valid, e_PE_RUN, state)
-    }
-    is (e_PE_RUN) {
-      // [TOOD] This logic is broken for some reason
-      when (index === (io.req.bits.numWeights - UInt(1))) {
-        state := e_PE_ACTIVATION_FUNCTION
-      } .elsewhen (index === UInt(elementsPerBlock - 1)) {
-        state := e_PE_REQUEST_INPUTS_AND_WEIGHTS
-      } .otherwise {
-        state := state
+  } .elsewhen(io.req.bits.stateLearn === e_TTABLE_STATE_ERROR_BACKPROP){
+      switch (state) {
+        is (e_PE_UNALLOCATED) {
+          state := Mux(io.req.valid, e_PE_GET_INFO, state)
+          io.req.ready := Bool(true)
+          index := UInt(0)
+          hasBias := Bool(false)
+        }
+        is (e_PE_GET_INFO) {
+          state := Mux(io.req.valid, e_PE_WAIT_FOR_INFO, state)
+          io.resp.valid := Bool(true)
+        }
+        is (e_PE_WAIT_FOR_INFO) {
+          state := Mux(io.req.valid, e_PE_REQUEST_INPUTS_AND_WEIGHTS, state)
+        }
+        is (e_PE_REQUEST_INPUTS_AND_WEIGHTS) {
+          state := Mux(io.req.valid, e_PE_WAIT_FOR_INPUTS_AND_WEIGHTS, state)
+          io.resp.valid := Bool(true)
+        }
+        is (e_PE_WAIT_FOR_INPUTS_AND_WEIGHTS) {
+          state := Mux(io.req.valid, e_PE_RUN, state)
+        }
+        is (e_PE_RUN) {
+          // [TOOD] This logic is broken for some reason
+          when (index === (io.req.bits.numWeights - UInt(1))) {
+            state := e_PE_ACTIVATION_FUNCTION
+          } .elsewhen (index === UInt(elementsPerBlock - 1)) {
+            state := e_PE_REQUEST_INPUTS_AND_WEIGHTS
+          } .otherwise {
+            state := state
+          }
+          //outer product of weight matrix and delta
+          delta :=
+          errorOut := errorOut + ((io.req.bits.iBlock(index) * io.req.bits.wBlock(index)) >>
+            (io.req.bits.decimalPoint + UInt(decimalPointOffset, width = decimalPointWidth + 1)))(elementWidth,0)
+          index := index + UInt(1)
+        }
       }
-      acc := acc + ((io.req.bits.iBlock(index) * io.req.bits.wBlock(index)) >>
-        (io.req.bits.decimalPoint + UInt(decimalPointOffset, width = decimalPointWidth + 1)))(elementWidth,0)
-      index := index + UInt(1)
-    }
-    is (e_PE_ACTIVATION_FUNCTION) {
-      af.io.req.valid := Bool(true)
-      state := Mux(af.io.resp.valid, e_PE_DONE, state)
-    }
-    is (e_PE_DONE) {
-      state := Mux(io.req.valid, e_PE_UNALLOCATED, state)
-      io.resp.valid := Bool(true)
-    }
-  }
+      }
+
+    } //.otherwise{
+
+      //}
 
   af.io.req.bits.in := acc
   af.io.req.bits.decimal := io.req.bits.decimalPoint
   af.io.req.bits.steepness := io.req.bits.steepness
   af.io.req.bits.activationFunction := io.req.bits.activationFunction
   dataOut := af.io.resp.bits.out
-
 }
 
 // [TODO] This whole testbench is broken due to the integration with
