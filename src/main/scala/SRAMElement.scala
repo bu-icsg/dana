@@ -103,7 +103,8 @@ class SRAMElement (
     io.dout(i) := sram.io.doutR(i)
     // Defaults
     forwarding(i) := Bool(false)
-    tmp(i) := sram.io.doutR(i)
+    (0 until elementsPerBlock).map(j =>
+      tmp(i)(j) := sram.io.doutR(i)(elementsPerBlock*(j+1)-1,elementsPerBlock*j))
     sram.io.addrW(i) := writePending(i).addrHi
     when (writePending(i).valid) {
       for (j <- 0 until elementsPerBlock) {
