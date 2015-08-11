@@ -49,6 +49,8 @@ class ControlPETableInterface extends DanaBundle with ControlParameters {
     val location = UInt(width = 1)
     val neuronPointer = UInt(width = 12) // [TODO] fragile
     val decimalPoint = UInt(width = decimalPointWidth)
+    val stateLearn = UInt(width = log2Up(7)) // [TODO] fragile
+    val inLast = Bool()
   })
   // No response is necessary as the Control module needs to know is
   // if the PE Table has a free entry. This is communicated by means
@@ -90,7 +92,8 @@ class Control extends DanaModule {
     io.cache.req.bits.location := location
   }
   def reqPETable(valid: Bool, cacheIndex: UInt, tIdx: UInt,  inAddr: UInt,
-    outAddr: UInt, neuronPointer: UInt, decimalPoint: UInt, location: UInt) {
+    outAddr: UInt, neuronPointer: UInt, decimalPoint: UInt, location: UInt,
+    stateLearn: UInt, inLast: UInt) {
     io.peTable.req.valid := valid
     io.peTable.req.bits.cacheIndex := cacheIndex
     io.peTable.req.bits.tIdx := tIdx
@@ -99,6 +102,8 @@ class Control extends DanaModule {
     io.peTable.req.bits.neuronPointer := neuronPointer
     io.peTable.req.bits.decimalPoint := decimalPoint
     io.peTable.req.bits.location := location
+    io.peTable.req.bits.stateLearn := stateLearn
+    io.peTable.req.bits.inLast := inLast
   }
 
   // io.tTable defaults
@@ -122,7 +127,7 @@ class Control extends DanaModule {
     UInt(0))
   // io.petable defaults
   reqPETable(Bool(false), UInt(0), UInt(0), UInt(0), UInt(0), UInt(0), UInt(0),
-    UInt(0))
+    UInt(0), UInt(0), UInt(0))
   // io.regFile defaults
   io.regFile.req.valid := Bool(false)
   io.regFile.req.bits.tIdx := UInt(0)
@@ -215,7 +220,14 @@ class Control extends DanaModule {
         // Communicate the "location" which eventually the Register
         // File will use to determine which of two locations is the
         // "writeCount" for the current layer vs. the next layer
-        io.tTable.req.bits.currentLayer(0)
+        io.tTable.req.bits.currentLayer(0),
+        // Pass along the state (TTable "stateLearn") to the PE Table
+        // so that the PE can handle this differently based on the
+        // type of opeartion the PE needs to perform
+        io.tTable.req.bits.stateLearn,
+        // The state is also moderated by the "inLast" bit so this is
+        // also passed along
+        io.tTable.req.bits.inLast
       )
     }
   }

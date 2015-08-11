@@ -16,7 +16,7 @@ class TransactionState extends XFilesBundle {
   val inFirst = Bool()
   val inLast = Bool()
   val transactionType = UInt(width = log2Up(3)) // [TODO] fragile
-  val stateLearn = UInt(width = log2Up(4)) // [TODO] fragile
+  val stateLearn = UInt(width = log2Up(7)) // [TODO] fragile
   // output_layer should be unused according to types.vh
   val cacheIndex = UInt(width = log2Up(cacheNumEntries))
   val asid = UInt(width = asidWidth)
@@ -66,6 +66,7 @@ class ControlReq extends XFilesBundle {
   val decimalPoint = UInt(width = decimalPointWidth)
   val regFileAddrIn = UInt(width = log2Up(regFileNumElements))
   val regFileAddrOut = UInt(width = log2Up(regFileNumElements))
+  val stateLearn = UInt(width = log2Up(5)) // [TODO] fragile
 }
 
 class ControlResp extends XFilesBundle {
@@ -266,7 +267,7 @@ class TransactionTable extends XFilesModule {
           UInt(0, width=log2Up(elementsPerBlock))) + UInt(elementsPerBlock)
         table(derefTidIndex).indexElement := nextIndexBlock
         when (table(derefTidIndex).stateLearn === e_TTABLE_STATE_LOAD_OUTPUTS) {
-          table(derefTidIndex).stateLearn := e_TTABLE_STATE_FEEDFORWARD
+          table(derefTidIndex).stateLearn := e_TTABLE_STATE_LEARN_FEEDFORWARD
           table(derefTidIndex).regFileAddrOut := nextIndexBlock
           printf("[INFO] TTable: LAST E[output] write TID/data 0x%x/0x%x\n",
             cmd.tid, cmd.data);
@@ -423,19 +424,46 @@ class TransactionTable extends XFilesModule {
     // overwrite that of the e_TTABLE_LAYER.
     when (io.control.resp.bits.layerValid) {
       val tIdx = io.control.resp.bits.layerValidIndex
-      when (!table(tIdx).inLast) {
-        table(tIdx).waiting := Bool(false)
-        printf("[INFO] TTable: RegFile has all data for layer of tIdx 0x%x\n",
-          io.control.resp.bits.layerValidIndex)
-        printf("[INFO]   inFirst/inLast?: 0x%x/0x%x\n",
-          table(tIdx).inFirst, table(tIdx).inLast)
-      } .otherwise {
-        table(tIdx).decInUse := Bool(true)
-        table(tIdx).waiting := Bool(false)
-        printf("[INFO] TTable: RegFile has all outputs of tIdx 0x%x\n",
-          io.control.resp.bits.layerValidIndex)
-        printf("[INFO]   inFirst/inLast?: 0x%x/0x%x\n",
-          table(tIdx).inFirst, table(tIdx).inLast)
+      switch (table(tIdx).transactionType) {
+        is (e_TTYPE_FEEDFORWARD) {
+          when (!table(tIdx).inLast) {
+            table(tIdx).waiting := Bool(false)
+            printf("[INFO] TTable: RegFile has all data for layer of tIdx 0x%x\n",
+              io.control.resp.bits.layerValidIndex)
+            printf("[INFO]   inFirst/inLast?: 0x%x/0x%x\n",
+              table(tIdx).inFirst, table(tIdx).inLast)
+          } .otherwise {
+            table(tIdx).decInUse := Bool(true)
+            table(tIdx).waiting := Bool(false)
+            printf("[INFO] TTable: RegFile has all outputs of tIdx 0x%x\n",
+              io.control.resp.bits.layerValidIndex)
+            printf("[INFO]   inFirst/inLast?: 0x%x/0x%x\n",
+              table(tIdx).inFirst, table(tIdx).inLast)
+          }
+        }
+        is (e_TTYPE_INCREMENTAL) {
+          switch (table(tIdx).stateLearn) {
+            is (e_TTABLE_STATE_LEARN_FEEDFORWARD) {
+              when (!table(tIdx).inLast) {
+                table(tIdx).waiting := Bool(false)
+              } .otherwise {
+                table(tIdx).stateLearn := e_TTABLE_STATE_ERROR
+                table(tIdx).waiting := Bool(false)
+              }
+            }
+            is (e_TTABLE_STATE_LEARN_ERROR_BACKPROP) {
+              table(tIdx).stateLearn := e_TTABLE_STATE_ERROR
+              table(tIdx).waiting := Bool(false)
+            }
+            is (e_TTABLE_STATE_LEARN_WEIGHT_UPDATE) {
+              table(tIdx).stateLearn := e_TTABLE_STATE_ERROR
+              table(tIdx).waiting := Bool(false)
+            }
+          }
+        }
+        is (e_TTYPE_BATCH) {
+          table(tIdx).stateLearn := e_TTABLE_STATE_ERROR
+        }
       }
     }
   }
@@ -480,6 +508,7 @@ class TransactionTable extends XFilesModule {
     entryArbiter.io.in(i).bits.decimalPoint := table(i).decimalPoint
     entryArbiter.io.in(i).bits.regFileAddrIn := table(i).regFileAddrIn
     entryArbiter.io.in(i).bits.regFileAddrOut := table(i).regFileAddrOut
+    entryArbiter.io.in(i).bits.stateLearn := table(i).stateLearn
   }
   io.control.req <> entryArbiter.io.out
 
@@ -654,6 +683,12 @@ class TransactionTable extends XFilesModule {
   assert(!(io.arbiter.rocc.cmd.valid && cmd.readOrWrite &&
     table(derefTidIndex).valid),
     "TTable saw write requests on valid TID")
+
+  // Catch any jumps to an error state
+  (0 until transactionTableNumEntries).map(i =>
+    assert(!((table(i).valid || table(i).reserved) &&
+      table(i).stateLearn === e_TTABLE_STATE_ERROR),
+      "TTable Transaction is in error state"))
 
   // Inbound read requests should only hit a done entry. [TODO] I'm
   // currently generating e_NOT_DONE responses when this happens.

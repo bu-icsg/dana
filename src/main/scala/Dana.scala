@@ -81,11 +81,14 @@ abstract class DanaModule extends Module with DanaParameters
     e_TTYPE_BATCH ::          // 2
     Nil) = Enum(UInt(), 3)
   // Used to define the state of the transaction
-  val (e_TTABLE_STATE_LOAD_OUTPUTS :: // 0
-    e_TTABLE_STATE_FEEDFORWARD ::     // 1
-    e_TTABLE_STATE_ERROR_BACKPROP ::  // 2
-    e_TTABLE_STATE_WEIGHT_UPDATE ::   // 3
-    Nil) = Enum(UInt(), 4)
+  val (e_TTABLE_STATE_LOAD_OUTPUTS ::      // 0
+    e_TTABLE_STATE_FEEDFORWARD ::          // 1
+    e_TTABLE_STATE_LEARN_FEEDFORWARD ::    // 2
+    e_TTABLE_STATE_LEARN_ERROR_BACKPROP :: // 3
+    e_TTABLE_STATE_LEARN_WEIGHT_STORE ::   // 4
+    e_TTABLE_STATE_LEARN_WEIGHT_UPDATE ::  // 5
+    e_TTABLE_STATE_ERROR ::                // 6
+    Nil) = Enum(UInt(), 7)
   // Cache Request Type
   val (e_CACHE_LOAD ::                // 0
     e_CACHE_LAYER_INFO ::             // 1

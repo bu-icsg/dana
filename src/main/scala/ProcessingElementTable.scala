@@ -77,6 +77,8 @@ class ProcessingElementState extends DanaBundle {
   val activationFunction = UInt(width = activationFunctionWidth)
   val steepness = UInt(width = steepnessWidth)
   val bias = UInt(width = elementWidth)
+  val stateLearn = UInt(width = log2Up(7)) // [TODO] fragile
+  val inLast = Bool()
 }
 
 class ProcessingElementTable extends DanaModule {
@@ -96,6 +98,8 @@ class ProcessingElementTable extends DanaModule {
     pe(i).req.bits.activationFunction := table(i).activationFunction
     pe(i).req.bits.numWeights := table(i).numWeights
     pe(i).req.bits.bias := table(i).bias
+    pe(i).req.bits.stateLearn := table(i).stateLearn
+    pe(i).req.bits.inLast := table(i).inLast
     // pe(i).validIn
     for (j <- 0 until elementsPerBlock) {
       pe(i).req.bits.iBlock(j) :=
@@ -145,6 +149,8 @@ class ProcessingElementTable extends DanaModule {
     table(nextFree).cIdx := io.control.req.bits.cacheIndex
     table(nextFree).neuronPtr := io.control.req.bits.neuronPointer
     table(nextFree).decimalPoint := io.control.req.bits.decimalPoint
+    table(nextFree).stateLearn := io.control.req.bits.stateLearn
+    table(nextFree).inLast := io.control.req.bits.inLast
     table(nextFree).inAddr := io.control.req.bits.inAddr
     table(nextFree).outAddr := io.control.req.bits.outAddr
     table(nextFree).location := io.control.req.bits.location
@@ -161,6 +167,8 @@ class ProcessingElementTable extends DanaModule {
     printf("[INFO]   decimal:    0x%x\n", io.control.req.bits.decimalPoint)
     printf("[INFO]   in addr:    0x%x\n", io.control.req.bits.inAddr)
     printf("[INFO]   out addr:   0x%x\n", io.control.req.bits.outAddr)
+    printf("[INFO]   stateLearn: 0x%x\n", io.control.req.bits.stateLearn)
+    printf("[INFO]   inLast:     0x%x\n", io.control.req.bits.inLast)
   }
 
   // Inbound requests from the cache. I setup some helper nodes here

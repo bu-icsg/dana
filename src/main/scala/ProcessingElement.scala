@@ -16,6 +16,8 @@ class ProcessingElementReq extends DanaBundle {
   val bias = SInt(INPUT, elementWidth)
   val iBlock = Vec.fill(elementsPerBlock){SInt(INPUT, elementWidth)}
   val wBlock = Vec.fill(elementsPerBlock){SInt(INPUT, elementWidth)}
+  val stateLearn = UInt(width = log2Up(7)) // [TODO] fragile
+  val inLast = Bool()
 }
 
 class ProcessingElementResp extends DanaBundle {
