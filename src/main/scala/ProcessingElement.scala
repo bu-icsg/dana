@@ -76,7 +76,8 @@ class ProcessingElement extends DanaModule {
   // State-driven logic
   switch (state) {
     is (e_PE_UNALLOCATED) {
-      when (io.req.bits.stateLearn === e_TTABLE_STATE_FEEDFORWARD) {
+      when (io.req.bits.stateLearn === e_TTABLE_STATE_FEEDFORWARD ||
+      io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_FEEDFORWARD) {
         state := e_PE_GET_INFO
       } .elsewhen (io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_ERROR_BACKPROP) {
         state := e_PE_GET_INFO_ERROR_BACKPROP
@@ -121,12 +122,10 @@ class ProcessingElement extends DanaModule {
     }
     is (e_PE_ACTIVATION_FUNCTION) {
       af.io.req.valid := Bool(true)
-      state := Mux(af.io.resp.valid, Mux(io.req.bits.inLast,
+      state := Mux(af.io.resp.valid, Mux(io.req.bits.inLast &&
+        io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_FEEDFORWARD,
         e_PE_REQUEST_EXPECTED_OUTPUT, e_PE_DONE), state)
     }
-    // [TODO] Things to add:
-    //   * Separate state for error computation and atanh error
-    //     function
     is (e_PE_REQUEST_EXPECTED_OUTPUT) {
       state := Mux(io.req.valid, e_PE_WAIT_FOR_EXPECTED_OUTPUT, state)
       io.resp.valid := Bool(true)
