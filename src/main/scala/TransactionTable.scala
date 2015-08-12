@@ -424,6 +424,8 @@ class TransactionTable extends XFilesModule {
     // overwrite that of the e_TTABLE_LAYER.
     when (io.control.resp.bits.layerValid) {
       val tIdx = io.control.resp.bits.layerValidIndex
+      table(tIdx).inLast :=
+        table(tIdx).currentLayer === table(tIdx).numLayers - UInt(1)
       switch (table(tIdx).transactionType) {
         is (e_TTYPE_FEEDFORWARD) {
           when (!table(tIdx).inLast) {
@@ -559,9 +561,9 @@ class TransactionTable extends XFilesModule {
       table(entryArbiter.io.out.bits.tableIndex).currentLayer === UInt(0)
     // [TODO] This seems to indicate that inLast won't be set properly
     // for the first PE assignment? Is this correct?
-    table(entryArbiter.io.out.bits.tableIndex).inLast :=
-      table(entryArbiter.io.out.bits.tableIndex).currentLayer ===
-      table(entryArbiter.io.out.bits.tableIndex).numLayers - UInt(1)
+    // table(entryArbiter.io.out.bits.tableIndex).inLast :=
+    //   table(entryArbiter.io.out.bits.tableIndex).currentLayer ===
+    //   table(entryArbiter.io.out.bits.tableIndex).numLayers - UInt(1)
     // If we're at the end of a layer, we need new layer
     // information
     when(table(entryArbiter.io.out.bits.tableIndex).currentNodeInLayer ===
