@@ -7,7 +7,11 @@ import Chisel._
 class ActivationFunctionReq extends DanaBundle {
   val decimal = UInt(width = decimalPointWidth)
   val steepness = UInt(width = steepnessWidth)
+  // Differentiate activation function requests vs. error function
+  // requests
+  val afType = UInt(width = log2Up(2)) // [TODO] fragile
   val activationFunction = UInt(width = log2Up(18)) // [TODO] fragile
+  val errorFunction = UInt(width = log2Up(2)) // [TODO] fragile
   val in = SInt(INPUT, elementWidth)
 }
 
@@ -97,25 +101,25 @@ class ActivationFunction extends DanaModule {
 
   // atanh specific
   // Binary Point: 29
-  val _atanh_x0 = SInt( -536870912) // -1.0
-  val _atanh_x1 = SInt( -534645862) // -0.9958555213175715
-  val _atanh_x2 = SInt( -469307369) // -0.8741530941799283
-  val _atanh_x3 = SInt(  469307368) // 0.8741530923172833
-  val _atanh_x4 = SInt(  534645862) // 0.9958555213175715
-  val _atanh_x5 = SInt(  536870912) // 1.0
-  // Binary Point: 26
-  val _atanh_y0 = SInt(-1140850688) // -17.0
-  val _atanh_y1 = SInt( -414534879) // -6.177051059686913
-  val _atanh_y2 = SInt( -181250708) // -2.7008460182347602
-  val _atanh_y3 = SInt(  181250707) // 2.7008460024400214
-  val _atanh_y4 = SInt(  414534879) // 6.177051059686913
-  val _atanh_y5 = SInt( 1140850688) // 17.0
+  val _atanh_x0 = SInt( -536870858) // -0.9999999
+  val _atanh_x1 = SInt( -534620541) // -0.9958083573500538
+  val _atanh_x2 = SInt( -469110097) // -0.8737856469351458
+  val _atanh_x3 = SInt(  469110095) // 0.873785642278533
+  val _atanh_x4 = SInt(  534620540) // 0.9958083564187312
+  val _atanh_x5 = SInt(  536870858) // 0.9999999
+  // Binary Point: 25
+  val _atanh_y0 = SInt( -564091703) // -16.81124278204462
+  val _atanh_y1 = SInt( -206886955) // -6.165711741243977
+  val _atanh_y2 = SInt(  -90520945) // -2.6977343972924133
+  val _atanh_y3 = SInt(   90520944) // 2.697734357912798
+  val _atanh_y4 = SInt(  206886948) // 6.165711518591778
+  val _atanh_y5 = SInt(  564091703) // 16.81124278204462
   // Binary Point: 19
-  val _atanh_s1 = UInt( 1369132933) // 2611.4138277992643
-  val _atanh_s2 = UInt(   14975318) // 28.563152956026325
-  val _atanh_s3 = UInt(    1619878) // 3.0896716275409672
-  val _atanh_s4 = UInt(   14975318) // 28.563152648651414
-  val _atanh_s5 = UInt( 1369132933) // 2611.4138277992643
+  val _atanh_s1 = UInt( 1331568027) // 2539.7644566343943
+  val _atanh_s2 = UInt(   14900660) // 28.42075325289503
+  val _atanh_s3 = UInt(    1618692) // 3.087409817560523
+  val _atanh_s4 = UInt(   14900659) // 28.420750883269488
+  val _atanh_s5 = UInt( 1331567759) // 2539.763945441386
   // Binary Point: 29
   val atanh_x0 = _atanh_x0 >> (UInt(29)-io.req.bits.decimal-UInt(decimalPointOffset))
   val atanh_x1 = _atanh_x1 >> (UInt(29)-io.req.bits.decimal-UInt(decimalPointOffset))
@@ -123,13 +127,13 @@ class ActivationFunction extends DanaModule {
   val atanh_x3 = _atanh_x3 >> (UInt(29)-io.req.bits.decimal-UInt(decimalPointOffset))
   val atanh_x4 = _atanh_x4 >> (UInt(29)-io.req.bits.decimal-UInt(decimalPointOffset))
   val atanh_x5 = _atanh_x5 >> (UInt(29)-io.req.bits.decimal-UInt(decimalPointOffset))
-  // Binary Point: 26
-  val atanh_y0 = _atanh_y0 >> (UInt(26)-io.req.bits.decimal-UInt(decimalPointOffset))
-  val atanh_y1 = _atanh_y1 >> (UInt(26)-io.req.bits.decimal-UInt(decimalPointOffset))
-  val atanh_y2 = _atanh_y2 >> (UInt(26)-io.req.bits.decimal-UInt(decimalPointOffset))
-  val atanh_y3 = _atanh_y3 >> (UInt(26)-io.req.bits.decimal-UInt(decimalPointOffset))
-  val atanh_y4 = _atanh_y4 >> (UInt(26)-io.req.bits.decimal-UInt(decimalPointOffset))
-  val atanh_y5 = _atanh_y5 >> (UInt(26)-io.req.bits.decimal-UInt(decimalPointOffset))
+  // Binary Point: 25
+  val atanh_y0 = _atanh_y0 >> (UInt(25)-io.req.bits.decimal-UInt(decimalPointOffset))
+  val atanh_y1 = _atanh_y1 >> (UInt(25)-io.req.bits.decimal-UInt(decimalPointOffset))
+  val atanh_y2 = _atanh_y2 >> (UInt(25)-io.req.bits.decimal-UInt(decimalPointOffset))
+  val atanh_y3 = _atanh_y3 >> (UInt(25)-io.req.bits.decimal-UInt(decimalPointOffset))
+  val atanh_y4 = _atanh_y4 >> (UInt(25)-io.req.bits.decimal-UInt(decimalPointOffset))
+  val atanh_y5 = _atanh_y5 >> (UInt(25)-io.req.bits.decimal-UInt(decimalPointOffset))
   // Binary Point: 19
   val atanh_s1 = _atanh_s1 >> (UInt(19)-io.req.bits.decimal-UInt(decimalPointOffset))
   val atanh_s2 = _atanh_s2 >> (UInt(19)-io.req.bits.decimal-UInt(decimalPointOffset))
@@ -154,11 +158,13 @@ class ActivationFunction extends DanaModule {
 
   val one = SInt(1, width = elementWidth) << decimal
   val negOne = SInt(-1, width = elementWidth) << decimal
-  val offsetX = SInt(width = 32)
-  val offsetSigY = SInt(width = 32)
-  val offsetSymY = SInt(width = 32)
-  val slopeSig = SInt(width = 32)
-  val slopeSym = SInt(width = 32)
+  val seventeen = SInt(17, width = elementWidth) << decimal
+  val negSeventeen = SInt(-17, width = elementWidth) << decimal
+  val offsetX = SInt(width = elementWidth)
+  val offsetSigY = SInt(width = elementWidth)
+  val offsetSymY = SInt(width = elementWidth)
+  val slopeSig = SInt(width = elementWidth)
+  val slopeSym = SInt(width = elementWidth)
   when(inD0 < xmin) {
     offsetX    := SInt(0)
     offsetSigY := SInt(0)
@@ -202,35 +208,84 @@ class ActivationFunction extends DanaModule {
     slopeSig   := SInt(0)
     slopeSym   := SInt(0)
   }
+  // Atanh error function
+  val atanhOffsetX = UInt(width = elementWidth)
+  val atanhOffsetY = UInt(width = elementWidth)
+  val atanhSlope = UInt(width = elementWidth)
+  when (io.req.bits.in < atanh_x0) {
+    atanhOffsetX := SInt(0)
+    atanhOffsetY := negSeventeen
+    atanhSlope   := SInt(0)
+  } .elsewhen (io.req.bits.in < atanh_x1) {
+    atanhOffsetX := atanh_x0
+    atanhOffsetY := atanh_y0
+    atanhSlope   := atanh_s1
+  } .elsewhen (io.req.bits.in < atanh_x2) {
+    atanhOffsetX := atanh_x1
+    atanhOffsetY := atanh_y1
+    atanhSlope   := atanh_s2
+  } .elsewhen (io.req.bits.in < atanh_x3) {
+    atanhOffsetX := atanh_x2
+    atanhOffsetY := atanh_y2
+    atanhSlope   := atanh_s3
+  } .elsewhen (io.req.bits.in < atanh_x4) {
+    atanhOffsetX := atanh_x3
+    atanhOffsetY := atanh_y3
+    atanhSlope   := atanh_s4
+  } .elsewhen (io.req.bits.in < atanh_x5) {
+    atanhOffsetX := atanh_x4
+    atanhOffsetY := atanh_y4
+    atanhSlope   := atanh_s5
+  } .otherwise {
+    atanhOffsetX := SInt(0)
+    atanhOffsetY := seventeen
+    atanhSlope   := SInt(0)
+  }
 
+  // [TODO] You can probably remove this---by default `out` gets a
+  // garbage value (a very big integer) which should be visibile in
+  // the output
+  out := ((slopeSym*(inD0-offsetX) >> decimal) + offsetSymY)
   inD0 := applySteepness(io.req.bits.in, io.req.bits.steepness)
   // FANN_LINEAR
-  when (io.req.bits.activationFunction === e_FANN_LINEAR) {
-    out := inD0
-  } // FANN_THRESHOLD
-    .elsewhen(io.req.bits.activationFunction === e_FANN_THRESHOLD) {
-    when (inD0 <= SInt(0)) { out := SInt(0)
-    } .otherwise { out := one }
-  } // FANN_THRESHOLD_SYMMETRIC
-    .elsewhen(io.req.bits.activationFunction === e_FANN_THRESHOLD_SYMMETRIC) {
-    when (inD0 < SInt(0)) {
-      out := SInt(-1, width=elementWidth) << decimal
-    } .elsewhen(inD0 === SInt(0)) {
-      out := SInt(0)
-    } .otherwise {
-      out := one }
-  } // FANN_SIGMOID and STEPWISE
-    .elsewhen(io.req.bits.activationFunction === e_FANN_SIGMOID ||
-    io.req.bits.activationFunction === e_FANN_SIGMOID_STEPWISE) {
-    // Compute the output
-    out := ((slopeSig*(inD0-offsetX) >> decimal) + offsetSigY)
-  } // FANN_SIGMOID_SYMMETRIC and STEPWISE
-    // .elsewhen(io.req.bits.activationFunction === e_FANN_SIGMOID_SYMMETRIC ||
-    // io.req.bits.activationFunction === e_FANN_SIGMOID_SYMMETRIC_STEPWISE) {
-    .otherwise {
-    // Compute the output
-    out := ((slopeSym*(inD0-offsetX) >> decimal) + offsetSymY)
-  } // Dump out some garbage (the largest 32-bit integer)
+  switch (io.req.bits.afType) {
+    is (e_AF_DO_ACTIVATION_FUNCTION) {
+      switch (io.req.bits.activationFunction) {
+        is (e_FANN_LINEAR) {
+          out := inD0
+        } // FANN_THRESHOLD
+        is (e_FANN_THRESHOLD) {
+          when (inD0 <= SInt(0)) { out := SInt(0)
+          } .otherwise { out := one }
+        } // FANN_THRESHOLD_SYMMETRIC
+        is (e_FANN_THRESHOLD_SYMMETRIC) {
+          when (inD0 < SInt(0)) {
+            out := SInt(-1, width=elementWidth) << decimal
+          } .elsewhen(inD0 === SInt(0)) {
+            out := SInt(0)
+          } .otherwise {
+            out := one }
+        } // FANN_SIGMOID and STEPWISE
+        is (e_FANN_SIGMOID) {
+          out := ((slopeSig*(inD0-offsetX) >> decimal) + offsetSigY)
+        }
+        is (e_FANN_SIGMOID_STEPWISE) {
+          out := ((slopeSig*(inD0-offsetX) >> decimal) + offsetSigY)
+        }
+      }
+    }
+    is (e_AF_DO_ERROR_FUNCTION) {
+      switch (io.req.bits.errorFunction) {
+        is (e_FANN_ERRORFUNC_LINEAR) {
+          out := io.req.bits.in
+        }
+        is (e_FANN_ERRORFUNC_TANH) {
+          out := ((atanhSlope*(io.req.bits.in-atanhOffsetX) >> decimal) +
+            atanhOffsetY)
+        }
+      }
+    }
+  }
 
   // All activation functions currently take two cycles, so the output
   // valid signal is delayed by two cycles.

@@ -82,6 +82,7 @@ class ProcessingElementState extends DanaBundle {
   val learnReg = UInt(width = elementWidth) // "learning register", multiuse
   val numWeights = UInt(width = 8) // [TODO] fragile
   val activationFunction = UInt(width = activationFunctionWidth)
+  val errorFunction = UInt(width = log2Up(2)) // [TODO] fragile
   val steepness = UInt(width = steepnessWidth)
   val bias = UInt(width = elementWidth)
   val stateLearn = UInt(width = log2Up(7)) // [TODO] fragile
@@ -103,6 +104,7 @@ class ProcessingElementTable extends DanaModule {
     pe(i).req.bits.decimalPoint := table(i).decimalPoint
     pe(i).req.bits.steepness := table(i).steepness
     pe(i).req.bits.activationFunction := table(i).activationFunction
+    pe(i).req.bits.errorFunction := table(i).errorFunction
     pe(i).req.bits.numWeights := table(i).numWeights
     pe(i).req.bits.bias := table(i).bias
     pe(i).req.bits.stateLearn := table(i).stateLearn
@@ -158,6 +160,7 @@ class ProcessingElementTable extends DanaModule {
     table(nextFree).cIdx := io.control.req.bits.cacheIndex
     table(nextFree).neuronPtr := io.control.req.bits.neuronPointer
     table(nextFree).decimalPoint := io.control.req.bits.decimalPoint
+    table(nextFree).errorFunction := io.control.req.bits.errorFunction
     table(nextFree).stateLearn := io.control.req.bits.stateLearn
     table(nextFree).inLast := io.control.req.bits.inLast
     table(nextFree).inAddr := io.control.req.bits.inAddr
@@ -175,6 +178,7 @@ class ProcessingElementTable extends DanaModule {
     printf("[INFO]   cache idx:  0x%x\n", io.control.req.bits.cacheIndex)
     printf("[INFO]   neuron ptr: 0x%x\n", io.control.req.bits.neuronPointer)
     printf("[INFO]   decimal:    0x%x\n", io.control.req.bits.decimalPoint)
+    printf("[INFO]   error func: 0x%x\n", io.control.req.bits.errorFunction)
     printf("[INFO]   in addr:    0x%x\n", io.control.req.bits.inAddr)
     printf("[INFO]   out addr:   0x%x\n", io.control.req.bits.outAddr)
     printf("[INFO]   learn addr: 0x%x\n", io.control.req.bits.learnAddr)

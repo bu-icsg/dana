@@ -13,6 +13,7 @@ class ProcessingElementReq extends DanaBundle {
   val decimalPoint = UInt(INPUT, decimalPointWidth)
   val steepness = UInt(INPUT, steepnessWidth)
   val activationFunction = UInt(INPUT, activationFunctionWidth)
+  val errorFunction = UInt(INPUT, width = log2Up(2)) // [TODO] fragile
   val bias = SInt(INPUT, elementWidth)
   val iBlock = Vec.fill(elementsPerBlock){SInt(INPUT, elementWidth)}
   val wBlock = Vec.fill(elementsPerBlock){SInt(INPUT, elementWidth)}
@@ -125,6 +126,7 @@ class ProcessingElement extends DanaModule {
       state := Mux(af.io.resp.valid, Mux(io.req.bits.inLast &&
         io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_FEEDFORWARD,
         e_PE_REQUEST_EXPECTED_OUTPUT, e_PE_DONE), state)
+      af.io.req.bits.afType := e_AF_DO_ACTIVATION_FUNCTION
     }
     is (e_PE_REQUEST_EXPECTED_OUTPUT) {
       state := Mux(io.req.valid, e_PE_WAIT_FOR_EXPECTED_OUTPUT, state)
@@ -180,7 +182,9 @@ class ProcessingElement extends DanaModule {
   af.io.req.bits.in := acc
   af.io.req.bits.decimal := io.req.bits.decimalPoint
   af.io.req.bits.steepness := io.req.bits.steepness
+  af.io.req.bits.afType := e_AF_DO_ACTIVATION_FUNCTION
   af.io.req.bits.activationFunction := io.req.bits.activationFunction
+  af.io.req.bits.errorFunction := io.req.bits.errorFunction
   dataOut := af.io.resp.bits.out
 }
 

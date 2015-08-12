@@ -23,6 +23,7 @@ class DefaultXFilesDanaConfig extends ChiselConfig (
       // The steepness offset is the value you subtract from the
       // steepness to get the actual steepness
       case SteepnessOffset => 4
+      case ErrorFunctionWidth => 1
       case FeedbackWidth => Dump("FEEDBACK_WIDTH", 12)
       // Processing Element Table
       case PeTableNumEntries => Dump(Knob("NUM_PES"))

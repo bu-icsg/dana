@@ -12,6 +12,7 @@ case object DecimalPointOffset extends Field[Int]
 case object DecimalPointWidth extends Field[Int]
 case object SteepnessWidth extends Field[Int]
 case object SteepnessOffset extends Field[Int]
+case object ErrorFunctionWidth extends Field[Int]
 case object FeedbackWidth extends Field[Int]
 case object PeTableNumEntries extends Field[Int]
 case object TransactionTableNumEntries extends Field[Int]
@@ -39,6 +40,7 @@ abstract trait DanaParameters extends UsesParameters {
   //   * ProcessingElementTable logic for indexing into cache data
   val steepnessWidth = params(SteepnessWidth)
   val steepnessOffset = params(SteepnessOffset)
+  val errorFunctionWidth = params(ErrorFunctionWidth)
   val feedbackWidth = params(FeedbackWidth)
 
   // Processing Element Table
@@ -155,6 +157,14 @@ abstract class DanaModule extends Module with DanaParameters
     e_FANN_SIN ::                        // 16
     e_FANN_CO ::                         // 17
     Nil) = Enum(UInt(), 18)
+  // FANN error functions
+  val (e_FANN_ERRORFUNC_LINEAR :: // 0
+    e_FANN_ERRORFUNC_TANH ::      // 1
+    Nil) = Enum(UInt(), 2)
+  // Determin what the actiavtion function unit is doing
+  val (e_AF_DO_ACTIVATION_FUNCTION :: // 0
+    e_AF_DO_ERROR_FUNCTION ::         // 1
+    Nil) = Enum(UInt(), 2)
   // Response type that will be sent to a core
   val (e_TID ::   // 0
     e_READ ::     // 1

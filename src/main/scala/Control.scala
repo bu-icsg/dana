@@ -51,6 +51,7 @@ class ControlPETableInterface extends DanaBundle with ControlParameters {
     val location = UInt(width = 1)
     val neuronPointer = UInt(width = 12) // [TODO] fragile
     val decimalPoint = UInt(width = decimalPointWidth)
+    val errorFunction = UInt(width = log2Up(2)) // [TODO] fragile
     val stateLearn = UInt(width = log2Up(7)) // [TODO] fragile
     val inLast = Bool()
   })
@@ -95,7 +96,7 @@ class Control extends DanaModule {
   }
   def reqPETable(valid: Bool, cacheIndex: UInt, tIdx: UInt,  inAddr: UInt,
     outAddr: UInt, learnAddr: UInt, neuronPointer: UInt, decimalPoint: UInt,
-    location: UInt, stateLearn: UInt, inLast: UInt) {
+    errorFunction: UInt, location: UInt, stateLearn: UInt, inLast: UInt) {
     io.peTable.req.valid := valid
     io.peTable.req.bits.cacheIndex := cacheIndex
     io.peTable.req.bits.tIdx := tIdx
@@ -104,6 +105,7 @@ class Control extends DanaModule {
     io.peTable.req.bits.learnAddr := learnAddr
     io.peTable.req.bits.neuronPointer := neuronPointer
     io.peTable.req.bits.decimalPoint := decimalPoint
+    io.peTable.req.bits.errorFunction := errorFunction
     io.peTable.req.bits.location := location
     io.peTable.req.bits.stateLearn := stateLearn
     io.peTable.req.bits.inLast := inLast
@@ -130,7 +132,7 @@ class Control extends DanaModule {
     UInt(0))
   // io.petable defaults
   reqPETable(Bool(false), UInt(0), UInt(0), UInt(0), UInt(0), UInt(0), UInt(0),
-    UInt(0), UInt(0), UInt(0), UInt(0))
+    UInt(0), UInt(0), UInt(0), UInt(0), UInt(0))
   // io.regFile defaults
   io.regFile.req.valid := Bool(false)
   io.regFile.req.bits.tIdx := UInt(0)
@@ -148,7 +150,8 @@ class Control extends DanaModule {
         io.tTable.resp.bits.field := e_TTABLE_CACHE_VALID
         io.tTable.resp.bits.data(0) := io.cache.resp.bits.data(0)
         io.tTable.resp.bits.data(1) := io.cache.resp.bits.data(1)
-        io.tTable.resp.bits.data(2) := io.cache.resp.bits.cacheIndex
+        io.tTable.resp.bits.data(2) := io.cache.resp.bits.cacheIndex ##
+          io.cache.resp.bits.data(2)(errorFunctionWidth - 1,0)
         io.tTable.resp.bits.decimalPoint := io.cache.resp.bits.decimalPoint
       }
       is (e_CACHE_LAYER) {
@@ -224,6 +227,8 @@ class Control extends DanaModule {
           (io.tTable.req.bits.currentNodeInLayer << UInt(3)),
         // Pass along the decimal point
         io.tTable.req.bits.decimalPoint, // decimalPoint
+        // Pass along the error function
+        io.tTable.req.bits.errorFunction,
         // Communicate the "location" which eventually the Register
         // File will use to determine which of two locations is the
         // "writeCount" for the current layer vs. the next layer

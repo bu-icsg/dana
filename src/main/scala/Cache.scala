@@ -300,14 +300,24 @@ class Cache extends DanaModule {
   switch (controlRespPipe(0).bits.field) {
     is (e_CACHE_INFO) {
       val compressedInfo = new Bundle{
-        val decimalPoint = mem(controlRespPipe(0).bits.cacheIndex).dout(0)(decimalPointWidth-1,0)
-        val unused_0 = mem(controlRespPipe(0).bits.cacheIndex).dout(0)(16-decimalPointWidth-1, decimalPointWidth)
-        val totalEdges = mem(controlRespPipe(0).bits.cacheIndex).dout(0)(32-1, 16)
-        val totalNeurons = mem(controlRespPipe(0).bits.cacheIndex).dout(0)(48-1, 32)
-        val totalLayers = mem(controlRespPipe(0).bits.cacheIndex).dout(0)(64-1, 48)
-        val firstLayerPointer = mem(controlRespPipe(0).bits.cacheIndex).dout(0)(80-1, 64)
-        val weightsPointer = mem(controlRespPipe(0).bits.cacheIndex).dout(0)(96-1, 80)
-        val unused_1 = mem(controlRespPipe(0).bits.cacheIndex).dout(0)(bitsPerBlock-1, 96)
+        val decimalPoint = mem(controlRespPipe(0).bits.cacheIndex).dout(0)(
+          decimalPointWidth - 1, 0)
+        val errorFunction = mem(controlRespPipe(0).bits.cacheIndex).dout(0)(
+          decimalPointWidth + errorFunctionWidth - 1, decimalPointWidth)
+        val unused_0 = mem(controlRespPipe(0).bits.cacheIndex).dout(0)(
+          16 - 1, decimalPointWidth + errorFunctionWidth)
+        val totalEdges = mem(controlRespPipe(0).bits.cacheIndex).dout(0)(
+          32 - 1, 16)
+        val totalNeurons = mem(controlRespPipe(0).bits.cacheIndex).dout(0)(
+          48 - 1, 32)
+        val totalLayers = mem(controlRespPipe(0).bits.cacheIndex).dout(0)(
+          64 - 1, 48)
+        val firstLayerPointer = mem(controlRespPipe(0).bits.cacheIndex).dout(0)(
+          80 - 1, 64)
+        val weightsPointer = mem(controlRespPipe(0).bits.cacheIndex).dout(0)(
+          96 - 1, 80)
+        val unused_1 = mem(controlRespPipe(0).bits.cacheIndex).dout(0)(
+          bitsPerBlock - 1, 96)
       }
       // Decimal Point
       controlRespPipe(1).bits.decimalPoint := compressedInfo.decimalPoint
@@ -315,7 +325,9 @@ class Cache extends DanaModule {
       controlRespPipe(1).bits.data(0) := compressedInfo.totalLayers
       // Neurons
       controlRespPipe(1).bits.data(1) := compressedInfo.totalNeurons
-      controlRespPipe(1).bits.data(2) := UInt(0) // Unused
+      // Pass back the error function in LSBs of data(2)
+      controlRespPipe(1).bits.data(2) := UInt(0, width=16-errorFunctionWidth) ##
+        compressedInfo.errorFunction
     }
     is (e_CACHE_LAYER_INFO) {
       val compressedLayers = Vec((0 until bitsPerBlock / 32).map(i =>
