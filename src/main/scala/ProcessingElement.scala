@@ -132,16 +132,16 @@ class ProcessingElement extends DanaModule {
       io.resp.valid := Bool(true)
     }
     is (e_PE_WAIT_FOR_EXPECTED_OUTPUT) {
-      state := Mux(io.req.valid, e_PE_DONE, state)
+      state := Mux(io.req.valid, e_PE_COMPUTE_ERROR, state)
+    }
+    is (e_PE_COMPUTE_ERROR) {
+      errorOut := af.io.resp.bits.out - io.req.bits.learnReg
+      printf("[INFO] PE: errorOut set to 0x%x\n",
+        af.io.resp.bits.out - io.req.bits.learnReg)
+      state := e_PE_DONE
     }
     is (e_PE_DONE) {
       state := Mux(io.req.valid, e_PE_UNALLOCATED, state)
-      when(io.req.bits.inLast === Bool(true)){
-        // [TODO] May want to register af.io.resp.bits.out before use?
-        errorOut := af.io.resp.bits.out - io.req.bits.learnReg
-        printf("[INFO] PE: errorOut set to 0x%x\n",
-          af.io.resp.bits.out - io.req.bits.learnReg)
-      }
       io.resp.valid := Bool(true)
     }
 

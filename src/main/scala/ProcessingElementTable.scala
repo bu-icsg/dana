@@ -254,6 +254,8 @@ class ProcessingElementTable extends DanaModule {
         pe(peIndex).req.valid := Bool(true)
         printf("[INFO] PETable: Valid RegFile E[out] resp PE/data 0x%x/0x%x\n",
           peIndex, io.regFile.resp.bits.data)
+        printf("[INFO]          learnReg -> dataVec(0x%x): 0x%x\n", addr,
+          dataVec(addr))
       }
     }
   }
