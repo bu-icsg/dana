@@ -8,8 +8,8 @@ RAM Organization. This is a modified layout of fann_small and its associated abb
 | Class   | Address  | Offset | Size | Attribute   | Sub Attribute           |
 |---------+----------+--------+------+-------------+-------------------------|
 | Info    | 0        |      0 |    3 | net info    | decimal point           |
-|         |          |      4 |    1 |             | error function          |
-|         |          |      5 |   12 |             | *** unused ***          |
+|         |          |      3 |    1 |             | error function          |
+|         |          |      4 |   12 |             | *** unused ***          |
 |         |          |     16 |   16 |             | total edges             |
 |         |          |     32 |   16 |             | total neurons           |
 |         |          |     48 |   16 |             | total layers [N]        |
