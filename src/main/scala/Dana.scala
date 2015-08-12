@@ -57,6 +57,7 @@ abstract trait DanaParameters extends UsesParameters {
   val cacheNumBlocks =
     divUp(divUp((params(CacheDataSize) * 8), params(ElementWidth)),
       params(ElementsPerBlock))
+  // [TODO] This ioIdxWidth looks wrong?
   val ioIdxWidth = log2Up(params(RegisterFileNumElements) * params(ElementWidth))
   val bitsPerBlock = params(ElementsPerBlock) * params(ElementWidth)
 }
@@ -114,7 +115,7 @@ abstract class DanaModule extends Module with DanaParameters
     e_PE_WAIT_FOR_INPUTS_AND_WEIGHTS ::                // 4
     e_PE_RUN ::                                        // 5
     e_PE_ACTIVATION_FUNCTION ::                        // 6
-    e_PE_GET_EXPECTED_OUTPUT ::                        // 7
+    e_PE_REQUEST_EXPECTED_OUTPUT ::                    // 7
     e_PE_WAIT_FOR_EXPECTED_OUTPUT ::                   // 8
     e_PE_GET_INFO_ERROR_BACKPROP ::                    // 9
     e_PE_WAIT_FOR_INFO_ERROR_BACKPROP ::               // 10
@@ -125,6 +126,9 @@ abstract class DanaModule extends Module with DanaParameters
     e_PE_DONE ::                                       // 15
     Nil) = Enum(UInt(), 16)
     // Nil) = Enum(UInt(), 8).map(i => (UInt(1) << i)(7, 0))
+  val (e_PE_REQ_INPUT ::        // 0
+    e_PE_REQ_EXPECTED_OUTPUT :: // 1
+    Nil) = Enum(UInt(), 2)
   // Location of inputs and outputs
   val (e_LOCATION_REG_0 :: // 0
     e_LOCATION_REG_1 ::    // 1

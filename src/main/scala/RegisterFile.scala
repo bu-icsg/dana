@@ -111,12 +111,14 @@ class RegisterFile extends DanaModule {
   }
 
   val readReqValid_d0 = Reg(next = io.pe.req.valid && !io.pe.req.bits.isWrite)
+  val readReqType_d0 = Reg(next = io.pe.req.bits.reqType)
   val peIndex_d0 = Reg(next = io.pe.req.bits.peIndex)
   val tIndex_d0 = Reg(next = io.pe.req.bits.tIdx)
 
   io.pe.resp.valid := readReqValid_d0
   io.pe.resp.bits.peIndex := peIndex_d0
   io.pe.resp.bits.data := mem(tIndex_d0).dout(0)
+  io.pe.resp.bits.reqType := readReqType_d0
   when (io.pe.resp.valid) {
     printf("[INFO] RegFile: PE resp PE/Data 0x%x/0x%x\n",
       io.pe.resp.bits.peIndex, io.pe.resp.bits.data);

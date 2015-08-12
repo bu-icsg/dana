@@ -44,8 +44,10 @@ class ControlPETableInterface extends DanaBundle with ControlParameters {
     // give the PE a kick, which should be accomplished with the
     // decoupled valid signal
     val tIdx = UInt(width = log2Up(transactionTableNumEntries))
+    // [TODO] Change ioIdxWidth to regFileNumElements?
     val inAddr = UInt(width = ioIdxWidth)
     val outAddr = UInt(width = ioIdxWidth)
+    val learnAddr = UInt(width = ioIdxWidth)
     val location = UInt(width = 1)
     val neuronPointer = UInt(width = 12) // [TODO] fragile
     val decimalPoint = UInt(width = decimalPointWidth)
@@ -92,13 +94,14 @@ class Control extends DanaModule {
     io.cache.req.bits.location := location
   }
   def reqPETable(valid: Bool, cacheIndex: UInt, tIdx: UInt,  inAddr: UInt,
-    outAddr: UInt, neuronPointer: UInt, decimalPoint: UInt, location: UInt,
-    stateLearn: UInt, inLast: UInt) {
+    outAddr: UInt, learnAddr: UInt, neuronPointer: UInt, decimalPoint: UInt,
+    location: UInt, stateLearn: UInt, inLast: UInt) {
     io.peTable.req.valid := valid
     io.peTable.req.bits.cacheIndex := cacheIndex
     io.peTable.req.bits.tIdx := tIdx
     io.peTable.req.bits.inAddr := inAddr
     io.peTable.req.bits.outAddr := outAddr
+    io.peTable.req.bits.learnAddr := learnAddr
     io.peTable.req.bits.neuronPointer := neuronPointer
     io.peTable.req.bits.decimalPoint := decimalPoint
     io.peTable.req.bits.location := location
@@ -127,7 +130,7 @@ class Control extends DanaModule {
     UInt(0))
   // io.petable defaults
   reqPETable(Bool(false), UInt(0), UInt(0), UInt(0), UInt(0), UInt(0), UInt(0),
-    UInt(0), UInt(0), UInt(0))
+    UInt(0), UInt(0), UInt(0), UInt(0))
   // io.regFile defaults
   io.regFile.req.valid := Bool(false)
   io.regFile.req.bits.tIdx := UInt(0)
@@ -207,6 +210,10 @@ class Control extends DanaModule {
         // The output address is a base output (specified by the
         // TTable request) plus an offset (which neuron this is)
         io.tTable.req.bits.regFileAddrOut+io.tTable.req.bits.currentNodeInLayer,
+        // The learn address could mean many things, but is generally
+        // used to pass an _additional_ register file address used for
+        // learning
+        io.tTable.req.bits.currentNodeInLayer,
 
         // The neuron pointer is going to be the base pointer that
         // lives in the Transaction Table plus an offset based on the

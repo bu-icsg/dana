@@ -16,9 +16,9 @@ class ProcessingElementReq extends DanaBundle {
   val bias = SInt(INPUT, elementWidth)
   val iBlock = Vec.fill(elementsPerBlock){SInt(INPUT, elementWidth)}
   val wBlock = Vec.fill(elementsPerBlock){SInt(INPUT, elementWidth)}
+  val learnReg = SInt(INPUT, elementWidth)
   val stateLearn = UInt(width = log2Up(7)) // [TODO] fragile
   val inLast = Bool()
-  val expOut = UInt(INPUT, elementWidth)
 }
 
 class ProcessingElementResp extends DanaBundle {
@@ -121,15 +121,26 @@ class ProcessingElement extends DanaModule {
     }
     is (e_PE_ACTIVATION_FUNCTION) {
       af.io.req.valid := Bool(true)
-      state := Mux(af.io.resp.valid, e_PE_DONE, state)
+      state := Mux(af.io.resp.valid, Mux(io.req.bits.inLast,
+        e_PE_REQUEST_EXPECTED_OUTPUT, e_PE_DONE), state)
     }
     // [TODO] Things to add:
     //   * Separate state for error computation and atanh error
     //     function
+    is (e_PE_REQUEST_EXPECTED_OUTPUT) {
+      state := Mux(io.req.valid, e_PE_WAIT_FOR_EXPECTED_OUTPUT, state)
+      io.resp.valid := Bool(true)
+    }
+    is (e_PE_WAIT_FOR_EXPECTED_OUTPUT) {
+      state := Mux(io.req.valid, e_PE_DONE, state)
+    }
     is (e_PE_DONE) {
       state := Mux(io.req.valid, e_PE_UNALLOCATED, state)
       when(io.req.bits.inLast === Bool(true)){
-        errorOut := af.io.resp.bits.out - io.req.bits.expOut
+        // [TODO] May want to register af.io.resp.bits.out before use?
+        errorOut := af.io.resp.bits.out - io.req.bits.learnReg
+        printf("[INFO] PE: errorOut set to 0x%x\n",
+          af.io.resp.bits.out - io.req.bits.learnReg)
       }
       io.resp.valid := Bool(true)
     }
