@@ -50,8 +50,8 @@ parser.add_argument('-d', '--debug', dest='debug', action='store_true',
 
 args = parser.parse_args()
 
-x_min = -1
-x_max = 1
+x_min = -0.9999999
+x_max = 0.9999999
 # num_knots = 6
 
 # Construct linearly spaced spaces in x
@@ -85,7 +85,7 @@ for i in range(x_p.size):
 #     symmetry to only compute the x points for half of the function
 actions = numpy.ones(x_p.size-2)
 epsilon = 1.0/(2**4)
-epsilon_threshold = 1.0/(2**32)
+epsilon_threshold = 1.0/(2**31)
 no_action = 0
 while epsilon > epsilon_threshold:
     actions = numpy.zeros(x_p.size-2)
