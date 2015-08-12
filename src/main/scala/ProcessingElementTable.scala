@@ -71,6 +71,7 @@ class ProcessingElementState extends DanaBundle {
   // current node in the layer and will be used to generate an
   // expected output request to the Register File
   val learnAddr = UInt(width = log2Up(regFileNumElements))
+  val errAddr = UInt(width = log2Up(regFileNumElements))
   val location = UInt(width = 1)
   val neuronPtr = UInt(width = // neuron_pointer
     log2Up(elementWidth * elementsPerBlock * cacheNumBlocks))
@@ -163,6 +164,7 @@ class ProcessingElementTable extends DanaModule {
     table(nextFree).inAddr := io.control.req.bits.inAddr
     table(nextFree).outAddr := io.control.req.bits.outAddr
     table(nextFree).learnAddr := io.control.req.bits.learnAddr
+    table(nextFree).errAddr := io.control.req.bits.errAddr
     table(nextFree).location := io.control.req.bits.location
     table(nextFree).numWeights := SInt(-1)
     table(nextFree).weightValid := Bool(false)
@@ -178,6 +180,9 @@ class ProcessingElementTable extends DanaModule {
     printf("[INFO]   in addr:    0x%x\n", io.control.req.bits.inAddr)
     printf("[INFO]   out addr:   0x%x\n", io.control.req.bits.outAddr)
     printf("[INFO]   learn addr: 0x%x\n", io.control.req.bits.learnAddr)
+    when(io.control.req.bits.inLast === Bool(true) &&io.control.req.bits.stateLearn === e_TTABLE_STATE_LEARN_FEEDFORWARD){
+      printf("[INFO]   Error addr: 0x%x\n", io.control.req.bits.errAddr)
+    }
     printf("[INFO]   stateLearn: 0x%x\n", io.control.req.bits.stateLearn)
     printf("[INFO]   inLast:     0x%x\n", io.control.req.bits.inLast)
   }
@@ -269,6 +274,7 @@ class ProcessingElementTable extends DanaModule {
     peArbiter.io.in(i).bits.data := pe(i).resp.bits.data
     peArbiter.io.in(i).bits.state := pe(i).resp.bits.state
     peArbiter.io.in(i).bits.index := pe(i).resp.bits.index
+    peArbiter.io.in(i).bits.error := pe(i).resp.bits.error
   }
 
   // If the arbiter is showing a valid output, then we have to
@@ -315,6 +321,17 @@ class ProcessingElementTable extends DanaModule {
         io.regFile.req.bits.tIdx := table(peArbiter.io.out.bits.index).tIdx
         io.regFile.req.bits.location := table(peArbiter.io.out.bits.index).location
         io.regFile.req.bits.reqType := e_PE_REQ_EXPECTED_OUTPUT
+
+        pe(peArbiter.io.out.bits.index).req.valid := Bool(true)
+      }
+      is(e_PE_COMPUTE_ERROR_WRITE_BACK){
+        // Outputs are always written to the Register File
+        io.regFile.req.valid := Bool(true)
+        io.regFile.req.bits.isWrite := Bool(true)
+        io.regFile.req.bits.addr := table(peArbiter.io.out.bits.index).errAddr
+        io.regFile.req.bits.tIdx := table(peArbiter.io.out.bits.index).tIdx
+        io.regFile.req.bits.data := peArbiter.io.out.bits.error
+        io.regFile.req.bits.location := table(peArbiter.io.out.bits.index).location
 
         pe(peArbiter.io.out.bits.index).req.valid := Bool(true)
       }

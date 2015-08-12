@@ -28,8 +28,8 @@ class ProcessingElementResp extends DanaBundle {
   val data = UInt(width = elementWidth)
   val state = UInt() // [TODO] fragile on PE state enum
   val index = UInt()
-  val delta = UInt(width = elementWidth)
-  val error = UInt(width = elementWidth)
+  val delta = SInt(width = elementWidth)
+  val error = SInt(width = elementWidth)
 }
 
 class ProcessingElementInterface extends DanaBundle {
@@ -52,7 +52,8 @@ class ProcessingElement extends DanaModule {
   val acc = Reg(SInt(width = elementWidth))
   val dataOut = Reg(SInt(width = elementWidth))
   val derivative = Reg(SInt(width = elementWidth)) //delta
-  val errorOut = Reg(UInt(width = elementWidth)) //ek
+  val errorOut = Reg(SInt(width = elementWidth)) //ek
+  val mse = Reg(UInt(width = elementWidth))
 
   // [TODO] fragile on PE stateu enum (Common.scala)
   val state = Reg(UInt(), init = e_PE_UNALLOCATED)
@@ -60,6 +61,7 @@ class ProcessingElement extends DanaModule {
   // Local state storage. Any and all of these are possible kludges
   // which could be implemented more cleanly.
   val hasBias = Reg(Bool())
+
 
   // Default values
   acc := acc
@@ -134,10 +136,15 @@ class ProcessingElement extends DanaModule {
       state := Mux(io.req.valid, e_PE_COMPUTE_ERROR, state)
     }
     is (e_PE_COMPUTE_ERROR) {
-      errorOut := af.io.resp.bits.out - io.req.bits.learnReg
-      printf("[INFO] PE: errorOut set to 0x%x\n",
-        af.io.resp.bits.out - io.req.bits.learnReg)
-      state := e_PE_DONE
+      errorOut := (af.io.resp.bits.out - io.req.bits.learnReg)>>UInt(1)
+      mse := ((af.io.resp.bits.out - io.req.bits.learnReg)>>UInt(1))*((af.io.resp.bits.out - io.req.bits.learnReg)>>UInt(1))
+      printf("[INFO] PE: errorOut and Error square set to 0x%x and  0x%x\n",
+        (af.io.resp.bits.out - io.req.bits.learnReg)>>UInt(1), ((af.io.resp.bits.out - io.req.bits.learnReg)>>UInt(1))*((af.io.resp.bits.out - io.req.bits.learnReg)>>UInt(1)))
+      state := e_PE_COMPUTE_ERROR_WRITE_BACK
+    }
+    is(e_PE_COMPUTE_ERROR_WRITE_BACK){
+      state := Mux(io.req.valid, e_PE_DONE, state)
+      io.resp.valid := Bool(true)
     }
     is (e_PE_DONE) {
       state := Mux(io.req.valid, e_PE_UNALLOCATED, state)
@@ -168,7 +175,7 @@ class ProcessingElement extends DanaModule {
         state := state
       }
       //outer product of weight matrix and delta
-      io.resp.bits.delta := UInt(0)
+      io.resp.bits.delta := SInt(0)
       errorOut := errorOut +
       ((io.req.bits.iBlock(index) * io.req.bits.wBlock(index)) >>
         (io.req.bits.decimalPoint +
