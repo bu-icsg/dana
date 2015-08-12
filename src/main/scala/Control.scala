@@ -48,6 +48,7 @@ class ControlPETableInterface extends DanaBundle with ControlParameters {
     val inAddr = UInt(width = ioIdxWidth)
     val outAddr = UInt(width = ioIdxWidth)
     val learnAddr = UInt(width = ioIdxWidth)
+    val errAddr = UInt(width = ioIdxWidth)
     val location = UInt(width = 1)
     val neuronPointer = UInt(width = 12) // [TODO] fragile
     val decimalPoint = UInt(width = decimalPointWidth)
@@ -95,14 +96,16 @@ class Control extends DanaModule {
     io.cache.req.bits.location := location
   }
   def reqPETable(valid: Bool, cacheIndex: UInt, tIdx: UInt,  inAddr: UInt,
-    outAddr: UInt, learnAddr: UInt, neuronPointer: UInt, decimalPoint: UInt,
-    errorFunction: UInt, location: UInt, stateLearn: UInt, inLast: UInt) {
+    outAddr: UInt, learnAddr: UInt, errAddr: UInt, neuronPointer: UInt,
+    decimalPoint: UInt, errorFunction: UInt, location: UInt, stateLearn: UInt,
+        inLast: UInt) {
     io.peTable.req.valid := valid
     io.peTable.req.bits.cacheIndex := cacheIndex
     io.peTable.req.bits.tIdx := tIdx
     io.peTable.req.bits.inAddr := inAddr
     io.peTable.req.bits.outAddr := outAddr
     io.peTable.req.bits.learnAddr := learnAddr
+    io.peTable.req.bits.errAddr := errAddr
     io.peTable.req.bits.neuronPointer := neuronPointer
     io.peTable.req.bits.decimalPoint := decimalPoint
     io.peTable.req.bits.errorFunction := errorFunction
@@ -164,7 +167,11 @@ class Control extends DanaModule {
         // is the last layer, but I don't think it's hurting anything.
         io.regFile.req.valid := Bool(true)
         io.regFile.req.bits.tIdx := io.cache.resp.bits.tableIndex
-        io.regFile.req.bits.totalWrites := io.cache.resp.bits.data(0)
+        when(io.tTable.req.bits.inLast === Bool(true) && io.tTable.req.bits.stateLearn === e_TTABLE_STATE_LEARN_FEEDFORWARD){
+          io.regFile.req.bits.totalWrites := UInt(2)*io.cache.resp.bits.data(0)
+        } .otherwise {
+           io.regFile.req.bits.totalWrites := io.cache.resp.bits.data(0)
+        }
         // This is the output location. This needs to match the
         // convention used for the Processing Elements
         io.regFile.req.bits.location := io.cache.resp.bits.location
@@ -217,7 +224,9 @@ class Control extends DanaModule {
         // used to pass an _additional_ register file address used for
         // learning
         io.tTable.req.bits.currentNodeInLayer,
-
+        //Error address in LERAN_FEEDFORWARD state means the address used to save
+        //the calculated error values
+        io.tTable.req.bits.regFileAddrErr+io.tTable.req.bits.currentNodeInLayer,
         // The neuron pointer is going to be the base pointer that
         // lives in the Transaction Table plus an offset based on the
         // current node that we're processing. The shift by 3 is to

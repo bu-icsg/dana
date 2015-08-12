@@ -39,6 +39,7 @@ class TransactionState extends XFilesBundle {
   // written to in the Register File.
   val regFileAddrIn = UInt(width = log2Up(regFileNumElements))
   val regFileAddrOut = UInt(width = log2Up(regFileNumElements))
+  val regFileAddrErr = UInt(width = log2Up(regFileNumElements))
   val readIdx = UInt(width = log2Up(regFileNumElements))
   val coreIdx = UInt(width = log2Up(numCores))
   // Additional crap which may be redundant
@@ -68,6 +69,7 @@ class ControlReq extends XFilesBundle {
   val errorFunction = UInt(width = log2Up(2)) // [TODO] fragile
   val regFileAddrIn = UInt(width = log2Up(regFileNumElements))
   val regFileAddrOut = UInt(width = log2Up(regFileNumElements))
+  val regFileAddrErr = UInt(width = log2Up(regFileNumElements))
   val stateLearn = UInt(width = log2Up(5)) // [TODO] fragile
 }
 
@@ -240,6 +242,7 @@ class TransactionTable extends XFilesModule {
         table(nextFree).countFeedback := cmd.countFeedback
         table(nextFree).regFileAddrIn := UInt(0)
         table(nextFree).regFileAddrOut := UInt(0)
+        table(nextFree).regFileAddrErr := UInt(0)
         table(nextFree).done := Bool(false)
         table(nextFree).decInUse := Bool(false)
         table(nextFree).indexElement := UInt(0)
@@ -408,8 +411,16 @@ class TransactionTable extends XFilesModule {
             nicl(log2Up(elementsPerBlock)-1, 0)
           val round = Mux(niclLSBs != UInt(0), UInt(elementsPerBlock), UInt(0))
           table(tIdx).regFileAddrIn := table(tIdx).regFileAddrOut
+          when(table(tIdx).currentLayer === table(tIdx).numLayers - UInt(1) && table(tIdx).stateLearn === e_TTABLE_STATE_LEARN_FEEDFORWARD){
+            table(tIdx).regFileAddrErr := table(tIdx).regFileAddrOut + UInt(2) * (niclMSBs +
+            round)
+          }.otherwise{
+            table(tIdx).regFileAddrErr := table(tIdx).regFileAddrOut
+          }
           table(tIdx).regFileAddrOut := table(tIdx).regFileAddrOut + niclMSBs +
             round
+          
+
           printf("[INFO] TTable: Updating cache layer...\n")
           printf("[INFO]   total layers:            0x%x\n",
             table(tIdx).numLayers)
@@ -432,6 +443,11 @@ class TransactionTable extends XFilesModule {
             table(tIdx).regFileAddrOut)
           printf("[INFO]   regFileAddrOut:          0x%x\n",
             table(tIdx).regFileAddrOut +  niclMSBs + round)
+          when(table(tIdx).currentLayer === table(tIdx).numLayers - UInt(1) && table(tIdx).stateLearn === e_TTABLE_STATE_LEARN_FEEDFORWARD){
+           printf("[INFO]   regFileAddrErr:          0x%x\n",
+            table(tIdx).regFileAddrOut +  UInt(2) * (niclMSBs + round))
+          }
+           
         }
       }
     }
@@ -527,6 +543,7 @@ class TransactionTable extends XFilesModule {
     entryArbiter.io.in(i).bits.errorFunction := table(i).errorFunction
     entryArbiter.io.in(i).bits.regFileAddrIn := table(i).regFileAddrIn
     entryArbiter.io.in(i).bits.regFileAddrOut := table(i).regFileAddrOut
+    entryArbiter.io.in(i).bits.regFileAddrErr := table(i).regFileAddrErr
     entryArbiter.io.in(i).bits.stateLearn := table(i).stateLearn
   }
   io.control.req <> entryArbiter.io.out
