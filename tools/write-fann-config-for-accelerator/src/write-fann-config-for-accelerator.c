@@ -74,6 +74,14 @@ int main(int argc, char *argv[])
     return -1;
   }
 
+  // The error function needs to be stored. This is a 1-bit value in
+  // FANN. This value is stored in the the 4th bit, just after the
+  // encoded decimal point.
+  unsigned int error_function = ann->train_error_function;
+  printf("Error function: 0x%x (%d)\n", error_function, error_function);
+  decimal_point_encoded |= error_function << 3;
+  printf("Encoded decimal point is now: 0x%x\n", decimal_point_encoded);
+
   // Compute the number of edges and nodes. This is the actual number
   // and not the FANN number. Consequently, I need to remove any bias
   // connections, input nodes, and hidden nodes.

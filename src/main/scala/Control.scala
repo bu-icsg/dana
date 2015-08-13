@@ -14,6 +14,7 @@ class ControlCacheInterfaceResp extends DanaBundle with ControlParameters {
   val decimalPoint = UInt(INPUT, decimalPointWidth)
   val field = UInt(width = log2Up(7)) // [TODO] fragile on Constants.scala
   val location = UInt(width = 1)
+  val inLastLearn = Bool()
 }
 
 class ControlCacheInterface extends DanaBundle with ControlParameters {
@@ -27,6 +28,7 @@ class ControlCacheInterface extends DanaBundle with ControlParameters {
     val layer = UInt(width = 16) // [TODO] fragile
     val location = UInt(width = 1) // [TODO] fragile
     val coreIdx = UInt(width = log2Up(numCores))
+    val inLastLearn = Bool()
   })
   // Inbound response. nnsim-hdl equivalent:
   //   cache_types::cache2ctl_struct
@@ -52,6 +54,7 @@ class ControlPETableInterface extends DanaBundle with ControlParameters {
     val location = UInt(width = 1)
     val neuronPointer = UInt(width = 12) // [TODO] fragile
     val decimalPoint = UInt(width = decimalPointWidth)
+    val errorFunction = UInt(width = log2Up(2)) // [TODO] fragile
     val stateLearn = UInt(width = log2Up(7)) // [TODO] fragile
     val inLast = Bool()
   })
@@ -84,7 +87,8 @@ class Control extends DanaModule {
 
   // IO Driver Functions
   def reqCache(valid: Bool, request: UInt, asid: UInt, nnid: UInt,
-    tableIndex: UInt, coreIdx: UInt, layer: UInt, location: UInt) {
+    tableIndex: UInt, coreIdx: UInt, layer: UInt, location: UInt,
+    inLastLearn: Bool) {
     io.cache.req.valid := valid
     io.cache.req.bits.request := request
     io.cache.req.bits.asid := asid
@@ -93,10 +97,12 @@ class Control extends DanaModule {
     io.cache.req.bits.coreIdx := coreIdx
     io.cache.req.bits.layer := layer
     io.cache.req.bits.location := location
+    io.cache.req.bits.inLastLearn := inLastLearn
   }
   def reqPETable(valid: Bool, cacheIndex: UInt, tIdx: UInt,  inAddr: UInt,
-    outAddr: UInt, learnAddr: UInt, errAddr: UInt, neuronPointer: UInt, decimalPoint: UInt,
-    location: UInt, stateLearn: UInt, inLast: UInt) {
+    outAddr: UInt, learnAddr: UInt, errAddr: UInt, neuronPointer: UInt,
+    decimalPoint: UInt, errorFunction: UInt, location: UInt, stateLearn: UInt,
+        inLast: UInt) {
     io.peTable.req.valid := valid
     io.peTable.req.bits.cacheIndex := cacheIndex
     io.peTable.req.bits.tIdx := tIdx
@@ -106,6 +112,7 @@ class Control extends DanaModule {
     io.peTable.req.bits.errAddr := errAddr
     io.peTable.req.bits.neuronPointer := neuronPointer
     io.peTable.req.bits.decimalPoint := decimalPoint
+    io.peTable.req.bits.errorFunction := errorFunction
     io.peTable.req.bits.location := location
     io.peTable.req.bits.stateLearn := stateLearn
     io.peTable.req.bits.inLast := inLast
@@ -129,10 +136,10 @@ class Control extends DanaModule {
   // io.cache defaults
   io.cache.resp.ready := Bool(true) // [TODO] not correct
   reqCache(Bool(false), UInt(0), UInt(0), UInt(0), UInt(0), UInt(0), UInt(0),
-    UInt(0))
+    UInt(0), Bool(false))
   // io.petable defaults
   reqPETable(Bool(false), UInt(0), UInt(0), UInt(0), UInt(0), UInt(0), UInt(0),
-    UInt(0), UInt(0), UInt(0), UInt(0), UInt(0))
+    UInt(0), UInt(0), UInt(0), UInt(0), UInt(0), UInt(0))
   // io.regFile defaults
   io.regFile.req.valid := Bool(false)
   io.regFile.req.bits.tIdx := UInt(0)
@@ -150,7 +157,8 @@ class Control extends DanaModule {
         io.tTable.resp.bits.field := e_TTABLE_CACHE_VALID
         io.tTable.resp.bits.data(0) := io.cache.resp.bits.data(0)
         io.tTable.resp.bits.data(1) := io.cache.resp.bits.data(1)
-        io.tTable.resp.bits.data(2) := io.cache.resp.bits.cacheIndex
+        io.tTable.resp.bits.data(2) := io.cache.resp.bits.cacheIndex ##
+          io.cache.resp.bits.data(2)(errorFunctionWidth - 1,0)
         io.tTable.resp.bits.decimalPoint := io.cache.resp.bits.decimalPoint
       }
       is (e_CACHE_LAYER) {
@@ -163,7 +171,9 @@ class Control extends DanaModule {
         // is the last layer, but I don't think it's hurting anything.
         io.regFile.req.valid := Bool(true)
         io.regFile.req.bits.tIdx := io.cache.resp.bits.tableIndex
-        when() && io.tTable.req.bits.stateLearn === e_TTABLE_STATE_LEARN_FEEDFORWARD){
+        // [TODO] This won't work as the tTable data is no longer
+        // valid when the cache response comes back.
+        when(io.cache.resp.bits.inLastLearn && io.tTable.req.bits.stateLearn === e_TTABLE_STATE_LEARN_FEEDFORWARD){
           io.regFile.req.bits.totalWrites := UInt(2)*io.cache.resp.bits.data(0)
         } .otherwise {
            io.regFile.req.bits.totalWrites := io.cache.resp.bits.data(0)
@@ -185,14 +195,18 @@ class Control extends DanaModule {
       // Send a request to the cache
       reqCache(Bool(true), e_CACHE_LOAD, io.tTable.req.bits.asid,
         io.tTable.req.bits.nnid, io.tTable.req.bits.tableIndex,
-        io.tTable.req.bits.coreIdx, UInt(0), UInt(0))
+        io.tTable.req.bits.coreIdx, UInt(0), UInt(0), Bool(false))
     }
       .elsewhen (io.tTable.req.bits.cacheValid && io.tTable.req.bits.needsLayerInfo) {
       // Send a request to the storage module
+      val inLastLearn = (io.tTable.req.bits.inLastEarly) &&
+        (io.tTable.req.bits.stateLearn === e_TTABLE_STATE_LEARN_FEEDFORWARD)
+      printf("[INFO] Control: TTable layer req inLastEarly/state/inLastLearn 0x%x/0x%x/0x%x\n",
+        io.tTable.req.bits.inLastEarly, io.tTable.req.bits.stateLearn, inLastLearn)
       reqCache(Bool(true), e_CACHE_LAYER_INFO, io.tTable.req.bits.asid,
         io.tTable.req.bits.nnid, io.tTable.req.bits.tableIndex,
         io.tTable.req.bits.coreIdx, io.tTable.req.bits.currentLayer,
-        io.tTable.req.bits.currentLayer(0))
+        io.tTable.req.bits.currentLayer(0), inLastLearn)
     }
     // If this entry is done, then its cache entry needs to be invalidated
       .elsewhen (io.tTable.req.bits.isDone) {
@@ -200,7 +214,7 @@ class Control extends DanaModule {
       // _may_ be needed to close out any final cache updates.
       reqCache(Bool(true), e_CACHE_DECREMENT_IN_USE_COUNT,
         io.tTable.req.bits.asid, io.tTable.req.bits.nnid,
-        UInt(0), UInt(0), UInt(0), UInt(0))
+        UInt(0), UInt(0), UInt(0), UInt(0), Bool(false))
     }
       .elsewhen (io.tTable.req.bits.cacheValid && !io.tTable.req.bits.needsLayerInfo &&
       io.peTable.req.ready) {
@@ -220,7 +234,7 @@ class Control extends DanaModule {
         // used to pass an _additional_ register file address used for
         // learning
         io.tTable.req.bits.currentNodeInLayer,
-        //Error address in LERAN_FEEDFORWARD state means the address used to save 
+        //Error address in LERAN_FEEDFORWARD state means the address used to save
         //the calculated error values
         io.tTable.req.bits.regFileAddrErr+io.tTable.req.bits.currentNodeInLayer,
         // The neuron pointer is going to be the base pointer that
@@ -232,6 +246,8 @@ class Control extends DanaModule {
           (io.tTable.req.bits.currentNodeInLayer << UInt(3)),
         // Pass along the decimal point
         io.tTable.req.bits.decimalPoint, // decimalPoint
+        // Pass along the error function
+        io.tTable.req.bits.errorFunction,
         // Communicate the "location" which eventually the Register
         // File will use to determine which of two locations is the
         // "writeCount" for the current layer vs. the next layer
