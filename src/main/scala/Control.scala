@@ -173,7 +173,7 @@ class Control extends DanaModule {
         io.regFile.req.bits.tIdx := io.cache.resp.bits.tableIndex
         // [TODO] This won't work as the tTable data is no longer
         // valid when the cache response comes back.
-        when(io.cache.resp.bits.inLastLearn && io.tTable.req.bits.stateLearn === e_TTABLE_STATE_LEARN_FEEDFORWARD){
+        when(io.cache.resp.bits.inLastLearn){
           io.regFile.req.bits.totalWrites := UInt(2)*io.cache.resp.bits.data(0)
         } .otherwise {
            io.regFile.req.bits.totalWrites := io.cache.resp.bits.data(0)
