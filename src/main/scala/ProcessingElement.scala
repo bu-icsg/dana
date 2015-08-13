@@ -63,16 +63,29 @@ class ProcessingElement extends DanaModule {
   // Local state storage. Any and all of these are possible kludges
   // which could be implemented more cleanly.
   val hasBias = Reg(Bool())
+  val steepness = UInt(width = elementWidth)
+  val decimal = UInt(decimalPointOffset, width = decimalPointWidth + 1) + io.req.bits.decimalPoint
 
+  def applySteepness(x: SInt, steepness: UInt): SInt = {
+    val tmp = SInt()
+    when (steepness < UInt(steepnessOffset)) {
+      tmp := x >> (UInt(steepnessOffset) - steepness)
+    } .elsewhen (steepness === UInt(steepnessOffset)) {
+      tmp := x
+    } .otherwise {
+      tmp := x << (steepness - UInt(steepnessOffset))
+    }
+    tmp
+  }
 
   // Default values
   acc := acc
+  derivative := derivative
   io.req.ready := Bool(false)
   io.resp.valid := Bool(false)
   io.resp.bits.state := state
   io.resp.bits.index := io.req.bits.index
   io.resp.bits.data := dataOut
-  io.resp.bits.delta := derivative
   io.resp.bits.error := errorOut
   index := index
   // Activation function unit default values
@@ -135,39 +148,43 @@ class ProcessingElement extends DanaModule {
     is (e_PE_ACTIVATION_FUNCTION) {
       af.io.req.valid := Bool(true)
       af.io.req.bits.in := acc
+      af.io.req.bits.afType := e_AF_DO_ACTIVATION_FUNCTION
       state := Mux(af.io.resp.valid, Mux(io.req.bits.inLast &&
         io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_FEEDFORWARD,
         e_PE_REQUEST_EXPECTED_OUTPUT, e_PE_DONE), state)
       dataOut := Mux(af.io.resp.valid, af.io.resp.bits.out, dataOut)
-      when(af.io.resp.valid){
+      when (af.io.resp.valid && io.req.bits.inLast &&
+        io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_FEEDFORWARD) {
         switch (io.req.bits.activationFunction) {
+          // [TODO] negative shifts, probably broken!
+          printf("[INFO] PE: decimal point is 0x%x\n", decimal)
           is(e_FANN_LINEAR) {
-            derivative := steepness
+            derivative := SInt(1) << (io.req.bits.steepness - UInt(steepnessOffset))
             printf("[INFO] PE: derivative and steepness is set to 0x%x and 0x%x\n", steepness, steepness)
           }
           is(e_FANN_SIGMOID) {
-            derivative := (UInt(2) * ((af.io.resp.bits.out * (SInt(1) - af.io.resp.bits.out)) >> decimal) >> steepness)
-            printf("[INFO] PE: derivative and steepness is set to 0x%x and 0x%x\n",
-              (UInt(2) * steepness * ((af.io.resp.bits.out * (SInt(1) - af.io.resp.bits.out)) >> decimal) >> steepness), steepness)
+            derivative := (((af.io.resp.bits.out * ((SInt(1) << decimal) - af.io.resp.bits.out)) >> (decimal + UInt(steepnessOffset) - io.req.bits.steepness - UInt(1))))
+            printf("[INFO] PE: derivative is set to 0x%x\n",
+              (((af.io.resp.bits.out * ((SInt(1) << decimal) - af.io.resp.bits.out)) >> (decimal + UInt(steepnessOffset) - io.req.bits.steepness - UInt(1)))))
           }
           is(e_FANN_SIGMOID_STEPWISE) {
-            derivative := (UInt(2) * ((af.io.resp.bits.out * (SInt(1) - af.io.resp.bits.out)) >> decimal) >> steepness)
-            printf("[INFO] PE: derivative and steepness is set to 0x%x and 0x%x\n",
-              (UInt(2) * steepness * ((af.io.resp.bits.out * (SInt(1) - af.io.resp.bits.out)) >> decimal) >> steepness), steepness)
+            derivative := (((af.io.resp.bits.out * ((SInt(1) << decimal) - af.io.resp.bits.out)) >> (decimal + UInt(steepnessOffset) - io.req.bits.steepness - UInt(1))))
+            printf("[INFO] PE: derivative is set to 0x%x\n",
+              (((af.io.resp.bits.out * ((SInt(1) << decimal) - af.io.resp.bits.out)) >> (decimal + UInt(steepnessOffset) - io.req.bits.steepness - UInt(1)))))
           }
           is(e_FANN_SIGMOID_SYMMETRIC) {
-            derivative := (steepness * ((UInt(1) - (af.io.resp.bits.out * af.io.resp.bits.out)) >> decimal) >> steepness)
-            printf("[INFO] PE: derivative and steepness is set to 0x%x and 0x%x\n",
-              (steepness * ((UInt(1) - (af.io.resp.bits.out * af.io.resp.bits.out)) >> decimal) >> steepness), steepness)
+            // [TODO] shift by steepness possibly broken if "steepness" is negative
+            derivative := (UInt(1) << decimal) - ((af.io.resp.bits.out * af.io.resp.bits.out) >> decimal << (io.req.bits.steepness - UInt(steepnessOffset)))
+            printf("[INFO] PE: derivative is set to 0x%x\n",
+              (UInt(1) << decimal) - ((af.io.resp.bits.out * af.io.resp.bits.out) >> decimal << (io.req.bits.steepness - UInt(steepnessOffset))))
           }
-          is(e_FANN_SGIMOID_SYMMETRIC_STEPWISE) {
-            derivative := (steepness * ((UInt(1) - (af.io.resp.bits.out * af.io.resp.bits.out)) >> decimal) >> steepness)
-            printf("[INFO] PE: derivative and steepness is set to 0x%x and 0x%x\n",
-              (steepness * ((UInt(1) - (af.io.resp.bits.out * af.io.resp.bits.out)) >> decimal) >> steepness), steepness)
+          is(e_FANN_SIGMOID_SYMMETRIC_STEPWISE) {
+            derivative := (UInt(1) << decimal) - ((af.io.resp.bits.out * af.io.resp.bits.out) >> decimal << (io.req.bits.steepness - UInt(steepnessOffset)))
+            printf("[INFO] PE: derivative is set to 0x%x\n",
+              (UInt(1) << decimal) - ((af.io.resp.bits.out * af.io.resp.bits.out) >> decimal << (io.req.bits.steepness - UInt(steepnessOffset))))
           }
         }
       }
-      af.io.req.bits.afType := e_AF_DO_ACTIVATION_FUNCTION
     }
     is (e_PE_REQUEST_EXPECTED_OUTPUT) {
       state := Mux(io.req.valid, e_PE_WAIT_FOR_EXPECTED_OUTPUT, state)
@@ -177,11 +194,21 @@ class ProcessingElement extends DanaModule {
       state := Mux(io.req.valid, e_PE_COMPUTE_ERROR, state)
     }
     is (e_PE_COMPUTE_ERROR) {
-      errorOut := (dataOut - io.req.bits.learnReg)>>UInt(1)
-      mse := ((dataOut - io.req.bits.learnReg)>>UInt(1))*((dataOut - io.req.bits.learnReg)>>UInt(1))
-      printf("[INFO] PE: errorOut and Error square set to 0x%x and  0x%x\n",
-        (dataOut - io.req.bits.learnReg)>>UInt(1),
-        ((dataOut  - io.req.bits.learnReg)>>UInt(1))*((dataOut  - io.req.bits.learnReg)>>UInt(1)))
+      // Divide by 2 should be conditional on being in a symmetric
+      when (io.req.bits.activationFunction === e_FANN_SIGMOID_SYMMETRIC ||
+        io.req.bits.activationFunction === e_FANN_SIGMOID_SYMMETRIC_STEPWISE) {
+        errorOut := (dataOut - io.req.bits.learnReg) >> UInt(1)
+        mse := (((dataOut - io.req.bits.learnReg) >> UInt(1)) * ((dataOut - io.req.bits.learnReg) >> UInt(1))) >> decimal
+        printf("[INFO] PE: errorOut and Error square set to 0x%x and  0x%x\n",
+          (dataOut - io.req.bits.learnReg) >> UInt(1),
+          (((dataOut - io.req.bits.learnReg) >> UInt(1)) * ((dataOut - io.req.bits.learnReg) >> UInt(1))) >> decimal)
+      } .otherwise {
+        errorOut := dataOut - io.req.bits.learnReg
+        mse := (((dataOut - io.req.bits.learnReg)) * ((dataOut - io.req.bits.learnReg))) >> decimal
+        printf("[INFO] PE: errorOut and Error square set to 0x%x and  0x%x\n",
+          dataOut - io.req.bits.learnReg,
+          (((dataOut - io.req.bits.learnReg)) * ((dataOut - io.req.bits.learnReg))) >> decimal)
+      }
       state := e_PE_ERROR_FUNCTION
     }
     is (e_PE_ERROR_FUNCTION) {
@@ -192,7 +219,9 @@ class ProcessingElement extends DanaModule {
       errorOut := Mux(af.io.resp.valid, af.io.resp.bits.out, errorOut)
     }
     is(e_PE_COMPUTE_ERROR_WRITE_BACK){
-      printf("[INFO] PE sees error function output 0x%x\n", errorOut)
+      errorOut := (derivative * errorOut) >> decimal
+      printf("[INFO] PE sees errFn/(errFn*derivative) 0x%x/0x%x\n", errorOut,
+        (derivative * errorOut) >> decimal)
       state := Mux(io.req.valid, e_PE_DONE, state)
       io.resp.valid := Bool(true)
     }

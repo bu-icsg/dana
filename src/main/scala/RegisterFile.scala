@@ -87,6 +87,8 @@ class RegisterFile extends DanaModule {
     state(tIdx << UInt(1) | location).totalWrites :=
       io.control.req.bits.totalWrites
     state(tIdx << UInt(1) | location).countWrites := UInt(0)
+    printf("[INFO] RegFile: Control req tIdx/location/totalWrites 0x%x/0x%x/0x%x\n",
+      tIdx, location, io.control.req.bits.totalWrites)
   }
 
   // Requests form the Transaction Table

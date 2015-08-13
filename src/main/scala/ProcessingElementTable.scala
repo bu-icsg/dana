@@ -77,6 +77,8 @@ class ProcessingElementState extends DanaBundle {
     log2Up(elementWidth * elementsPerBlock * cacheNumBlocks))
   val weightPtr = UInt(width = // weight_pointer
     log2Up(elementWidth * elementsPerBlock * cacheNumBlocks))
+  val weightPtrPermanent = UInt(width = // weight_pointer
+    log2Up(elementWidth * elementsPerBlock * cacheNumBlocks))
   val decimalPoint = UInt(width = decimalPointWidth) // decimal_point
   val inBlock = UInt(width = bitsPerBlock) // input_block
   val weightBlock = UInt(width = bitsPerBlock) //weight_block
@@ -208,6 +210,7 @@ class ProcessingElementTable extends DanaModule {
         // widthSteepness.
         indexIntoData := io.cache.resp.bits.indexIntoData
         table(peIndex).weightPtr := cacheRespVec(indexIntoData).weightPtr
+        table(peIndex).weightPtrPermanent := cacheRespVec(indexIntoData).weightPtr
         table(peIndex).numWeights :=
           cacheRespVec(indexIntoData).numWeights + UInt(elementsPerBlock)
         table(peIndex).activationFunction :=
