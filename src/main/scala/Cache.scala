@@ -167,6 +167,7 @@ class Cache extends DanaModule {
   controlRespPipe(0).bits.decimalPoint := UInt(0)
   controlRespPipe(0).bits.field := UInt(0)
   controlRespPipe(0).bits.location := UInt(0)
+  controlRespPipe(0).bits.inLastLearn := Bool(false)
 
   peRespPipe(0).valid := Bool(false)
   peRespPipe(0).bits.field := UInt(0)
@@ -267,6 +268,7 @@ class Cache extends DanaModule {
           io.control.req.bits.layer(log2Up(elementsPerBlock)-1,0)
         controlRespPipe(0).bits.location := io.control.req.bits.location
         controlRespPipe(0).bits.cacheIndex := derefNnid
+        controlRespPipe(0).bits.inLastLearn := io.control.req.bits.inLastLearn
 
         // Read the layer information from the correct block. A layer
         // occupies one block, so we need to pull the block address

@@ -14,7 +14,12 @@ class TransactionState extends XFilesBundle {
   val decInUse = Bool()
   val request = Bool()
   val inFirst = Bool()
+  // There are two "in the last layer" bits. The first, "inLast",
+  // asserts when all PEs in the previous layer are done. The latter,
+  // "inLastEarly", asserts as soon as all PEs in the previous layer
+  // have been assigned.
   val inLast = Bool()
+  val inLastEarly = Bool()
   val transactionType = UInt(width = log2Up(3)) // [TODO] fragile
   val stateLearn = UInt(width = log2Up(7)) // [TODO] fragile
   // output_layer should be unused according to types.vh
@@ -55,6 +60,7 @@ class ControlReq extends XFilesBundle {
   val request = Bool()
   val inFirst = Bool()
   val inLast = Bool()
+  val inLastEarly = Bool()
   // Global info
   val tableIndex = UInt(width = log2Up(transactionTableNumEntries))
   val cacheIndex = UInt(width = log2Up(cacheNumEntries))
@@ -225,6 +231,7 @@ class TransactionTable extends XFilesModule {
         table(nextFree).needsLayerInfo := Bool(true)
         table(nextFree).inFirst := Bool(true)
         table(nextFree).inLast := Bool(false)
+        table(nextFree).inLastEarly := Bool(false)
         table(nextFree).transactionType := cmd.transactionType
         when (cmd.transactionType === e_TTYPE_INCREMENTAL ||
           cmd.transactionType === e_TTYPE_BATCH) {
@@ -411,43 +418,44 @@ class TransactionTable extends XFilesModule {
             nicl(log2Up(elementsPerBlock)-1, 0)
           val round = Mux(niclLSBs != UInt(0), UInt(elementsPerBlock), UInt(0))
           table(tIdx).regFileAddrIn := table(tIdx).regFileAddrOut
-          when(table(tIdx).currentLayer === table(tIdx).numLayers - UInt(1) && table(tIdx).stateLearn === e_TTABLE_STATE_LEARN_FEEDFORWARD){
-            table(tIdx).regFileAddrErr := table(tIdx).regFileAddrOut + UInt(2) * (niclMSBs +
-            round)
+          when(table(tIdx).currentLayer === table(tIdx).numLayers - UInt(1) &&
+            table(tIdx).stateLearn === e_TTABLE_STATE_LEARN_FEEDFORWARD){
+            table(tIdx).regFileAddrErr := table(tIdx).regFileAddrOut + UInt(2) *
+            (niclMSBs + round)
           }.otherwise{
             table(tIdx).regFileAddrErr := table(tIdx).regFileAddrOut
           }
           table(tIdx).regFileAddrOut := table(tIdx).regFileAddrOut + niclMSBs +
             round
-          
+
 
           printf("[INFO] TTable: Updating cache layer...\n")
-          printf("[INFO]   total layers:            0x%x\n",
+          printf("[INFO]   total layers:               0x%x\n",
             table(tIdx).numLayers)
-          printf("[INFO]   layer is:                0x%x\n",
+          printf("[INFO]   layer is:                   0x%x\n",
             table(tIdx).currentLayer)
-          printf("[INFO]   in first/in last?        0x%x/0x%x\n",
-            table(tIdx).currentLayer === UInt(0),
-            table(tIdx).currentLayer === table(tIdx).numLayers - UInt(1))
-          printf("[INFO]   neuron pointer:          0x%x\n",
+          printf("[INFO]   inFirst/inLast/inLastEarly: 0x%x/0x%x/0x%x\n",
+            table(tIdx).inFirst, table(tIdx).inLast, table(tIdx).inLastEarly)
+          printf("[INFO]   neuron pointer:             0x%x\n",
             io.control.resp.bits.data(2))
-          printf("[INFO]   nodes in current layer:  0x%x\n",
+          printf("[INFO]   nodes in current layer:     0x%x\n",
             io.control.resp.bits.data(0))
-          printf("[INFO]   nodes in previous layer: 0x%x\n",
+          printf("[INFO]   nodes in previous layer:    0x%x\n",
             table(tIdx).nodesInCurrentLayer)
-          printf("[INFO]   nicl:                    0x%x\n", nicl)
-          printf("[INFO]   niclMSBs:                0x%x\n", niclMSBs)
-          printf("[INFO]   niclLSBs:                0x%x\n", niclLSBs)
-          printf("[INFO]   round:                   0x%x\n", round)
-          printf("[INFO]   regFileAddrIn:           0x%x\n",
+          printf("[INFO]   nicl:                       0x%x\n", nicl)
+          printf("[INFO]   niclMSBs:                   0x%x\n", niclMSBs)
+          printf("[INFO]   niclLSBs:                   0x%x\n", niclLSBs)
+          printf("[INFO]   round:                      0x%x\n", round)
+          printf("[INFO]   regFileAddrIn:              0x%x\n",
             table(tIdx).regFileAddrOut)
-          printf("[INFO]   regFileAddrOut:          0x%x\n",
+          printf("[INFO]   regFileAddrOut:             0x%x\n",
             table(tIdx).regFileAddrOut +  niclMSBs + round)
-          when(table(tIdx).currentLayer === table(tIdx).numLayers - UInt(1) && table(tIdx).stateLearn === e_TTABLE_STATE_LEARN_FEEDFORWARD){
-           printf("[INFO]   regFileAddrErr:          0x%x\n",
+          when(table(tIdx).currentLayer === table(tIdx).numLayers - UInt(1) &&
+            table(tIdx).stateLearn === e_TTABLE_STATE_LEARN_FEEDFORWARD){
+           printf("[INFO]   regFileAddrErr:             0x%x\n",
             table(tIdx).regFileAddrOut +  UInt(2) * (niclMSBs + round))
           }
-           
+
         }
       }
     }
@@ -456,29 +464,26 @@ class TransactionTable extends XFilesModule {
     // overwrite that of the e_TTABLE_LAYER.
     when (io.control.resp.bits.layerValid) {
       val tIdx = io.control.resp.bits.layerValidIndex
-      table(tIdx).inLast :=
-        table(tIdx).currentLayer === table(tIdx).numLayers - UInt(1)
+      val inLastOld = table(tIdx).inLast
+      val inLastNew = table(tIdx).currentLayer === (table(tIdx).numLayers - UInt(1))
+      table(tIdx).inLast := inLastNew
+      printf("[INFO] TTable: RegFile has all outputs of tIdx 0x%x\n",
+        io.control.resp.bits.layerValidIndex)
+      printf("[INFO]   inFirst/inLast/inLastEarly: 0x%x/0x%x->0x%x/0x%x\n",
+        table(tIdx).inFirst, inLastOld, inLastNew, table(tIdx).inLastEarly)
       switch (table(tIdx).transactionType) {
         is (e_TTYPE_FEEDFORWARD) {
-          when (!table(tIdx).inLast) {
+          when (!inLastOld) {
             table(tIdx).waiting := Bool(false)
-            printf("[INFO] TTable: RegFile has all data for layer of tIdx 0x%x\n",
-              io.control.resp.bits.layerValidIndex)
-            printf("[INFO]   inFirst/inLast?: 0x%x/0x%x\n",
-              table(tIdx).inFirst, table(tIdx).inLast)
           } .otherwise {
             table(tIdx).decInUse := Bool(true)
             table(tIdx).waiting := Bool(false)
-            printf("[INFO] TTable: RegFile has all outputs of tIdx 0x%x\n",
-              io.control.resp.bits.layerValidIndex)
-            printf("[INFO]   inFirst/inLast?: 0x%x/0x%x\n",
-              table(tIdx).inFirst, table(tIdx).inLast)
           }
         }
         is (e_TTYPE_INCREMENTAL) {
           switch (table(tIdx).stateLearn) {
             is (e_TTABLE_STATE_LEARN_FEEDFORWARD) {
-              when (!table(tIdx).inLast) {
+              when (!inLastOld) {
                 table(tIdx).waiting := Bool(false)
               } .otherwise {
                 table(tIdx).stateLearn := e_TTABLE_STATE_ERROR
@@ -528,6 +533,7 @@ class TransactionTable extends XFilesModule {
     entryArbiter.io.in(i).bits.request := table(i).request
     entryArbiter.io.in(i).bits.inFirst := table(i).inFirst
     entryArbiter.io.in(i).bits.inLast := table(i).inLast
+    entryArbiter.io.in(i).bits.inLastEarly := table(i).inLastEarly
     entryArbiter.io.in(i).bits.isDone := table(i).decInUse
     // Global info
     entryArbiter.io.in(i).bits.tableIndex := UInt(i)
@@ -570,50 +576,46 @@ class TransactionTable extends XFilesModule {
   // but I'm leaving this the way it is due to the lack of a
   // non-trivial path to add this functionality.
   when (isCacheReq) {
-    table(entryArbiter.io.out.bits.tableIndex).waiting := Bool(true)
+    val tIdx = entryArbiter.io.out.bits.tableIndex
+    table(tIdx).waiting := Bool(true)
     when (entryArbiter.io.out.bits.isDone) {
       printf("[INFO] TTable entry for ASID/TID %x/%x is done\n",
-        table(entryArbiter.io.out.bits.tableIndex).asid,
-        table(entryArbiter.io.out.bits.tableIndex).tid);
-      table(entryArbiter.io.out.bits.tableIndex).done := Bool(true)
+        table(tIdx).asid, table(tIdx).tid);
+      table(tIdx).done := Bool(true)
     }
   }
   when (isPeReq) {
-    table(entryArbiter.io.out.bits.tableIndex).currentNode :=
-      table(entryArbiter.io.out.bits.tableIndex).currentNode + UInt(1)
+    val tIdx = entryArbiter.io.out.bits.tableIndex
+    table(tIdx).currentNode := table(tIdx).currentNode + UInt(1)
     // [TODO] This currentNodeInLayer is always incremented and I
     // think this is okay as the value will be reset when a Layer
     // Info request gets serviced.
-    table(entryArbiter.io.out.bits.tableIndex).currentNodeInLayer :=
-      table(entryArbiter.io.out.bits.tableIndex).currentNodeInLayer + UInt(1)
+    table(tIdx).currentNodeInLayer := table(tIdx).currentNodeInLayer + UInt(1)
     // [TODO] I can either set inFirst/inLast here or when layer data
     // comes back from the Cache. The latter approach is problematic
     // as I'm still processing data from the previous layer, but this
     // bit has been updated as if we're in the last layer.
     // Consequently, I think it makes sense to only set inLast here.
-    table(entryArbiter.io.out.bits.tableIndex).inFirst :=
-      table(entryArbiter.io.out.bits.tableIndex).currentLayer === UInt(0)
-    // [TODO] This seems to indicate that inLast won't be set properly
-    // for the first PE assignment? Is this correct?
-    // table(entryArbiter.io.out.bits.tableIndex).inLast :=
-    //   table(entryArbiter.io.out.bits.tableIndex).currentLayer ===
-    //   table(entryArbiter.io.out.bits.tableIndex).numLayers - UInt(1)
-    // If we're at the end of a layer, we need new layer
-    // information
-    when(table(entryArbiter.io.out.bits.tableIndex).currentNodeInLayer ===
-      // The comparison here differs from how this is handled in
-      // nn_instruction.v.
-      table(entryArbiter.io.out.bits.tableIndex).nodesInCurrentLayer - UInt(1) &&
-      table(entryArbiter.io.out.bits.tableIndex).currentLayer <
-      table(entryArbiter.io.out.bits.tableIndex).numLayers - UInt(1)
-    ) {
-      table(entryArbiter.io.out.bits.tableIndex).needsLayerInfo := Bool(true)
-      table(entryArbiter.io.out.bits.tableIndex).currentLayer :=
-        table(entryArbiter.io.out.bits.tableIndex).currentLayer + UInt(1)
+    table(tIdx).inFirst := table(tIdx).currentLayer === UInt(0)
+    // If we're at the end of a layer, we need new layer information
+    // The comparison here differs from how this is handled in
+    // nn_instruction.v.
+    when((table(tIdx).currentNodeInLayer ===
+      table(tIdx).nodesInCurrentLayer - UInt(1)) &&
+      (table(tIdx).currentLayer < (table(tIdx).numLayers - UInt(1)))) {
+
+      table(tIdx).needsLayerInfo := Bool(true)
+      table(tIdx).currentLayer := table(tIdx).currentLayer + UInt(1)
+      // inLastEarly will assert as soon as the last PE Request goes
+      // out. This is useful if you need something that goes high at
+      // the earliest possible definition of "being in the last
+      // layer", e.g., when generating a request for the next layer
+      // information.
+      table(tIdx).inLastEarly :=
+        table(tIdx).currentLayer === (table(tIdx).numLayers - UInt(2))
     } .otherwise {
-      table(entryArbiter.io.out.bits.tableIndex).needsLayerInfo := Bool(false)
-      table(entryArbiter.io.out.bits.tableIndex).currentLayer :=
-        table(entryArbiter.io.out.bits.tableIndex).currentLayer
+      table(tIdx).needsLayerInfo := Bool(false)
+      table(tIdx).currentLayer := table(tIdx).currentLayer
     }}
 
   // Reset Condition
