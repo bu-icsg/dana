@@ -163,7 +163,7 @@ class Control extends DanaModule {
         // is the last layer, but I don't think it's hurting anything.
         io.regFile.req.valid := Bool(true)
         io.regFile.req.bits.tIdx := io.cache.resp.bits.tableIndex
-        when(io.tTable.req.bits.inLast === Bool(true) && io.tTable.req.bits.stateLearn === e_TTABLE_STATE_LEARN_FEEDFORWARD){
+        when() && io.tTable.req.bits.stateLearn === e_TTABLE_STATE_LEARN_FEEDFORWARD){
           io.regFile.req.bits.totalWrites := UInt(2)*io.cache.resp.bits.data(0)
         } .otherwise {
            io.regFile.req.bits.totalWrites := io.cache.resp.bits.data(0)

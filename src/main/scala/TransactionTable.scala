@@ -427,7 +427,7 @@ class TransactionTable extends XFilesModule {
             table(tIdx).regFileAddrOut)
           printf("[INFO]   regFileAddrOut:          0x%x\n",
             table(tIdx).regFileAddrOut +  niclMSBs + round)
-          when(table(tIdx).currentLayer === table(tIdx).numLayers - UInt(1) && table(tIdx).stateLearn === e_TTABLE_STATE_LEARN_FEEDFORWARD){
+          when(table(tIdx).currentLayer === table(tIdx).numLayers - UInt(1)  && table(tIdx).stateLearn === e_TTABLE_STATE_LEARN_FEEDFORWARD){
            printf("[INFO]   regFileAddrErr:          0x%x\n",
             table(tIdx).regFileAddrOut +  UInt(2) * (niclMSBs + round))
           }
