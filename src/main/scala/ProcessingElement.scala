@@ -1,3 +1,4 @@
+
 package dana
 
 import Chisel._
@@ -74,7 +75,14 @@ class ProcessingElement extends DanaModule {
   io.resp.bits.delta := derivative
   io.resp.bits.error := errorOut
   index := index
+  // Activation function unit default values
   af.io.req.valid := Bool(false)
+  af.io.req.bits.in := UInt(0)
+  af.io.req.bits.decimal := io.req.bits.decimalPoint
+  af.io.req.bits.steepness := io.req.bits.steepness
+  af.io.req.bits.afType := e_AF_DO_ACTIVATION_FUNCTION
+  af.io.req.bits.activationFunction := io.req.bits.activationFunction
+  af.io.req.bits.errorFunction := io.req.bits.errorFunction
 
   // State-driven logic
   switch (state) {
@@ -91,6 +99,7 @@ class ProcessingElement extends DanaModule {
       hasBias := Bool(false)
     }
     is (e_PE_GET_INFO) {
+      dataOut := UInt(0)
       state := Mux(io.req.valid, e_PE_WAIT_FOR_INFO, state)
       io.resp.valid := Bool(true)
     }
@@ -125,28 +134,40 @@ class ProcessingElement extends DanaModule {
     }
     is (e_PE_ACTIVATION_FUNCTION) {
       af.io.req.valid := Bool(true)
+      af.io.req.bits.in := acc
+      state := Mux(af.io.resp.valid, Mux(io.req.bits.inLast &&
+        io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_FEEDFORWARD,
+        e_PE_REQUEST_EXPECTED_OUTPUT, e_PE_DONE), state)
+      dataOut := Mux(af.io.resp.valid, af.io.resp.bits.out, dataOut)
       when(af.io.resp.valid){
-        dataOut := af.io.resp.bits.out
-        when(io.req.bits.inLast && io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_FEEDFORWARD){
-          state :=  e_PE_REQUEST_EXPECTED_OUTPUT
-          when(io.req.bits.activationFunction === e_FANN_LINEAR){
+        switch (io.req.bits.activationFunction) {
+          is(e_FANN_LINEAR) {
             derivative := steepness
-            printf("[INFO] PE: derivative set to 0x%x\n", io.req.bits.steepness)
-          } .elsewhen(io.req.bits.activationFunction === e_FANN_SIGMOID ||
-            io.req.bits.activationFunction === e_FANN_SIGMOID_STEPWISE){
-            derivative := (UInt(2) * ((af.io.resp.bits.out * (SInt(1) - af.io.resp.bits.out)) >> decimal) >> steepness)
-            printf("[INFO] PE: derivative set to 0x%x\n", (UInt(2) * ((af.io.resp.bits.out * (SInt(1) - af.io.resp.bits.out)) >> decimal) >> steepness))
-          } .otherwise {
-            derivative := (steepness * ((UInt(1) - (af.io.resp.bits.out * af.io.resp.bits.out)) >> decimal) >> steepness)
-            printf("[INFO] PE: derivative set to 0x%x\n",
-              (steepness * ((UInt(1) - (af.io.resp.bits.out * af.io.resp.bits.out)) >> decimal) >> steepness))
+            printf("[INFO] PE: derivative and steepness is set to 0x%x and 0x%x\n", steepness, steepness)
           }
-        } .otherwise {
-          state := e_PE_DONE
+          is(e_FANN_SIGMOID) {
+            derivative := (UInt(2) * ((af.io.resp.bits.out * (SInt(1) - af.io.resp.bits.out)) >> decimal) >> steepness)
+            printf("[INFO] PE: derivative and steepness is set to 0x%x and 0x%x\n",
+              (UInt(2) * steepness * ((af.io.resp.bits.out * (SInt(1) - af.io.resp.bits.out)) >> decimal) >> steepness), steepness)
+          }
+          is(e_FANN_SIGMOID_STEPWISE) {
+            derivative := (UInt(2) * ((af.io.resp.bits.out * (SInt(1) - af.io.resp.bits.out)) >> decimal) >> steepness)
+            printf("[INFO] PE: derivative and steepness is set to 0x%x and 0x%x\n",
+              (UInt(2) * steepness * ((af.io.resp.bits.out * (SInt(1) - af.io.resp.bits.out)) >> decimal) >> steepness), steepness)
+          }
+          is(e_FANN_SIGMOID_SYMMETRIC) {
+            derivative := (steepness * ((UInt(1) - (af.io.resp.bits.out * af.io.resp.bits.out)) >> decimal) >> steepness)
+            printf("[INFO] PE: derivative and steepness is set to 0x%x and 0x%x\n",
+              (steepness * ((UInt(1) - (af.io.resp.bits.out * af.io.resp.bits.out)) >> decimal) >> steepness), steepness)
+          }
+          is(e_FANN_SGIMOID_SYMMETRIC_STEPWISE) {
+            derivative := (steepness * ((UInt(1) - (af.io.resp.bits.out * af.io.resp.bits.out)) >> decimal) >> steepness)
+            printf("[INFO] PE: derivative and steepness is set to 0x%x and 0x%x\n",
+              (steepness * ((UInt(1) - (af.io.resp.bits.out * af.io.resp.bits.out)) >> decimal) >> steepness), steepness)
+          }
         }
-      } .otherwise {
-        state := state
       }
+      af.io.req.bits.afType := e_AF_DO_ACTIVATION_FUNCTION
     }
     is (e_PE_REQUEST_EXPECTED_OUTPUT) {
       state := Mux(io.req.valid, e_PE_WAIT_FOR_EXPECTED_OUTPUT, state)
@@ -159,10 +180,19 @@ class ProcessingElement extends DanaModule {
       errorOut := (dataOut - io.req.bits.learnReg)>>UInt(1)
       mse := ((dataOut - io.req.bits.learnReg)>>UInt(1))*((dataOut - io.req.bits.learnReg)>>UInt(1))
       printf("[INFO] PE: errorOut and Error square set to 0x%x and  0x%x\n",
-        (dataOut - io.req.bits.learnReg)>>UInt(1),((dataOut  - io.req.bits.learnReg)>>UInt(1))*((dataOut  - io.req.bits.learnReg)>>UInt(1)))
-      state := e_PE_COMPUTE_ERROR_WRITE_BACK
+        (dataOut - io.req.bits.learnReg)>>UInt(1),
+        ((dataOut  - io.req.bits.learnReg)>>UInt(1))*((dataOut  - io.req.bits.learnReg)>>UInt(1)))
+      state := e_PE_ERROR_FUNCTION
+    }
+    is (e_PE_ERROR_FUNCTION) {
+      af.io.req.valid := Bool(true)
+      af.io.req.bits.in := errorOut
+      af.io.req.bits.afType := e_AF_DO_ERROR_FUNCTION
+      state := Mux(af.io.resp.valid, e_PE_COMPUTE_ERROR_WRITE_BACK, state)
+      errorOut := Mux(af.io.resp.valid, af.io.resp.bits.out, errorOut)
     }
     is(e_PE_COMPUTE_ERROR_WRITE_BACK){
+      printf("[INFO] PE sees error function output 0x%x\n", errorOut)
       state := Mux(io.req.valid, e_PE_DONE, state)
       io.resp.valid := Bool(true)
     }
@@ -203,13 +233,6 @@ class ProcessingElement extends DanaModule {
       index := index + UInt(1)
     }
   }
-
-  af.io.req.bits.in := acc
-  af.io.req.bits.decimal := io.req.bits.decimalPoint
-  af.io.req.bits.steepness := io.req.bits.steepness
-  af.io.req.bits.afType := e_AF_DO_ACTIVATION_FUNCTION
-  af.io.req.bits.activationFunction := io.req.bits.activationFunction
-  af.io.req.bits.errorFunction := io.req.bits.errorFunction
 }
 
 // [TODO] This whole testbench is broken due to the integration with

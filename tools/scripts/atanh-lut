@@ -30,10 +30,10 @@ def piecewise_linear(x, y, x_interp):
             return a * x_interp + b
 
 def compute_binary_point(x_max):
-    binary_point = 30
-    if (2**math.log2(x_max) == x_max):
-        binary_point = 29
-    return binary_point-round(math.log2(x_max))
+    binary_point = 31
+    if (2**math.ceil(math.log2(x_max)) == x_max):
+        binary_point = 30
+    return binary_point-math.ceil(math.log2(x_max))
 
 def to_sint(x, x_max):
     return int(round(x*2**(compute_binary_point(x_max))))

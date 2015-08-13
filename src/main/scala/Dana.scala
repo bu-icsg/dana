@@ -120,15 +120,16 @@ abstract class DanaModule extends Module with DanaParameters
     e_PE_REQUEST_EXPECTED_OUTPUT ::                    // 7
     e_PE_WAIT_FOR_EXPECTED_OUTPUT ::                   // 8
     e_PE_COMPUTE_ERROR ::                              // 9
-    e_PE_COMPUTE_ERROR_WRITE_BACK ::                   // 10
-    e_PE_GET_INFO_ERROR_BACKPROP ::                    // 11
-    e_PE_WAIT_FOR_INFO_ERROR_BACKPROP ::               // 12
-    e_PE_REQUEST_INPUTS_AND_WEIGHTS_ERROR_BACKPROP ::  // 13
-    e_PE_WAIT_FOR_INPUTS_AND_WEIGHTS_ERROR_BACKPROP :: // 14
-    e_PE_RUN_ERROR_BACKPROP ::                         // 15
-    e_PE_ACTIVATION_FUNCTION_ERROR_BACKPROP ::         // 16
-    e_PE_DONE ::                                       // 17
-    Nil) = Enum(UInt(), 18)
+    e_PE_ERROR_FUNCTION ::                             // 10
+    e_PE_COMPUTE_ERROR_WRITE_BACK ::                   // 11
+    e_PE_GET_INFO_ERROR_BACKPROP ::                    // 12
+    e_PE_WAIT_FOR_INFO_ERROR_BACKPROP ::               // 13
+    e_PE_REQUEST_INPUTS_AND_WEIGHTS_ERROR_BACKPROP ::  // 14
+    e_PE_WAIT_FOR_INPUTS_AND_WEIGHTS_ERROR_BACKPROP :: // 15
+    e_PE_RUN_ERROR_BACKPROP ::                         // 16
+    e_PE_ACTIVATION_FUNCTION_ERROR_BACKPROP ::         // 17
+    e_PE_DONE ::                                       // 18
+    Nil) = Enum(UInt(), 19)
     // Nil) = Enum(UInt(), 8).map(i => (UInt(1) << i)(7, 0))
   val (e_PE_REQ_INPUT ::        // 0
     e_PE_REQ_EXPECTED_OUTPUT :: // 1
