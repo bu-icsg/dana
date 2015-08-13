@@ -74,7 +74,14 @@ class ProcessingElement extends DanaModule {
   io.resp.bits.delta := derivative
   io.resp.bits.error := errorOut
   index := index
+  // Activation function unit default values
   af.io.req.valid := Bool(false)
+  af.io.req.bits.in := UInt(0)
+  af.io.req.bits.decimal := io.req.bits.decimalPoint
+  af.io.req.bits.steepness := io.req.bits.steepness
+  af.io.req.bits.afType := e_AF_DO_ACTIVATION_FUNCTION
+  af.io.req.bits.activationFunction := io.req.bits.activationFunction
+  af.io.req.bits.errorFunction := io.req.bits.errorFunction
 
   // State-driven logic
   switch (state) {
@@ -91,6 +98,7 @@ class ProcessingElement extends DanaModule {
       hasBias := Bool(false)
     }
     is (e_PE_GET_INFO) {
+      dataOut := UInt(0)
       state := Mux(io.req.valid, e_PE_WAIT_FOR_INFO, state)
       io.resp.valid := Bool(true)
     }
@@ -125,9 +133,11 @@ class ProcessingElement extends DanaModule {
     }
     is (e_PE_ACTIVATION_FUNCTION) {
       af.io.req.valid := Bool(true)
+      af.io.req.bits.in := acc
       state := Mux(af.io.resp.valid, Mux(io.req.bits.inLast &&
         io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_FEEDFORWARD,
         e_PE_REQUEST_EXPECTED_OUTPUT, e_PE_DONE), state)
+      dataOut := Mux(af.io.resp.valid, af.io.resp.bits.out, dataOut)
       af.io.req.bits.afType := e_AF_DO_ACTIVATION_FUNCTION
     }
     is (e_PE_REQUEST_EXPECTED_OUTPUT) {
@@ -138,13 +148,21 @@ class ProcessingElement extends DanaModule {
       state := Mux(io.req.valid, e_PE_COMPUTE_ERROR, state)
     }
     is (e_PE_COMPUTE_ERROR) {
-      errorOut := (af.io.resp.bits.out - io.req.bits.learnReg)>>UInt(1)
-      mse := ((af.io.resp.bits.out - io.req.bits.learnReg)>>UInt(1))*((af.io.resp.bits.out - io.req.bits.learnReg)>>UInt(1))
+      errorOut := (dataOut - io.req.bits.learnReg)>>UInt(1)
+      mse := ((dataOut - io.req.bits.learnReg)>>UInt(1))*((dataOut - io.req.bits.learnReg)>>UInt(1))
       printf("[INFO] PE: errorOut and Error square set to 0x%x and  0x%x\n",
-        (af.io.resp.bits.out - io.req.bits.learnReg)>>UInt(1), ((af.io.resp.bits.out - io.req.bits.learnReg)>>UInt(1))*((af.io.resp.bits.out - io.req.bits.learnReg)>>UInt(1)))
-      state := e_PE_COMPUTE_ERROR_WRITE_BACK
+        (dataOut - io.req.bits.learnReg)>>UInt(1), ((dataOut - io.req.bits.learnReg)>>UInt(1))*((dataOut - io.req.bits.learnReg)>>UInt(1)))
+      state := e_PE_ERROR_FUNCTION
+    }
+    is (e_PE_ERROR_FUNCTION) {
+      af.io.req.valid := Bool(true)
+      af.io.req.bits.in := errorOut
+      af.io.req.bits.afType := e_AF_DO_ERROR_FUNCTION
+      state := Mux(af.io.resp.valid, e_PE_COMPUTE_ERROR_WRITE_BACK, state)
+      errorOut := Mux(af.io.resp.valid, af.io.resp.bits.out, errorOut)
     }
     is(e_PE_COMPUTE_ERROR_WRITE_BACK){
+      printf("[INFO] PE sees error function output 0x%x\n", errorOut)
       state := Mux(io.req.valid, e_PE_DONE, state)
       io.resp.valid := Bool(true)
     }
@@ -185,14 +203,6 @@ class ProcessingElement extends DanaModule {
       index := index + UInt(1)
     }
   }
-
-  af.io.req.bits.in := acc
-  af.io.req.bits.decimal := io.req.bits.decimalPoint
-  af.io.req.bits.steepness := io.req.bits.steepness
-  af.io.req.bits.afType := e_AF_DO_ACTIVATION_FUNCTION
-  af.io.req.bits.activationFunction := io.req.bits.activationFunction
-  af.io.req.bits.errorFunction := io.req.bits.errorFunction
-  dataOut := af.io.resp.bits.out
 }
 
 // [TODO] This whole testbench is broken due to the integration with
