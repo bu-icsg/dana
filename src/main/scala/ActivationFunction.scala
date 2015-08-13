@@ -144,6 +144,19 @@ class ActivationFunction extends DanaModule {
   decimal := UInt(decimalPointOffset,
     width = decimalPointWidth + log2Up(decimalPointOffset)) + io.req.bits.decimal
 
+  // All activation functions currently take two cycles, so the output
+  // valid signal is delayed by two cycles.
+  val ioVal_d0 = Reg(next = io.req.valid)
+  val ioVal_d1 = Reg(next = ioVal_d0)
+  io.resp.bits.out := out
+  io.resp.valid := ioVal_d1
+  val dataIn = Reg(SInt(INPUT, elementWidth))
+  when (io.req.valid) {
+    dataIn := io.req.bits.in
+  } .otherwise {
+    dataIn := SInt(0)
+  }
+
   def applySteepness(x: SInt, steepness: UInt): SInt = {
     val tmp = SInt()
     when (steepness < UInt(steepnessOffset)) {
@@ -212,27 +225,27 @@ class ActivationFunction extends DanaModule {
   val atanhOffsetX = UInt(width = elementWidth)
   val atanhOffsetY = UInt(width = elementWidth)
   val atanhSlope = UInt(width = elementWidth)
-  when (io.req.bits.in < atanh_x0) {
+  when (dataIn < atanh_x0) {
     atanhOffsetX := SInt(0)
     atanhOffsetY := negSeventeen
     atanhSlope   := SInt(0)
-  } .elsewhen (io.req.bits.in < atanh_x1) {
+  } .elsewhen (dataIn < atanh_x1) {
     atanhOffsetX := atanh_x0
     atanhOffsetY := atanh_y0
     atanhSlope   := atanh_s1
-  } .elsewhen (io.req.bits.in < atanh_x2) {
+  } .elsewhen (dataIn < atanh_x2) {
     atanhOffsetX := atanh_x1
     atanhOffsetY := atanh_y1
     atanhSlope   := atanh_s2
-  } .elsewhen (io.req.bits.in < atanh_x3) {
+  } .elsewhen (dataIn < atanh_x3) {
     atanhOffsetX := atanh_x2
     atanhOffsetY := atanh_y2
     atanhSlope   := atanh_s3
-  } .elsewhen (io.req.bits.in < atanh_x4) {
+  } .elsewhen (dataIn < atanh_x4) {
     atanhOffsetX := atanh_x3
     atanhOffsetY := atanh_y3
     atanhSlope   := atanh_s4
-  } .elsewhen (io.req.bits.in < atanh_x5) {
+  } .elsewhen (dataIn < atanh_x5) {
     atanhOffsetX := atanh_x4
     atanhOffsetY := atanh_y4
     atanhSlope   := atanh_s5
@@ -246,7 +259,7 @@ class ActivationFunction extends DanaModule {
   // garbage value (a very big integer) which should be visibile in
   // the output
   out := ((slopeSym*(inD0-offsetX) >> decimal) + offsetSymY)
-  inD0 := applySteepness(io.req.bits.in, io.req.bits.steepness)
+  inD0 := applySteepness(dataIn, io.req.bits.steepness)
   // FANN_LINEAR
   switch (io.req.bits.afType) {
     is (e_AF_DO_ACTIVATION_FUNCTION) {
@@ -277,23 +290,15 @@ class ActivationFunction extends DanaModule {
     is (e_AF_DO_ERROR_FUNCTION) {
       switch (io.req.bits.errorFunction) {
         is (e_FANN_ERRORFUNC_LINEAR) {
-          out := io.req.bits.in
+          out := dataIn
         }
         is (e_FANN_ERRORFUNC_TANH) {
-          out := ((atanhSlope*(io.req.bits.in-atanhOffsetX) >> decimal) +
+          out := ((atanhSlope*(dataIn-atanhOffsetX) >> decimal) +
             atanhOffsetY)
         }
       }
     }
   }
-
-  // All activation functions currently take two cycles, so the output
-  // valid signal is delayed by two cycles.
-  val ioVal_d0 = Reg(next = io.req.valid)
-  val ioVal_d1 = Reg(next = ioVal_d0)
-  io.resp.bits.out := out
-  io.resp.valid := ioVal_d1
-
 }
 
 class ActivationFunctionTests(uut: ActivationFunction, isTrace: Boolean = true)
