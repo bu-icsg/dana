@@ -19,8 +19,9 @@ class ProcessingElementReq extends DanaBundle {
   val iBlock = Vec.fill(elementsPerBlock){SInt(INPUT, elementWidth)}
   val wBlock = Vec.fill(elementsPerBlock){SInt(INPUT, elementWidth)}
   val learnReg = SInt(INPUT, elementWidth)
-  val stateLearn = UInt(width = log2Up(7)) // [TODO] fragile
-  val inLast = Bool()
+  val stateLearn = UInt(INPUT, width = log2Up(7)) // [TODO] fragile
+  val inLast = Bool(INPUT)
+  val inFirst = Bool(INPUT)
 }
 
 class ProcessingElementResp extends DanaBundle {
@@ -32,6 +33,8 @@ class ProcessingElementResp extends DanaBundle {
   val index = UInt()
   val delta = SInt(width = elementWidth)
   val error = SInt(width = elementWidth)
+  val uwBlock = Vec.fill(elementsPerBlock){SInt(elementWidth)}
+
 }
 
 class ProcessingElementInterface extends DanaBundle {
@@ -56,6 +59,7 @@ class ProcessingElement extends DanaModule {
   val derivative = Reg(SInt(width = elementWidth)) //delta
   val errorOut = Reg(SInt(width = elementWidth)) //ek
   val mse = Reg(UInt(width = elementWidth))
+  val updated_weight = Reg(Vec.fill(elementsPerBlock){SInt(elementWidth)})
 
   // [TODO] fragile on PE stateu enum (Common.scala)
   val state = Reg(UInt(), init = e_PE_UNALLOCATED)
@@ -87,6 +91,7 @@ class ProcessingElement extends DanaModule {
   io.resp.bits.index := io.req.bits.index
   io.resp.bits.data := dataOut
   io.resp.bits.error := errorOut
+  io.resp.bits.uwBlock := updated_weight
   index := index
   // Activation function unit default values
   af.io.req.valid := Bool(false)
@@ -130,7 +135,8 @@ class ProcessingElement extends DanaModule {
       }
     }
     is (e_PE_WAIT_FOR_INPUTS_AND_WEIGHTS) {
-      state := Mux(io.req.valid, e_PE_RUN, state)
+      state := Mux(io.req.valid,Mux(io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_WEIGHT_UPDATE,
+       e_PE_RUN_WEIGHT_UPDATE, e_PE_RUN), state)
     }
     is (e_PE_RUN) {
       // [TOOD] This logic is broken for some reason
@@ -183,7 +189,7 @@ class ProcessingElement extends DanaModule {
           derivative := (UInt(1) << decimal) - ((dataOut * dataOut) >> decimal << (io.req.bits.steepness - UInt(steepnessOffset)))
             printf("[INFO] PE: derivative is set to 0x%x\n",
              (UInt(1) << decimal) - ((dataOut * dataOut) >> decimal << (io.req.bits.steepness - UInt(steepnessOffset))))
-          } 
+          }
       }
     }
     is (e_PE_REQUEST_EXPECTED_OUTPUT) {
@@ -260,6 +266,36 @@ class ProcessingElement extends DanaModule {
         (io.req.bits.decimalPoint +
           UInt(decimalPointOffset, width = decimalPointWidth + 1)))(elementWidth,0)
       index := index + UInt(1)
+    }
+    //not sure if we need a seperate state for this
+    is(e_PE_GET_INFO_WEIGHT_UPDATE){
+      state := Mux(io.req.valid, e_PE_WAIT_FOR_INFO_WEIGHT_UPDATE, state)
+      io.resp.valid := Bool(true)
+    }
+    //not sure if we need a seperate state for this
+    is(e_PE_WAIT_FOR_INFO_WEIGHT_UPDATE){
+      state := Mux(io.req.valid, e_PE_REQUEST_INPUTS_AND_WEIGHTS_WEIGHT_UPDATE, state)
+    }
+    is(e_PE_REQUEST_DELTA_WEIGHT_UPDATE){
+      state := Mux(io.req.valid, e_PE_WAIT_FOR_DELTA_WEIGHT_UPDATE, state)
+    }
+    is(e_PE_WAIT_FOR_DELTA_WEIGHT_UPDATE){
+      state := Mux(io.req.valid, e_PE_REQUEST_INPUTS_AND_WEIGHTS, state)
+    }
+    is(e_PE_RUN_WEIGHT_UPDATE){
+      when (index === (io.req.bits.numWeights - UInt(1))) {
+        state := e_PE_WEIGHT_UPDATE_WRITE_BACK
+      } .elsewhen (index === UInt(elementsPerBlock - 1)) {
+        state := e_PE_REQUEST_INPUTS_AND_WEIGHTS
+      } .otherwise {
+        state := state
+      }
+      updated_weight(index) := io.req.bits.wBlock(index) + (io.req.bits.learnReg * io.req.bits.iBlock(index)) >> decimal
+      index := index + UInt(1)
+    }
+    is(e_PE_WEIGHT_UPDATE_WRITE_BACK){
+      state := Mux(io.req.valid, e_PE_UNALLOCATED, state)
+      io.resp.valid := Bool(true)
     }
   }
 }

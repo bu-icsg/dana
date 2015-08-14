@@ -90,6 +90,7 @@ class ProcessingElementState extends DanaBundle {
   val bias = UInt(width = elementWidth)
   val stateLearn = UInt(width = log2Up(7)) // [TODO] fragile
   val inLast = Bool()
+  val inFirst = Bool()
 }
 
 class ProcessingElementTable extends DanaModule {
@@ -112,6 +113,7 @@ class ProcessingElementTable extends DanaModule {
     pe(i).req.bits.bias := table(i).bias
     pe(i).req.bits.stateLearn := table(i).stateLearn
     pe(i).req.bits.inLast := table(i).inLast
+    pe(i).req.bits.inFirst := table(i).inFirst
     // pe(i).validIn
     for (j <- 0 until elementsPerBlock) {
       pe(i).req.bits.iBlock(j) :=
@@ -166,6 +168,7 @@ class ProcessingElementTable extends DanaModule {
     table(nextFree).errorFunction := io.control.req.bits.errorFunction
     table(nextFree).stateLearn := io.control.req.bits.stateLearn
     table(nextFree).inLast := io.control.req.bits.inLast
+    table(nextFree).inFirst := io.control.req.bits.inFirst
     table(nextFree).inAddr := io.control.req.bits.inAddr
     table(nextFree).outAddr := io.control.req.bits.outAddr
     table(nextFree).learnAddr := io.control.req.bits.learnAddr
@@ -191,6 +194,7 @@ class ProcessingElementTable extends DanaModule {
     }
     printf("[INFO]   stateLearn: 0x%x\n", io.control.req.bits.stateLearn)
     printf("[INFO]   inLast:     0x%x\n", io.control.req.bits.inLast)
+    printf("[INFO]   inFirst:     0x%x\n", io.control.req.bits.inFirst)
   }
 
   // Inbound requests from the cache. I setup some helper nodes here
@@ -282,6 +286,8 @@ class ProcessingElementTable extends DanaModule {
     peArbiter.io.in(i).bits.state := pe(i).resp.bits.state
     peArbiter.io.in(i).bits.index := pe(i).resp.bits.index
     peArbiter.io.in(i).bits.error := pe(i).resp.bits.error
+    // block write
+    peArbiter.io.in(i).bits.uwBlock := pe(i).resp.bits.uwBlock
   }
 
   // If the arbiter is showing a valid output, then we have to
@@ -338,6 +344,28 @@ class ProcessingElementTable extends DanaModule {
         io.regFile.req.bits.addr := table(peArbiter.io.out.bits.index).errAddr
         io.regFile.req.bits.tIdx := table(peArbiter.io.out.bits.index).tIdx
         io.regFile.req.bits.data := peArbiter.io.out.bits.error
+        io.regFile.req.bits.location := table(peArbiter.io.out.bits.index).location
+
+        pe(peArbiter.io.out.bits.index).req.valid := Bool(true)
+      }
+      is (e_PE_REQUEST_DELTA_WEIGHT_UPDATE) {
+        io.regFile.req.valid := Bool(true)
+        io.regFile.req.bits.isWrite := Bool(false) // unecessary to specify
+        io.regFile.req.bits.addr := table(peArbiter.io.out.bits.index).learnAddr
+        io.regFile.req.bits.peIndex := peArbiter.io.out.bits.index
+        io.regFile.req.bits.tIdx := table(peArbiter.io.out.bits.index).tIdx
+        io.regFile.req.bits.location := table(peArbiter.io.out.bits.index).location
+        io.regFile.req.bits.reqType := e_PE_REQ_EXPECTED_OUTPUT
+
+        pe(peArbiter.io.out.bits.index).req.valid := Bool(true)
+      }
+      is(e_PE_WEIGHT_UPDATE_WRITE_BACK) {
+        io.regFile.req.valid := Bool(true)
+        io.regFile.req.bits.isWrite := Bool(true)
+        io.regFile.req.bits.addr := table(peArbiter.io.out.bits.index).[some address]
+        io.regFile.req.bits.tIdx := table(peArbiter.io.out.bits.index).tIdx
+        //[block write]
+        io.regFile.req.bits.data := peArbiter.io.out.bits.uwBlock 
         io.regFile.req.bits.location := table(peArbiter.io.out.bits.index).location
 
         pe(peArbiter.io.out.bits.index).req.valid := Bool(true)

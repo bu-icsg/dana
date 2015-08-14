@@ -57,6 +57,7 @@ class ControlPETableInterface extends DanaBundle with ControlParameters {
     val errorFunction = UInt(width = log2Up(2)) // [TODO] fragile
     val stateLearn = UInt(width = log2Up(7)) // [TODO] fragile
     val inLast = Bool()
+    val inFirst = Bool()
   })
   // No response is necessary as the Control module needs to know is
   // if the PE Table has a free entry. This is communicated by means
@@ -102,7 +103,7 @@ class Control extends DanaModule {
   def reqPETable(valid: Bool, cacheIndex: UInt, tIdx: UInt,  inAddr: UInt,
     outAddr: UInt, learnAddr: UInt, errAddr: UInt, neuronPointer: UInt,
     decimalPoint: UInt, errorFunction: UInt, location: UInt, stateLearn: UInt,
-        inLast: UInt) {
+    inLast: UInt, , inFirst: Bool) {
     io.peTable.req.valid := valid
     io.peTable.req.bits.cacheIndex := cacheIndex
     io.peTable.req.bits.tIdx := tIdx
@@ -116,6 +117,7 @@ class Control extends DanaModule {
     io.peTable.req.bits.location := location
     io.peTable.req.bits.stateLearn := stateLearn
     io.peTable.req.bits.inLast := inLast
+    io.peTable.req.bits.inFirst := inFirst
   }
 
   // io.tTable defaults
@@ -258,7 +260,10 @@ class Control extends DanaModule {
         io.tTable.req.bits.stateLearn,
         // The state is also moderated by the "inLast" bit so this is
         // also passed along
-        io.tTable.req.bits.inLast
+        io.tTable.req.bits.inLast,
+        //inFirst bit is passed along for to check for the corner case in weight
+        //update state
+        io.tTable.req.bits.inFirst
       )
     }
   }
