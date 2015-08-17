@@ -103,7 +103,7 @@ class Control extends DanaModule {
   def reqPETable(valid: Bool, cacheIndex: UInt, tIdx: UInt,  inAddr: UInt,
     outAddr: UInt, learnAddr: UInt, errAddr: UInt, neuronPointer: UInt,
     decimalPoint: UInt, errorFunction: UInt, location: UInt, stateLearn: UInt,
-    inLast: UInt, , inFirst: Bool) {
+    inLast: UInt, inFirst: UInt) {
     io.peTable.req.valid := valid
     io.peTable.req.bits.cacheIndex := cacheIndex
     io.peTable.req.bits.tIdx := tIdx
@@ -141,7 +141,7 @@ class Control extends DanaModule {
     UInt(0), Bool(false))
   // io.petable defaults
   reqPETable(Bool(false), UInt(0), UInt(0), UInt(0), UInt(0), UInt(0), UInt(0),
-    UInt(0), UInt(0), UInt(0), UInt(0), UInt(0), UInt(0))
+    UInt(0), UInt(0), UInt(0), UInt(0), UInt(0), UInt(0), UInt(0))
   // io.regFile defaults
   io.regFile.req.valid := Bool(false)
   io.regFile.req.bits.tIdx := UInt(0)
