@@ -150,7 +150,7 @@ class SRAMElementIncrement (
         // Block Write with Element-wise Increment
         is (UInt(2)) {
           when (addr(i).addrHi === writePending(i).addrHi &&
-            io.we(i) && io.wType(i) === UInt(1)) {
+            io.we(i) && io.wType(i) === UInt(2)) {
             (0 until elementsPerBlock).map(j =>
               tmp(i)(j) := io.dinBlock(i)(elementWidth*(j+1) - 1,
                 elementWidth * j) +

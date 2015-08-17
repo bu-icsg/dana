@@ -44,7 +44,8 @@ class TransactionState extends XFilesBundle {
   // written to in the Register File.
   val regFileAddrIn = UInt(width = log2Up(regFileNumElements))
   val regFileAddrOut = UInt(width = log2Up(regFileNumElements))
-  val regFileAddrErr = UInt(width = log2Up(regFileNumElements))
+  val regFileAddrDelta = UInt(width = log2Up(regFileNumElements))
+  val regFileAddrDW = UInt(width = log2Up(regFileNumElements))
   val readIdx = UInt(width = log2Up(regFileNumElements))
   val coreIdx = UInt(width = log2Up(numCores))
   // Additional crap which may be redundant
@@ -75,7 +76,8 @@ class ControlReq extends XFilesBundle {
   val errorFunction = UInt(width = log2Up(2)) // [TODO] fragile
   val regFileAddrIn = UInt(width = log2Up(regFileNumElements))
   val regFileAddrOut = UInt(width = log2Up(regFileNumElements))
-  val regFileAddrErr = UInt(width = log2Up(regFileNumElements))
+  val regFileAddrDelta = UInt(width = log2Up(regFileNumElements))
+  val regFileAddrDW = UInt(width = log2Up(regFileNumElements))
   val stateLearn = UInt(width = log2Up(5)) // [TODO] fragile
 }
 
@@ -249,7 +251,8 @@ class TransactionTable extends XFilesModule {
         table(nextFree).countFeedback := cmd.countFeedback
         table(nextFree).regFileAddrIn := UInt(0)
         table(nextFree).regFileAddrOut := UInt(0)
-        table(nextFree).regFileAddrErr := UInt(0)
+        table(nextFree).regFileAddrDelta := UInt(0)
+        table(nextFree).regFileAddrDW := UInt(0)
         table(nextFree).done := Bool(false)
         table(nextFree).decInUse := Bool(false)
         table(nextFree).indexElement := UInt(0)
@@ -418,12 +421,19 @@ class TransactionTable extends XFilesModule {
             nicl(log2Up(elementsPerBlock)-1, 0)
           val round = Mux(niclLSBs != UInt(0), UInt(elementsPerBlock), UInt(0))
           table(tIdx).regFileAddrIn := table(tIdx).regFileAddrOut
+          // If we're in the last layer, this is a little special
           when(table(tIdx).currentLayer === table(tIdx).numLayers - UInt(1) &&
             table(tIdx).stateLearn === e_TTABLE_STATE_LEARN_FEEDFORWARD){
-            table(tIdx).regFileAddrErr := table(tIdx).regFileAddrOut + UInt(2) *
-            (niclMSBs + round)
-          }.otherwise{
-            table(tIdx).regFileAddrErr := table(tIdx).regFileAddrOut
+            table(tIdx).regFileAddrDelta := table(tIdx).regFileAddrOut + UInt(2) *
+              (niclMSBs + round)
+            table(tIdx).regFileAddrDW := table(tIdx).regFileAddrOut + UInt(3) *
+              (niclMSBs + round)
+          } .elsewhen (table(tIdx).stateLearn === e_TTABLE_STATE_LEARN_ERROR_BACKPROP) {
+            // [TODO] This is missing update data for non-output backprop layers
+          } .otherwise{
+            // [TODO] I'm not 100% sure that this is the right way to
+            // go about this.
+            table(tIdx).regFileAddrDelta := table(tIdx).regFileAddrOut
           }
           table(tIdx).regFileAddrOut := table(tIdx).regFileAddrOut + niclMSBs +
             round
@@ -451,8 +461,11 @@ class TransactionTable extends XFilesModule {
           printf("[INFO]   regFileAddrOut:             0x%x\n",
             table(tIdx).regFileAddrOut +  niclMSBs + round)
           when(table(tIdx).currentLayer === table(tIdx).numLayers - UInt(1) &&
-            table(tIdx).stateLearn === e_TTABLE_STATE_LEARN_FEEDFORWARD){
-                        table(tIdx).regFileAddrOut +  UInt(2) * (niclMSBs + round))
+            table(tIdx).stateLearn === e_TTABLE_STATE_LEARN_FEEDFORWARD) {
+            printf("[INFO]   regFileAddrDelta:           0x%x\n",
+              table(tIdx).regFileAddrOut +  UInt(2) * (niclMSBs + round))
+            printf("[INFO]   regFileAddrDW:              0x%x\n",
+              table(tIdx).regFileAddrOut + UInt(3) * (niclMSBs + round))
           }
         }
       }
@@ -547,7 +560,8 @@ class TransactionTable extends XFilesModule {
     entryArbiter.io.in(i).bits.errorFunction := table(i).errorFunction
     entryArbiter.io.in(i).bits.regFileAddrIn := table(i).regFileAddrIn
     entryArbiter.io.in(i).bits.regFileAddrOut := table(i).regFileAddrOut
-    entryArbiter.io.in(i).bits.regFileAddrErr := table(i).regFileAddrErr
+    entryArbiter.io.in(i).bits.regFileAddrDelta := table(i).regFileAddrDelta
+    entryArbiter.io.in(i).bits.regFileAddrDW := table(i).regFileAddrDW
     entryArbiter.io.in(i).bits.stateLearn := table(i).stateLearn
   }
   io.control.req <> entryArbiter.io.out

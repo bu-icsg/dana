@@ -357,14 +357,25 @@ class Cache extends DanaModule {
       is (e_CACHE_NEURON) {
         peRespPipe(0).valid := Bool(true)
         peRespPipe(0).bits.peIndex := io.pe.req.bits.peIndex
-        peRespPipe(0).bits.field := e_CACHE_NEURON
+        peRespPipe(0).bits.field := io.pe.req.bits.field
         peRespPipe(0).bits.indexIntoData :=
           io.pe.req.bits.cacheAddr(2 + log2Up(elementsPerBlock) - 1, 3)
       }
       is (e_CACHE_WEIGHT) {
+        printf("[INFO] Cache: PE 0x%x req for weight @ addr 0x%x\n",
+          io.pe.req.bits.peIndex, io.pe.req.bits.cacheAddr)
         peRespPipe(0).valid := Bool(true)
         peRespPipe(0).bits.peIndex := io.pe.req.bits.peIndex
-        peRespPipe(0).bits.field := e_CACHE_WEIGHT
+        peRespPipe(0).bits.field := io.pe.req.bits.field
+        peRespPipe(0).bits.indexIntoData :=
+          io.pe.req.bits.cacheAddr(2 + log2Up(elementsPerBlock) - 1, 2)
+      }
+      is (e_CACHE_WEIGHT_ONLY) {
+        printf("[INFO] Cache: PE 0x%x req for weight @ addr 0x%x\n",
+          io.pe.req.bits.peIndex, io.pe.req.bits.cacheAddr)
+        peRespPipe(0).valid := Bool(true)
+        peRespPipe(0).bits.peIndex := io.pe.req.bits.peIndex
+        peRespPipe(0).bits.field := io.pe.req.bits.field
         peRespPipe(0).bits.indexIntoData :=
           io.pe.req.bits.cacheAddr(2 + log2Up(elementsPerBlock) - 1, 2)
       }

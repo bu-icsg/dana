@@ -38,6 +38,7 @@ class RegisterFile extends DanaModule {
       mem(transaction).we(port) := Bool(false)
       mem(transaction).wType(port) := UInt(0)
       mem(transaction).dinElement(port) := UInt(0)
+      mem(transaction).dinBlock(port) := UInt(0)
       mem(transaction).addr(port) := UInt(0)
     }
   }
@@ -56,20 +57,38 @@ class RegisterFile extends DanaModule {
     val sIdx = io.pe.req.bits.tIdx ## io.pe.req.bits.location
     when (io.pe.req.bits.isWrite) { // This is a Write
       mem(tIdx).we(0) := Bool(true)
-      mem(tIdx).wType(0) := UInt(0)
-      mem(tIdx).dinElement(0) := io.pe.req.bits.data
-      mem(tIdx).addr(0) := io.pe.req.bits.addr
+      switch (io.pe.req.bits.reqType) {
+        mem(tIdx).addr(0) := io.pe.req.bits.addr
+        is (e_PE_WRITE_ELEMENT) {
+          mem(tIdx).wType(0) := UInt(0)
+          mem(tIdx).dinElement(0) := io.pe.req.bits.data
+          printf("[INFO] RegFile: PE write element tIdx/Addr/Data 0x%x/0x%x/0x%x\n", tIdx,
+            io.pe.req.bits.addr, io.pe.req.bits.data)
+        }
+        is (e_PE_WRITE_BLOCK_NEW) {
+          mem(tIdx).wType(0) := UInt(1)
+          mem(tIdx).dinBlock(0) := io.pe.req.bits.dataBlock
+          printf("[INFO] RegFile: PE write block new tIdx/Addr/Data 0x%x/0x%x/0x%x\n", tIdx,
+            io.pe.req.bits.addr, io.pe.req.bits.dataBlock)
+        }
+        is (e_PE_WRITE_BLOCK_ACC) {
+          mem(tIdx).wType(0) := UInt(2)
+          mem(tIdx).dinBlock(0) := io.pe.req.bits.dataBlock
+          printf("[INFO] RegFile: PE write block inc tIdx/Addr/Data 0x%x/0x%x/0x%x\n", tIdx,
+            io.pe.req.bits.addr, io.pe.req.bits.dataBlock)
+        }
+      }
       // Increment the write count and generate a response to the
       // control module if this puts us at the write count
-      state(sIdx).countWrites := state(sIdx).countWrites + UInt(1)
+      when (io.pe.req.bits.incWriteCount) {
+        state(sIdx).countWrites := state(sIdx).countWrites + UInt(1)
+        printf("[INFO] RegFile: write count loc/seen/expected 0x%x/0x%x/0x%x\n",
+          sIdx, state(sIdx).countWrites + UInt(1), state(sIdx).totalWrites)
+      }
       when (state(sIdx).countWrites === state(sIdx).totalWrites - UInt(1)) {
         io.control.resp.valid := Bool(true)
         io.control.resp.bits.tIdx := tIdx
       }
-      printf("[INFO] RegFile: PE write tIdx/Addr/Data 0x%x/0x%x/0x%x\n", tIdx,
-        io.pe.req.bits.addr, io.pe.req.bits.data)
-      printf("[INFO] RegFile: write count loc/seen/expected 0x%x/0x%x/0x%x\n",
-        sIdx, state(sIdx).countWrites + UInt(1), state(sIdx).totalWrites)
     } .otherwise {                  // This is a read
       mem(tIdx).we(0) := Bool(false)
       mem(tIdx).wType(0) := UInt(0)

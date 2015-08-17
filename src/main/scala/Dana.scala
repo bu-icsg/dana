@@ -99,41 +99,46 @@ abstract class DanaModule extends Module with DanaParameters
     Nil) = Enum(UInt(), 3)
   // Cache to control field enum. nnsim-hdl equivalent:
   //   cache_types::field_enum
-  val (e_CACHE_INFO :: // 0
-    e_CACHE_LAYER ::   // 1
-    e_CACHE_NEURON ::  // 2
-    e_CACHE_WEIGHT ::  // 3
-    Nil) = Enum(UInt(), 4)
+  val (e_CACHE_INFO ::     // 0
+    e_CACHE_LAYER ::       // 1
+    e_CACHE_NEURON ::      // 2
+    e_CACHE_WEIGHT ::      // 3
+    e_CACHE_WEIGHT_ONLY :: // 4
+    e_CACHE_WEIGHT_WB ::   // 5
+    Nil) = Enum(UInt(), 6)
   // Cache / PE access type enum. nnsim-hdl equivalent:
   //   pe_types::pe2storage_enum
   val (e_PE_NEURON :: // 0
     e_PE_WEIGHT ::    // 1
     Nil) = Enum(UInt(), 2)
   // PE State
-  val (e_PE_UNALLOCATED ::                             // 0
-    e_PE_GET_INFO ::                                   // 1
-    e_PE_WAIT_FOR_INFO ::                              // 2
-    e_PE_REQUEST_INPUTS_AND_WEIGHTS ::                 // 3
-    e_PE_WAIT_FOR_INPUTS_AND_WEIGHTS ::                // 4
-    e_PE_RUN ::                                        // 5
-    e_PE_ACTIVATION_FUNCTION ::                        // 6
-    e_PE_REQUEST_EXPECTED_OUTPUT ::                    // 7
-    e_PE_WAIT_FOR_EXPECTED_OUTPUT ::                   // 8
-    e_PE_COMPUTE_ERROR ::                              // 9
-    e_PE_ERROR_FUNCTION ::                             // 10
-    e_PE_COMPUTE_ERROR_WRITE_BACK ::                   // 11
-    e_PE_GET_INFO_ERROR_BACKPROP ::                    // 12
-    e_PE_WAIT_FOR_INFO_ERROR_BACKPROP ::               // 13
-    e_PE_REQUEST_INPUTS_AND_WEIGHTS_ERROR_BACKPROP ::  // 14
-    e_PE_WAIT_FOR_INPUTS_AND_WEIGHTS_ERROR_BACKPROP :: // 15
-    e_PE_RUN_ERROR_BACKPROP ::                         // 16
-    e_PE_ACTIVATION_FUNCTION_ERROR_BACKPROP ::         // 17
-    e_PE_DONE ::                                       // 18
+  val (e_PE_UNALLOCATED ::                     // 0
+    e_PE_GET_INFO ::                           // 1
+    e_PE_WAIT_FOR_INFO ::                      // 2
+    e_PE_REQUEST_INPUTS_AND_WEIGHTS ::         // 3
+    e_PE_WAIT_FOR_INPUTS_AND_WEIGHTS ::        // 4
+    e_PE_RUN ::                                // 5
+    e_PE_ACTIVATION_FUNCTION ::                // 6
+    e_PE_REQUEST_EXPECTED_OUTPUT ::            // 7
+    e_PE_WAIT_FOR_EXPECTED_OUTPUT ::           // 8
+    e_PE_COMPUTE_ERROR ::                      // 9
+    e_PE_ERROR_FUNCTION ::                     // 10
+    e_PE_COMPUTE_DELTA_WRITE_BACK ::           // 11
+    e_PE_ERROR_BACKPROP_REQUEST_WEIGHTS ::     // 12
+    e_PE_ERROR_BACKPROP_WAIT_FOR_WEIGHTS ::    // 13
+    e_PE_ERROR_BACKPROP_DELTA_WEIGHT_MUL ::    // 14
+    e_PE_ERROR_BACKPROP_WEIGHT_WB ::           // 15
+    e_PE_ACTIVATION_FUNCTION_ERROR_BACKPROP :: // 16
+    e_PE_DONE ::                               // 17
+    e_PE_ERROR ::                              // 18
     Nil) = Enum(UInt(), 19)
     // Nil) = Enum(UInt(), 8).map(i => (UInt(1) << i)(7, 0))
   val (e_PE_REQ_INPUT ::        // 0
     e_PE_REQ_EXPECTED_OUTPUT :: // 1
-    Nil) = Enum(UInt(), 2)
+    e_PE_WRITE_ELEMENT ::       // 2
+    e_PE_WRITE_BLOCK_NEW ::     // 3
+    e_PE_WRITE_BLOCK_ACC ::     // 4
+    Nil) = Enum(UInt(), 5)
   // Location of inputs and outputs
   val (e_LOCATION_REG_0 :: // 0
     e_LOCATION_REG_1 ::    // 1

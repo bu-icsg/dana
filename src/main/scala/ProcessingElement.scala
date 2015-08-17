@@ -28,10 +28,12 @@ class ProcessingElementResp extends DanaBundle {
   //   * next_state
   //   * invalidate_inputs
   val data = UInt(width = elementWidth)
+  val dataBlock = Vec.fill(elementsPerBlock){SInt(width = elementWidth)}
   val state = UInt() // [TODO] fragile on PE state enum
   val index = UInt()
   val delta = SInt(width = elementWidth)
   val error = SInt(width = elementWidth)
+  val incWriteCount = Bool()
 }
 
 class ProcessingElementInterface extends DanaBundle {
@@ -52,6 +54,7 @@ class ProcessingElement extends DanaModule {
 
   val index = Reg(UInt(width = log2Up(elementsPerBlock)))
   val acc = Reg(SInt(width = elementWidth))
+  val weightWB = Vec.fill(elementsPerBlock){Reg(SInt(INPUT, elementWidth))}
   val dataOut = Reg(SInt(width = elementWidth))
   val derivative = Reg(SInt(width = elementWidth)) //delta
   val errorOut = Reg(SInt(width = elementWidth)) //ek
@@ -86,7 +89,9 @@ class ProcessingElement extends DanaModule {
   io.resp.bits.state := state
   io.resp.bits.index := io.req.bits.index
   io.resp.bits.data := dataOut
+  io.resp.bits.dataBlock := weightWB
   io.resp.bits.error := errorOut
+  io.resp.bits.incWriteCount := Bool(false)
   index := index
   // Activation function unit default values
   af.io.req.valid := Bool(false)
@@ -104,11 +109,10 @@ class ProcessingElement extends DanaModule {
       io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_FEEDFORWARD) {
         state := e_PE_GET_INFO
       } .elsewhen (io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_ERROR_BACKPROP) {
-        state := e_PE_GET_INFO_ERROR_BACKPROP
+        state := e_PE_ERROR
       }
       state := Mux(io.req.valid, e_PE_GET_INFO, state)
       io.req.ready := Bool(true)
-      index := UInt(0)
       hasBias := Bool(false)
     }
     is (e_PE_GET_INFO) {
@@ -128,6 +132,7 @@ class ProcessingElement extends DanaModule {
         hasBias := Bool(true)
         acc := io.req.bits.bias
       }
+      index := UInt(0)
     }
     is (e_PE_WAIT_FOR_INPUTS_AND_WEIGHTS) {
       state := Mux(io.req.valid, e_PE_RUN, state)
@@ -215,53 +220,87 @@ class ProcessingElement extends DanaModule {
       af.io.req.valid := Bool(true)
       af.io.req.bits.in := errorOut
       af.io.req.bits.afType := e_AF_DO_ERROR_FUNCTION
-      state := Mux(af.io.resp.valid, e_PE_COMPUTE_ERROR_WRITE_BACK, state)
+      state := Mux(af.io.resp.valid, e_PE_COMPUTE_DELTA_WRITE_BACK, state)
       errorOut := Mux(af.io.resp.valid, af.io.resp.bits.out, errorOut)
     }
-    is(e_PE_COMPUTE_ERROR_WRITE_BACK){
+    is(e_PE_COMPUTE_DELTA_WRITE_BACK){
+      // Reset the index in preparation for doing the deltas in the
+      // previous layer
       errorOut := (derivative * errorOut) >> decimal
       printf("[INFO] PE sees errFn/(errFn*derivative) 0x%x/0x%x\n", errorOut,
         (derivative * errorOut) >> decimal)
-      state := Mux(io.req.valid, e_PE_DONE, state)
+      state := Mux(io.req.valid, Mux(io.req.bits.inLast &&
+        io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_FEEDFORWARD,
+        e_PE_ERROR_BACKPROP_REQUEST_WEIGHTS, e_PE_DONE), state)
+      // state := Mux(io.req.valid, e_PE_DONE, state)
+
+      // This is the "last" writeback for a group, so we turn on the
+      // `incWriteCount` flag to tell the Register File to increment its write
+      // count
+      io.resp.bits.incWriteCount := Bool(true)
+      io.resp.valid := Bool(true)
+    }
+    is (e_PE_ERROR_BACKPROP_REQUEST_WEIGHTS) {
+      index := UInt(0)
+      state := Mux(io.req.valid, e_PE_ERROR_BACKPROP_WAIT_FOR_WEIGHTS, state)
+
+      io.resp.valid := Bool(true)
+    }
+    is (e_PE_ERROR_BACKPROP_WAIT_FOR_WEIGHTS) {
+      state := Mux(io.req.valid, e_PE_ERROR_BACKPROP_DELTA_WEIGHT_MUL, state)
+    }
+    is (e_PE_ERROR_BACKPROP_DELTA_WEIGHT_MUL) {
+      // Loop over all the weights in the weight buffer, multiplying
+      // these by their delta
+      when (index === (io.req.bits.numWeights - UInt(1)) ||
+        index === UInt(elementsPerBlock - 1)) {
+        state := e_PE_ERROR_BACKPROP_WEIGHT_WB
+      } .otherwise {
+        index := index + UInt(1)
+      }
+
+      weightWB(index) := (errorOut * io.req.bits.wBlock(index)) >>
+        (io.req.bits.decimalPoint +
+          UInt(decimalPointOffset, width=decimalPointWidth +1))
+    }
+    is (e_PE_ERROR_BACKPROP_WEIGHT_WB) {
+      when (index === (io.req.bits.numWeights - UInt(1))) {
+        io.resp.bits.incWriteCount := Bool(true)
+      }
+      when (io.req.valid) {
+        when (index === (io.req.bits.numWeights - UInt(1))) {
+          state := e_PE_DONE
+        } .elsewhen (index === UInt(elementsPerBlock - 1)) {
+          state := e_PE_ERROR_BACKPROP_REQUEST_WEIGHTS
+        }
+      }
+
       io.resp.valid := Bool(true)
     }
     is (e_PE_DONE) {
       state := Mux(io.req.valid, e_PE_UNALLOCATED, state)
+      io.resp.bits.incWriteCount := Bool(true)
       io.resp.valid := Bool(true)
     }
 
-    is (e_PE_GET_INFO_ERROR_BACKPROP) {
-      state := Mux(io.req.valid, e_PE_WAIT_FOR_INFO_ERROR_BACKPROP, state)
-      io.resp.valid := Bool(true)
-    }
-    is (e_PE_WAIT_FOR_INFO_ERROR_BACKPROP) {
-      state := Mux(io.req.valid, e_PE_REQUEST_INPUTS_AND_WEIGHTS_ERROR_BACKPROP, state)
-    }
-    is (e_PE_REQUEST_INPUTS_AND_WEIGHTS_ERROR_BACKPROP) {
-      state := Mux(io.req.valid, e_PE_WAIT_FOR_INPUTS_AND_WEIGHTS_ERROR_BACKPROP, state)
-      io.resp.valid := Bool(true)
-    }
-    is (e_PE_WAIT_FOR_INPUTS_AND_WEIGHTS_ERROR_BACKPROP) {
-      state := Mux(io.req.valid, e_PE_RUN_ERROR_BACKPROP, state)
-    }
-    is (e_PE_RUN_ERROR_BACKPROP) {
-      // [TOOD] This logic is broken for some reason
-      when (index === (io.req.bits.numWeights - UInt(1))) {
-        state := e_PE_ACTIVATION_FUNCTION_ERROR_BACKPROP
-      } .elsewhen (index === UInt(elementsPerBlock - 1)) {
-        state := e_PE_REQUEST_INPUTS_AND_WEIGHTS_ERROR_BACKPROP
-      } .otherwise {
-        state := state
-      }
-      //outer product of weight matrix and delta
-      io.resp.bits.delta := SInt(0)
-      errorOut := errorOut +
-      ((io.req.bits.iBlock(index) * io.req.bits.wBlock(index)) >>
-        (io.req.bits.decimalPoint +
-          UInt(decimalPointOffset, width = decimalPointWidth + 1)))(elementWidth,0)
-      index := index + UInt(1)
-    }
+    // is (e_PE_RUN_ERROR_BACKPROP) {
+    //   // [TOOD] This logic is broken for some reason
+    //   when (index === (io.req.bits.numWeights - UInt(1))) {
+    //     state := e_PE_ACTIVATION_FUNCTION_ERROR_BACKPROP
+    //   } .elsewhen (index === UInt(elementsPerBlock - 1)) {
+    //     state := e_PE_REQUEST_INPUTS_AND_WEIGHTS_ERROR_BACKPROP
+    //   } .otherwise {
+    //     state := state
+    //   }
+    //   errorOut := errorOut +
+    //   ((io.req.bits.iBlock(index) * io.req.bits.wBlock(index)) >>
+    //     (io.req.bits.decimalPoint +
+    //       UInt(decimalPointOffset, width = decimalPointWidth + 1)))(elementWidth,0)
+    //   index := index + UInt(1)
+    // }
   }
+
+  assert (!(state === e_PE_ERROR), "[ERROR] PE is in error state\n")
 }
 
 // [TODO] This whole testbench is broken due to the integration with

@@ -50,13 +50,15 @@ class ControlPETableInterface extends DanaBundle with ControlParameters {
     val inAddr = UInt(width = ioIdxWidth)
     val outAddr = UInt(width = ioIdxWidth)
     val learnAddr = UInt(width = ioIdxWidth)
-    val errAddr = UInt(width = ioIdxWidth)
+    val deltaAddr = UInt(width = ioIdxWidth)
+    val dwAddr = UInt(width = ioIdxWidth)
     val location = UInt(width = 1)
     val neuronPointer = UInt(width = 12) // [TODO] fragile
     val decimalPoint = UInt(width = decimalPointWidth)
     val errorFunction = UInt(width = log2Up(2)) // [TODO] fragile
     val stateLearn = UInt(width = log2Up(7)) // [TODO] fragile
     val inLast = Bool()
+    val resetWB = Bool()
   })
   // No response is necessary as the Control module needs to know is
   // if the PE Table has a free entry. This is communicated by means
@@ -100,22 +102,24 @@ class Control extends DanaModule {
     io.cache.req.bits.inLastLearn := inLastLearn
   }
   def reqPETable(valid: Bool, cacheIndex: UInt, tIdx: UInt,  inAddr: UInt,
-    outAddr: UInt, learnAddr: UInt, errAddr: UInt, neuronPointer: UInt,
-    decimalPoint: UInt, errorFunction: UInt, location: UInt, stateLearn: UInt,
-        inLast: UInt) {
+    outAddr: UInt, learnAddr: UInt, deltaAddr: UInt, dwAddr: UInt,
+    neuronPointer: UInt, decimalPoint: UInt, errorFunction: UInt,
+    location: UInt, stateLearn: UInt, inLast: UInt, resetWB: Bool) {
     io.peTable.req.valid := valid
     io.peTable.req.bits.cacheIndex := cacheIndex
     io.peTable.req.bits.tIdx := tIdx
     io.peTable.req.bits.inAddr := inAddr
     io.peTable.req.bits.outAddr := outAddr
     io.peTable.req.bits.learnAddr := learnAddr
-    io.peTable.req.bits.errAddr := errAddr
+    io.peTable.req.bits.deltaAddr := deltaAddr
+    io.peTable.req.bits.dwAddr := dwAddr
     io.peTable.req.bits.neuronPointer := neuronPointer
     io.peTable.req.bits.decimalPoint := decimalPoint
     io.peTable.req.bits.errorFunction := errorFunction
     io.peTable.req.bits.location := location
     io.peTable.req.bits.stateLearn := stateLearn
     io.peTable.req.bits.inLast := inLast
+    io.peTable.req.bits.resetWB := resetWB
   }
 
   // io.tTable defaults
@@ -139,7 +143,7 @@ class Control extends DanaModule {
     UInt(0), Bool(false))
   // io.petable defaults
   reqPETable(Bool(false), UInt(0), UInt(0), UInt(0), UInt(0), UInt(0), UInt(0),
-    UInt(0), UInt(0), UInt(0), UInt(0), UInt(0), UInt(0))
+    UInt(0), UInt(0), UInt(0), UInt(0), UInt(0), UInt(0), UInt(0), Bool(false))
   // io.regFile defaults
   io.regFile.req.valid := Bool(false)
   io.regFile.req.bits.tIdx := UInt(0)
@@ -174,7 +178,7 @@ class Control extends DanaModule {
         // [TODO] This won't work as the tTable data is no longer
         // valid when the cache response comes back.
         when(io.cache.resp.bits.inLastLearn){
-          io.regFile.req.bits.totalWrites := UInt(2)*io.cache.resp.bits.data(0)
+          io.regFile.req.bits.totalWrites := UInt(3)*io.cache.resp.bits.data(0)
         } .otherwise {
            io.regFile.req.bits.totalWrites := io.cache.resp.bits.data(0)
         }
@@ -236,7 +240,10 @@ class Control extends DanaModule {
         io.tTable.req.bits.currentNodeInLayer,
         //Error address in LERAN_FEEDFORWARD state means the address used to save
         //the calculated error values
-        io.tTable.req.bits.regFileAddrErr+io.tTable.req.bits.currentNodeInLayer,
+        io.tTable.req.bits.regFileAddrDelta+io.tTable.req.bits.currentNodeInLayer,
+        // The DW address is where the delta--weight products will be
+        // written (and accumulated by the Register File)
+        io.tTable.req.bits.regFileAddrDW,
         // The neuron pointer is going to be the base pointer that
         // lives in the Transaction Table plus an offset based on the
         // current node that we're processing. The shift by 3 is to
@@ -258,7 +265,12 @@ class Control extends DanaModule {
         io.tTable.req.bits.stateLearn,
         // The state is also moderated by the "inLast" bit so this is
         // also passed along
-        io.tTable.req.bits.inLast
+        io.tTable.req.bits.inLast,
+        // The condition under which the Register File Block WB Table
+        // should be reset
+        io.tTable.req.bits.inLast &&
+          (io.tTable.req.bits.currentNodeInLayer === UInt(0)) &&
+          io.tTable.req.bits.stateLearn === e_TTABLE_STATE_LEARN_FEEDFORWARD
       )
     }
   }
