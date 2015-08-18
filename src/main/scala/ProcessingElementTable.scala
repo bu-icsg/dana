@@ -296,7 +296,7 @@ class ProcessingElementTable extends DanaModule {
   // that we're seeing from the chosen PE.
   when (peArbiter.io.out.valid) {
     switch (peArbiter.io.out.bits.state) {
-      is (e_PE_GET_INFO) {
+      is (PE_states('e_PE_GET_INFO)) {
         // Send a request to the cache for information.
         io.cache.req.valid := Bool(true)
         io.cache.req.bits.field := e_CACHE_NEURON
@@ -306,7 +306,7 @@ class ProcessingElementTable extends DanaModule {
 
         pe(peArbiter.io.out.bits.index).req.valid := Bool(true)
       }
-      is (e_PE_REQUEST_INPUTS_AND_WEIGHTS) {
+      is (PE_states('e_PE_REQUEST_INPUTS_AND_WEIGHTS)) {
         // All requests are now routed through the Register File (the
         // intermediate storage area for all computation)
         io.regFile.req.valid := Bool(true)
@@ -326,7 +326,7 @@ class ProcessingElementTable extends DanaModule {
 
         pe(peArbiter.io.out.bits.index).req.valid := Bool(true)
       }
-      is (e_PE_REQUEST_EXPECTED_OUTPUT) {
+      is (PE_states('e_PE_REQUEST_EXPECTED_OUTPUT)) {
         io.regFile.req.valid := Bool(true)
         io.regFile.req.bits.isWrite := Bool(false) // unecessary to specify
         io.regFile.req.bits.addr := table(peArbiter.io.out.bits.index).learnAddr
@@ -337,7 +337,7 @@ class ProcessingElementTable extends DanaModule {
 
         pe(peArbiter.io.out.bits.index).req.valid := Bool(true)
       }
-      is(e_PE_COMPUTE_ERROR_WRITE_BACK){
+      is(PE_states('e_PE_COMPUTE_ERROR_WRITE_BACK)){
         // Outputs are always written to the Register File
         io.regFile.req.valid := Bool(true)
         io.regFile.req.bits.isWrite := Bool(true)
@@ -348,7 +348,7 @@ class ProcessingElementTable extends DanaModule {
 
         pe(peArbiter.io.out.bits.index).req.valid := Bool(true)
       }
-      /*is (e_PE_REQUEST_DELTA_WEIGHT_UPDATE) {
+      /*is (PE_states('e_PE_REQUEST_DELTA_WEIGHT_UPDATE)) {
         io.regFile.req.valid := Bool(true)
         io.regFile.req.bits.isWrite := Bool(false) // unecessary to specify
         io.regFile.req.bits.addr := table(peArbiter.io.out.bits.index).learnAddr
@@ -359,7 +359,7 @@ class ProcessingElementTable extends DanaModule {
 
         pe(peArbiter.io.out.bits.index).req.valid := Bool(true)
       }
-      is(e_PE_WEIGHT_UPDATE_WRITE_BACK) {
+      is(PE_states('e_PE_WEIGHT_UPDATE_WRITE_BACK)) {
         io.regFile.req.valid := Bool(true)
         io.regFile.req.bits.isWrite := Bool(true)
         io.regFile.req.bits.addr := table(peArbiter.io.out.bits.index).learnAddr
@@ -370,7 +370,7 @@ class ProcessingElementTable extends DanaModule {
 
         pe(peArbiter.io.out.bits.index).req.valid := Bool(true)
       } */
-      is (e_PE_DONE) {
+      is (PE_states('e_PE_DONE)) {
         // Outputs are always written to the Register File
         io.regFile.req.valid := Bool(true)
         io.regFile.req.bits.isWrite := Bool(true)

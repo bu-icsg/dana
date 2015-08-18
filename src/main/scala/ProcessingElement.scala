@@ -62,7 +62,7 @@ class ProcessingElement extends DanaModule {
   val updated_weight = Reg(SInt(elementWidth))
 
   // [TODO] fragile on PE stateu enum (Common.scala)
-  val state = Reg(UInt(), init = e_PE_UNALLOCATED)
+  val state = Reg(UInt(), init = PE_states('e_PE_UNALLOCATED))
 
   // Local state storage. Any and all of these are possible kludges
   // which could be implemented more cleanly.
@@ -104,28 +104,28 @@ class ProcessingElement extends DanaModule {
 
   // State-driven logic
   switch (state) {
-    is (e_PE_UNALLOCATED) {
+    is (PE_states('e_PE_UNALLOCATED)) {
       /*when (io.req.bits.stateLearn === e_TTABLE_STATE_FEEDFORWARD ||
       io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_FEEDFORWARD) {
-        state := e_PE_GET_INFO
-      } .elsewhen (io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_ERROR_BACKPROP) {
-        state := e_PE_GET_INFO_ERROR_BACKPROP
+        state := PE_states('e_PE_GET_INFO
+      } .elsewhen (io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_ERROR_BACKPROP)) {
+        state := PE_states('e_PE_GET_INFO_ERROR_BACKPROP)
       } */
-      state := Mux(io.req.valid, e_PE_GET_INFO, state)
+      state := Mux(io.req.valid, PE_states('e_PE_GET_INFO), state)
       io.req.ready := Bool(true)
       index := UInt(0)
       hasBias := Bool(false)
     }
-    is (e_PE_GET_INFO) {
+    is (PE_states('e_PE_GET_INFO)) {
       dataOut := UInt(0)
-      state := Mux(io.req.valid, e_PE_WAIT_FOR_INFO, state)
+      state := Mux(io.req.valid, PE_states('e_PE_WAIT_FOR_INFO), state)
       io.resp.valid := Bool(true)
     }
-    is (e_PE_WAIT_FOR_INFO) {
-      state := Mux(io.req.valid, e_PE_REQUEST_INPUTS_AND_WEIGHTS, state)
+    is (PE_states('e_PE_WAIT_FOR_INFO)) {
+      state := Mux(io.req.valid, PE_states('e_PE_REQUEST_INPUTS_AND_WEIGHTS), state)
     }
-    is (e_PE_REQUEST_INPUTS_AND_WEIGHTS) {
-      state := Mux(io.req.valid, e_PE_WAIT_FOR_INPUTS_AND_WEIGHTS, state)
+    is (PE_states('e_PE_REQUEST_INPUTS_AND_WEIGHTS)) {
+      state := Mux(io.req.valid, PE_states('e_PE_WAIT_FOR_INPUTS_AND_WEIGHTS), state)
       io.resp.valid := Bool(true)
       // If hasBias is false, then this is the first time we're in this
       // state and we need to load the bias into the accumulator
@@ -134,17 +134,17 @@ class ProcessingElement extends DanaModule {
         acc := io.req.bits.bias
       }
     }
-    is (e_PE_WAIT_FOR_INPUTS_AND_WEIGHTS) {
+    is (PE_states('e_PE_WAIT_FOR_INPUTS_AND_WEIGHTS)) {
       state := Mux(io.req.valid,Mux(io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_WEIGHT_UPDATE,
-       e_PE_RUN_WEIGHT_UPDATE, e_PE_RUN), state)
-      //state := Mux(io.req.valid, e_PE_RUN, state)
+       PE_states('e_PE_RUN_WEIGHT_UPDATE), PE_states('e_PE_RUN)), state)
+      //state := Mux(io.req.valid, PE_states('e_PE_RUN), state)
     }
-    is (e_PE_RUN) {
+    is (PE_states('e_PE_RUN)) {
       // [TOOD] This logic is broken for some reason
       when (index === (io.req.bits.numWeights - UInt(1))) {
-        state := e_PE_ACTIVATION_FUNCTION
+        state := PE_states('e_PE_ACTIVATION_FUNCTION)
       } .elsewhen (index === UInt(elementsPerBlock - 1)) {
-        state := e_PE_REQUEST_INPUTS_AND_WEIGHTS
+        state := PE_states('e_PE_REQUEST_INPUTS_AND_WEIGHTS)
       } .otherwise {
         state := state
       }
@@ -152,17 +152,17 @@ class ProcessingElement extends DanaModule {
         (io.req.bits.decimalPoint + UInt(decimalPointOffset, width = decimalPointWidth + 1)))(elementWidth,0)
       index := index + UInt(1)
     }
-    is (e_PE_ACTIVATION_FUNCTION) {
+    is (PE_states('e_PE_ACTIVATION_FUNCTION)) {
       af.io.req.valid := Bool(true)
       af.io.req.bits.in := acc
       af.io.req.bits.afType := e_AF_DO_ACTIVATION_FUNCTION
       state := Mux(af.io.resp.valid, Mux(io.req.bits.inLast &&
         io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_FEEDFORWARD,
-        e_PE_COMPUTE_DERIVATIVE, e_PE_DONE), state)
+        PE_states('e_PE_COMPUTE_DERIVATIVE), PE_states('e_PE_DONE)), state)
       dataOut := Mux(af.io.resp.valid, af.io.resp.bits.out, dataOut)
     }
-    is(e_PE_COMPUTE_DERIVATIVE){
-      state := e_PE_REQUEST_EXPECTED_OUTPUT
+    is(PE_states('e_PE_COMPUTE_DERIVATIVE)){
+      state := PE_states('e_PE_REQUEST_EXPECTED_OUTPUT)
       switch (io.req.bits.activationFunction) {
          // [TODO] negative shifts, probably broken!
          printf("[INFO] PE: decimal point is 0x%x\n", decimal)
@@ -193,14 +193,14 @@ class ProcessingElement extends DanaModule {
           }
       }
     }
-    is (e_PE_REQUEST_EXPECTED_OUTPUT) {
-      state := Mux(io.req.valid, e_PE_WAIT_FOR_EXPECTED_OUTPUT, state)
+    is (PE_states('e_PE_REQUEST_EXPECTED_OUTPUT)) {
+      state := Mux(io.req.valid, PE_states('e_PE_WAIT_FOR_EXPECTED_OUTPUT), state)
       io.resp.valid := Bool(true)
     }
-    is (e_PE_WAIT_FOR_EXPECTED_OUTPUT) {
-      state := Mux(io.req.valid, e_PE_COMPUTE_ERROR, state)
+    is (PE_states('e_PE_WAIT_FOR_EXPECTED_OUTPUT)) {
+      state := Mux(io.req.valid, PE_states('e_PE_COMPUTE_ERROR), state)
     }
-    is (e_PE_COMPUTE_ERROR) {
+    is (PE_states('e_PE_COMPUTE_ERROR)) {
       // Divide by 2 should be conditional on being in a symmetric
       when (io.req.bits.activationFunction === e_FANN_SIGMOID_SYMMETRIC ||
         io.req.bits.activationFunction === e_FANN_SIGMOID_SYMMETRIC_STEPWISE) {
@@ -216,47 +216,47 @@ class ProcessingElement extends DanaModule {
           dataOut - io.req.bits.learnReg,
           (((dataOut - io.req.bits.learnReg)) * ((dataOut - io.req.bits.learnReg))) >> decimal)
       }
-      state := e_PE_ERROR_FUNCTION
+      state := PE_states('e_PE_ERROR_FUNCTION)
     }
-    is (e_PE_ERROR_FUNCTION) {
+    is (PE_states('e_PE_ERROR_FUNCTION)) {
       af.io.req.valid := Bool(true)
       af.io.req.bits.in := errorOut
       af.io.req.bits.afType := e_AF_DO_ERROR_FUNCTION
-      state := Mux(af.io.resp.valid, e_PE_COMPUTE_ERROR_WRITE_BACK, state)
+      state := Mux(af.io.resp.valid, PE_states('e_PE_COMPUTE_ERROR_WRITE_BACK), state)
       errorOut := Mux(af.io.resp.valid, af.io.resp.bits.out, errorOut)
     }
-    is(e_PE_COMPUTE_ERROR_WRITE_BACK){
+    is(PE_states('e_PE_COMPUTE_ERROR_WRITE_BACK)){
       errorOut := (derivative * errorOut) >> decimal
       printf("[INFO] PE sees errFn/(errFn*derivative) 0x%x/0x%x\n", errorOut,
         (derivative * errorOut) >> decimal)
-      state := Mux(io.req.valid, e_PE_DONE, state)
+      state := Mux(io.req.valid, PE_states('e_PE_DONE), state)
       io.resp.valid := Bool(true)
     }
-    is (e_PE_DONE) {
-      state := Mux(io.req.valid, e_PE_UNALLOCATED, state)
+    is (PE_states('e_PE_DONE)) {
+      state := Mux(io.req.valid, PE_states('e_PE_UNALLOCATED), state)
       io.resp.valid := Bool(true)
     }
 
-   /* is (e_PE_GET_INFO_ERROR_BACKPROP) {
-      state := Mux(io.req.valid, e_PE_WAIT_FOR_INFO_ERROR_BACKPROP, state)
+    is (PE_states('e_PE_GET_INFO_ERROR_BACKPROP)) {
+      state := Mux(io.req.valid, PE_states('e_PE_WAIT_FOR_INFO_ERROR_BACKPROP), state)
       io.resp.valid := Bool(true)
     }
-    is (e_PE_WAIT_FOR_INFO_ERROR_BACKPROP) {
-      state := Mux(io.req.valid, e_PE_REQUEST_INPUTS_AND_WEIGHTS_ERROR_BACKPROP, state)
+    is (PE_states('e_PE_WAIT_FOR_INFO_ERROR_BACKPROP)) {
+      state := Mux(io.req.valid, PE_states('e_PE_REQUEST_INPUTS_AND_WEIGHTS_ERROR_BACKPROP), state)
     }
-    is (e_PE_REQUEST_INPUTS_AND_WEIGHTS_ERROR_BACKPROP) {
-      state := Mux(io.req.valid, e_PE_WAIT_FOR_INPUTS_AND_WEIGHTS_ERROR_BACKPROP, state)
+    is (PE_states('e_PE_REQUEST_INPUTS_AND_WEIGHTS_ERROR_BACKPROP)) {
+      state := Mux(io.req.valid, PE_states('e_PE_WAIT_FOR_INPUTS_AND_WEIGHTS_ERROR_BACKPROP), state)
       io.resp.valid := Bool(true)
     }
-    is (e_PE_WAIT_FOR_INPUTS_AND_WEIGHTS_ERROR_BACKPROP) {
-      state := Mux(io.req.valid, e_PE_RUN_ERROR_BACKPROP, state)
+    is (PE_states('e_PE_WAIT_FOR_INPUTS_AND_WEIGHTS_ERROR_BACKPROP)) {
+      state := Mux(io.req.valid, PE_states('e_PE_RUN_ERROR_BACKPROP), state)
     }
-    is (e_PE_RUN_ERROR_BACKPROP) {
+    is (PE_states('e_PE_RUN_ERROR_BACKPROP)) {
       // [TOOD] This logic is broken for some reason
       when (index === (io.req.bits.numWeights - UInt(1))) {
-        state := e_PE_ACTIVATION_FUNCTION_ERROR_BACKPROP
+        state := PE_states('e_PE_ACTIVATION_FUNCTION_ERROR_BACKPROP)
       } .elsewhen (index === UInt(elementsPerBlock - 1)) {
-        state := e_PE_REQUEST_INPUTS_AND_WEIGHTS_ERROR_BACKPROP
+        state := PE_states('e_PE_REQUEST_INPUTS_AND_WEIGHTS_ERROR_BACKPROP)
       } .otherwise {
         state := state
       }
@@ -267,37 +267,36 @@ class ProcessingElement extends DanaModule {
         (io.req.bits.decimalPoint +
           UInt(decimalPointOffset, width = decimalPointWidth + 1)))(elementWidth,0)
       index := index + UInt(1)
-    } */
+    } 
     //not sure if we need a seperate state for this
-    is(e_PE_GET_INFO_WEIGHT_UPDATE){
-      state := Mux(io.req.valid, e_PE_WAIT_FOR_INFO_WEIGHT_UPDATE, state)
+    is(PE_states('e_PE_GET_INFO_WEIGHT_UPDATE)){
+      state := Mux(io.req.valid, PE_states('e_PE_WAIT_FOR_INFO_WEIGHT_UPDATE), state)
       io.resp.valid := Bool(true) 
-      //state := e_PE_UNALLOCATED
     }
     //not sure if we need a seperate state for this
-    is(e_PE_WAIT_FOR_INFO_WEIGHT_UPDATE){
-      state := Mux(io.req.valid, e_PE_REQUEST_DELTA_WEIGHT_UPDATE, state)
+    is(PE_states('e_PE_WAIT_FOR_INFO_WEIGHT_UPDATE)){
+      state := Mux(io.req.valid, PE_states('e_PE_REQUEST_DELTA_WEIGHT_UPDATE), state)
     }
-    is(e_PE_REQUEST_DELTA_WEIGHT_UPDATE){
-      state := Mux(io.req.valid, e_PE_WAIT_FOR_DELTA_WEIGHT_UPDATE, state)
+    is(PE_states('e_PE_REQUEST_DELTA_WEIGHT_UPDATE)){
+      state := Mux(io.req.valid, PE_states('e_PE_WAIT_FOR_DELTA_WEIGHT_UPDATE), state)
       io.resp.valid := Bool(true)
     }
-    is(e_PE_WAIT_FOR_DELTA_WEIGHT_UPDATE){
-      state := Mux(io.req.valid, e_PE_REQUEST_INPUTS_AND_WEIGHTS, state)
+    is(PE_states('e_PE_WAIT_FOR_DELTA_WEIGHT_UPDATE)){
+      state := Mux(io.req.valid, PE_states('e_PE_REQUEST_INPUTS_AND_WEIGHTS), state)
     }
-    is(e_PE_RUN_WEIGHT_UPDATE){
+    is(PE_states('e_PE_RUN_WEIGHT_UPDATE)){
       when (index === (io.req.bits.numWeights - UInt(1))) {
-        state := e_PE_WEIGHT_UPDATE_WRITE_BACK
+        state := PE_states('e_PE_WEIGHT_UPDATE_WRITE_BACK)
       } .elsewhen (index === UInt(elementsPerBlock - 1)) {
-        state := e_PE_REQUEST_INPUTS_AND_WEIGHTS
+        state := PE_states('e_PE_REQUEST_INPUTS_AND_WEIGHTS)
       } .otherwise {
         state := state
       }
       updated_weight:= (io.req.bits.wBlock(index) + (io.req.bits.learnReg * io.req.bits.iBlock(index)) >> decimal)(elementWidth, 0)
       index := index + UInt(1)
     }
-    is(e_PE_WEIGHT_UPDATE_WRITE_BACK){
-      state := Mux(io.req.valid, e_PE_UNALLOCATED, state)
+    is(PE_states('e_PE_WEIGHT_UPDATE_WRITE_BACK)){
+      state := Mux(io.req.valid, PE_states('e_PE_UNALLOCATED), state)
       io.resp.valid := Bool(true) 
     }  
   }
