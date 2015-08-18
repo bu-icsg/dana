@@ -59,6 +59,7 @@ class ControlPETableInterface extends DanaBundle with ControlParameters {
     val stateLearn = UInt(width = log2Up(7)) // [TODO] fragile
     val inLast = Bool()
     val resetWB = Bool()
+    val inFirst = Bool()
   })
   // No response is necessary as the Control module needs to know is
   // if the PE Table has a free entry. This is communicated by means
@@ -104,7 +105,7 @@ class Control extends DanaModule {
   def reqPETable(valid: Bool, cacheIndex: UInt, tIdx: UInt,  inAddr: UInt,
     outAddr: UInt, learnAddr: UInt, deltaAddr: UInt, dwAddr: UInt,
     neuronPointer: UInt, decimalPoint: UInt, errorFunction: UInt,
-    location: UInt, stateLearn: UInt, inLast: UInt, resetWB: Bool) {
+    location: UInt, stateLearn: UInt, inLast: UInt, resetWB: Bool, inFirst: UInt) {
     io.peTable.req.valid := valid
     io.peTable.req.bits.cacheIndex := cacheIndex
     io.peTable.req.bits.tIdx := tIdx
@@ -120,6 +121,7 @@ class Control extends DanaModule {
     io.peTable.req.bits.stateLearn := stateLearn
     io.peTable.req.bits.inLast := inLast
     io.peTable.req.bits.resetWB := resetWB
+    io.peTable.req.bits.inFirst := inFirst
   }
 
   // io.tTable defaults
@@ -143,7 +145,8 @@ class Control extends DanaModule {
     UInt(0), Bool(false))
   // io.petable defaults
   reqPETable(Bool(false), UInt(0), UInt(0), UInt(0), UInt(0), UInt(0), UInt(0),
-    UInt(0), UInt(0), UInt(0), UInt(0), UInt(0), UInt(0), UInt(0), Bool(false))
+    UInt(0), UInt(0), UInt(0), UInt(0), UInt(0), UInt(0), UInt(0), Bool(false),
+    Bool(false))
   // io.regFile defaults
   io.regFile.req.valid := Bool(false)
   io.regFile.req.bits.tIdx := UInt(0)
@@ -270,7 +273,10 @@ class Control extends DanaModule {
         // should be reset
         io.tTable.req.bits.inLast &&
           (io.tTable.req.bits.currentNodeInLayer === UInt(0)) &&
-          io.tTable.req.bits.stateLearn === e_TTABLE_STATE_LEARN_FEEDFORWARD
+          io.tTable.req.bits.stateLearn === e_TTABLE_STATE_LEARN_FEEDFORWARD,
+        //inFirst bit is passed along for to check for the corner case in weight
+        //update state
+        io.tTable.req.bits.inFirst
       )
     }
   }

@@ -112,26 +112,38 @@ abstract class DanaModule extends Module with DanaParameters
     e_PE_WEIGHT ::    // 1
     Nil) = Enum(UInt(), 2)
   // PE State
-  val (e_PE_UNALLOCATED ::                     // 0
-    e_PE_GET_INFO ::                           // 1
-    e_PE_WAIT_FOR_INFO ::                      // 2
-    e_PE_REQUEST_INPUTS_AND_WEIGHTS ::         // 3
-    e_PE_WAIT_FOR_INPUTS_AND_WEIGHTS ::        // 4
-    e_PE_RUN ::                                // 5
-    e_PE_ACTIVATION_FUNCTION ::                // 6
-    e_PE_REQUEST_EXPECTED_OUTPUT ::            // 7
-    e_PE_WAIT_FOR_EXPECTED_OUTPUT ::           // 8
-    e_PE_COMPUTE_ERROR ::                      // 9
-    e_PE_ERROR_FUNCTION ::                     // 10
-    e_PE_COMPUTE_DELTA_WRITE_BACK ::           // 11
-    e_PE_ERROR_BACKPROP_REQUEST_WEIGHTS ::     // 12
-    e_PE_ERROR_BACKPROP_WAIT_FOR_WEIGHTS ::    // 13
-    e_PE_ERROR_BACKPROP_DELTA_WEIGHT_MUL ::    // 14
-    e_PE_ERROR_BACKPROP_WEIGHT_WB ::           // 15
-    e_PE_ACTIVATION_FUNCTION_ERROR_BACKPROP :: // 16
-    e_PE_DONE ::                               // 17
-    e_PE_ERROR ::                              // 18
-    Nil) = Enum(UInt(), 19)
+  val PE_states = Enum(UInt(),
+    List('e_PE_UNALLOCATED,                             // 0
+      'e_PE_GET_INFO,                                   // 1
+      'e_PE_WAIT_FOR_INFO,                              // 2
+      'e_PE_REQUEST_INPUTS_AND_WEIGHTS,                 // 3
+      'e_PE_WAIT_FOR_INPUTS_AND_WEIGHTS,                // 4
+      'e_PE_RUN,                                        // 5
+      'e_PE_ACTIVATION_FUNCTION,                        // 6
+      'e_PE_COMPUTE_DERIVATIVE,                         // 7
+      'e_PE_REQUEST_EXPECTED_OUTPUT,                    // 8
+      'e_PE_WAIT_FOR_EXPECTED_OUTPUT,                   // 9
+      'e_PE_COMPUTE_ERROR,                              // 10
+      'e_PE_ERROR_FUNCTION,                             // 11
+      'e_PE_COMPUTE_DELTA_WRITE_BACK,                   // 12
+      'e_PE_ERROR_BACKPROP_REQUEST_WEIGHTS,             // 13
+      'e_PE_ERROR_BACKPROP_WAIT_FOR_WEIGHTS,            // 14
+      'e_PE_ERROR_BACKPROP_DELTA_WEIGHT_MUL,            // 15
+      'e_PE_ERROR_BACKPROP_WEIGHT_WB,                   // 16
+      'e_PE_GET_INFO_ERROR_BACKPROP,                    // 17
+      'e_PE_WAIT_FOR_INFO_ERROR_BACKPROP,               // 18
+      'e_PE_REQUEST_INPUTS_AND_WEIGHTS_ERROR_BACKPROP,  // 19
+      'e_PE_WAIT_FOR_INPUTS_AND_WEIGHTS_ERROR_BACKPROP, // 20
+      'e_PE_RUN_ERROR_BACKPROP,                         // 21
+      'e_PE_ACTIVATION_FUNCTION_ERROR_BACKPROP,         // 22
+      'e_PE_GET_INFO_WEIGHT_UPDATE,                     // 23
+      'e_PE_WAIT_FOR_INFO_WEIGHT_UPDATE,                // 24
+      'e_PE_REQUEST_DELTA_WEIGHT_UPDATE,                // 25
+      'e_PE_WAIT_FOR_DELTA_WEIGHT_UPDATE,               // 26
+      'e_PE_RUN_WEIGHT_UPDATE,                          // 27
+      'e_PE_WEIGHT_UPDATE_WRITE_BACK,                   // 28
+      'e_PE_DONE,                                       // 29
+      'e_PE_ERROR))                                     // 30
     // Nil) = Enum(UInt(), 8).map(i => (UInt(1) << i)(7, 0))
   val (e_PE_REQ_INPUT ::        // 0
     e_PE_REQ_EXPECTED_OUTPUT :: // 1
