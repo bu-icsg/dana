@@ -161,13 +161,16 @@ class SRAMElementIncrement (
             forwarding(i) := Bool(true)
           } .otherwise {
             (0 until elementsPerBlock).map(j =>
-              tmp(i)(j) := io.dinBlock(i)(elementWidth*(j+1) - 1,
-                elementWidth * j) +
-                writePending(i).dataBlock(elementWidth*(j+1) - 1,
+              tmp(i)(j) := sram.io.doutR(i).toBits()((j+1) * elementWidth - 1,
+                j * elementWidth) +
+              writePending(i).dataBlock(elementWidth*(j+1) - 1,
                 elementWidth * j))
           }
+           
         }
       }
+      printf("[INFO] SRAMElementIncrement: PE write block Addr/Data_acc/Data_new/Data_old 0x%x/0x%x/0x%x/0x%x\n", 
+              writePending(i).addrHi##writePending(i).addrLo, tmp(i).toBits, writePending(i).dataBlock, sram.io.doutR(i).toBits)
     }
   }
 
