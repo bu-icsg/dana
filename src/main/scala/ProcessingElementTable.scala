@@ -378,7 +378,7 @@ class ProcessingElementTable extends DanaModule {
 
         pe(peArbiter.io.out.bits.index).req.valid := Bool(true)
       }
-      is(PE_states('e_PE_COMPUTE_DELTA_WRITE_BACK)){
+      is(PE_states('e_PE_DELTA_WRITE_BACK)){
         // Outputs are always written to the Register File
         io.regFile.req.valid := Bool(true)
         io.regFile.req.bits.isWrite := Bool(true)
