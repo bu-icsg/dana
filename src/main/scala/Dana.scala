@@ -131,27 +131,27 @@ abstract class DanaModule extends Module with DanaParameters
       'e_PE_ERROR_BACKPROP_WAIT_FOR_WEIGHTS,            // 15
       'e_PE_ERROR_BACKPROP_DELTA_WEIGHT_MUL,            // 16
       'e_PE_ERROR_BACKPROP_WEIGHT_WB,                   // 17
-      'e_PE_GET_INFO_ERROR_BACKPROP,                    // 18
-      'e_PE_WAIT_FOR_INFO_ERROR_BACKPROP,               // 19
-      'e_PE_REQUEST_INPUTS_AND_WEIGHTS_ERROR_BACKPROP,  // 20
-      'e_PE_WAIT_FOR_INPUTS_AND_WEIGHTS_ERROR_BACKPROP, // 21
-      'e_PE_RUN_ERROR_BACKPROP,                         // 22
-      'e_PE_ACTIVATION_FUNCTION_ERROR_BACKPROP,         // 23
-      'e_PE_GET_INFO_WEIGHT_UPDATE,                     // 24
-      'e_PE_WAIT_FOR_INFO_WEIGHT_UPDATE,                // 25
-      'e_PE_REQUEST_DELTA_WEIGHT_UPDATE,                // 26
-      'e_PE_WAIT_FOR_DELTA_WEIGHT_UPDATE,               // 27
-      'e_PE_RUN_WEIGHT_UPDATE,                          // 28
-      'e_PE_WEIGHT_UPDATE_WRITE_BACK,                   // 29
-      'e_PE_DONE,                                       // 30
-      'e_PE_ERROR))                                     // 31
+      'e_PE_REQUEST_OUTPUTS_ERROR_BACKPROP,             // 18
+      'e_PE_WAIT_FOR_OUTPUTS_ERROR_BACKPROP,            // 19
+      'e_PE_REQUEST_DELTA_WEIGHT_PRODUCT_ERROR_BACKPROP,// 20
+      'e_PE_WAIT_FOR_DELTA_WEIGHT_PRODUCT_ERROR_BACKPROP,// 21
+      'e_PE_GET_INFO_WEIGHT_UPDATE,                     // 22
+      'e_PE_WAIT_FOR_INFO_WEIGHT_UPDATE,                // 23
+      'e_PE_REQUEST_DELTA_WEIGHT_UPDATE,                // 24
+      'e_PE_WAIT_FOR_DELTA_WEIGHT_UPDATE,               // 25
+      'e_PE_RUN_WEIGHT_UPDATE,                          // 26
+      'e_PE_WEIGHT_UPDATE_WRITE_BACK,                   // 27
+      'e_PE_DONE,                                       // 28
+      'e_PE_ERROR))                                     // 29
     // Nil) = Enum(UInt(), 8).map(i => (UInt(1) << i)(7, 0))
-  val (e_PE_REQ_INPUT ::        // 0
-    e_PE_REQ_EXPECTED_OUTPUT :: // 1
-    e_PE_WRITE_ELEMENT ::       // 2
-    e_PE_WRITE_BLOCK_NEW ::     // 3
-    e_PE_WRITE_BLOCK_ACC ::     // 4
-    Nil) = Enum(UInt(), 5)
+  val (e_PE_REQ_INPUT ::              // 0
+    e_PE_REQ_EXPECTED_OUTPUT ::       // 1
+    e_PE_REQ_OUTPUT ::                // 2
+    e_PE_REQ_DELTA_WEIGHT_PRODUCT ::  // 3
+    e_PE_WRITE_ELEMENT ::             // 4
+    e_PE_WRITE_BLOCK_NEW ::           // 5
+    e_PE_WRITE_BLOCK_ACC ::           // 6
+    Nil) = Enum(UInt(), 7)
   // Location of inputs and outputs
   val (e_LOCATION_REG_0 :: // 0
     e_LOCATION_REG_1 ::    // 1

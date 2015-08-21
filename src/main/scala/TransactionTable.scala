@@ -45,7 +45,9 @@ class TransactionState extends XFilesBundle {
   val regFileAddrIn = UInt(width = log2Up(regFileNumElements))
   val regFileAddrOut = UInt(width = log2Up(regFileNumElements))
   val regFileAddrDelta = UInt(width = log2Up(regFileNumElements))
-  val regFileAddrDW = UInt(width = log2Up(regFileNumElements))
+  val regFileAddrDWIn = UInt(width = log2Up(regFileNumElements))
+  val regFileAddrDWOut = UInt(width = log2Up(regFileNumElements))
+  val regFileAddrlearn = UInt(width = log2Up(regFileNumElements))
   val readIdx = UInt(width = log2Up(regFileNumElements))
   val coreIdx = UInt(width = log2Up(numCores))
   // Additional crap which may be redundant
@@ -77,7 +79,9 @@ class ControlReq extends XFilesBundle {
   val regFileAddrIn = UInt(width = log2Up(regFileNumElements))
   val regFileAddrOut = UInt(width = log2Up(regFileNumElements))
   val regFileAddrDelta = UInt(width = log2Up(regFileNumElements))
-  val regFileAddrDW = UInt(width = log2Up(regFileNumElements))
+  val regFileAddrDWIn = UInt(width = log2Up(regFileNumElements))
+  val regFileAddrDWOut = UInt(width = log2Up(regFileNumElements))
+  val regFileAddrlearn = UInt(width = log2Up(regFileNumElements))
   val stateLearn = UInt(width = log2Up(5)) // [TODO] fragile
 }
 
@@ -252,7 +256,9 @@ class TransactionTable extends XFilesModule {
         table(nextFree).regFileAddrIn := UInt(0)
         table(nextFree).regFileAddrOut := UInt(0)
         table(nextFree).regFileAddrDelta := UInt(0)
-        table(nextFree).regFileAddrDW := UInt(0)
+        table(nextFree).regFileAddrDWIn := UInt(0)
+        table(nextFree).regFileAddrDWOut := UInt(0)
+        table(nextFree).regFileAddrlearn := UInt(0)
         table(nextFree).done := Bool(false)
         table(nextFree).decInUse := Bool(false)
         table(nextFree).indexElement := UInt(0)
@@ -420,13 +426,59 @@ class TransactionTable extends XFilesModule {
           val niclLSBs = // Nodes in previous layer LSBs
             nicl(log2Up(elementsPerBlock)-1, 0)
           val round = Mux(niclLSBs != UInt(0), UInt(elementsPerBlock), UInt(0))
-          table(tIdx).regFileAddrIn := table(tIdx).regFileAddrOut
+          switch(table(tIdx).stateLearn)
+          {
+            is(e_TTABLE_STATE_FEEDFORWARD){
+              table(tIdx).regFileAddrIn := table(tIdx).regFileAddrOut
+              table(tIdx).regFileAddrOut := table(tIdx).regFileAddrOut + niclMSBs + round
+            }
+            is(e_TTABLE_STATE_LEARN_FEEDFORWARD){
+              table(tIdx).regFileAddrIn := table(tIdx).regFileAddrOut
+            // If we're in the last layer, this is a little special
+              when(table(tIdx).currentLayer === table(tIdx).numLayers - UInt(1)){
+                table(tIdx).regFileAddrDelta := table(tIdx).regFileAddrOut + UInt(2) *
+                  (niclMSBs + round)
+                table(tIdx).regFileAddrDWOut := table(tIdx).regFileAddrOut + UInt(3) *
+                  (niclMSBs + round)
+              } .otherwise{
+                // [TODO] I'm not 100% sure that this is the right way to
+                // go about this.
+                table(tIdx).regFileAddrDelta := table(tIdx).regFileAddrOut
+              }
+              table(tIdx).regFileAddrOut := table(tIdx).regFileAddrOut + niclMSBs +
+                round
+            }
+            is(e_TTABLE_STATE_LEARN_ERROR_BACKPROP){
+              when(table(tIdx).currentLayer === table(tIdx).numLayers - UInt(2)){
+                //address to read outputs to compute derivative
+                table(tIdx).regFileAddrIn := table(tIdx).regFileAddrIn
+                table(tIdx).regFileAddrDWIn := table(tIdx).regFileAddrDWOut
+                table(tIdx).regFileAddrDelta := table(tIdx).regFileAddrDWOut + niclMSBs +
+                  round
+                table(tIdx).regFileAddrDWOut := table(tIdx).regFileAddrDWOut + UInt(2) *
+                  (niclMSBs + round)
+              } .otherwise {
+                table(tIdx).regFileAddrIn := table(tIdx).regFileAddrIn - (niclMSBs + round)
+                table(tIdx).regFileAddrDWIn := table(tIdx).regFileAddrDWOut
+                table(tIdx).regFileAddrDelta := table(tIdx).regFileAddrDWOut + niclMSBs +
+                  round
+                table(tIdx).regFileAddrDWOut := table(tIdx).regFileAddrDWOut + UInt(2) *
+                  (niclMSBs + round)
+
+              }
+
+            }
+            is(e_TTABLE_STATE_LEARN_WEIGHT_UPDATE){
+
+            }
+          }
+          /*table(tIdx).regFileAddrIn := table(tIdx).regFileAddrOut
           // If we're in the last layer, this is a little special
           when(table(tIdx).currentLayer === table(tIdx).numLayers - UInt(1) &&
             table(tIdx).stateLearn === e_TTABLE_STATE_LEARN_FEEDFORWARD){
             table(tIdx).regFileAddrDelta := table(tIdx).regFileAddrOut + UInt(2) *
               (niclMSBs + round)
-            table(tIdx).regFileAddrDW := table(tIdx).regFileAddrOut + UInt(3) *
+            table(tIdx).regFileAddrDWOut := table(tIdx).regFileAddrOut + UInt(3) *
               (niclMSBs + round)
           } .elsewhen (table(tIdx).stateLearn === e_TTABLE_STATE_LEARN_ERROR_BACKPROP) {
             // [TODO] This is missing update data for non-output backprop layers
@@ -436,7 +488,7 @@ class TransactionTable extends XFilesModule {
             table(tIdx).regFileAddrDelta := table(tIdx).regFileAddrOut
           }
           table(tIdx).regFileAddrOut := table(tIdx).regFileAddrOut + niclMSBs +
-            round
+            round */
 
 
           printf("[INFO] TTable: Updating cache layer...\n")
@@ -460,14 +512,13 @@ class TransactionTable extends XFilesModule {
             table(tIdx).regFileAddrOut)
           printf("[INFO]   regFileAddrOut:             0x%x\n",
             table(tIdx).regFileAddrOut +  niclMSBs + round)
-          when(table(tIdx).currentLayer === table(tIdx).numLayers - UInt(1) &&
-            table(tIdx).stateLearn === e_TTABLE_STATE_LEARN_FEEDFORWARD) {
-            printf("[INFO]   regFileAddrDelta:           0x%x\n",
-              table(tIdx).regFileAddrOut +  UInt(2) * (niclMSBs + round))
-            printf("[INFO]   regFileAddrDW:              0x%x\n",
-              table(tIdx).regFileAddrOut + UInt(3) * (niclMSBs + round))
+          when(table(tIdx).currentLayer === table(tIdx).numLayers - UInt(1)){
+            printf("[INFO]   regFileAddrDelta:         0x%x\n",
+                table(tIdx).regFileAddrOut +  UInt(2) * (niclMSBs + round))
+            printf("[INFO]   regFileAddrDWOut:         0x%x\n",
+                table(tIdx).regFileAddrOut + UInt(3) * (niclMSBs + round))
           }
-        }
+          }
       }
     }
     // If the register file has all valid entries, then this specific
@@ -480,8 +531,8 @@ class TransactionTable extends XFilesModule {
       table(tIdx).inLast := inLastNew
       printf("[INFO] TTable: RegFile has all outputs of tIdx 0x%x\n",
         io.control.resp.bits.layerValidIndex)
-      printf("[INFO]   inFirst/inLast/inLastEarly: 0x%x/0x%x->0x%x/0x%x\n",
-        table(tIdx).inFirst, inLastOld, inLastNew, table(tIdx).inLastEarly)
+      printf("[INFO]   inFirst/inLast/inLastEarly/state: 0x%x/0x%x->0x%x/0x%x/0x%x\n",
+        table(tIdx).inFirst, inLastOld, inLastNew, table(tIdx).inLastEarly,table(tIdx).stateLearn)
       switch (table(tIdx).transactionType) {
         is (e_TTYPE_FEEDFORWARD) {
           when (!inLastOld) {
@@ -502,8 +553,8 @@ class TransactionTable extends XFilesModule {
               }
             }
             is (e_TTABLE_STATE_LEARN_ERROR_BACKPROP) {
-              table(tIdx).stateLearn := e_TTABLE_STATE_ERROR
-              table(tIdx).waiting := Bool(false)
+                  table(tIdx).stateLearn := e_TTABLE_STATE_ERROR
+                  table(tIdx).waiting := Bool(false)
             }
             is (e_TTABLE_STATE_LEARN_WEIGHT_UPDATE) {
               table(tIdx).stateLearn := e_TTABLE_STATE_ERROR
@@ -561,7 +612,8 @@ class TransactionTable extends XFilesModule {
     entryArbiter.io.in(i).bits.regFileAddrIn := table(i).regFileAddrIn
     entryArbiter.io.in(i).bits.regFileAddrOut := table(i).regFileAddrOut
     entryArbiter.io.in(i).bits.regFileAddrDelta := table(i).regFileAddrDelta
-    entryArbiter.io.in(i).bits.regFileAddrDW := table(i).regFileAddrDW
+    entryArbiter.io.in(i).bits.regFileAddrDWIn := table(i).regFileAddrDWIn
+    entryArbiter.io.in(i).bits.regFileAddrDWOut := table(i).regFileAddrDWOut
     entryArbiter.io.in(i).bits.stateLearn := table(i).stateLearn
   }
   io.control.req <> entryArbiter.io.out
@@ -593,11 +645,13 @@ class TransactionTable extends XFilesModule {
     when (entryArbiter.io.out.bits.isDone) {
       printf("[INFO] TTable entry for ASID/TID %x/%x is done\n",
         table(tIdx).asid, table(tIdx).tid);
-      table(tIdx).done := Bool(true)
+        table(tIdx).done := Bool(true)
     }
   }
   when (isPeReq) {
     val tIdx = entryArbiter.io.out.bits.tableIndex
+    val inLastnode = table(tIdx).currentNodeInLayer ===
+          table(tIdx).nodesInCurrentLayer - UInt(1)
     table(tIdx).currentNode := table(tIdx).currentNode + UInt(1)
     // [TODO] This currentNodeInLayer is always incremented and I
     // think this is okay as the value will be reset when a Layer
@@ -612,23 +666,56 @@ class TransactionTable extends XFilesModule {
     // If we're at the end of a layer, we need new layer information
     // The comparison here differs from how this is handled in
     // nn_instruction.v.
-    when((table(tIdx).currentNodeInLayer ===
-      table(tIdx).nodesInCurrentLayer - UInt(1)) &&
-      (table(tIdx).currentLayer < (table(tIdx).numLayers - UInt(1)))) {
+    switch(table(tIdx).stateLearn){
+      is(e_TTABLE_STATE_FEEDFORWARD){
+        when((table(tIdx).currentNodeInLayer ===
+          table(tIdx).nodesInCurrentLayer - UInt(1)) &&
+          (table(tIdx).currentLayer < (table(tIdx).numLayers - UInt(1)))) {
 
-      table(tIdx).needsLayerInfo := Bool(true)
-      table(tIdx).currentLayer := table(tIdx).currentLayer + UInt(1)
-      // inLastEarly will assert as soon as the last PE Request goes
-      // out. This is useful if you need something that goes high at
-      // the earliest possible definition of "being in the last
-      // layer", e.g., when generating a request for the next layer
-      // information.
-      table(tIdx).inLastEarly :=
-        table(tIdx).currentLayer === (table(tIdx).numLayers - UInt(2))
-    } .otherwise {
-      table(tIdx).needsLayerInfo := Bool(false)
-      table(tIdx).currentLayer := table(tIdx).currentLayer
-    }}
+          table(tIdx).needsLayerInfo := Bool(true)
+          table(tIdx).currentLayer := table(tIdx).currentLayer + UInt(1)
+          } .otherwise {
+            table(tIdx).needsLayerInfo := Bool(false)
+            table(tIdx).currentLayer := table(tIdx).currentLayer
+          }
+      }
+      is(e_TTABLE_STATE_LEARN_FEEDFORWARD){
+        when(table(tIdx).inLast && inLastnode){
+            table(tIdx).currentLayer := table(tIdx).currentLayer - UInt(1)
+          }
+        when((table(tIdx).currentNodeInLayer ===
+          table(tIdx).nodesInCurrentLayer - UInt(1)) &&
+          (table(tIdx).currentLayer < (table(tIdx).numLayers - UInt(1)))) {
+
+          table(tIdx).needsLayerInfo := Bool(true)
+          table(tIdx).currentLayer := table(tIdx).currentLayer + UInt(1)
+
+          // inLastEarly will assert as soon as the last PE Request goes
+          // out. This is useful if you need something that goes high at
+          // the earliest possible definition of "being in the last
+          // layer", e.g., when generating a request for the next layer
+          // information.
+          table(tIdx).inLastEarly :=
+            table(tIdx).currentLayer === (table(tIdx).numLayers - UInt(2))
+        } .otherwise {
+            table(tIdx).needsLayerInfo := Bool(false)
+            table(tIdx).currentLayer := table(tIdx).currentLayer
+          }
+      }
+      is(e_TTABLE_STATE_LEARN_ERROR_BACKPROP){
+        when((table(tIdx).currentNodeInLayer ===
+        table(tIdx).nodesInCurrentLayer - UInt(1)) &&
+        (table(tIdx).currentLayer > UInt(0))) {
+
+        table(tIdx).needsLayerInfo := Bool(true)
+        table(tIdx).currentLayer := table(tIdx).currentLayer - UInt(1)
+      } .otherwise {
+          table(tIdx).needsLayerInfo := Bool(false)
+          table(tIdx).currentLayer := table(tIdx).currentLayer
+        }
+      }
+    }
+    }
 
   // Reset Condition
   when (reset) {for (i <- 0 until transactionTableNumEntries) {
