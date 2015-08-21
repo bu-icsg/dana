@@ -14,7 +14,7 @@ class ControlCacheInterfaceResp extends DanaBundle with ControlParameters {
   val decimalPoint = UInt(INPUT, decimalPointWidth)
   val field = UInt(width = log2Up(7)) // [TODO] fragile on Constants.scala
   val location = UInt(width = 1)
-  val inLastLearn = Bool()
+  val totalWritesMul = UInt(width = 2)
 }
 
 class ControlCacheInterfaceReq extends DanaBundle with ControlParameters {
@@ -25,7 +25,7 @@ class ControlCacheInterfaceReq extends DanaBundle with ControlParameters {
   val layer = UInt(width = 16) // [TODO] fragile
   val location = UInt(width = 1) // [TODO] fragile
   val coreIdx = UInt(width = log2Up(numCores))
-  val inLastLearn = Bool()
+  val totalWritesMul = UInt(width = 2)
 }
 
 class ControlCacheInterface extends DanaBundle with ControlParameters {
@@ -94,7 +94,7 @@ class Control extends DanaModule {
   // IO Driver Functions
   def reqCache(valid: Bool, request: UInt, asid: UInt, nnid: UInt,
     tableIndex: UInt, coreIdx: UInt, layer: UInt, location: UInt,
-    inLastLearn: Bool) {
+    totalWritesMul: UInt) {
     io.cache.req.valid := valid
     io.cache.req.bits.request := request
     io.cache.req.bits.asid := asid
@@ -103,7 +103,7 @@ class Control extends DanaModule {
     io.cache.req.bits.coreIdx := coreIdx
     io.cache.req.bits.layer := layer
     io.cache.req.bits.location := location
-    io.cache.req.bits.inLastLearn := inLastLearn
+    io.cache.req.bits.totalWritesMul := totalWritesMul
   }
   def reqPETable(valid: Bool, cacheIndex: UInt, tIdx: UInt,  inAddr: UInt,
     outAddr: UInt, learnAddr: UInt, deltaAddr: UInt, indwAddr: UInt, outdwAddr: UInt,
@@ -146,7 +146,7 @@ class Control extends DanaModule {
   // io.cache defaults
   io.cache.resp.ready := Bool(true) // [TODO] not correct
   reqCache(Bool(false), UInt(0), UInt(0), UInt(0), UInt(0), UInt(0), UInt(0),
-    UInt(0), Bool(false))
+    UInt(0), UInt(0))
   // io.petable defaults
   reqPETable(Bool(false), UInt(0), UInt(0), UInt(0), UInt(0), UInt(0), UInt(0), UInt(0),
     UInt(0), UInt(0), UInt(0), UInt(0), UInt(0), UInt(0), UInt(0), Bool(false),
@@ -184,11 +184,8 @@ class Control extends DanaModule {
         io.regFile.req.bits.tIdx := io.cache.resp.bits.tableIndex
         // [TODO] This won't work as the tTable data is no longer
         // valid when the cache response comes back.
-        when(io.cache.resp.bits.inLastLearn){
-          io.regFile.req.bits.totalWrites := UInt(3)*io.cache.resp.bits.data(0)
-        } .otherwise {
-           io.regFile.req.bits.totalWrites := io.cache.resp.bits.data(0)
-        }
+        io.regFile.req.bits.totalWrites := io.cache.resp.bits.totalWritesMul *
+          io.cache.resp.bits.data(0)
         // This is the output location. This needs to match the
         // convention used for the Processing Elements
         io.regFile.req.bits.location := io.cache.resp.bits.location
@@ -210,14 +207,19 @@ class Control extends DanaModule {
     }
       .elsewhen (io.tTable.req.bits.cacheValid && io.tTable.req.bits.needsLayerInfo) {
       // Send a request to the storage module
-      val inLastLearn = (io.tTable.req.bits.inLastEarly) &&
-        (io.tTable.req.bits.stateLearn === e_TTABLE_STATE_LEARN_FEEDFORWARD)
-      printf("[INFO] Control: TTable layer req inLastEarly/state/inLastLearn 0x%x/0x%x/0x%x\n",
-        io.tTable.req.bits.inLastEarly, io.tTable.req.bits.stateLearn, inLastLearn)
+      val totalWritesMul = Mux(io.tTable.req.bits.inLastEarly &&
+        (io.tTable.req.bits.stateLearn === e_TTABLE_STATE_LEARN_FEEDFORWARD),
+        UInt(3), Mux(!io.tTable.req.bits.inFirst &&
+          (io.tTable.req.bits.stateLearn === e_TTABLE_STATE_LEARN_ERROR_BACKPROP),
+        UInt(2), UInt(1)))
+      // val inLastLearn = (io.tTable.req.bits.inLastEarly) &&
+      //   (io.tTable.req.bits.stateLearn === e_TTABLE_STATE_LEARN_FEEDFORWARD)
+      printf("[INFO] Control: TTable layer req inLastEarly/state/totalWritesMul 0x%x/0x%x/0x%x\n",
+        io.tTable.req.bits.inLastEarly, io.tTable.req.bits.stateLearn, totalWritesMul)
       reqCache(Bool(true), e_CACHE_LAYER_INFO, io.tTable.req.bits.asid,
         io.tTable.req.bits.nnid, io.tTable.req.bits.tableIndex,
         io.tTable.req.bits.coreIdx, io.tTable.req.bits.currentLayer,
-        io.tTable.req.bits.currentLayer(0), inLastLearn)
+        io.tTable.req.bits.currentLayer(0), totalWritesMul)
     }
     // If this entry is done, then its cache entry needs to be invalidated
       .elsewhen (io.tTable.req.bits.isDone) {
@@ -249,7 +251,7 @@ class Control extends DanaModule {
         //the calculated error values
         io.tTable.req.bits.regFileAddrDelta+io.tTable.req.bits.currentNodeInLayer,
         // The DWIn address is where the delta--weight products will be
-        // read 
+        // read
         io.tTable.req.bits.regFileAddrDWIn,
         // The DWOut address is where the delta--weight products will be
         // written (and accumulated by the Register File)

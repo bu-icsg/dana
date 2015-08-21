@@ -176,7 +176,7 @@ class Cache extends DanaModule {
   controlRespPipe(0).bits.decimalPoint := UInt(0)
   controlRespPipe(0).bits.field := UInt(0)
   controlRespPipe(0).bits.location := UInt(0)
-  controlRespPipe(0).bits.inLastLearn := Bool(false)
+  controlRespPipe(0).bits.totalWritesMul := UInt(0)
 
   peRespPipe(0).valid := Bool(false)
   peRespPipe(0).bits.field := UInt(0)
@@ -224,7 +224,7 @@ class Cache extends DanaModule {
     val layer = tTableReqQueue.deq.bits.layer
     val location = tTableReqQueue.deq.bits.location
     val coreIdx = tTableReqQueue.deq.bits.coreIdx
-    val inLastLearn = tTableReqQueue.deq.bits.inLastLearn
+    val totalWritesMul = tTableReqQueue.deq.bits.totalWritesMul
     switch (request) {
       is (e_CACHE_LOAD) {
         when (!foundNnid) {
@@ -283,7 +283,7 @@ class Cache extends DanaModule {
         controlRespPipe(0).bits.data(0) := layer(log2Up(elementsPerBlock)-1,0)
         controlRespPipe(0).bits.location := location
         controlRespPipe(0).bits.cacheIndex := derefNnid
-        controlRespPipe(0).bits.inLastLearn := inLastLearn
+        controlRespPipe(0).bits.totalWritesMul := totalWritesMul
 
         // Read the layer information from the correct block. A layer
         // occupies one block, so we need to pull the block address
