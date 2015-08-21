@@ -53,8 +53,7 @@ class ControlPETableInterface extends DanaBundle with ControlParameters {
     val outAddr = UInt(width = ioIdxWidth)
     val learnAddr = UInt(width = ioIdxWidth)
     val deltaAddr = UInt(width = ioIdxWidth)
-    val indwAddr = UInt(width = ioIdxWidth)
-    val outdwAddr = UInt(width = ioIdxWidth)
+    val dwAddr = UInt(width = ioIdxWidth)
     val location = UInt(width = 1)
     val neuronPointer = UInt(width = 12) // [TODO] fragile
     val decimalPoint = UInt(width = decimalPointWidth)
@@ -106,7 +105,7 @@ class Control extends DanaModule {
     io.cache.req.bits.totalWritesMul := totalWritesMul
   }
   def reqPETable(valid: Bool, cacheIndex: UInt, tIdx: UInt,  inAddr: UInt,
-    outAddr: UInt, learnAddr: UInt, deltaAddr: UInt, indwAddr: UInt, outdwAddr: UInt,
+    outAddr: UInt, learnAddr: UInt, deltaAddr: UInt, dwAddr: UInt,
     neuronPointer: UInt, decimalPoint: UInt, errorFunction: UInt,
     location: UInt, stateLearn: UInt, inLast: UInt, resetWB: Bool, inFirst: UInt) {
     io.peTable.req.valid := valid
@@ -116,8 +115,7 @@ class Control extends DanaModule {
     io.peTable.req.bits.outAddr := outAddr
     io.peTable.req.bits.learnAddr := learnAddr
     io.peTable.req.bits.deltaAddr := deltaAddr
-    io.peTable.req.bits.indwAddr := indwAddr
-    io.peTable.req.bits.outdwAddr := outdwAddr
+    io.peTable.req.bits.dwAddr := dwAddr
     io.peTable.req.bits.neuronPointer := neuronPointer
     io.peTable.req.bits.decimalPoint := decimalPoint
     io.peTable.req.bits.errorFunction := errorFunction
@@ -148,7 +146,7 @@ class Control extends DanaModule {
   reqCache(Bool(false), UInt(0), UInt(0), UInt(0), UInt(0), UInt(0), UInt(0),
     UInt(0), UInt(0))
   // io.petable defaults
-  reqPETable(Bool(false), UInt(0), UInt(0), UInt(0), UInt(0), UInt(0), UInt(0), UInt(0),
+  reqPETable(Bool(false), UInt(0), UInt(0), UInt(0), UInt(0), UInt(0), UInt(0),
     UInt(0), UInt(0), UInt(0), UInt(0), UInt(0), UInt(0), UInt(0), Bool(false),
     Bool(false))
   // io.regFile defaults
@@ -211,10 +209,13 @@ class Control extends DanaModule {
         (io.tTable.req.bits.stateLearn === e_TTABLE_STATE_LEARN_FEEDFORWARD),
         UInt(3), Mux(!io.tTable.req.bits.inFirst &&
           (io.tTable.req.bits.stateLearn === e_TTABLE_STATE_LEARN_ERROR_BACKPROP),
-        UInt(2), UInt(1)))
+          UInt(2), Mux(io.tTable.req.bits.inFirst &&
+            (io.tTable.req.bits.stateLearn === e_TTABLE_STATE_LEARN_ERROR_BACKPROP),
+            UInt(0), UInt(1))))
       // val inLastLearn = (io.tTable.req.bits.inLastEarly) &&
       //   (io.tTable.req.bits.stateLearn === e_TTABLE_STATE_LEARN_FEEDFORWARD)
-      printf("[INFO] Control: TTable layer req inLastEarly/state/totalWritesMul 0x%x/0x%x/0x%x\n",
+      printf("[INFO] Control: TTable layer req inFirst/inLastEarly/state/totalWritesMul 0x%x/0x%x/0x%x/0x%x\n",
+        io.tTable.req.bits.inFirst,
         io.tTable.req.bits.inLastEarly, io.tTable.req.bits.stateLearn, totalWritesMul)
       reqCache(Bool(true), e_CACHE_LAYER_INFO, io.tTable.req.bits.asid,
         io.tTable.req.bits.nnid, io.tTable.req.bits.tableIndex,
@@ -250,12 +251,9 @@ class Control extends DanaModule {
         //Error address in LERAN_FEEDFORWARD state means the address used to save
         //the calculated error values
         io.tTable.req.bits.regFileAddrDelta+io.tTable.req.bits.currentNodeInLayer,
-        // The DWIn address is where the delta--weight products will be
-        // read
-        io.tTable.req.bits.regFileAddrDWIn,
-        // The DWOut address is where the delta--weight products will be
+        // The DW address is where the delta--weight products will be
         // written (and accumulated by the Register File)
-        io.tTable.req.bits.regFileAddrDWOut,
+        io.tTable.req.bits.regFileAddrDW,
         // The neuron pointer is going to be the base pointer that
         // lives in the Transaction Table plus an offset based on the
         // current node that we're processing. The shift by 3 is to

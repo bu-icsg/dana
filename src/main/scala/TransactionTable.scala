@@ -45,8 +45,7 @@ class TransactionState extends XFilesBundle {
   val regFileAddrIn = UInt(width = log2Up(regFileNumElements))
   val regFileAddrOut = UInt(width = log2Up(regFileNumElements))
   val regFileAddrDelta = UInt(width = log2Up(regFileNumElements))
-  val regFileAddrDWIn = UInt(width = log2Up(regFileNumElements))
-  val regFileAddrDWOut = UInt(width = log2Up(regFileNumElements))
+  val regFileAddrDW = UInt(width = log2Up(regFileNumElements))
   val regFileAddrlearn = UInt(width = log2Up(regFileNumElements))
   val readIdx = UInt(width = log2Up(regFileNumElements))
   val coreIdx = UInt(width = log2Up(numCores))
@@ -79,8 +78,7 @@ class ControlReq extends XFilesBundle {
   val regFileAddrIn = UInt(width = log2Up(regFileNumElements))
   val regFileAddrOut = UInt(width = log2Up(regFileNumElements))
   val regFileAddrDelta = UInt(width = log2Up(regFileNumElements))
-  val regFileAddrDWIn = UInt(width = log2Up(regFileNumElements))
-  val regFileAddrDWOut = UInt(width = log2Up(regFileNumElements))
+  val regFileAddrDW = UInt(width = log2Up(regFileNumElements))
   val regFileAddrlearn = UInt(width = log2Up(regFileNumElements))
   val stateLearn = UInt(width = log2Up(5)) // [TODO] fragile
 }
@@ -256,8 +254,7 @@ class TransactionTable extends XFilesModule {
         table(nextFree).regFileAddrIn := UInt(0)
         table(nextFree).regFileAddrOut := UInt(0)
         table(nextFree).regFileAddrDelta := UInt(0)
-        table(nextFree).regFileAddrDWIn := UInt(0)
-        table(nextFree).regFileAddrDWOut := UInt(0)
+        table(nextFree).regFileAddrDW := UInt(0)
         table(nextFree).regFileAddrlearn := UInt(0)
         table(nextFree).done := Bool(false)
         table(nextFree).decInUse := Bool(false)
@@ -438,7 +435,7 @@ class TransactionTable extends XFilesModule {
               when(table(tIdx).currentLayer === table(tIdx).numLayers - UInt(1)){
                 table(tIdx).regFileAddrDelta := table(tIdx).regFileAddrOut + UInt(2) *
                 (niclMSBs + round)
-                table(tIdx).regFileAddrDWOut := table(tIdx).regFileAddrOut + UInt(3) *
+                table(tIdx).regFileAddrDW := table(tIdx).regFileAddrOut + UInt(3) *
                 (niclMSBs + round)
               } .otherwise{
                 // [TODO] I'm not 100% sure that this is the right way to
@@ -464,17 +461,17 @@ class TransactionTable extends XFilesModule {
               when(table(tIdx).currentLayer === table(tIdx).numLayers - UInt(2)){
                 //address to read outputs to compute derivative
                 table(tIdx).regFileAddrIn := table(tIdx).regFileAddrIn
-                table(tIdx).regFileAddrDWIn := table(tIdx).regFileAddrDWOut
-                table(tIdx).regFileAddrDelta := table(tIdx).regFileAddrDWOut + niclMSBs +
+                table(tIdx).regFileAddrDW := table(tIdx).regFileAddrDW
+                table(tIdx).regFileAddrDelta := table(tIdx).regFileAddrDW + niclMSBs +
                 round
-                table(tIdx).regFileAddrDWOut := table(tIdx).regFileAddrDWOut + UInt(2) *
+                table(tIdx).regFileAddrDW := table(tIdx).regFileAddrDW + UInt(2) *
                 (niclMSBs + round)
               } .otherwise {
                 table(tIdx).regFileAddrIn := table(tIdx).regFileAddrIn - (niclMSBs + round)
-                table(tIdx).regFileAddrDWIn := table(tIdx).regFileAddrDWOut
-                table(tIdx).regFileAddrDelta := table(tIdx).regFileAddrDWOut + niclMSBs +
+                table(tIdx).regFileAddrOut := table(tIdx).regFileAddrDW
+                table(tIdx).regFileAddrDelta := table(tIdx).regFileAddrDW + niclMSBs +
                 round
-                table(tIdx).regFileAddrDWOut := table(tIdx).regFileAddrDWOut + UInt(2) *
+                table(tIdx).regFileAddrDW := table(tIdx).regFileAddrDW + UInt(2) *
                 (niclMSBs + round)
 
               }
@@ -527,7 +524,7 @@ class TransactionTable extends XFilesModule {
           when(table(tIdx).currentLayer === table(tIdx).numLayers - UInt(1)){
             printf("[INFO]   regFileAddrDelta:         0x%x\n",
                 table(tIdx).regFileAddrOut +  UInt(2) * (niclMSBs + round))
-            printf("[INFO]   regFileAddrDWOut:         0x%x\n",
+            printf("[INFO]   regFileAddrDW:         0x%x\n",
                 table(tIdx).regFileAddrOut + UInt(3) * (niclMSBs + round))
           }
         }
@@ -555,24 +552,7 @@ class TransactionTable extends XFilesModule {
           }
         }
         is (e_TTYPE_INCREMENTAL) {
-          switch (table(tIdx).stateLearn) {
-            is (e_TTABLE_STATE_LEARN_FEEDFORWARD) {
-              when (!inLastOld) {
-                table(tIdx).waiting := Bool(false)
-              } .otherwise {
-                table(tIdx).stateLearn := e_TTABLE_STATE_LEARN_ERROR_BACKPROP
-                table(tIdx).waiting := Bool(false)
-              }
-            }
-            is (e_TTABLE_STATE_LEARN_ERROR_BACKPROP) {
-                  table(tIdx).stateLearn := e_TTABLE_STATE_ERROR
-                  table(tIdx).waiting := Bool(false)
-            }
-            is (e_TTABLE_STATE_LEARN_WEIGHT_UPDATE) {
-              table(tIdx).stateLearn := e_TTABLE_STATE_ERROR
-              table(tIdx).waiting := Bool(false)
-            }
-          }
+          table(tIdx).waiting := Bool(false)
         }
         is (e_TTYPE_BATCH) {
           table(tIdx).stateLearn := e_TTABLE_STATE_ERROR
@@ -624,8 +604,7 @@ class TransactionTable extends XFilesModule {
     entryArbiter.io.in(i).bits.regFileAddrIn := table(i).regFileAddrIn
     entryArbiter.io.in(i).bits.regFileAddrOut := table(i).regFileAddrOut
     entryArbiter.io.in(i).bits.regFileAddrDelta := table(i).regFileAddrDelta
-    entryArbiter.io.in(i).bits.regFileAddrDWIn := table(i).regFileAddrDWIn
-    entryArbiter.io.in(i).bits.regFileAddrDWOut := table(i).regFileAddrDWOut
+    entryArbiter.io.in(i).bits.regFileAddrDW := table(i).regFileAddrDW
     entryArbiter.io.in(i).bits.stateLearn := table(i).stateLearn
   }
   io.control.req <> entryArbiter.io.out
@@ -695,7 +674,9 @@ class TransactionTable extends XFilesModule {
         when(table(tIdx).inLast && inLastNode){
           table(tIdx).needsLayerInfo := Bool(true)
           table(tIdx).currentLayer := table(tIdx).currentLayer - UInt(1)
+          table(tIdx).inFirst := table(tIdx).currentLayer === UInt(1)
           table(tIdx).inLastEarly := Bool(false)
+          table(tIdx).stateLearn := e_TTABLE_STATE_LEARN_ERROR_BACKPROP
         } .elsewhen (inLastNode && notInLastLayer) {
           table(tIdx).needsLayerInfo := Bool(true)
           table(tIdx).currentLayer := table(tIdx).currentLayer + UInt(1)
@@ -717,10 +698,14 @@ class TransactionTable extends XFilesModule {
           table(tIdx).needsLayerInfo := Bool(true)
           table(tIdx).currentLayer := table(tIdx).currentLayer - UInt(1)
           table(tIdx).inFirst := table(tIdx).currentLayer === UInt(1)
+          table(tIdx).stateLearn := e_TTABLE_STATE_ERROR
         } .otherwise {
           table(tIdx).needsLayerInfo := Bool(false)
           table(tIdx).currentLayer := table(tIdx).currentLayer
         }
+      }
+      is (e_TTABLE_STATE_LEARN_WEIGHT_UPDATE) {
+        table(tIdx).stateLearn := e_TTABLE_STATE_ERROR
       }
     }
   }
