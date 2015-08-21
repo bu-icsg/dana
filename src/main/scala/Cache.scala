@@ -275,10 +275,10 @@ class Cache extends DanaModule {
             coreIdx, asid, nnid);
         }
       }
-      is (e_CACHE_LAYER) {
+      is (e_CACHE_LAYER_INFO) {
         controlRespPipe(0).valid := Bool(true)
         controlRespPipe(0).bits.tableIndex := tableIndex
-        controlRespPipe(0).bits.field := e_CACHE_LAYER_INFO
+        controlRespPipe(0).bits.field := e_CACHE_LAYER
         // The layer sub-index is temporarily stored in data(0)
         controlRespPipe(0).bits.data(0) := layer(log2Up(elementsPerBlock)-1,0)
         controlRespPipe(0).bits.location := location

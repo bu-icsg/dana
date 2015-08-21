@@ -650,8 +650,10 @@ class TransactionTable extends XFilesModule {
   }
   when (isPeReq) {
     val tIdx = entryArbiter.io.out.bits.tableIndex
-    val inLastnode = table(tIdx).currentNodeInLayer ===
-          table(tIdx).nodesInCurrentLayer - UInt(1)
+    val inLastNode = table(tIdx).currentNodeInLayer ===
+      table(tIdx).nodesInCurrentLayer - UInt(1)
+    val notInLastLayer = table(tIdx).currentLayer <
+      (table(tIdx).numLayers - UInt(1))
     table(tIdx).currentNode := table(tIdx).currentNode + UInt(1)
     // [TODO] This currentNodeInLayer is always incremented and I
     // think this is okay as the value will be reset when a Layer
@@ -668,23 +670,20 @@ class TransactionTable extends XFilesModule {
     // nn_instruction.v.
     switch(table(tIdx).stateLearn){
       is(e_TTABLE_STATE_FEEDFORWARD){
-        when((table(tIdx).currentNodeInLayer ===
-          table(tIdx).nodesInCurrentLayer - UInt(1)) &&
-          (table(tIdx).currentLayer < (table(tIdx).numLayers - UInt(1)))) {
-
+        when(inLastNode && notInLastLayer) {
           table(tIdx).needsLayerInfo := Bool(true)
           table(tIdx).currentLayer := table(tIdx).currentLayer + UInt(1)
-          } .otherwise {
-            table(tIdx).needsLayerInfo := Bool(false)
-            table(tIdx).currentLayer := table(tIdx).currentLayer
-          }
+        } .otherwise {
+          table(tIdx).needsLayerInfo := Bool(false)
+          table(tIdx).currentLayer := table(tIdx).currentLayer
+        }
       }
       is(e_TTABLE_STATE_LEARN_FEEDFORWARD){
-        when(table(tIdx).inLast && inLastnode){
-            table(tIdx).currentLayer := table(tIdx).currentLayer - UInt(1)
-          }
-        when((table(tIdx).currentNodeInLayer ===
-          table(tIdx).nodesInCurrentLayer - UInt(1)) &&
+        when(table(tIdx).inLast && inLastNode){
+          table(tIdx).currentLayer := table(tIdx).currentLayer - UInt(1)
+          table(tIdx).needsLayerInfo := Bool(true)
+        }
+        when(inLastNode &&
           (table(tIdx).currentLayer < (table(tIdx).numLayers - UInt(1)))) {
 
           table(tIdx).needsLayerInfo := Bool(true)
@@ -696,11 +695,11 @@ class TransactionTable extends XFilesModule {
           // layer", e.g., when generating a request for the next layer
           // information.
           table(tIdx).inLastEarly :=
-            table(tIdx).currentLayer === (table(tIdx).numLayers - UInt(2))
+          table(tIdx).currentLayer === (table(tIdx).numLayers - UInt(2))
         } .otherwise {
-            table(tIdx).needsLayerInfo := Bool(false)
-            table(tIdx).currentLayer := table(tIdx).currentLayer
-          }
+          table(tIdx).needsLayerInfo := Bool(false)
+          table(tIdx).currentLayer := table(tIdx).currentLayer
+        }
       }
       is(e_TTABLE_STATE_LEARN_ERROR_BACKPROP){
         when((table(tIdx).currentNodeInLayer ===
