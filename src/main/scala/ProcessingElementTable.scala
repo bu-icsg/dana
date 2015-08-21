@@ -75,7 +75,8 @@ class ProcessingElementState extends DanaBundle {
   // expected output request to the Register File
   val learnAddr = UInt(width = log2Up(regFileNumElements))
   val deltaAddr = UInt(width = log2Up(regFileNumElements))
-  val dwAddr = UInt(width = log2Up(regFileNumElements))
+  val indwAddr = UInt(width = log2Up(regFileNumElements))
+  val outdwAddr = UInt(width = log2Up(regFileNumElements))
   val location = UInt(width = 1)
   val neuronPtr = UInt(width = // neuron_pointer
     log2Up(elementWidth * elementsPerBlock * cacheNumBlocks))
@@ -87,6 +88,7 @@ class ProcessingElementState extends DanaBundle {
   val inBlock = UInt(width = bitsPerBlock) // input_block
   val weightBlock = UInt(width = bitsPerBlock) //weight_block
   val learnReg = UInt(width = elementWidth) // "learning register", multiuse
+  val dw_in = UInt(width = elementWidth)
   val numWeights = UInt(width = 8) // [TODO] fragile
   val numWeightsSaved = UInt(width = 8) // [TODO] fragile
   val activationFunction = UInt(width = activationFunctionWidth)
@@ -135,6 +137,7 @@ class ProcessingElementTable extends DanaModule {
         table(i).weightBlock(elementWidth * (j + 1) - 1, elementWidth * j)
     }
     pe(i).req.bits.learnReg := table(i).learnReg
+    pe(i).req.bits.dw_in := table(i).dw_in
   }
 
   def isFree(x: ProcessingElementInterface): Bool = { x.req.ready }
@@ -189,7 +192,8 @@ class ProcessingElementTable extends DanaModule {
     table(nextFree).outAddr := io.control.req.bits.outAddr
     table(nextFree).learnAddr := io.control.req.bits.learnAddr
     table(nextFree).deltaAddr := io.control.req.bits.deltaAddr
-    table(nextFree).dwAddr := io.control.req.bits.dwAddr
+    table(nextFree).indwAddr := io.control.req.bits.indwAddr
+    table(nextFree).outdwAddr := io.control.req.bits.outdwAddr
     table(nextFree).location := io.control.req.bits.location
     table(nextFree).numWeights := SInt(-1)
     table(nextFree).weightValid := Bool(false)
@@ -209,13 +213,12 @@ class ProcessingElementTable extends DanaModule {
     printf("[INFO]   in addr:    0x%x\n", io.control.req.bits.inAddr)
     printf("[INFO]   out addr:   0x%x\n", io.control.req.bits.outAddr)
     printf("[INFO]   learn addr: 0x%x\n", io.control.req.bits.learnAddr)
-    when(io.control.req.bits.inLast === Bool(true) &&io.control.req.bits.stateLearn === e_TTABLE_STATE_LEARN_FEEDFORWARD){
-      printf("[INFO]   Delta addr: 0x%x\n", io.control.req.bits.deltaAddr)
-      printf("[INFO]   DW addr:    0x%x\n", io.control.req.bits.dwAddr)
-    }
+    printf("[INFO]   Delta addr: 0x%x\n", io.control.req.bits.deltaAddr)
+    printf("[INFO]   in DW addr: 0x%x\n", io.control.req.bits.indwAddr)
+    printf("[INFO]   out DW addr:0x%x\n", io.control.req.bits.outdwAddr)
     printf("[INFO]   stateLearn: 0x%x\n", io.control.req.bits.stateLearn)
     printf("[INFO]   inLast:     0x%x\n", io.control.req.bits.inLast)
-    printf("[INFO]   inFirst:     0x%x\n", io.control.req.bits.inFirst)
+    printf("[INFO]   inFirst:    0x%x\n", io.control.req.bits.inFirst)
   }
 
   // Inbound requests from the cache. I setup some helper nodes here
@@ -311,6 +314,28 @@ class ProcessingElementTable extends DanaModule {
           peIndex, io.regFile.resp.bits.data)
         printf("[INFO]          learnReg -> dataVec(0x%x): 0x%x\n", addr,
           dataVec(addr))
+      }
+      is(e_PE_REQ_OUTPUT){
+        val addr = table(peIndex).inAddr(log2Up(elementsPerBlock)-1,0)
+        val dataVec = Vec((0 until elementsPerBlock).map(i =>
+          (io.regFile.resp.bits.data)(elementWidth * (i + 1) - 1, elementWidth * i)))
+        table(peIndex).learnReg := dataVec(addr)
+        pe(peIndex).req.valid := Bool(true)
+        printf("[INFO] PETable: Valid RegFile E[out] resp PE/data 0x%x/0x%x\n",
+          peIndex, io.regFile.resp.bits.data)
+        printf("[INFO]          learnReg -> dataVec(0x%x): 0x%x\n", addr,
+          dataVec(addr))
+      }
+      is(e_PE_REQ_DELTA_WEIGHT_PRODUCT){
+        val addr = table(peIndex).indwAddr(log2Up(elementsPerBlock)-1,0)
+        val dataVec = Vec((0 until elementsPerBlock).map(i =>
+          (io.regFile.resp.bits.data)(elementWidth * (i + 1) - 1, elementWidth * i)))
+        table(peIndex).dw_in := dataVec(addr)
+        pe(peIndex).req.valid := Bool(true)
+        printf("[INFO] PETable: Valid RegFile E[out] resp PE/data 0x%x/0x%x\n",
+          peIndex, io.regFile.resp.bits.data)
+        printf("[INFO]          input delta weight product -> dataVec(0x%x): 0x%x\n", addr,
+          dataVec(addr))        
       }
     }
   }
@@ -413,7 +438,7 @@ class ProcessingElementTable extends DanaModule {
       is (PE_states('e_PE_ERROR_BACKPROP_WEIGHT_WB)) {
         val tIdx = table(peArbiter.io.out.bits.index).tIdx
         val peIdx = peArbiter.io.out.bits.index
-        val addrWB = table(tIdx).dwAddr
+        val addrWB = table(tIdx).outdwAddr
         // Send a request to the Register File to writeback the
         // partial weight block. If this is the first weight block
         // that we're writing back, then we need to tell the Register
@@ -437,11 +462,36 @@ class ProcessingElementTable extends DanaModule {
         // here to get the "old" address. [TODO] Why do I need to do this???
         // io.cache.req.bits.cacheAddr := table(peArbiter.io.out.bits.index).weightPtr -
         //   UInt(elementsPerBlock * elementWidth / 8)
-        table(peIdx).dwAddr := table(peIdx).dwAddr + UInt(elementsPerBlock)
+        table(peIdx).outdwAddr := table(peIdx).outdwAddr + UInt(elementsPerBlock)
 
         pe(peIdx).req.valid := Bool(true)
       }
-      /*is (PE_states('e_PE_REQUEST_DELTA_WEIGHT_UPDATE)) {
+      is(PE_states('e_PE_REQUEST_OUTPUTS_ERROR_BACKPROP)){
+        io.regFile.req.valid := Bool(true)
+        io.regFile.req.bits.isWrite := Bool(false) // unecessary to specify
+        io.regFile.req.bits.addr := table(peArbiter.io.out.bits.index).inAddr
+        io.regFile.req.bits.peIndex := peArbiter.io.out.bits.index
+        io.regFile.req.bits.tIdx := table(peArbiter.io.out.bits.index).tIdx
+        io.regFile.req.bits.location := table(peArbiter.io.out.bits.index).location
+        io.regFile.req.bits.reqType := e_PE_REQ_EXPECTED_OUTPUT
+
+        pe(peArbiter.io.out.bits.index).req.valid := Bool(true)
+
+      }
+      is(PE_states('e_PE_REQUEST_DELTA_WEIGHT_PRODUCT_ERROR_BACKPROP)){
+        io.regFile.req.valid := Bool(true)
+        io.regFile.req.bits.isWrite := Bool(false) // unecessary to specify
+        io.regFile.req.bits.addr := table(peArbiter.io.out.bits.index).indwAddr
+        io.regFile.req.bits.peIndex := peArbiter.io.out.bits.index
+        io.regFile.req.bits.tIdx := table(peArbiter.io.out.bits.index).tIdx
+        io.regFile.req.bits.location := table(peArbiter.io.out.bits.index).location
+        io.regFile.req.bits.reqType := e_PE_REQ_EXPECTED_OUTPUT
+
+        pe(peArbiter.io.out.bits.index).req.valid := Bool(true)
+
+      }
+
+     /* is (PE_states('e_PE_REQUEST_DELTA_WEIGHT_UPDATE)) {
         io.regFile.req.valid := Bool(true)
         io.regFile.req.bits.isWrite := Bool(false) // unecessary to specify
         io.regFile.req.bits.addr := table(peArbiter.io.out.bits.index).learnAddr
