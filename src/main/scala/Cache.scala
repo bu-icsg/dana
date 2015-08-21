@@ -74,15 +74,30 @@ class Cache extends DanaModule {
 
   // Create the table of cache entries
   val table = Vec.fill(cacheNumEntries){Reg(new CacheState)}
-  val mem = Vec((0 until cacheNumEntries).map(i => Module(new SRAM(
-    dataWidth = elementWidth * elementsPerBlock,
-    numReadPorts = 0,
-    numWritePorts = 0,
-    numReadWritePorts = 2,
-    sramDepth = cacheNumBlocks, // [TODO] I think this is the correct parameter
-    initSwitch = if (preloadCache) i else -1,
-    elementsPerBlock = elementsPerBlock
-    )).io))
+  // val mem = Vec((0 until cacheNumEntries).map(i => Module(new SRAM(
+  //   dataWidth = elementWidth * elementsPerBlock,
+  //   numReadPorts = 0,
+  //   numWritePorts = 0,
+  //   numReadWritePorts = 2,
+  //   sramDepth = cacheNumBlocks, // [TODO] I think this is the correct parameter
+  //   initSwitch = if (preloadCache) i else -1,
+  //   elementsPerBlock = elementsPerBlock
+  // )).io))
+
+  val mem = Vec((0 until cacheNumEntries).map(i => Module(new SRAMBlockIncrement(
+    dataWidth = bitsPerBlock,
+    sramDepth = cacheNumBlocks,
+    numPorts = 1,
+    elementWidth = elementWidth)).io))
+
+  // The Transaction Table Queue needs to be big enough to hold one
+  // inbound request from every entry in the Transaction Table
+  val tTableReqQueue = Module(new Queue(new ControlCacheInterfaceReq,
+    transactionTableNumEntries)).io
+  // tTableReqQueue <> io.control.req
+  tTableReqQueue.enq.valid := io.control.req.valid
+  tTableReqQueue.enq.bits := io.control.req.bits
+  io.control.req.ready := tTableReqQueue.enq.ready
 
   // Response Pipelines for Control module and PEs. Responses take multiple
   // cycles to generate due to the fact that data needs to be read out
@@ -119,8 +134,8 @@ class Cache extends DanaModule {
   hasUnused := table.exists(isUnused)
   nextFree := table.indexWhere(isFree)
   nextUnused := table.indexWhere(isUnused)
-  foundNnid := table.exists(derefNnid(_, io.control.req.bits.nnid))
-  derefNnid := table.indexWhere(derefNnid(_, io.control.req.bits.nnid))
+  foundNnid := table.exists(derefNnid(_, tTableReqQueue.deq.bits.nnid))
+  derefNnid := table.indexWhere(derefNnid(_, tTableReqQueue.deq.bits.nnid))
   hasNotify := table.exists(isDoneFetching)
   idxNotify := table.indexWhere(isDoneFetching)
 
@@ -128,19 +143,13 @@ class Cache extends DanaModule {
   def tableInit(index: UInt) {
     // This initializes a new cache entry
     table(index).valid := Bool(true)
-    table(index).asid := io.control.req.bits.asid
-    table(index).nnid := io.control.req.bits.nnid
+    table(index).asid := tTableReqQueue.deq.bits.asid
+    table(index).nnid := tTableReqQueue.deq.bits.nnid
     table(index).fetch := Bool(true)
     table(index).notifyFlag := Bool(false)
-    table(index).notifyIndex := io.control.req.bits.tableIndex
+    table(index).notifyIndex := tTableReqQueue.deq.bits.tableIndex
     table(index).inUseCount := UInt(1)
   }
-
-  // I think the cache is always ready. This should not be gated on
-  // hasFree or hasUnused as this precludes cache hits on used entries
-  // (a case which comes up when you have the Cache and Transaction
-  // Table completely filled).
-  io.control.req.ready := Bool(true)
 
   // Default values
   io.mem.req.valid := Bool(false)
@@ -184,11 +193,12 @@ class Cache extends DanaModule {
 
   // Default values for the memory input wires
   for (i <- 0 until cacheNumEntries) {
-    for (j <- 0 until mem(i).numReadWritePorts) {
+    for (j <- 0 until mem(i).numPorts) {
       mem(i).din(j) := UInt(0)
       mem(i).addr(j) := UInt(0)
       // mem(i).addr(j) := cacheRead(i)
       mem(i).we(j) := Bool(false)
+      mem(i).inc(j) := Bool(false)
       // cacheRead(j) := UInt(0)
     }
   }
@@ -203,9 +213,19 @@ class Cache extends DanaModule {
   // control/memory requests for any non-trivial configuration and
   // network, so these get their own port.
 
+  tTableReqQueue.deq.ready := Bool(false)
   // Handle requests from the control module
-  when (io.control.req.valid) {
-    switch (io.control.req.bits.request) {
+  when (tTableReqQueue.deq.valid && !io.pe.req.valid) {
+    tTableReqQueue.deq.ready := Bool(true)
+    val request = tTableReqQueue.deq.bits.request
+    val asid = tTableReqQueue.deq.bits.asid
+    val nnid = tTableReqQueue.deq.bits.nnid
+    val tableIndex = tTableReqQueue.deq.bits.tableIndex
+    val layer = tTableReqQueue.deq.bits.layer
+    val location = tTableReqQueue.deq.bits.location
+    val coreIdx = tTableReqQueue.deq.bits.coreIdx
+    val inLastLearn = tTableReqQueue.deq.bits.inLastLearn
+    switch (request) {
       is (e_CACHE_LOAD) {
         when (!foundNnid) {
           // The NNID was not found, so we need to initialize the
@@ -219,16 +239,15 @@ class Cache extends DanaModule {
             tableInit(Mux(hasFree, nextFree, nextUnused))
             // Generate a request to memory
             io.mem.req.valid := Bool(true)
-            io.mem.req.bits.asid := io.control.req.bits.asid
-            io.mem.req.bits.nnid := io.control.req.bits.nnid
+            io.mem.req.bits.asid := asid
+            io.mem.req.bits.nnid := nnid
             io.mem.req.bits.cacheIndex := nextFree
-            io.mem.req.bits.coreIndex := io.control.req.bits.coreIdx
+            io.mem.req.bits.coreIndex := coreIdx
             printf("[INFO] Cache: req Core/ASID/NNID %d/0x%x/0x%x miss\n",
-              io.control.req.bits.coreIdx, io.control.req.bits.asid,
-              io.control.req.bits.nnid);
+              coreIdx, asid, nnid);
           } .otherwise {
             printf("[ERROR] Cache: req ASID/NNID 0x%x/0x%x, no space\n",
-            io.control.req.bits.asid, io.control.req.bits.nnid)
+            asid, nnid)
           }
 
         } .elsewhen (table(derefNnid).fetch) {
@@ -237,47 +256,43 @@ class Cache extends DanaModule {
           // the same data shows up while this guy is being fetched.
           table(derefNnid).inUseCount := table(derefNnid).inUseCount + UInt(1)
           table(derefNnid).notifyMask := table(derefNnid).notifyMask |
-            UIntToOH(io.control.req.bits.tableIndex)
+            UIntToOH(tableIndex)
           printf("[INFO] Cache: req Core/ASID/NNID %d/0x%x/0x%x miss (loading)\n",
-            io.control.req.bits.coreIdx, io.control.req.bits.asid,
-            io.control.req.bits.nnid);
+            coreIdx, asid, nnid)
         } .otherwise {
           // The NNID was found and the data has already been loaded
           table(derefNnid).inUseCount := table(derefNnid).inUseCount + UInt(1)
 
           // Start a response to the control unit
           controlRespPipe(0).valid := Bool(true)
-          controlRespPipe(0).bits.tableIndex := io.control.req.bits.tableIndex
-          controlRespPipe(0).bits.tableMask :=
-            UIntToOH(io.control.req.bits.tableIndex)
+          controlRespPipe(0).bits.tableIndex := tableIndex
+          controlRespPipe(0).bits.tableMask := UIntToOH(tableIndex)
           controlRespPipe(0).bits.cacheIndex := derefNnid
           controlRespPipe(0).bits.field := e_CACHE_INFO
-          controlRespPipe(0).bits.location := io.control.req.bits.location
+          controlRespPipe(0).bits.location := location
 
           printf("[INFO] Cache: req Core/ASID/NNID %d/0x%x/0x%x hit\n",
-            io.control.req.bits.coreIdx, io.control.req.bits.asid,
-            io.control.req.bits.nnid);
+            coreIdx, asid, nnid);
         }
       }
       is (e_CACHE_LAYER_INFO) {
         controlRespPipe(0).valid := Bool(true)
-        controlRespPipe(0).bits.tableIndex := io.control.req.bits.tableIndex
+        controlRespPipe(0).bits.tableIndex := tableIndex
         controlRespPipe(0).bits.field := e_CACHE_LAYER_INFO
         // The layer sub-index is temporarily stored in data(0)
-        controlRespPipe(0).bits.data(0) :=
-          io.control.req.bits.layer(log2Up(elementsPerBlock)-1,0)
-        controlRespPipe(0).bits.location := io.control.req.bits.location
+        controlRespPipe(0).bits.data(0) := layer(log2Up(elementsPerBlock)-1,0)
+        controlRespPipe(0).bits.location := location
         controlRespPipe(0).bits.cacheIndex := derefNnid
-        controlRespPipe(0).bits.inLastLearn := io.control.req.bits.inLastLearn
+        controlRespPipe(0).bits.inLastLearn := inLastLearn
 
         // Read the layer information from the correct block. A layer
         // occupies one block, so we need to pull the block address
         // out of the layer number.
         mem(derefNnid).addr(0) := UInt(1) + // Offset from info region
-          io.control.req.bits.layer(io.control.req.bits.layer.getWidth-1,
+          layer(layer.getWidth-1,
             log2Up(elementsPerBlock))
         // cacheRead(derefNnid) := UInt(1) + // Offset from info region
-        //   io.control.req.bits.layer(io.control.req.bits.layer.getWidth-1,
+        //   layer(layer.getWidth-1,
         //     log2Up(elementsPerBlock))
       }
       is (e_CACHE_DECREMENT_IN_USE_COUNT) {
@@ -350,7 +365,7 @@ class Cache extends DanaModule {
     // generate a block address from the input cache byte address.
     // [TODO] This shift may be a source of bugs. Check to make sure
     // that it's being passed correctly.
-    mem(io.pe.req.bits.cacheIndex).addr(1) :=
+    mem(io.pe.req.bits.cacheIndex).addr(0) :=
       io.pe.req.bits.cacheAddr >> (UInt(2 + log2Up(elementsPerBlock)))
     // Fill the first stage of the PE pipeline
     switch (io.pe.req.bits.field) {
@@ -385,7 +400,7 @@ class Cache extends DanaModule {
   // The actual data that comes out of the memory is not interpreted
   // here, i.e., we just pass the full bitsPerBlock-sized data packet
   // to the PE Table and it deals with the internal indices.
-  peRespPipe(1).bits.data := mem(peCacheIndex_d0).dout(1)
+  peRespPipe(1).bits.data := mem(peCacheIndex_d0).dout(0)
 
   // Set the response to the Control module
   io.control.resp.valid := controlRespPipe(1).valid
@@ -442,12 +457,12 @@ class Cache extends DanaModule {
     "Cache trying to send response to Control when Control not ready")
 
   // We currently have no way of handling simultaneous requests.
-  assert(!(io.control.req.valid && io.pe.req.valid && io.mem.req.valid),
+  assert(!(io.control.req.valid && io.mem.req.valid),
     "Multiple simultaneous requests on the cache (dropped requests possible)")
 
   // The in use count should never be decremented below zero.
-  assert(!(io.control.req.valid &&
-    io.control.req.bits.request === e_CACHE_DECREMENT_IN_USE_COUNT &&
+  assert(!(tTableReqQueue.deq.ready &&
+    tTableReqQueue.deq.bits.request === e_CACHE_DECREMENT_IN_USE_COUNT &&
     table(derefNnid).inUseCount === UInt(0)),
     "Cache received control request to decrement count of zero-valued inUseCount")
 
@@ -455,8 +470,8 @@ class Cache extends DanaModule {
   // that shows up when the cache has no free or unused entries.
   // However, this should never happen if the Transaction Table is
   // always smaller or equal to the number of cache entries.
-  assert(!(io.control.req.valid &&
-    io.control.req.bits.request === e_CACHE_LOAD &&
+  assert(!(tTableReqQueue.deq.ready &&
+    tTableReqQueue.deq.bits.request === e_CACHE_LOAD &&
     !foundNnid &&
     (!hasFree && !hasUnused)),
   "Cache missed on ASID/NNID req, but has no free/unused entries")

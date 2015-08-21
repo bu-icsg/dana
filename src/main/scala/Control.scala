@@ -17,19 +17,21 @@ class ControlCacheInterfaceResp extends DanaBundle with ControlParameters {
   val inLastLearn = Bool()
 }
 
+class ControlCacheInterfaceReq extends DanaBundle with ControlParameters {
+  val request = UInt(width = log2Up(3)) // [TODO] fragile on Constants.scala
+  val asid = UInt(width = asidWidth)
+  val nnid = UInt(width = nnidWidth)
+  val tableIndex = UInt(width = log2Up(transactionTableNumEntries))
+  val layer = UInt(width = 16) // [TODO] fragile
+  val location = UInt(width = 1) // [TODO] fragile
+  val coreIdx = UInt(width = log2Up(numCores))
+  val inLastLearn = Bool()
+}
+
 class ControlCacheInterface extends DanaBundle with ControlParameters {
   // Outbound request. nnsim-hdl equivalent:
   //   cache_types::ctl2storage_struct
-  val req = Decoupled(new DanaBundle {
-    val request = UInt(width = log2Up(3)) // [TODO] fragile on Constants.scala
-    val asid = UInt(width = asidWidth)
-    val nnid = UInt(width = nnidWidth)
-    val tableIndex = UInt(width = log2Up(transactionTableNumEntries))
-    val layer = UInt(width = 16) // [TODO] fragile
-    val location = UInt(width = 1) // [TODO] fragile
-    val coreIdx = UInt(width = log2Up(numCores))
-    val inLastLearn = Bool()
-  })
+  val req = Decoupled(new ControlCacheInterfaceReq)
   // Inbound response. nnsim-hdl equivalent:
   //   cache_types::cache2ctl_struct
   val resp = Decoupled(new ControlCacheInterfaceResp).flip
