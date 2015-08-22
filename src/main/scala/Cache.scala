@@ -394,6 +394,8 @@ class Cache extends DanaModule {
         peRespPipe(0).bits.indexIntoData :=
           io.pe.req.bits.cacheAddr(2 + log2Up(elementsPerBlock) - 1, 2)
       }
+      // [TODO] Add logic to setup a block write with increment to the
+      // SRAM
     }
   }
 

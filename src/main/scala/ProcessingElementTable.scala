@@ -290,7 +290,12 @@ class ProcessingElementTable extends DanaModule {
     switch (io.regFile.resp.bits.reqType) {
       is (e_PE_REQ_INPUT) {
         table(peIndex).inBlock := io.regFile.resp.bits.data
-        table(peIndex).inAddr := table(peIndex).inAddr + UInt(elementsPerBlock)
+        when ((table(peIndex).stateLearn === e_TTABLE_STATE_LEARN_WEIGHT_UPDATE) ||
+          (table(peIndex).stateLearn === e_TTABLE_STATE_LEARN_ERROR_BACKPROP)) {
+          table(peIndex).dwAddr := table(peIndex).dwAddr + UInt(elementsPerBlock)
+        } .otherwise {
+          table(peIndex).inAddr := table(peIndex).inAddr + UInt(elementsPerBlock)
+        }
         when (table(peIndex).weightValid) {
           pe(peIndex).req.valid := Bool(true)
           table(peIndex).weightValid := Bool(false)
@@ -374,7 +379,12 @@ class ProcessingElementTable extends DanaModule {
         // intermediate storage area for all computation)
         io.regFile.req.valid := Bool(true)
         io.regFile.req.bits.isWrite := Bool(false) // unecessary to specify
-        io.regFile.req.bits.addr := table(peArbiter.io.out.bits.index).inAddr
+        when (table(peArbiter.io.out.bits.index).stateLearn ===
+          e_TTABLE_STATE_LEARN_ERROR_BACKPROP) {
+          io.regFile.req.bits.addr := table(peArbiter.io.out.bits.index).dwAddr
+        } .otherwise {
+          io.regFile.req.bits.addr := table(peArbiter.io.out.bits.index).inAddr
+        }
         io.regFile.req.bits.peIndex := peArbiter.io.out.bits.index
         io.regFile.req.bits.tIdx := table(peArbiter.io.out.bits.index).tIdx
         io.regFile.req.bits.location := table(peArbiter.io.out.bits.index).location
@@ -470,7 +480,7 @@ class ProcessingElementTable extends DanaModule {
         io.regFile.req.bits.peIndex := peArbiter.io.out.bits.index
         io.regFile.req.bits.tIdx := table(peArbiter.io.out.bits.index).tIdx
         io.regFile.req.bits.location := table(peArbiter.io.out.bits.index).location
-        io.regFile.req.bits.reqType := e_PE_REQ_EXPECTED_OUTPUT
+        io.regFile.req.bits.reqType := e_PE_REQ_OUTPUT
 
         pe(peArbiter.io.out.bits.index).req.valid := Bool(true)
 
@@ -478,14 +488,30 @@ class ProcessingElementTable extends DanaModule {
       is(PE_states('e_PE_REQUEST_DELTA_WEIGHT_PRODUCT_ERROR_BACKPROP)){
         io.regFile.req.valid := Bool(true)
         io.regFile.req.bits.isWrite := Bool(false) // unecessary to specify
+        io.regFile.req.bits.addr := table(peArbiter.io.out.bits.index).outAddr
+        io.regFile.req.bits.peIndex := peArbiter.io.out.bits.index
+        io.regFile.req.bits.tIdx := table(peArbiter.io.out.bits.index).tIdx
+        io.regFile.req.bits.location := table(peArbiter.io.out.bits.index).location
+        io.regFile.req.bits.reqType := e_PE_REQ_DELTA_WEIGHT_PRODUCT
+
+        pe(peArbiter.io.out.bits.index).req.valid := Bool(true)
+      }
+      is(PE_states('e_PE_WEIGHT_UPDATE_REQUEST_INPUTS)) {
+        io.regFile.req.valid := Bool(true)
+        io.regFile.req.bits.isWrite := Bool(false) // unecessary to specify
         io.regFile.req.bits.addr := table(peArbiter.io.out.bits.index).dwAddr
         io.regFile.req.bits.peIndex := peArbiter.io.out.bits.index
         io.regFile.req.bits.tIdx := table(peArbiter.io.out.bits.index).tIdx
         io.regFile.req.bits.location := table(peArbiter.io.out.bits.index).location
-        io.regFile.req.bits.reqType := e_PE_REQ_EXPECTED_OUTPUT
+        io.regFile.req.bits.reqType := e_PE_REQ_INPUT
 
         pe(peArbiter.io.out.bits.index).req.valid := Bool(true)
+      }
+      is(PE_states('e_PE_WEIGHT_UPDATE_WRITE_BACK)) {
+        // [TODO] Pickup here. The cache needs to handle a block
+        // write.
 
+        pe(peArbiter.io.out.bits.index).req.valid := Bool(true)
       }
 
      /* is (PE_states('e_PE_REQUEST_DELTA_WEIGHT_UPDATE)) {

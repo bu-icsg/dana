@@ -21,7 +21,7 @@ class ProcessingElementReq extends DanaBundle {
   val stateLearn = UInt(INPUT, width = log2Up(7)) // [TODO] fragile
   val inLast = Bool(INPUT)
   val inFirst = Bool(INPUT)
-  val dw_in = SInt(INPUT, elementWidth) 
+  val dw_in = SInt(INPUT, elementWidth)
 }
 
 class ProcessingElementResp extends DanaBundle {
@@ -140,7 +140,8 @@ class ProcessingElement extends DanaModule {
       index := UInt(0)
     }
     is (PE_states('e_PE_WAIT_FOR_INPUTS_AND_WEIGHTS)) {
-      state := Mux(io.req.valid,Mux(io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_WEIGHT_UPDATE,
+      state := Mux(io.req.valid, Mux(io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_WEIGHT_UPDATE ||
+        (io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_ERROR_BACKPROP),
        PE_states('e_PE_RUN_WEIGHT_UPDATE), PE_states('e_PE_RUN)), state)
       //state := Mux(io.req.valid, PE_states('e_PE_RUN), state)
     }
@@ -239,15 +240,23 @@ class ProcessingElement extends DanaModule {
         is(e_TTABLE_STATE_LEARN_FEEDFORWARD){
           errorOut := (derivative * errorOut) >> decimal
           printf("[INFO] PE sees errFn/(errFn*derivative) 0x%x/0x%x\n", errorOut,
-          (derivative * errorOut) >> decimal)
+            (derivative * errorOut) >> decimal)
+          state := PE_states('e_PE_DELTA_WRITE_BACK)
         }
         is(e_TTABLE_STATE_LEARN_ERROR_BACKPROP){
           errorOut := (derivative * io.req.bits.dw_in) >> decimal
-          printf("[INFO] PE sees delta 0x%x\n", 
-          (derivative * io.req.bits.dw_in) >> decimal)
+          printf("[INFO] PE sees delta 0x%x\n",
+            (derivative * io.req.bits.dw_in) >> decimal)
+          when (io.req.bits.inFirst) {
+            state := PE_states('e_PE_REQUEST_INPUTS_AND_WEIGHTS)
+          } .otherwise {
+            state := PE_states('e_PE_DELTA_WRITE_BACK)
+          }
         }
       }
-      state := PE_states('e_PE_DELTA_WRITE_BACK)
+      // [TODO] Check if this is in the first layer and we're doing
+      // error backprop. If we aren't, then write back the delta to
+      // the register file.
     }
     is(PE_states('e_PE_DELTA_WRITE_BACK)){
       // This is the "last" writeback for a group, so we turn on the
@@ -271,7 +280,10 @@ class ProcessingElement extends DanaModule {
       io.resp.valid := Bool(true)
     }
     is (PE_states('e_PE_ERROR_BACKPROP_WAIT_FOR_WEIGHTS)) {
-      state := Mux(io.req.valid, PE_states('e_PE_ERROR_BACKPROP_DELTA_WEIGHT_MUL), state)
+      state := Mux(io.req.valid, Mux(io.req.bits.inFirst &&
+        (io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_ERROR_BACKPROP),
+        PE_states('e_PE_WEIGHT_UPDATE_REQUEST_INPUTS),
+        PE_states('e_PE_ERROR_BACKPROP_DELTA_WEIGHT_MUL)), state)
     }
     is (PE_states('e_PE_ERROR_BACKPROP_DELTA_WEIGHT_MUL)) {
       // Loop over all the weights in the weight buffer, multiplying
@@ -340,19 +352,33 @@ class ProcessingElement extends DanaModule {
     is (PE_states('e_PE_WAIT_FOR_DELTA_WEIGHT_UPDATE)){
       state := Mux(io.req.valid, PE_states('e_PE_REQUEST_INPUTS_AND_WEIGHTS), state)
     }
+
+    is (PE_states('e_PE_WEIGHT_UPDATE_REQUEST_INPUTS)) {
+      state := Mux(io.req.valid, PE_states('e_PE_WEIGHT_UPDATE_WAIT_FOR_INPUTS), state)
+      io.resp.valid := Bool(true)
+    }
+    is (PE_states('e_PE_WEIGHT_UPDATE_WAIT_FOR_INPUTS)) {
+      state := Mux(io.req.valid, PE_states('e_PE_RUN_WEIGHT_UPDATE), state)
+    }
+
     is (PE_states('e_PE_RUN_WEIGHT_UPDATE)){
-      when (index === (io.req.bits.numWeights - UInt(1))) {
+      when (index === (io.req.bits.numWeights - UInt(1)) ||
+        index === UInt(elementsPerBlock - 1)) {
         state := PE_states('e_PE_WEIGHT_UPDATE_WRITE_BACK)
-      } .elsewhen (index === UInt(elementsPerBlock - 1)) {
-        state := PE_states('e_PE_REQUEST_INPUTS_AND_WEIGHTS)
+      // } .elsewhen (index === UInt(elementsPerBlock - 1)) {
+      //   state := PE_states('e_PE_REQUEST_INPUTS_AND_WEIGHTS)
       } .otherwise {
         state := state
       }
-      updated_weight(index):= (io.req.bits.wBlock(index) + (io.req.bits.learnReg * io.req.bits.iBlock(index)) >> decimal)(elementWidth, 0)
+      val delta = Mux(io.req.bits.inFirst, errorOut, io.req.bits.learnReg)
+      updated_weight(index):= (io.req.bits.wBlock(index) + (delta * io.req.bits.iBlock(index)) >> decimal)(elementWidth, 0)
       index := index + UInt(1)
     }
     is (PE_states('e_PE_WEIGHT_UPDATE_WRITE_BACK)){
-      state := Mux(io.req.valid, PE_states('e_PE_UNALLOCATED), state)
+      val nextState = Mux(index === io.req.bits.numWeights,
+        PE_states('e_PE_ERROR),
+        PE_states('e_PE_REQUEST_INPUTS_AND_WEIGHTS))
+      state := Mux(io.req.valid, nextState, state)
       io.resp.valid := Bool(true)
     }
   }
