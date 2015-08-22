@@ -42,6 +42,7 @@ class TransactionState extends XFilesBundle {
   val mse = UInt(width = elementWidth)
   // We need to keep track of where inputs and outputs should be
   // written to in the Register File.
+  val regFileAddrInFixed = UInt(width = log2Up(regFileNumElements))
   val regFileAddrIn = UInt(width = log2Up(regFileNumElements))
   val regFileAddrOut = UInt(width = log2Up(regFileNumElements))
   val regFileAddrDelta = UInt(width = log2Up(regFileNumElements))
@@ -286,6 +287,7 @@ class TransactionTable extends XFilesModule {
         table(derefTidIndex).indexElement := nextIndexBlock
         when (table(derefTidIndex).stateLearn === e_TTABLE_STATE_LOAD_OUTPUTS) {
           table(derefTidIndex).stateLearn := e_TTABLE_STATE_LEARN_FEEDFORWARD
+          table(derefTidIndex).regFileAddrInFixed := nextIndexBlock
           table(derefTidIndex).regFileAddrOut := nextIndexBlock
           printf("[INFO] TTable: LAST E[output] write TID/data 0x%x/0x%x\n",
             cmd.tid, cmd.data);
@@ -458,24 +460,25 @@ class TransactionTable extends XFilesModule {
               }
             }
             is(e_TTABLE_STATE_LEARN_ERROR_BACKPROP){
-              when(table(tIdx).currentLayer === table(tIdx).numLayers - UInt(2)){
+              table(tIdx).regFileAddrOut := table(tIdx).regFileAddrDW
+              table(tIdx).regFileAddrDelta := table(tIdx).regFileAddrDW +
+                niclMSBs + UInt(elementsPerBlock)
+              table(tIdx).regFileAddrDW := table(tIdx).regFileAddrDW +
+                (niclMSBs + UInt(elementsPerBlock)) * UInt(2)
+
+              // Handle special case of being in the last hidden layer
+              when (table(tIdx).currentLayer === table(tIdx).numLayers - UInt(2)) {
                 //address to read outputs to compute derivative
                 table(tIdx).regFileAddrIn := table(tIdx).regFileAddrIn
-                table(tIdx).regFileAddrDW := table(tIdx).regFileAddrDW
-                table(tIdx).regFileAddrDelta := table(tIdx).regFileAddrDW + niclMSBs +
-                round
-                table(tIdx).regFileAddrDW := table(tIdx).regFileAddrDW + UInt(2) *
-                (niclMSBs + round)
               } .otherwise {
-                table(tIdx).regFileAddrIn := table(tIdx).regFileAddrIn - (niclMSBs + round)
-                table(tIdx).regFileAddrOut := table(tIdx).regFileAddrDW
-                table(tIdx).regFileAddrDelta := table(tIdx).regFileAddrDW + niclMSBs +
-                round
-                table(tIdx).regFileAddrDW := table(tIdx).regFileAddrDW + UInt(2) *
-                (niclMSBs + round)
-
+                table(tIdx).regFileAddrIn := table(tIdx).regFileAddrIn -
+                  (niclMSBs + UInt(elementsPerBlock))
               }
 
+              // Handle special case of being in the first hidden layer
+              when (table(tIdx).currentLayer === UInt(0)){
+                table(tIdx).regFileAddrDW := table(tIdx).regFileAddrInFixed
+              }
             }
             is(e_TTABLE_STATE_LEARN_WEIGHT_UPDATE){
 
