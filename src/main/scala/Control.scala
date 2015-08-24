@@ -238,7 +238,8 @@ class Control extends DanaModule {
         // Table Index, no ASID/TID are used
         io.tTable.req.bits.tableIndex,
         // The input address is contained in the TTable request
-        Mux(io.tTable.req.bits.stateLearn === e_TTABLE_STATE_LEARN_ERROR_BACKPROP,
+        Mux((io.tTable.req.bits.stateLearn === e_TTABLE_STATE_LEARN_ERROR_BACKPROP) ||
+          (io.tTable.req.bits.stateLearn === e_TTABLE_STATE_LEARN_WEIGHT_UPDATE),
           io.tTable.req.bits.regFileAddrIn + io.tTable.req.bits.currentNodeInLayer,
           io.tTable.req.bits.regFileAddrIn),
         // The output address is a base output (specified by the
@@ -248,7 +249,7 @@ class Control extends DanaModule {
         // used to pass an _additional_ register file address used for
         // learning
         io.tTable.req.bits.currentNodeInLayer,
-        //Error address in LERAN_FEEDFORWARD state means the address used to save
+        //Error address in LEARN_FEEDFORWARD state means the address used to save
         //the calculated error values
         io.tTable.req.bits.regFileAddrDelta+io.tTable.req.bits.currentNodeInLayer,
         // The DW address is where the delta--weight products will be

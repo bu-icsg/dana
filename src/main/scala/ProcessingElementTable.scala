@@ -511,6 +511,17 @@ class ProcessingElementTable extends DanaModule {
 
         pe(peArbiter.io.out.bits.index).req.valid := Bool(true)
       }
+      is (PE_states('e_PE_WEIGHT_UPDATE_REQUEST_DELTA)) {
+        io.regFile.req.valid := Bool(true)
+        io.regFile.req.bits.isWrite := Bool(false) // unecessary to specify
+        io.regFile.req.bits.addr := table(peArbiter.io.out.bits.index).outAddr
+        io.regFile.req.bits.peIndex := peArbiter.io.out.bits.index
+        io.regFile.req.bits.tIdx := table(peArbiter.io.out.bits.index).tIdx
+        io.regFile.req.bits.location := table(peArbiter.io.out.bits.index).location
+        io.regFile.req.bits.reqType := e_PE_REQ_OUTPUT
+
+        pe(peArbiter.io.out.bits.index).req.valid := Bool(true)
+      }
       is(PE_states('e_PE_WEIGHT_UPDATE_WRITE_BACK)) {
         // Send an element-wise increment block-write to the cache
         io.cache.req.valid := Bool(true)
@@ -529,6 +540,7 @@ class ProcessingElementTable extends DanaModule {
           io.regFile.req.bits.isWrite := Bool(true)
           io.regFile.req.bits.reqType := e_PE_INCREMENT_WRITE_COUNT
           io.regFile.req.bits.incWriteCount := Bool(true)
+          io.regFile.req.bits.location := table(peArbiter.io.out.bits.index).location
         }
 
         // Update the weightPtr

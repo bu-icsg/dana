@@ -80,7 +80,7 @@ class RegisterFile extends DanaModule {
         // Kludge to kill the write _if_ we're just incrementing the
         // write count
         is (e_PE_INCREMENT_WRITE_COUNT) {
-          printf("[INFO] RegFile: PE increment write count")
+          printf("[INFO] RegFile: PE increment write count\n")
           mem(tIdx).we(0) := Bool(false)
         }
       }

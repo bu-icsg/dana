@@ -45,6 +45,7 @@ class TransactionState extends XFilesBundle {
   val regFileAddrInFixed = UInt(width = log2Up(regFileNumElements))
   val regFileAddrIn = UInt(width = log2Up(regFileNumElements))
   val regFileAddrOut = UInt(width = log2Up(regFileNumElements))
+  val regFileAddrOutFixed = UInt(width = log2Up(regFileNumElements))
   val regFileAddrDelta = UInt(width = log2Up(regFileNumElements))
   val regFileAddrDW = UInt(width = log2Up(regFileNumElements))
   val regFileAddrlearn = UInt(width = log2Up(regFileNumElements))
@@ -317,7 +318,7 @@ class TransactionTable extends XFilesModule {
         // Register File request
         io.regFile.req.valid := Bool(true)
         io.regFile.req.bits.addr := table(derefTidIndex).readIdx +
-          table(derefTidIndex).regFileAddrOut
+          table(derefTidIndex).regFileAddrOutFixed
         io.regFile.req.bits.reqType := e_TTABLE_REGFILE_READ
         // We initate the response in the arbiterRespPipe and fill in
         // data from the _guaranteed_ response from the Register File
@@ -425,11 +426,21 @@ class TransactionTable extends XFilesModule {
           val niclLSBs = // Nodes in previous layer LSBs
             nicl(log2Up(elementsPerBlock)-1, 0)
           val round = Mux(niclLSBs != UInt(0), UInt(elementsPerBlock), UInt(0))
+          val niclOffset = niclMSBs + round
+
+          val niplMSBs =
+            table(tIdx).nodesInCurrentLayer(15, log2Up(elementsPerBlock)) ##
+              UInt(0, width=log2Up(elementsPerBlock))
+          val niplLSBs = table(tIdx).nodesInCurrentLayer(log2Up(elementsPerBlock-1),0)
+          val niplOffset = niplMSBs + Mux(niclLSBs != UInt(0),
+            UInt(elementsPerBlock), UInt(0))
           switch(table(tIdx).stateLearn)
           {
             is(e_TTABLE_STATE_FEEDFORWARD){
               table(tIdx).regFileAddrIn := table(tIdx).regFileAddrOut
               table(tIdx).regFileAddrOut := table(tIdx).regFileAddrOut + niclMSBs + round
+              table(tIdx).regFileAddrOutFixed :=
+                table(tIdx).regFileAddrOut + niclMSBs + round
             }
             is(e_TTABLE_STATE_LEARN_FEEDFORWARD){
               table(tIdx).regFileAddrIn := table(tIdx).regFileAddrOut
@@ -445,7 +456,9 @@ class TransactionTable extends XFilesModule {
                 table(tIdx).regFileAddrDelta := table(tIdx).regFileAddrOut
               }
               table(tIdx).regFileAddrOut := table(tIdx).regFileAddrOut + niclMSBs +
-              round
+                round
+              table(tIdx).regFileAddrOutFixed :=
+                table(tIdx).regFileAddrOut + niclMSBs + round
 
               // Update the number of total nodes in the network
               when (table(tIdx).currentLayer === UInt(0)) { // In first layer
@@ -462,9 +475,9 @@ class TransactionTable extends XFilesModule {
             is(e_TTABLE_STATE_LEARN_ERROR_BACKPROP){
               table(tIdx).regFileAddrOut := table(tIdx).regFileAddrDW
               table(tIdx).regFileAddrDelta := table(tIdx).regFileAddrDW +
-                niclMSBs + UInt(elementsPerBlock)
+                niclMSBs + round
               table(tIdx).regFileAddrDW := table(tIdx).regFileAddrDW +
-                (niclMSBs + UInt(elementsPerBlock)) * UInt(2)
+                (niclMSBs + round) * UInt(2)
 
               // Handle special case of being in the last hidden layer
               when (table(tIdx).currentLayer === table(tIdx).numLayers - UInt(2)) {
@@ -472,7 +485,7 @@ class TransactionTable extends XFilesModule {
                 table(tIdx).regFileAddrIn := table(tIdx).regFileAddrIn
               } .otherwise {
                 table(tIdx).regFileAddrIn := table(tIdx).regFileAddrIn -
-                  (niclMSBs + UInt(elementsPerBlock))
+                  (niclMSBs + round)
               }
 
               // Handle special case of being in the first hidden layer
@@ -481,7 +494,15 @@ class TransactionTable extends XFilesModule {
               }
             }
             is(e_TTABLE_STATE_LEARN_WEIGHT_UPDATE){
+              table(tIdx).regFileAddrDW := table(tIdx).regFileAddrIn
+              table(tIdx).regFileAddrIn := table(tIdx).regFileAddrIn + niplOffset
+              table(tIdx).regFileAddrOut := table(tIdx).regFileAddrOut -
+                niclOffset * UInt(2)
 
+              // Handle special case of being in the first hidden layer
+              when (table(tIdx).currentLayer === UInt(1)){
+                table(tIdx).regFileAddrOut := table(tIdx).regFileAddrOut
+              }
             }
           }
           /*table(tIdx).regFileAddrIn := table(tIdx).regFileAddrOut
@@ -525,9 +546,9 @@ class TransactionTable extends XFilesModule {
           printf("[INFO]   regFileAddrOut:             0x%x\n",
             table(tIdx).regFileAddrOut +  niclMSBs + round)
           when(table(tIdx).currentLayer === table(tIdx).numLayers - UInt(1)){
-            printf("[INFO]   regFileAddrDelta:         0x%x\n",
+            printf("[INFO]   regFileAddrDelta:           0x%x\n",
                 table(tIdx).regFileAddrOut +  UInt(2) * (niclMSBs + round))
-            printf("[INFO]   regFileAddrDW:         0x%x\n",
+            printf("[INFO]   regFileAddrDW:              0x%x\n",
                 table(tIdx).regFileAddrOut + UInt(3) * (niclMSBs + round))
           }
         }
@@ -555,7 +576,13 @@ class TransactionTable extends XFilesModule {
           }
         }
         is (e_TTYPE_INCREMENTAL) {
-          table(tIdx).waiting := Bool(false)
+          when (inLastOld &&
+            table(tIdx).stateLearn === e_TTABLE_STATE_LEARN_WEIGHT_UPDATE) {
+            table(tIdx).decInUse := Bool(true)
+            table(tIdx).waiting := Bool(false)
+          } .otherwise {
+            table(tIdx).waiting := Bool(false)
+          }
         }
         is (e_TTYPE_BATCH) {
           table(tIdx).stateLearn := e_TTABLE_STATE_ERROR
@@ -697,18 +724,32 @@ class TransactionTable extends XFilesModule {
         }
       }
       is(e_TTABLE_STATE_LEARN_ERROR_BACKPROP){
-        when(inLastNode && (table(tIdx).currentLayer > UInt(0))) {
+        when(table(tIdx).inFirst && inLastNode) {
+          table(tIdx).needsLayerInfo := Bool(true)
+          table(tIdx).currentLayer := table(tIdx).currentLayer + UInt(1)
+          table(tIdx).stateLearn := e_TTABLE_STATE_LEARN_WEIGHT_UPDATE
+          table(tIdx).inFirst := Bool(false)
+          table(tIdx).inLastEarly :=
+            table(tIdx).currentLayer === (table(tIdx).numLayers - UInt(2))
+        } .elsewhen(inLastNode && (table(tIdx).currentLayer > UInt(0))) {
           table(tIdx).needsLayerInfo := Bool(true)
           table(tIdx).currentLayer := table(tIdx).currentLayer - UInt(1)
           table(tIdx).inFirst := table(tIdx).currentLayer === UInt(1)
-          table(tIdx).stateLearn := e_TTABLE_STATE_ERROR
         } .otherwise {
           table(tIdx).needsLayerInfo := Bool(false)
           table(tIdx).currentLayer := table(tIdx).currentLayer
         }
       }
       is (e_TTABLE_STATE_LEARN_WEIGHT_UPDATE) {
-        table(tIdx).stateLearn := e_TTABLE_STATE_ERROR
+        when (inLastNode && notInLastLayer) {
+          table(tIdx).needsLayerInfo := Bool(true)
+          table(tIdx).currentLayer := table(tIdx).currentLayer + UInt(1)
+        } .otherwise {
+          table(tIdx).needsLayerInfo := Bool(false)
+          table(tIdx).currentLayer := table(tIdx).currentLayer
+          table(tIdx).inLastEarly :=
+            table(tIdx).currentLayer === (table(tIdx).numLayers - UInt(2))
+        }
       }
     }
   }

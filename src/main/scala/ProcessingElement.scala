@@ -124,11 +124,14 @@ class ProcessingElement extends DanaModule {
     }
     is (PE_states('e_PE_WAIT_FOR_INFO)) {
       //state := Mux(io.req.valid, PE_states('e_PE_REQUEST_INPUTS_AND_WEIGHTS), state)
-      when ((io.req.valid) && (io.req.bits.stateLearn === e_TTABLE_STATE_FEEDFORWARD ||
+      when (io.req.valid && (io.req.bits.stateLearn === e_TTABLE_STATE_FEEDFORWARD ||
       io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_FEEDFORWARD)) {
         state := PE_states('e_PE_REQUEST_INPUTS_AND_WEIGHTS)
-      } .elsewhen ((io.req.valid) && (io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_ERROR_BACKPROP)) {
+      } .elsewhen (io.req.valid && (io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_ERROR_BACKPROP)) {
         state := PE_states('e_PE_REQUEST_OUTPUTS_ERROR_BACKPROP)
+      } .elsewhen (io.req.valid &&
+        (io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_WEIGHT_UPDATE)) {
+        state := PE_states('e_PE_WEIGHT_UPDATE_REQUEST_DELTA)
       } .otherwise{
         state := state
       }
@@ -348,14 +351,14 @@ class ProcessingElement extends DanaModule {
     }
     //not sure if we need a seperate state for this
     is (PE_states('e_PE_WAIT_FOR_INFO_WEIGHT_UPDATE)){
-      state := Mux(io.req.valid, PE_states('e_PE_REQUEST_DELTA_WEIGHT_UPDATE), state)
+      state := Mux(io.req.valid, PE_states('e_PE_WEIGHT_UPDATE_REQUEST_DELTA), state)
     }
-    is (PE_states('e_PE_REQUEST_DELTA_WEIGHT_UPDATE)){
-      state := Mux(io.req.valid, PE_states('e_PE_WAIT_FOR_DELTA_WEIGHT_UPDATE), state)
+    is (PE_states('e_PE_WEIGHT_UPDATE_REQUEST_DELTA)){
+      state := Mux(io.req.valid, PE_states('e_PE_WEIGHT_UPDATE_WAIT_FOR_DELTA), state)
       io.resp.valid := Bool(true)
     }
-    is (PE_states('e_PE_WAIT_FOR_DELTA_WEIGHT_UPDATE)){
-      state := Mux(io.req.valid, PE_states('e_PE_REQUEST_INPUTS_AND_WEIGHTS), state)
+    is (PE_states('e_PE_WEIGHT_UPDATE_WAIT_FOR_DELTA)){
+      state := Mux(io.req.valid, PE_states('e_PE_WEIGHT_UPDATE_REQUEST_INPUTS), state)
     }
 
     is (PE_states('e_PE_WEIGHT_UPDATE_REQUEST_INPUTS)) {
