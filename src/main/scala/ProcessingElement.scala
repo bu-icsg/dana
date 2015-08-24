@@ -388,13 +388,17 @@ class ProcessingElement extends DanaModule {
       weightWB(blockIndex):=
         ((delta * io.req.bits.iBlock(blockIndex)) >> decimal)
       index := index + UInt(1)
+      dataOut := delta
     }
     is (PE_states('e_PE_WEIGHT_UPDATE_WRITE_BACK)){
       val nextState = Mux(index === io.req.bits.numWeights,
-        PE_states('e_PE_UNALLOCATED),
+        PE_states('e_PE_WEIGHT_UPDATE_WRITE_BIAS),
         PE_states('e_PE_WEIGHT_UPDATE_REQUEST_INPUTS))
-      io.resp.bits.incWriteCount := index === io.req.bits.numWeights
       state := Mux(io.req.valid, nextState, state)
+      io.resp.valid := Bool(true)
+    }
+    is (PE_states('e_PE_WEIGHT_UPDATE_WRITE_BIAS)) {
+      state := Mux(io.req.valid, PE_states('e_PE_UNALLOCATED), state)
       io.resp.valid := Bool(true)
     }
   }
