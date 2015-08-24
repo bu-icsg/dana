@@ -377,9 +377,14 @@ class ProcessingElement extends DanaModule {
       } .otherwise {
         state := state
       }
+      // val delta = ((Mux(io.req.bits.inFirst, errorOut, io.req.bits.learnReg) *
+      //   SInt(716)) >> decimal)(elementWidth-1,0)
+      // val delta = (Mux(io.req.bits.inFirst, errorOut, io.req.bits.learnReg) *
+      //   SInt(256)) >> decimal
       val delta = Mux(io.req.bits.inFirst, errorOut, io.req.bits.learnReg)
+      printf("[INFO] PE: delta after 0.7 learning rate: 0x%x\n", delta)
       weightWB(blockIndex):=
-        ((delta * io.req.bits.iBlock(blockIndex)) >> decimal)(elementWidth-1, 0)
+        ((delta * io.req.bits.iBlock(blockIndex)) >> decimal)
       index := index + UInt(1)
     }
     is (PE_states('e_PE_WEIGHT_UPDATE_WRITE_BACK)){

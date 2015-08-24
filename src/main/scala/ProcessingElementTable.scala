@@ -86,8 +86,8 @@ class ProcessingElementState extends DanaBundle {
   val decimalPoint = UInt(width = decimalPointWidth) // decimal_point
   val inBlock = UInt(width = bitsPerBlock) // input_block
   val weightBlock = UInt(width = bitsPerBlock) //weight_block
-  val learnReg = UInt(width = elementWidth) // "learning register", multiuse
-  val dw_in = UInt(width = elementWidth)
+  val learnReg = SInt(width = elementWidth) // "learning register", multiuse
+  val dw_in = SInt(width = elementWidth)
   val numWeights = UInt(width = 8) // [TODO] fragile
   val numWeightsSaved = UInt(width = 8) // [TODO] fragile
   val activationFunction = UInt(width = activationFunctionWidth)
@@ -530,6 +530,8 @@ class ProcessingElementTable extends DanaModule {
         io.cache.req.bits.cacheIndex := table(peArbiter.io.out.bits.index).cIdx
         io.cache.req.bits.cacheAddr := table(peArbiter.io.out.bits.index).weightPtr
         io.cache.req.bits.data := peArbiter.io.out.bits.dataBlock.toBits
+        printf("[INFO] PE Table: weight block 0x%x\n",
+          peArbiter.io.out.bits.dataBlock.toBits)
 
         // If this is the last weight block, then we kick the Register
         // File to get it to respond back to the TTable saying that

@@ -254,10 +254,11 @@ class Control extends DanaModule {
         io.tTable.req.bits.regFileAddrDelta+io.tTable.req.bits.currentNodeInLayer,
         // The DW address is where the delta--weight products will be
         // written (and accumulated by the Register File)
-        Mux((io.tTable.req.bits.stateLearn === e_TTABLE_STATE_LEARN_ERROR_BACKPROP) &&
-          io.tTable.req.bits.inFirst,
-          io.tTable.req.bits.regFileAddrDW + io.tTable.req.bits.currentNodeInLayer,
-          io.tTable.req.bits.regFileAddrDW),
+        io.tTable.req.bits.regFileAddrDW,
+        // Mux((io.tTable.req.bits.stateLearn === e_TTABLE_STATE_LEARN_ERROR_BACKPROP) &&
+        //   io.tTable.req.bits.inFirst,
+        //   io.tTable.req.bits.regFileAddrDW + io.tTable.req.bits.currentNodeInLayer,
+        //   io.tTable.req.bits.regFileAddrDW),
         // The neuron pointer is going to be the base pointer that
         // lives in the Transaction Table plus an offset based on the
         // current node that we're processing. The shift by 3 is to
