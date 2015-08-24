@@ -514,7 +514,7 @@ class ProcessingElementTable extends DanaModule {
       is (PE_states('e_PE_WEIGHT_UPDATE_REQUEST_DELTA)) {
         io.regFile.req.valid := Bool(true)
         io.regFile.req.bits.isWrite := Bool(false) // unecessary to specify
-        io.regFile.req.bits.addr := table(peArbiter.io.out.bits.index).outAddr
+        io.regFile.req.bits.addr := table(peArbiter.io.out.bits.index).deltaAddr
         io.regFile.req.bits.peIndex := peArbiter.io.out.bits.index
         io.regFile.req.bits.tIdx := table(peArbiter.io.out.bits.index).tIdx
         io.regFile.req.bits.location := table(peArbiter.io.out.bits.index).location

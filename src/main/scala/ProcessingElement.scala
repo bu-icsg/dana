@@ -221,17 +221,17 @@ class ProcessingElement extends DanaModule {
       // Divide by 2 should be conditional on being in a symmetric
       when (io.req.bits.activationFunction === e_FANN_SIGMOID_SYMMETRIC ||
         io.req.bits.activationFunction === e_FANN_SIGMOID_SYMMETRIC_STEPWISE) {
-        errorOut := (dataOut - io.req.bits.learnReg) >> UInt(1)
-        mse := (((dataOut - io.req.bits.learnReg) >> UInt(1)) * ((dataOut - io.req.bits.learnReg) >> UInt(1))) >> decimal
+        errorOut := (io.req.bits.learnReg - dataOut) >> UInt(1)
+        mse := (((io.req.bits.learnReg - dataOut) >> UInt(1)) * ((io.req.bits.learnReg - dataOut) >> UInt(1))) >> decimal
         printf("[INFO] PE: errorOut and Error square set to 0x%x and  0x%x\n",
-          (dataOut - io.req.bits.learnReg) >> UInt(1),
-          (((dataOut - io.req.bits.learnReg) >> UInt(1)) * ((dataOut - io.req.bits.learnReg) >> UInt(1))) >> decimal)
+          (io.req.bits.learnReg - dataOut) >> UInt(1),
+          (((io.req.bits.learnReg - dataOut) >> UInt(1)) * ((io.req.bits.learnReg - dataOut) >> UInt(1))) >> decimal)
       } .otherwise {
-        errorOut := dataOut - io.req.bits.learnReg
-        mse := (((dataOut - io.req.bits.learnReg)) * ((dataOut - io.req.bits.learnReg))) >> decimal
+        errorOut := io.req.bits.learnReg - dataOut
+        mse := (((io.req.bits.learnReg - dataOut)) * ((io.req.bits.learnReg - dataOut))) >> decimal
         printf("[INFO] PE: errorOut and Error square set to 0x%x and  0x%x\n",
-          dataOut - io.req.bits.learnReg,
-          (((dataOut - io.req.bits.learnReg)) * ((dataOut - io.req.bits.learnReg))) >> decimal)
+          io.req.bits.learnReg - dataOut,
+          (((io.req.bits.learnReg - dataOut)) * ((io.req.bits.learnReg - dataOut))) >> decimal)
       }
       state := PE_states('e_PE_ERROR_FUNCTION)
     }

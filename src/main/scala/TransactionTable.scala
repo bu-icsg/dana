@@ -496,12 +496,15 @@ class TransactionTable extends XFilesModule {
             is(e_TTABLE_STATE_LEARN_WEIGHT_UPDATE){
               table(tIdx).regFileAddrDW := table(tIdx).regFileAddrIn
               table(tIdx).regFileAddrIn := table(tIdx).regFileAddrIn + niplOffset
-              table(tIdx).regFileAddrOut := table(tIdx).regFileAddrOut -
+              table(tIdx).regFileAddrDelta := table(tIdx).regFileAddrDelta -
                 niclOffset * UInt(2)
+              // table(tIdx).regFileAddrOut := table(tIdx).regFileAddrOut -
+              //   niclOffset * UInt(2)
 
-              // Handle special case of being in the first hidden layer
+              // Handle special case of being in the second hidden layer
               when (table(tIdx).currentLayer === UInt(1)){
-                table(tIdx).regFileAddrOut := table(tIdx).regFileAddrOut
+                table(tIdx).regFileAddrDelta := table(tIdx).regFileAddrOut -
+                  niclOffset * UInt(1)
               }
             }
           }
