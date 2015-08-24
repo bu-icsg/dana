@@ -209,9 +209,7 @@ class Control extends DanaModule {
         (io.tTable.req.bits.stateLearn === e_TTABLE_STATE_LEARN_FEEDFORWARD),
         UInt(3), Mux(!io.tTable.req.bits.inFirst &&
           (io.tTable.req.bits.stateLearn === e_TTABLE_STATE_LEARN_ERROR_BACKPROP),
-          UInt(2), Mux(io.tTable.req.bits.inFirst &&
-            (io.tTable.req.bits.stateLearn === e_TTABLE_STATE_LEARN_ERROR_BACKPROP),
-            UInt(0), UInt(1))))
+          UInt(2), UInt(1)))
       // val inLastLearn = (io.tTable.req.bits.inLastEarly) &&
       //   (io.tTable.req.bits.stateLearn === e_TTABLE_STATE_LEARN_FEEDFORWARD)
       printf("[INFO] Control: TTable layer req inFirst/inLastEarly/state/totalWritesMul 0x%x/0x%x/0x%x/0x%x\n",
@@ -240,7 +238,9 @@ class Control extends DanaModule {
         // Table Index, no ASID/TID are used
         io.tTable.req.bits.tableIndex,
         // The input address is contained in the TTable request
-        io.tTable.req.bits.regFileAddrIn,
+        Mux(io.tTable.req.bits.stateLearn === e_TTABLE_STATE_LEARN_ERROR_BACKPROP,
+          io.tTable.req.bits.regFileAddrIn + io.tTable.req.bits.currentNodeInLayer,
+          io.tTable.req.bits.regFileAddrIn),
         // The output address is a base output (specified by the
         // TTable request) plus an offset (which neuron this is)
         io.tTable.req.bits.regFileAddrOut+io.tTable.req.bits.currentNodeInLayer,
@@ -253,7 +253,10 @@ class Control extends DanaModule {
         io.tTable.req.bits.regFileAddrDelta+io.tTable.req.bits.currentNodeInLayer,
         // The DW address is where the delta--weight products will be
         // written (and accumulated by the Register File)
-        io.tTable.req.bits.regFileAddrDW,
+        Mux((io.tTable.req.bits.stateLearn === e_TTABLE_STATE_LEARN_ERROR_BACKPROP) &&
+          io.tTable.req.bits.inFirst,
+          io.tTable.req.bits.regFileAddrDW + io.tTable.req.bits.currentNodeInLayer,
+          io.tTable.req.bits.regFileAddrDW),
         // The neuron pointer is going to be the base pointer that
         // lives in the Transaction Table plus an offset based on the
         // current node that we're processing. The shift by 3 is to

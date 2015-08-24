@@ -77,6 +77,12 @@ class RegisterFile extends DanaModule {
           printf("[INFO] RegFile: PE write block inc tIdx/Addr/Data 0x%x/0x%x/0x%x\n", tIdx,
             io.pe.req.bits.addr, io.pe.req.bits.dataBlock)
         }
+        // Kludge to kill the write _if_ we're just incrementing the
+        // write count
+        is (e_PE_INCREMENT_WRITE_COUNT) {
+          printf("[INFO] RegFile: PE increment write count")
+          mem(tIdx).we(0) := Bool(false)
+        }
       }
       // Increment the write count and generate a response to the
       // control module if this puts us at the write count

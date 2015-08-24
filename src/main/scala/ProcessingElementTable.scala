@@ -39,7 +39,7 @@ class PERegisterFileInterface extends DanaBundle {
     val data = UInt(width = elementWidth)
     val dataBlock = UInt(width = bitsPerBlock)
     val location = UInt(width = 1)
-    val reqType = UInt(width = log2Up(5)) // [TODO] Fragile on Dana.scala
+    val reqType = UInt(width = log2Up(8)) // [TODO] Fragile on Dana.scala
     val incWriteCount = Bool()
   })
   val resp = Decoupled(new DanaBundle {
@@ -236,10 +236,12 @@ class ProcessingElementTable extends DanaModule {
         indexIntoData := io.cache.resp.bits.indexIntoData
         table(peIndex).weightPtr := cacheRespVec(indexIntoData).weightPtr
         table(peIndex).weightPtrSaved := cacheRespVec(indexIntoData).weightPtr
-        table(peIndex).numWeights :=
-          cacheRespVec(indexIntoData).numWeights + UInt(elementsPerBlock)
-        table(peIndex).numWeightsSaved :=
-          cacheRespVec(indexIntoData).numWeights + UInt(elementsPerBlock)
+        // table(peIndex).numWeights :=
+        //   cacheRespVec(indexIntoData).numWeights + UInt(elementsPerBlock)
+        // table(peIndex).numWeightsSaved :=
+        //   cacheRespVec(indexIntoData).numWeights + UInt(elementsPerBlock)
+        table(peIndex).numWeights := cacheRespVec(indexIntoData).numWeights
+        table(peIndex).numWeightsSaved := cacheRespVec(indexIntoData).numWeights
         table(peIndex).activationFunction :=
           cacheRespVec(indexIntoData).activationFunction
         table(peIndex).steepness := cacheRespVec(indexIntoData).steepness
@@ -250,9 +252,9 @@ class ProcessingElementTable extends DanaModule {
         table(peIndex).weightPtr :=
           table(peIndex).weightPtr + UInt(elementsPerBlock * elementWidth / 8)
         table(peIndex).weightBlock := io.cache.resp.bits.data
-        table(peIndex).numWeights :=
-          Mux(table(peIndex).numWeights < UInt(elementsPerBlock),
-            UInt(0), table(peIndex).numWeights - UInt(elementsPerBlock))
+        // table(peIndex).numWeights :=
+        //   Mux(table(peIndex).numWeights < UInt(elementsPerBlock),
+        //     UInt(0), table(peIndex).numWeights - UInt(elementsPerBlock))
         // As the weights and inputs can come back in any order, we
         // can only kick the PE if the weights already came back.
         // Otherwise, we just set the weight valid flag and kick the
@@ -271,9 +273,9 @@ class ProcessingElementTable extends DanaModule {
         table(peIndex).weightPtr :=
           table(peIndex).weightPtr + UInt(elementsPerBlock * elementWidth / 8)
         table(peIndex).weightBlock := io.cache.resp.bits.data
-        table(peIndex).numWeights :=
-          Mux(table(peIndex).numWeights < UInt(elementsPerBlock),
-            UInt(0), table(peIndex).numWeights - UInt(elementsPerBlock))
+        // table(peIndex).numWeights :=
+        //   Mux(table(peIndex).numWeights < UInt(elementsPerBlock),
+        //     UInt(0), table(peIndex).numWeights - UInt(elementsPerBlock))
         pe(peIndex).req.valid := Bool(true)
         printf("[INFO] PETable: Valid cache weight resp PE/data 0x%x/0x%x\n",
           peIndex, io.cache.resp.bits.data)
@@ -296,7 +298,9 @@ class ProcessingElementTable extends DanaModule {
         } .otherwise {
           table(peIndex).inAddr := table(peIndex).inAddr + UInt(elementsPerBlock)
         }
-        when (table(peIndex).weightValid) {
+        when (table(peIndex).weightValid ||
+          (table(peIndex).stateLearn === e_TTABLE_STATE_LEARN_WEIGHT_UPDATE) ||
+          (table(peIndex).stateLearn === e_TTABLE_STATE_LEARN_ERROR_BACKPROP)) {
           pe(peIndex).req.valid := Bool(true)
           table(peIndex).weightValid := Bool(false)
           table(peIndex).inValid := Bool(false)
@@ -508,8 +512,29 @@ class ProcessingElementTable extends DanaModule {
         pe(peArbiter.io.out.bits.index).req.valid := Bool(true)
       }
       is(PE_states('e_PE_WEIGHT_UPDATE_WRITE_BACK)) {
-        // [TODO] Pickup here. The cache needs to handle a block
-        // write.
+        // Send an element-wise increment block-write to the cache
+        io.cache.req.valid := Bool(true)
+        io.cache.req.bits.field := e_CACHE_WEIGHT_WB
+        io.cache.req.bits.peIndex := peArbiter.io.out.bits.index
+        io.cache.req.bits.cacheIndex := table(peArbiter.io.out.bits.index).cIdx
+        io.cache.req.bits.cacheAddr := table(peArbiter.io.out.bits.index).weightPtr
+        io.cache.req.bits.data := peArbiter.io.out.bits.dataBlock.toBits
+
+        // If this is the last weight block, then we kick the Register
+        // File to get it to respond back to the TTable saying that
+        // the layer is done. [TODO] This is a stupid kludge. Use a
+        // better method than this
+        when (peArbiter.io.out.bits.incWriteCount) {
+          io.regFile.req.valid := Bool(true)
+          io.regFile.req.bits.isWrite := Bool(true)
+          io.regFile.req.bits.reqType := e_PE_INCREMENT_WRITE_COUNT
+          io.regFile.req.bits.incWriteCount := Bool(true)
+        }
+
+        // Update the weightPtr
+        table(peArbiter.io.out.bits.index).weightPtr :=
+          table(peArbiter.io.out.bits.index).weightPtr +
+          UInt(elementsPerBlock * elementWidth / 8)
 
         pe(peArbiter.io.out.bits.index).req.valid := Bool(true)
       }

@@ -394,8 +394,17 @@ class Cache extends DanaModule {
         peRespPipe(0).bits.indexIntoData :=
           io.pe.req.bits.cacheAddr(2 + log2Up(elementsPerBlock) - 1, 2)
       }
-      // [TODO] Add logic to setup a block write with increment to the
-      // SRAM
+      is (e_CACHE_WEIGHT_WB) {
+        printf("[INFO] Cache: PE 0x%x req to inc weight @addr 0x%x\n",
+          io.pe.req.bits.peIndex, io.pe.req.bits.cacheAddr)
+        printf("[INFO]        block: 0x%x\n", io.pe.req.bits.data)
+        mem(io.pe.req.bits.cacheIndex).we(0) := Bool(true)
+        mem(io.pe.req.bits.cacheIndex).inc(0) := Bool(true)
+        mem(io.pe.req.bits.cacheIndex).din(0) := io.pe.req.bits.data
+        // [TODO] This needs to optionally respond to the TTable
+        // indicating that we're done with all weight updates for a
+        // specific neuron
+      }
     }
   }
 
