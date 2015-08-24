@@ -15,7 +15,8 @@ RAM Organization. This is a modified layout of fann_small and its associated abb
 |         |          |     48 |   16 |             | total layers [N]        |
 |         |          |     64 |   16 |             | first layer ptr [LF*]   |
 |         |          |     80 |   16 |             | weights ptr [W*]        |
-|         |          |     96 |   32 |             | *** unused ***          |
+|         |          |     96 |   16 |             | learning rate           |
+|         |          |    112 |   16 |             | *** unused ***          |
 |---------+----------+--------+------+-------------+-------------------------|
 | Layers  | [LF*]    |      0 |   12 | layer 0     | first neuron ptr [L0Nf] |
 |         |          |     12 |   10 |             | neurons in layer        |

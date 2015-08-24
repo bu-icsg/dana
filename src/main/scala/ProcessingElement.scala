@@ -14,6 +14,7 @@ class ProcessingElementReq extends DanaBundle {
   val steepness = UInt(INPUT, steepnessWidth)
   val activationFunction = UInt(INPUT, activationFunctionWidth)
   val errorFunction = UInt(INPUT, width = log2Up(2)) // [TODO] fragile
+  val learningRate = UInt(INPUT, width = 16) // [TODO] fragile
   val bias = SInt(INPUT, elementWidth)
   val iBlock = Vec.fill(elementsPerBlock){SInt(INPUT, elementWidth)}
   val wBlock = Vec.fill(elementsPerBlock){SInt(INPUT, elementWidth)}
@@ -381,7 +382,8 @@ class ProcessingElement extends DanaModule {
       //   SInt(716)) >> decimal)(elementWidth-1,0)
       // val delta = (Mux(io.req.bits.inFirst, errorOut, io.req.bits.learnReg) *
       //   SInt(256)) >> decimal
-      val delta = Mux(io.req.bits.inFirst, errorOut, io.req.bits.learnReg)
+      val delta = (Mux(io.req.bits.inFirst, errorOut, io.req.bits.learnReg) *
+        io.req.bits.learningRate) >> decimal
       printf("[INFO] PE: delta after 0.7 learning rate: 0x%x\n", delta)
       weightWB(blockIndex):=
         ((delta * io.req.bits.iBlock(blockIndex)) >> decimal)

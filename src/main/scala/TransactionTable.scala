@@ -29,6 +29,7 @@ class TransactionState extends XFilesBundle {
   val nnid = UInt(width = nnidWidth) // formerly nn_hash
   val decimalPoint = UInt(width = decimalPointWidth)
   val errorFunction = UInt(width = log2Up(2)) // [TODO] fragile
+  val learningRate = UInt(width = 16) // [TODO] fragile
   val numLayers = UInt(width = 16) // [TODO] fragile
   val numNodes = UInt(width = 16) // [TODO] fragile
   val currentNode = UInt(width = 16) // [TODO] fragile
@@ -77,6 +78,7 @@ class ControlReq extends XFilesBundle {
   val neuronPointer = UInt(width = 11) // [TODO] fragile
   val decimalPoint = UInt(width = decimalPointWidth)
   val errorFunction = UInt(width = log2Up(2)) // [TODO] fragile
+  val learningRate = UInt(width = 16) // [TODO] fragile
   val regFileAddrIn = UInt(width = log2Up(regFileNumElements))
   val regFileAddrOut = UInt(width = log2Up(regFileNumElements))
   val regFileAddrDelta = UInt(width = log2Up(regFileNumElements))
@@ -91,7 +93,7 @@ class ControlResp extends XFilesBundle {
   val cacheValid = Bool()
   val tableIndex = UInt(width = log2Up(transactionTableNumEntries))
   val field = UInt(width = 4) // [TODO] fragile on Constants.scala
-  val data = Vec.fill(3){UInt(width = 16)} // [TODO] fragile
+  val data = Vec.fill(4){UInt(width = 16)} // [TODO] fragile
   val decimalPoint = UInt(width = decimalPointWidth)
   val layerValid = Bool()
   val layerValidIndex = UInt(width = log2Up(transactionTableNumEntries))
@@ -378,6 +380,7 @@ class TransactionTable extends XFilesModule {
           table(tIdx).decimalPoint := io.control.resp.bits.decimalPoint
           table(tIdx).errorFunction := io.control.resp.bits.data(2)(
             errorFunctionWidth - 1, 0)
+          table(tIdx).learningRate := io.control.resp.bits.data(3)
           // Once we know the cache is valid, this entry is no longer waiting
           table(tIdx).waiting := Bool(false)
           printf("[INFO] TTable: Updating global info from Cache...\n")
@@ -391,6 +394,8 @@ class TransactionTable extends XFilesModule {
           printf("[INFO]   error function:          0x%x\n",
             io.control.resp.bits.data(2)(
               errorFunctionWidth - 1, 0))
+          printf("[INFO]   learning rate:           0x%x\n",
+            io.control.resp.bits.data(3))
         }
         is(e_TTABLE_LAYER) {
           table(tIdx).needsLayerInfo := Bool(false)
@@ -634,6 +639,7 @@ class TransactionTable extends XFilesModule {
     entryArbiter.io.in(i).bits.neuronPointer := table(i).neuronPointer
     entryArbiter.io.in(i).bits.decimalPoint := table(i).decimalPoint
     entryArbiter.io.in(i).bits.errorFunction := table(i).errorFunction
+    entryArbiter.io.in(i).bits.learningRate := table(i).learningRate
     entryArbiter.io.in(i).bits.regFileAddrIn := table(i).regFileAddrIn
     entryArbiter.io.in(i).bits.regFileAddrOut := table(i).regFileAddrOut
     entryArbiter.io.in(i).bits.regFileAddrDelta := table(i).regFileAddrDelta

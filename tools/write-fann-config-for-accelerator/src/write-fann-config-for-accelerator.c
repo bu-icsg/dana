@@ -123,6 +123,12 @@ int main(int argc, char *argv[])
   }
   printf("Weights *: 0x%x (%d)\n", weights, weights);
 
+  // Write the learning rate. Use a default value if the learning rate
+  // is set to zero.
+  uint16_t learning_rate = ann->learning_rate;
+  if (learning_rate == 0)
+    learning_rate = 0.25 * pow(2, ann->decimal_point);
+
   // Write the Info Block
   fwrite(&decimal_point_encoded, 2, 1, file);
   fwrite(&num_edges, 2, 1, file);
@@ -130,7 +136,8 @@ int main(int argc, char *argv[])
   fwrite(&num_layers, 2, 1, file);
   fwrite(&first_layer, 2, 1, file);
   fwrite(&weights, 2, 1, file);
-  fwrite(null, 4, 1, file);
+  fwrite(&learning_rate, 2, 1, file);
+  fwrite(null, 2, 1, file);
   // Write the free space following the Info Block if needed
   fwrite(null, size_of_block-16, 1, file);
 
