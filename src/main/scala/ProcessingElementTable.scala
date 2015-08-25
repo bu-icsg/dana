@@ -93,6 +93,7 @@ class ProcessingElementState extends DanaBundle {
   val activationFunction = UInt(width = activationFunctionWidth)
   val errorFunction = UInt(width = log2Up(2)) // [TODO] fragile
   val learningRate = UInt(width = 16) // [TODO] fragile
+  val lambda = UInt(width = 16)
   val steepness = UInt(width = steepnessWidth)
   val bias = UInt(width = elementWidth)
   val stateLearn = UInt(width = log2Up(7)) // [TODO] fragile
@@ -125,6 +126,7 @@ class ProcessingElementTable extends DanaModule {
     pe(i).req.bits.activationFunction := table(i).activationFunction
     pe(i).req.bits.errorFunction := table(i).errorFunction
     pe(i).req.bits.learningRate := table(i).learningRate
+    pe(i).req.bits.lambda := table(i).lambda
     pe(i).req.bits.numWeights := table(i).numWeights
     pe(i).req.bits.bias := table(i).bias
     pe(i).req.bits.stateLearn := table(i).stateLearn
@@ -187,6 +189,7 @@ class ProcessingElementTable extends DanaModule {
     table(nextFree).decimalPoint := io.control.req.bits.decimalPoint
     table(nextFree).errorFunction := io.control.req.bits.errorFunction
     table(nextFree).learningRate := io.control.req.bits.learningRate
+    table(nextFree).lambda := io.control.req.bits.lambda
     table(nextFree).stateLearn := io.control.req.bits.stateLearn
     table(nextFree).inLast := io.control.req.bits.inLast
     table(nextFree).inFirst := io.control.req.bits.inFirst
@@ -212,6 +215,7 @@ class ProcessingElementTable extends DanaModule {
     printf("[INFO]   decimal:    0x%x\n", io.control.req.bits.decimalPoint)
     printf("[INFO]   error func: 0x%x\n", io.control.req.bits.errorFunction)
     printf("[INFO]   learn rate: 0x%x\n", io.control.req.bits.learningRate)
+    printf("[INFO]   lambda:     0x%x\n", io.control.req.bits.lambda)
     printf("[INFO]   in addr:    0x%x\n", io.control.req.bits.inAddr)
     printf("[INFO]   out addr:   0x%x\n", io.control.req.bits.outAddr)
     printf("[INFO]   learn addr: 0x%x\n", io.control.req.bits.learnAddr)
@@ -302,9 +306,10 @@ class ProcessingElementTable extends DanaModule {
         } .otherwise {
           table(peIndex).inAddr := table(peIndex).inAddr + UInt(elementsPerBlock)
         }
-        when (table(peIndex).weightValid ||
-          (table(peIndex).stateLearn === e_TTABLE_STATE_LEARN_WEIGHT_UPDATE) ||
-          (table(peIndex).stateLearn === e_TTABLE_STATE_LEARN_ERROR_BACKPROP)) {
+        // when (table(peIndex).weightValid ||
+        //   (table(peIndex).stateLearn === e_TTABLE_STATE_LEARN_WEIGHT_UPDATE) ||
+        //   (table(peIndex).stateLearn === e_TTABLE_STATE_LEARN_ERROR_BACKPROP)) {
+        when (table(peIndex).weightValid) {
           pe(peIndex).req.valid := Bool(true)
           table(peIndex).weightValid := Bool(false)
           table(peIndex).inValid := Bool(false)
@@ -519,6 +524,13 @@ class ProcessingElementTable extends DanaModule {
         io.regFile.req.bits.location := table(peArbiter.io.out.bits.index).location
         io.regFile.req.bits.reqType := e_PE_REQ_INPUT
 
+        // Send a request to the cache for weights
+        io.cache.req.valid := Bool(true)
+        io.cache.req.bits.field := e_CACHE_WEIGHT
+        io.cache.req.bits.peIndex := peArbiter.io.out.bits.index
+        io.cache.req.bits.cacheIndex := table(peArbiter.io.out.bits.index).cIdx
+        io.cache.req.bits.cacheAddr := table(peArbiter.io.out.bits.index).weightPtr
+
         pe(peArbiter.io.out.bits.index).req.valid := Bool(true)
       }
       is (PE_states('e_PE_WEIGHT_UPDATE_REQUEST_DELTA)) {
@@ -538,15 +550,16 @@ class ProcessingElementTable extends DanaModule {
         io.cache.req.bits.field := e_CACHE_WEIGHT_WB
         io.cache.req.bits.peIndex := peArbiter.io.out.bits.index
         io.cache.req.bits.cacheIndex := table(peArbiter.io.out.bits.index).cIdx
-        io.cache.req.bits.cacheAddr := table(peArbiter.io.out.bits.index).weightPtr
+        io.cache.req.bits.cacheAddr := table(peArbiter.io.out.bits.index).weightPtr -
+          UInt(elementsPerBlock * elementWidth / 8)
         io.cache.req.bits.data := peArbiter.io.out.bits.dataBlock.toBits
         printf("[INFO] PE Table: weight block 0x%x\n",
           peArbiter.io.out.bits.dataBlock.toBits)
 
         // Update the weightPtr
-        table(peArbiter.io.out.bits.index).weightPtr :=
-          table(peArbiter.io.out.bits.index).weightPtr +
-          UInt(elementsPerBlock * elementWidth / 8)
+        // table(peArbiter.io.out.bits.index).weightPtr :=
+        //   table(peArbiter.io.out.bits.index).weightPtr +
+        //   UInt(elementsPerBlock * elementWidth / 8)
 
         pe(peArbiter.io.out.bits.index).req.valid := Bool(true)
       }

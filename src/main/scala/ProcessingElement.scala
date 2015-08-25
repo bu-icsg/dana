@@ -15,6 +15,7 @@ class ProcessingElementReq extends DanaBundle {
   val activationFunction = UInt(INPUT, activationFunctionWidth)
   val errorFunction = UInt(INPUT, width = log2Up(2)) // [TODO] fragile
   val learningRate = UInt(INPUT, width = 16) // [TODO] fragile
+  val lambda = SInt(INPUT, width = 16) // [TODO] fragile
   val bias = SInt(INPUT, elementWidth)
   val iBlock = Vec.fill(elementsPerBlock){SInt(INPUT, elementWidth)}
   val wBlock = Vec.fill(elementsPerBlock){SInt(INPUT, elementWidth)}
@@ -191,20 +192,20 @@ class ProcessingElement extends DanaModule {
         }
         is(e_FANN_SIGMOID) {
           derivative := (dataOut * ((SInt(1) << decimal) - dataOut)) >> (decimal + UInt(steepnessOffset) - io.req.bits.steepness - UInt(1))
-          
+
         }
         is(e_FANN_SIGMOID_STEPWISE) {
           derivative := (dataOut * ((SInt(1) << decimal) - dataOut)) >> (decimal + UInt(steepnessOffset) - io.req.bits.steepness - UInt(1))
-          
+
         }
         is(e_FANN_SIGMOID_SYMMETRIC) {
           // [TODO] shift by steepness possibly broken if "steepness" is negative
           derivative := derivativeSigmoidSymmetric
-          
+
         }
         is(e_FANN_SIGMOID_SYMMETRIC_STEPWISE) {
           derivative := derivativeSigmoidSymmetric
-         
+
         }
       }
     }
@@ -383,9 +384,12 @@ class ProcessingElement extends DanaModule {
       //   SInt(256)) >> decimal
       val delta = (Mux(io.req.bits.inFirst, errorOut, io.req.bits.learnReg) *
         io.req.bits.learningRate) >> decimal
+      val weightDecay = (-io.req.bits.wBlock(blockIndex) * io.req.bits.lambda) >>
+        decimal
       printf("[INFO] PE: delta after 0.7 learning rate: 0x%x\n", delta)
+      printf("[INFO] PE: weight decay: 0x%x\n", weightDecay)
       weightWB(blockIndex):=
-        ((delta * io.req.bits.iBlock(blockIndex)) >> decimal)
+        ((delta * io.req.bits.iBlock(blockIndex)) >> decimal) + weightDecay
       index := index + UInt(1)
       dataOut := delta
     }

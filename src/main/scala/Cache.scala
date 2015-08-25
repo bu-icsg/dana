@@ -163,7 +163,7 @@ class Cache extends DanaModule {
   io.control.resp.bits.tableIndex := UInt(0)
   io.control.resp.bits.tableMask := UInt(0)
   io.control.resp.bits.cacheIndex := UInt(0)
-  io.control.resp.bits.data := Vec.fill(4){UInt(0)}
+  io.control.resp.bits.data := Vec.fill(5){UInt(0)}
   io.control.resp.bits.decimalPoint := UInt(0)
   io.control.resp.bits.field := UInt(0)
 
@@ -172,7 +172,7 @@ class Cache extends DanaModule {
   controlRespPipe(0).bits.tableIndex := UInt(0)
   controlRespPipe(0).bits.tableMask := UInt(0)
   controlRespPipe(0).bits.cacheIndex := UInt(0)
-  controlRespPipe(0).bits.data := Vec.fill(4){UInt(0)}
+  controlRespPipe(0).bits.data := Vec.fill(5){UInt(0)}
   controlRespPipe(0).bits.decimalPoint := UInt(0)
   controlRespPipe(0).bits.field := UInt(0)
   controlRespPipe(0).bits.location := UInt(0)
@@ -335,8 +335,8 @@ class Cache extends DanaModule {
           96 - 1, 80)
         val learningRate = mem(controlRespPipe(0).bits.cacheIndex).dout(0)(
           112 - 1, 96)
-        val unused_1 = mem(controlRespPipe(0).bits.cacheIndex).dout(0)(
-          bitsPerBlock - 1, 112)
+        val lambda = mem(controlRespPipe(0).bits.cacheIndex).dout(0)(
+          128 - 1, 112)
       }
       // Decimal Point
       controlRespPipe(1).bits.decimalPoint := compressedInfo.decimalPoint
@@ -349,6 +349,8 @@ class Cache extends DanaModule {
         compressedInfo.errorFunction
       // Learning Rate
       controlRespPipe(1).bits.data(3) := compressedInfo.learningRate
+      // Weight decay lambda
+      controlRespPipe(1).bits.data(4) := compressedInfo.lambda
     }
     is (e_CACHE_LAYER_INFO) {
       val compressedLayers = Vec((0 until bitsPerBlock / 32).map(i =>

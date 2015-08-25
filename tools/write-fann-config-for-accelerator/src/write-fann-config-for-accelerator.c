@@ -129,6 +129,15 @@ int main(int argc, char *argv[])
   if (learning_rate == 0)
     learning_rate = 0.25 * pow(2, ann->decimal_point);
 
+  // Weight decay labmda
+  // uint16_t weight_decay = (uint16_t)((double) 0.01 * pow(2, ann->decimal_point));
+  uint16_t weight_decay = (uint16_t)((double)0.008 * pow(2.0, ann->decimal_point));
+  if (weight_decay == 0) {
+    printf("Weight decay: 0x%x\n", weight_decay);
+    printf("[ERROR] Weight decay would be zero, exiting!");
+    return -1;
+  }
+
   // Write the Info Block
   fwrite(&decimal_point_encoded, 2, 1, file);
   fwrite(&num_edges, 2, 1, file);
@@ -137,7 +146,7 @@ int main(int argc, char *argv[])
   fwrite(&first_layer, 2, 1, file);
   fwrite(&weights, 2, 1, file);
   fwrite(&learning_rate, 2, 1, file);
-  fwrite(null, 2, 1, file);
+  fwrite(&weight_decay, 2, 1, file);
   // Write the free space following the Info Block if needed
   fwrite(null, size_of_block-16, 1, file);
 

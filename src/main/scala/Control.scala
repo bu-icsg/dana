@@ -10,7 +10,7 @@ class ControlCacheInterfaceResp extends DanaBundle with ControlParameters {
   val tableIndex = UInt(width = log2Up(transactionTableNumEntries))
   val tableMask = UInt(width = transactionTableNumEntries)
   val cacheIndex = UInt(width = log2Up(cacheNumEntries))
-  val data = Vec.fill(4){UInt(width = 16)} // [TODO] possibly fragile
+  val data = Vec.fill(5){UInt(width = 16)} // [TODO] possibly fragile
   val decimalPoint = UInt(INPUT, decimalPointWidth)
   val field = UInt(width = log2Up(7)) // [TODO] fragile on Constants.scala
   val location = UInt(width = 1)
@@ -63,6 +63,7 @@ class ControlPETableInterface extends DanaBundle with ControlParameters {
     val resetWB = Bool()
     val inFirst = Bool()
     val learningRate = UInt(width = 16) // [TODO] fragile
+    val lambda = UInt(width = 16) // [TODO] fragile
   })
   // No response is necessary as the Control module needs to know is
   // if the PE Table has a free entry. This is communicated by means
@@ -109,7 +110,7 @@ class Control extends DanaModule {
     outAddr: UInt, learnAddr: UInt, deltaAddr: UInt, dwAddr: UInt,
     neuronPointer: UInt, decimalPoint: UInt, errorFunction: UInt,
     location: UInt, stateLearn: UInt, inLast: UInt, resetWB: Bool, inFirst: Bool,
-    learningRate: UInt) {
+    learningRate: UInt, lambda: UInt) {
     io.peTable.req.valid := valid
     io.peTable.req.bits.cacheIndex := cacheIndex
     io.peTable.req.bits.tIdx := tIdx
@@ -127,6 +128,7 @@ class Control extends DanaModule {
     io.peTable.req.bits.resetWB := resetWB
     io.peTable.req.bits.inFirst := inFirst
     io.peTable.req.bits.learningRate := learningRate
+    io.peTable.req.bits.lambda := lambda
   }
 
   // io.tTable defaults
@@ -140,7 +142,7 @@ class Control extends DanaModule {
   io.tTable.resp.bits.cacheValid := Bool(false)
   io.tTable.resp.bits.tableIndex := UInt(0)
   io.tTable.resp.bits.field := UInt(0)
-  io.tTable.resp.bits.data := Vec.fill(4){UInt(0)}
+  io.tTable.resp.bits.data := Vec.fill(5){UInt(0)}
   io.tTable.resp.bits.decimalPoint := UInt(0)
   io.tTable.resp.bits.layerValid := Bool(false)
   io.tTable.resp.bits.layerValidIndex := UInt(0)
@@ -151,7 +153,7 @@ class Control extends DanaModule {
   // io.petable defaults
   reqPETable(Bool(false), UInt(0), UInt(0), UInt(0), UInt(0), UInt(0), UInt(0),
     UInt(0), UInt(0), UInt(0), UInt(0), UInt(0), UInt(0), UInt(0), Bool(false),
-    Bool(false), UInt(0))
+    Bool(false), UInt(0), UInt(0))
   // io.regFile defaults
   io.regFile.req.valid := Bool(false)
   io.regFile.req.bits.tIdx := UInt(0)
@@ -172,6 +174,7 @@ class Control extends DanaModule {
         io.tTable.resp.bits.data(2) := io.cache.resp.bits.cacheIndex ##
           io.cache.resp.bits.data(2)(errorFunctionWidth - 1,0)
         io.tTable.resp.bits.data(3) := io.cache.resp.bits.data(3)
+        io.tTable.resp.bits.data(4) := io.cache.resp.bits.data(4)
         io.tTable.resp.bits.decimalPoint := io.cache.resp.bits.decimalPoint
       }
       is (e_CACHE_LAYER) {
@@ -294,7 +297,9 @@ class Control extends DanaModule {
         //update state
         io.tTable.req.bits.inFirst,
         // Learning rate
-        io.tTable.req.bits.learningRate
+        io.tTable.req.bits.learningRate,
+        // Weight decay lambda
+        io.tTable.req.bits.lambda
       )
     }
   }
