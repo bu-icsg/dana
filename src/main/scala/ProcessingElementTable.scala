@@ -366,6 +366,12 @@ class ProcessingElementTable extends DanaModule {
     //peArbiter.io.in(i).bits.uwBlock := pe(i).resp.bits.uwBlock
   }
 
+  val biasIndex = table(peArbiter.io.out.bits.index).neuronPtr(
+    log2Up(bitsPerBlock) - 3 - 1, log2Up(64) - 3)
+  val biasUpdateVec = Vec.fill(elementsPerBlock){UInt(width=elementWidth)}
+  biasUpdateVec := UInt(0)
+  biasUpdateVec(biasIndex * UInt(2) + UInt(1)) := peArbiter.io.out.bits.data
+
   // If the arbiter is showing a valid output, then we have to
   // generate some requests based on which PE the arbiter has
   // determined needs something. The action taken depends on the state
@@ -537,22 +543,31 @@ class ProcessingElementTable extends DanaModule {
         printf("[INFO] PE Table: weight block 0x%x\n",
           peArbiter.io.out.bits.dataBlock.toBits)
 
-        // If this is the last weight block, then we kick the Register
-        // File to get it to respond back to the TTable saying that
-        // the layer is done. [TODO] This is a stupid kludge. Use a
-        // better method than this
-        when (peArbiter.io.out.bits.incWriteCount) {
-          io.regFile.req.valid := Bool(true)
-          io.regFile.req.bits.isWrite := Bool(true)
-          io.regFile.req.bits.reqType := e_PE_INCREMENT_WRITE_COUNT
-          io.regFile.req.bits.incWriteCount := Bool(true)
-          io.regFile.req.bits.location := table(peArbiter.io.out.bits.index).location
-        }
-
         // Update the weightPtr
         table(peArbiter.io.out.bits.index).weightPtr :=
           table(peArbiter.io.out.bits.index).weightPtr +
           UInt(elementsPerBlock * elementWidth / 8)
+
+        pe(peArbiter.io.out.bits.index).req.valid := Bool(true)
+      }
+      is (PE_states('e_PE_WEIGHT_UPDATE_WRITE_BIAS)) {
+        // Construct a bias update and send it to the cache
+        io.cache.req.valid := Bool(true)
+        io.cache.req.bits.field := e_CACHE_WEIGHT_WB
+        io.cache.req.bits.peIndex := peArbiter.io.out.bits.index
+        io.cache.req.bits.cacheIndex := table(peArbiter.io.out.bits.index).cIdx
+        io.cache.req.bits.cacheAddr := table(peArbiter.io.out.bits.index).neuronPtr
+        io.cache.req.bits.data := biasUpdateVec.toBits
+        printf("[INFO] PE Table: Trying to write bias biasIndex/bias 0x%x/0x%x\n",
+          biasIndex, biasUpdateVec.toBits)
+
+        // Send a dummy write to the register file so it kicks the
+        // Transaction Table
+        io.regFile.req.valid := Bool(true)
+        io.regFile.req.bits.isWrite := Bool(true)
+        io.regFile.req.bits.reqType := e_PE_INCREMENT_WRITE_COUNT
+        io.regFile.req.bits.incWriteCount := Bool(true)
+        io.regFile.req.bits.location := table(peArbiter.io.out.bits.index).location
 
         pe(peArbiter.io.out.bits.index).req.valid := Bool(true)
       }
