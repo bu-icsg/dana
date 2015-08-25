@@ -64,6 +64,8 @@ class ProcessingElement extends DanaModule {
   // val updated_weight = Vec.fill(elementsPerBlock){Reg(SInt(INPUT, elementWidth))}
   val derivativeSigmoidSymmetric = SInt(width = elementWidth)
 
+
+
   // [TODO] fragile on PE stateu enum (Common.scala)
   val state = Reg(UInt(), init = PE_states('e_PE_UNALLOCATED))
 
@@ -186,28 +188,23 @@ class ProcessingElement extends DanaModule {
         printf("[INFO] PE: decimal point is 0x%x\n", decimal)
         is(e_FANN_LINEAR) {
           derivative := SInt(1) >> (decimal + UInt(steepnessOffset) - io.req.bits.steepness)
-          printf("[INFO] PE: derivative and steepness is set to 0x%x and 0x%x\n", steepness, steepness)
         }
         is(e_FANN_SIGMOID) {
           derivative := (dataOut * ((SInt(1) << decimal) - dataOut)) >> (decimal + UInt(steepnessOffset) - io.req.bits.steepness - UInt(1))
-          printf("[INFO] PE: derivative is set to 0x%x\n",
-            ((dataOut * ((SInt(1) << decimal) - dataOut)) >> (decimal + UInt(steepnessOffset) - io.req.bits.steepness - UInt(1))))
+          
         }
         is(e_FANN_SIGMOID_STEPWISE) {
           derivative := (dataOut * ((SInt(1) << decimal) - dataOut)) >> (decimal + UInt(steepnessOffset) - io.req.bits.steepness - UInt(1))
-          printf("[INFO] PE: derivative is set to 0x%x\n",
-            (((dataOut * ((SInt(1) << decimal) - dataOut)) >> (decimal + UInt(steepnessOffset) - io.req.bits.steepness - UInt(1)))))
+          
         }
         is(e_FANN_SIGMOID_SYMMETRIC) {
           // [TODO] shift by steepness possibly broken if "steepness" is negative
           derivative := derivativeSigmoidSymmetric
-          printf("[INFO] PE: derivative is set to 0x%x\n",
-            derivativeSigmoidSymmetric)
+          
         }
         is(e_FANN_SIGMOID_SYMMETRIC_STEPWISE) {
           derivative := derivativeSigmoidSymmetric
-          printf("[INFO] PE: derivative is set to 0x%x\n",
-            derivativeSigmoidSymmetric)
+         
         }
       }
     }
@@ -246,17 +243,19 @@ class ProcessingElement extends DanaModule {
     is (PE_states('e_PE_COMPUTE_DELTA)){
       // Reset the index in preparation for doing the deltas in the
       // previous layer
+      val der = Mux(derivative === SInt(0), SInt(1), derivative)
+
       switch(io.req.bits.stateLearn){
         is(e_TTABLE_STATE_LEARN_FEEDFORWARD){
-          errorOut := (derivative * errorOut) >> decimal
-          printf("[INFO] PE sees errFn/(errFn*derivative) 0x%x/0x%x\n", errorOut,
-            (derivative * errorOut) >> decimal)
+          errorOut := (der * errorOut) >> decimal
+          printf("[INFO] PE sees errFn/(errFn*derivative)/ derivative 0x%x/0x%x/0x%x\n", errorOut,
+            (der * errorOut) >> decimal, der)
           state := PE_states('e_PE_DELTA_WRITE_BACK)
         }
         is(e_TTABLE_STATE_LEARN_ERROR_BACKPROP){
-          errorOut := (derivative * io.req.bits.dw_in) >> decimal
-          printf("[INFO] PE sees delta 0x%x\n",
-            (derivative * io.req.bits.dw_in) >> decimal)
+          errorOut := (der * io.req.bits.dw_in) >> decimal
+          printf("[INFO] PE sees delta/derivative 0x%x/0x%x\n",
+            (der * io.req.bits.dw_in) >> decimal, der)
           when (io.req.bits.inFirst) {
             state := PE_states('e_PE_WEIGHT_UPDATE_REQUEST_INPUTS)
           } .otherwise {

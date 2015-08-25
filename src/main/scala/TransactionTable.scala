@@ -708,6 +708,7 @@ class TransactionTable extends XFilesModule {
           table(tIdx).needsLayerInfo := Bool(false)
           table(tIdx).currentLayer := table(tIdx).currentLayer
         }
+        table(tIdx).inFirst := table(tIdx).currentLayer === UInt(0)
       }
       is(e_TTABLE_STATE_LEARN_FEEDFORWARD){
         when(table(tIdx).inLast && inLastNode){
@@ -719,6 +720,7 @@ class TransactionTable extends XFilesModule {
         } .elsewhen (inLastNode && notInLastLayer) {
           table(tIdx).needsLayerInfo := Bool(true)
           table(tIdx).currentLayer := table(tIdx).currentLayer + UInt(1)
+          table(tIdx).inFirst := table(tIdx).currentLayer === UInt(0)
 
           // inLastEarly will assert as soon as the last PE Request goes
           // out. This is useful if you need something that goes high at
@@ -730,6 +732,7 @@ class TransactionTable extends XFilesModule {
         } .otherwise {
           table(tIdx).needsLayerInfo := Bool(false)
           table(tIdx).currentLayer := table(tIdx).currentLayer
+          table(tIdx).inFirst := table(tIdx).currentLayer === UInt(0)
         }
       }
       is(e_TTABLE_STATE_LEARN_ERROR_BACKPROP){
