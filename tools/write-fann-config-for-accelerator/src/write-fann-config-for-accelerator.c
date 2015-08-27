@@ -87,14 +87,22 @@ int main(int argc, char *argv[])
   // connections, input nodes, and hidden nodes.
   int num_edges = ann->total_connections;
   int num_nodes = 0;
+  int num_weight_blocks = 0;
+  int num_weight_blocks_tmp = 0;
+  int num_connections;
   for (layer = ann->first_layer + 1; layer != ann->last_layer; layer++) {
     num_nodes += (int)(layer->last_neuron - layer->first_neuron - 1);
     for (neuron = layer->first_neuron;neuron !=layer->last_neuron-1;neuron++){
+      num_connections = neuron->last_con - neuron->first_con - 1;
+      num_weight_blocks_tmp = num_connections * size_of_weight / size_of_block;
+      num_weight_blocks += ((num_connections * size_of_weight) % size_of_block) ?
+        num_weight_blocks_tmp + 1 : num_weight_blocks_tmp;
       num_edges--;
     }
   }
 
   printf("Total Edges: 0x%x (%d)\n", num_edges, num_edges);
+  printf("Total Weight Blocks: 0x%x (%d)\n", num_weight_blocks, num_weight_blocks);
   printf("Total Neurons: 0x%x (%d)\n", num_nodes, num_nodes);
   int num_layers = ann->last_layer - ann->first_layer - 1;
   printf("Total Layers: 0x%x (%d)\n", num_layers, num_layers);
@@ -140,7 +148,7 @@ int main(int argc, char *argv[])
 
   // Write the Info Block
   fwrite(&decimal_point_encoded, 2, 1, file);
-  fwrite(&num_edges, 2, 1, file);
+  fwrite(&num_weight_blocks, 2, 1, file);
   fwrite(&num_nodes, 2, 1, file);
   fwrite(&num_layers, 2, 1, file);
   fwrite(&first_layer, 2, 1, file);
