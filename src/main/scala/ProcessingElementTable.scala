@@ -76,6 +76,7 @@ class ProcessingElementState extends DanaBundle {
   val learnAddr = UInt(width = log2Up(regFileNumElements))
   val deltaAddr = UInt(width = log2Up(regFileNumElements))
   val dwAddr = UInt(width = log2Up(regFileNumElements))
+  val slopeAddr = UInt(width = log2Up(regFileNumElements))
   val location = UInt(width = 1)
   val neuronPtr = UInt(width = // neuron_pointer
     log2Up(elementWidth * elementsPerBlock * cacheNumBlocks))
@@ -97,6 +98,7 @@ class ProcessingElementState extends DanaBundle {
   val steepness = UInt(width = steepnessWidth)
   val bias = UInt(width = elementWidth)
   val stateLearn = UInt(width = log2Up(7)) // [TODO] fragile
+  val tType = UInt(width = log2Up(3)) // [TODO] fragile
   val inLast = Bool()
   val inFirst = Bool()
 }
@@ -130,6 +132,7 @@ class ProcessingElementTable extends DanaModule {
     pe(i).req.bits.numWeights := table(i).numWeights
     pe(i).req.bits.bias := table(i).bias
     pe(i).req.bits.stateLearn := table(i).stateLearn
+    pe(i).req.bits.tType := table(i).tType
     pe(i).req.bits.inLast := table(i).inLast
     pe(i).req.bits.inFirst := table(i).inFirst
     // pe(i).validIn
@@ -211,6 +214,7 @@ class ProcessingElementTable extends DanaModule {
     table(nextFree).learningRate := io.control.req.bits.learningRate
     table(nextFree).lambda := io.control.req.bits.lambda
     table(nextFree).stateLearn := io.control.req.bits.stateLearn
+    table(nextFree).tType := io.control.req.bits.tType
     table(nextFree).inLast := io.control.req.bits.inLast
     table(nextFree).inFirst := io.control.req.bits.inFirst
     table(nextFree).inAddr := io.control.req.bits.inAddr
@@ -218,6 +222,7 @@ class ProcessingElementTable extends DanaModule {
     table(nextFree).learnAddr := io.control.req.bits.learnAddr
     table(nextFree).deltaAddr := io.control.req.bits.deltaAddr
     table(nextFree).dwAddr := io.control.req.bits.dwAddr
+    table(nextFree).slopeAddr := io.control.req.bits.slopeAddr
     table(nextFree).location := io.control.req.bits.location
     table(nextFree).numWeights := SInt(-1)
     table(nextFree).weightValid := Bool(false)
@@ -241,7 +246,9 @@ class ProcessingElementTable extends DanaModule {
     printf("[INFO]   learn addr: 0x%x\n", io.control.req.bits.learnAddr)
     printf("[INFO]   Delta addr: 0x%x\n", io.control.req.bits.deltaAddr)
     printf("[INFO]   DW addr:    0x%x\n", io.control.req.bits.dwAddr)
+    printf("[INFO]   slope addr: 0x%x\n", io.control.req.bits.slopeAddr)
     printf("[INFO]   stateLearn: 0x%x\n", io.control.req.bits.stateLearn)
+    printf("[INFO]   tType:      0x%x\n", io.control.req.bits.tType)
     printf("[INFO]   inLast:     0x%x\n", io.control.req.bits.inLast)
     printf("[INFO]   inFirst:    0x%x\n", io.control.req.bits.inFirst)
   }
@@ -507,11 +514,6 @@ class ProcessingElementTable extends DanaModule {
         io.regFile.req.bits.dataBlock := peArbiter.io.out.bits.dataBlock.toBits
         io.regFile.req.bits.location := table(peIdx).location
 
-        // The weight pointer gets incremented on a valid cache
-        // resposne. So... we can just subtract off elementsPerBlock
-        // here to get the "old" address. [TODO] Why do I need to do this???
-        // io.cache.req.bits.cacheAddr := table(peArbiter.io.out.bits.index).weightPtr -
-        //   UInt(elementsPerBlock * elementWidth / 8)
         table(peIdx).dwAddr := table(peIdx).dwAddr + UInt(elementsPerBlock)
 
         pe(peIdx).req.valid := Bool(true)
@@ -558,11 +560,6 @@ class ProcessingElementTable extends DanaModule {
         printf("[INFO] PE Table: weight block 0x%x\n",
           peArbiter.io.out.bits.dataBlock.toBits)
 
-        // Update the weightPtr
-        // table(peArbiter.io.out.bits.index).weightPtr :=
-        //   table(peArbiter.io.out.bits.index).weightPtr +
-        //   UInt(elementsPerBlock * elementWidth / 8)
-
         pe(peArbiter.io.out.bits.index).req.valid := Bool(true)
       }
       is (PE_states('e_PE_WEIGHT_UPDATE_WRITE_BIAS)) {
@@ -586,7 +583,22 @@ class ProcessingElementTable extends DanaModule {
 
         pe(peArbiter.io.out.bits.index).req.valid := Bool(true)
       }
+      is(PE_states('e_PE_SLOPE_WB)){
+        val peIdx = peArbiter.io.out.bits.index
 
+        io.regFile.req.valid := Bool(true)
+        io.regFile.req.bits.isWrite := Bool(true)
+        io.regFile.req.bits.incWriteCount := peArbiter.io.out.bits.incWriteCount
+        io.regFile.req.bits.reqType := e_PE_WRITE_BLOCK_NEW
+        io.regFile.req.bits.addr := table(peIdx).slopeAddr
+        io.regFile.req.bits.tIdx := table(peIdx).tIdx
+        io.regFile.req.bits.dataBlock := peArbiter.io.out.bits.dataBlock.toBits
+        io.regFile.req.bits.location := table(peIdx).location
+
+        table(peIdx).slopeAddr := table(peIdx).slopeAddr + UInt(elementsPerBlock)
+
+        pe(peIdx).req.valid := Bool(true)
+      }
       is (PE_states('e_PE_DONE)) {
         // Outputs are always written to the Register File
         regFileWriteReq(

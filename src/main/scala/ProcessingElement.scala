@@ -20,10 +20,11 @@ class ProcessingElementReq extends DanaBundle {
   val iBlock = Vec.fill(elementsPerBlock){SInt(INPUT, elementWidth)}
   val wBlock = Vec.fill(elementsPerBlock){SInt(INPUT, elementWidth)}
   val learnReg = SInt(INPUT, elementWidth)
-  val stateLearn = UInt(INPUT, width = log2Up(7)) // [TODO] fragile
+  val stateLearn = UInt(INPUT, width = log2Up(8)) // [TODO] fragile
   val inLast = Bool(INPUT)
   val inFirst = Bool(INPUT)
   val dw_in = SInt(INPUT, elementWidth)
+  val tType = UInt(INPUT, width = log2Up(3))
 }
 
 class ProcessingElementResp extends DanaBundle {
@@ -62,7 +63,7 @@ class ProcessingElement extends DanaModule {
   val derivative = Reg(SInt(width = elementWidth)) //delta
   val errorOut = Reg(SInt(width = elementWidth)) //ek
   val mse = Reg(UInt(width = elementWidth))
-  // val updated_weight = Vec.fill(elementsPerBlock){Reg(SInt(INPUT, elementWidth))}
+  //val updated_weight = Vec.fill(elementsPerBlock){Reg(SInt(INPUT, elementWidth))}
   val derivativeSigmoidSymmetric = SInt(width = elementWidth)
 
 
@@ -151,10 +152,19 @@ class ProcessingElement extends DanaModule {
       }
     }
     is (PE_states('e_PE_WAIT_FOR_INPUTS_AND_WEIGHTS)) {
-      state := Mux(io.req.valid, Mux(io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_WEIGHT_UPDATE ||
-        (io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_ERROR_BACKPROP),
-       PE_states('e_PE_RUN_WEIGHT_UPDATE), PE_states('e_PE_RUN)), state)
-
+      when(io.req.valid){
+        when(io.req.bits.tType === e_TTYPE_BATCH && 
+          (io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_ERROR_BACKPROP)){
+          state := PE_states('e_PE_RUN_UPDATE_SLOPE)
+        }.elsewhen(io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_WEIGHT_UPDATE ||
+        (io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_ERROR_BACKPROP)){
+          state := PE_states('e_PE_RUN_WEIGHT_UPDATE)
+        }.otherwise{
+          state := PE_states('e_PE_RUN)
+        }
+      }.otherwise{
+        state := state
+      }
     }
     is (PE_states('e_PE_RUN)) {
       val blockIndex = index(log2Up(elementsPerBlock) - 1, 0)
@@ -257,7 +267,12 @@ class ProcessingElement extends DanaModule {
           printf("[INFO] PE sees delta/derivative 0x%x/0x%x\n",
             (der * io.req.bits.dw_in) >> decimal, der)
           when (io.req.bits.inFirst) {
-            state := PE_states('e_PE_REQUEST_INPUTS_AND_WEIGHTS)
+            when(io.req.bits.tType === e_TTYPE_INCREMENTAL) {
+              state := PE_states('e_PE_REQUEST_INPUTS_AND_WEIGHTS)
+            }.elsewhen(io.req.bits.tType === e_TTYPE_BATCH){
+              state := PE_states('e_PE_REQUEST_INPUTS_AND_WEIGHTS)
+              index := UInt(0)
+            }
           } .otherwise {
             state := PE_states('e_PE_DELTA_WRITE_BACK)
           }
@@ -339,6 +354,26 @@ class ProcessingElement extends DanaModule {
     is (PE_states('e_PE_DONE)) {
       state := Mux(io.req.valid, PE_states('e_PE_UNALLOCATED), state)
       io.resp.bits.incWriteCount := Bool(true)
+      io.resp.valid := Bool(true)
+    }
+    is(PE_states('e_PE_RUN_UPDATE_SLOPE)){
+      val delta = Mux(io.req.bits.inFirst, errorOut, io.req.bits.learnReg)
+      val blockIndex = index(log2Up(elementsPerBlock) - 1, 0)
+      when (index === (io.req.bits.numWeights - UInt(1)) ||
+        blockIndex === UInt(elementsPerBlock - 1)) {
+        state := PE_states('e_PE_SLOPE_WB)
+      } .otherwise {
+        state := state
+      }
+      weightWB(blockIndex) := ((delta * io.req.bits.wBlock(blockIndex)) 
+        >> decimal)(elementWidth-1,0)
+      index := index + UInt(1)
+    }
+    is(PE_states('e_PE_SLOPE_WB)){
+      val nextState = Mux(index === io.req.bits.numWeights,
+        PE_states('e_PE_ERROR),
+        PE_states('e_PE_REQUEST_INPUTS_AND_WEIGHTS))
+      state := Mux(io.req.valid, nextState, state)
       io.resp.valid := Bool(true)
     }
     is (PE_states('e_PE_WEIGHT_UPDATE_REQUEST_DELTA)){

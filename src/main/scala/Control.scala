@@ -54,6 +54,7 @@ class ControlPETableInterface extends DanaBundle with ControlParameters {
     val learnAddr = UInt(width = ioIdxWidth)
     val deltaAddr = UInt(width = ioIdxWidth)
     val dwAddr = UInt(width = ioIdxWidth)
+    val slopeAddr = UInt(width = ioIdxWidth)
     val location = UInt(width = 1)
     val neuronPointer = UInt(width = 12) // [TODO] fragile
     val decimalPoint = UInt(width = decimalPointWidth)
@@ -64,6 +65,7 @@ class ControlPETableInterface extends DanaBundle with ControlParameters {
     val inFirst = Bool()
     val learningRate = UInt(width = 16) // [TODO] fragile
     val lambda = UInt(width = 16) // [TODO] fragile
+    val tType = UInt(width = log2Up(3)) // [TODO] fragile
   })
   // No response is necessary as the Control module needs to know is
   // if the PE Table has a free entry. This is communicated by means
@@ -107,9 +109,10 @@ class Control extends DanaModule {
     io.cache.req.bits.totalWritesMul := totalWritesMul
   }
   def reqPETable(valid: Bool, cacheIndex: UInt, tIdx: UInt,  inAddr: UInt,
-    outAddr: UInt, learnAddr: UInt, deltaAddr: UInt, dwAddr: UInt,
+    outAddr: UInt, learnAddr: UInt, deltaAddr: UInt, dwAddr: UInt, slopeAddr: UInt,
     neuronPointer: UInt, decimalPoint: UInt, errorFunction: UInt,
-    location: UInt, stateLearn: UInt, inLast: UInt, resetWB: Bool, inFirst: Bool,
+    location: UInt, stateLearn: UInt, transactionType: UInt,
+    inLast: UInt, resetWB: Bool, inFirst: Bool,
     learningRate: UInt, lambda: UInt) {
     io.peTable.req.valid := valid
     io.peTable.req.bits.cacheIndex := cacheIndex
@@ -119,11 +122,13 @@ class Control extends DanaModule {
     io.peTable.req.bits.learnAddr := learnAddr
     io.peTable.req.bits.deltaAddr := deltaAddr
     io.peTable.req.bits.dwAddr := dwAddr
+    io.peTable.req.bits.slopeAddr := slopeAddr
     io.peTable.req.bits.neuronPointer := neuronPointer
     io.peTable.req.bits.decimalPoint := decimalPoint
     io.peTable.req.bits.errorFunction := errorFunction
     io.peTable.req.bits.location := location
     io.peTable.req.bits.stateLearn := stateLearn
+    io.peTable.req.bits.tType := transactionType
     io.peTable.req.bits.inLast := inLast
     io.peTable.req.bits.resetWB := resetWB
     io.peTable.req.bits.inFirst := inFirst
@@ -151,8 +156,8 @@ class Control extends DanaModule {
   reqCache(Bool(false), UInt(0), UInt(0), UInt(0), UInt(0), UInt(0), UInt(0),
     UInt(0), UInt(0))
   // io.petable defaults
-  reqPETable(Bool(false), UInt(0), UInt(0), UInt(0), UInt(0), UInt(0), UInt(0),
-    UInt(0), UInt(0), UInt(0), UInt(0), UInt(0), UInt(0), UInt(0), Bool(false),
+  reqPETable(Bool(false), UInt(0), UInt(0), UInt(0), UInt(0), UInt(0), UInt(0), UInt(0),
+    UInt(0), UInt(0), UInt(0), UInt(0), UInt(0), UInt(0), UInt(0), UInt(0), Bool(false),
     Bool(false), UInt(0), UInt(0))
   // io.regFile defaults
   io.regFile.req.valid := Bool(false)
@@ -262,6 +267,8 @@ class Control extends DanaModule {
         // The DW address is where the delta--weight products will be
         // written (and accumulated by the Register File)
         io.tTable.req.bits.regFileAddrDW,
+
+        io.tTable.req.bits.regFileAddrSlope,
         // Mux((io.tTable.req.bits.stateLearn === e_TTABLE_STATE_LEARN_ERROR_BACKPROP) &&
         //   io.tTable.req.bits.inFirst,
         //   io.tTable.req.bits.regFileAddrDW + io.tTable.req.bits.currentNodeInLayer,
@@ -285,6 +292,10 @@ class Control extends DanaModule {
         // so that the PE can handle this differently based on the
         // type of opeartion the PE needs to perform
         io.tTable.req.bits.stateLearn,
+        // Pass along the transactiontype (TTable "transactionType") to the PE Table
+        // so that the PE can handle this differently based on the
+        // type of opeartion the PE needs to perform
+        io.tTable.req.bits.transactionType,
         // The state is also moderated by the "inLast" bit so this is
         // also passed along
         io.tTable.req.bits.inLast,

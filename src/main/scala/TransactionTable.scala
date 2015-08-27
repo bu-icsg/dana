@@ -50,7 +50,7 @@ class TransactionState extends XFilesBundle {
   val regFileAddrOutFixed = UInt(width = log2Up(regFileNumElements))
   val regFileAddrDelta = UInt(width = log2Up(regFileNumElements))
   val regFileAddrDW = UInt(width = log2Up(regFileNumElements))
-  val regFileAddrlearn = UInt(width = log2Up(regFileNumElements))
+  val regFileAddrSlope = UInt(width = log2Up(regFileNumElements))
   val readIdx = UInt(width = log2Up(regFileNumElements))
   val coreIdx = UInt(width = log2Up(numCores))
   // Additional crap which may be redundant
@@ -85,8 +85,9 @@ class ControlReq extends XFilesBundle {
   val regFileAddrOut = UInt(width = log2Up(regFileNumElements))
   val regFileAddrDelta = UInt(width = log2Up(regFileNumElements))
   val regFileAddrDW = UInt(width = log2Up(regFileNumElements))
-  val regFileAddrlearn = UInt(width = log2Up(regFileNumElements))
+  val regFileAddrSlope = UInt(width = log2Up(regFileNumElements))
   val stateLearn = UInt(width = log2Up(5)) // [TODO] fragile
+  val transactionType = UInt(width = log2Up(3)) // [TODO] fragile
 }
 
 class ControlResp extends XFilesBundle {
@@ -261,7 +262,7 @@ class TransactionTable extends XFilesModule {
         table(nextFree).regFileAddrOut := UInt(0)
         table(nextFree).regFileAddrDelta := UInt(0)
         table(nextFree).regFileAddrDW := UInt(0)
-        table(nextFree).regFileAddrlearn := UInt(0)
+        table(nextFree).regFileAddrSlope := UInt(0)
         table(nextFree).done := Bool(false)
         table(nextFree).decInUse := Bool(false)
         table(nextFree).indexElement := UInt(0)
@@ -501,7 +502,14 @@ class TransactionTable extends XFilesModule {
               // Handle special case of being in the first hidden layer
               when (table(tIdx).currentLayer === UInt(0)){
                 table(tIdx).regFileAddrDW := table(tIdx).regFileAddrInFixed
+                when(table(tIdx).transactionType === e_TTYPE_BATCH){
+                  table(tIdx).regFileAddrSlope := table(tIdx).regFileAddrDW + 
+                  niclMSBs + round
+                }
               }
+            }
+            is(e_TTABLE_STATE_LEARN_UPDATE_SLOPE){
+
             }
             is(e_TTABLE_STATE_LEARN_WEIGHT_UPDATE){
               table(tIdx).regFileAddrDW := table(tIdx).regFileAddrIn
@@ -518,24 +526,6 @@ class TransactionTable extends XFilesModule {
               }
             }
           }
-          /*table(tIdx).regFileAddrIn := table(tIdx).regFileAddrOut
-          // If we're in the last layer, this is a little special
-          when(table(tIdx).currentLayer === table(tIdx).numLayers - UInt(1) &&
-            table(tIdx).stateLearn === e_TTABLE_STATE_LEARN_FEEDFORWARD){
-            table(tIdx).regFileAddrDelta := table(tIdx).regFileAddrOut + UInt(2) *
-              (niclMSBs + round)
-            table(tIdx).regFileAddrDWOut := table(tIdx).regFileAddrOut + UInt(3) *
-              (niclMSBs + round)
-          } .elsewhen (table(tIdx).stateLearn === e_TTABLE_STATE_LEARN_ERROR_BACKPROP) {
-            // [TODO] This is missing update data for non-output backprop layers
-          } .otherwise{
-            // [TODO] I'm not 100% sure that this is the right way to
-            // go about this.
-            table(tIdx).regFileAddrDelta := table(tIdx).regFileAddrOut
-          }
-          table(tIdx).regFileAddrOut := table(tIdx).regFileAddrOut + niclMSBs +
-            round */
-
 
           printf("[INFO] TTable: Updating cache layer...\n")
           printf("[INFO]   total layers:               0x%x\n",
@@ -564,6 +554,8 @@ class TransactionTable extends XFilesModule {
             printf("[INFO]   regFileAddrDW:              0x%x\n",
                 table(tIdx).regFileAddrOut + UInt(3) * (niclMSBs + round))
           }
+          printf("[INFO]   regFileAddrSlope:             0x%x\n",
+            table(tIdx).regFileAddrDW +  niclMSBs + round)
         }
       }
     }
@@ -598,7 +590,13 @@ class TransactionTable extends XFilesModule {
           }
         }
         is (e_TTYPE_BATCH) {
-          table(tIdx).stateLearn := e_TTABLE_STATE_ERROR
+          when (inLastOld &&
+            table(tIdx).stateLearn === e_TTABLE_STATE_LEARN_WEIGHT_UPDATE) {
+            table(tIdx).waiting := Bool(false)
+            table(tIdx).decInUse := Bool(true)
+          } .otherwise {
+            table(tIdx).waiting := Bool(false)
+          }
         }
       }
     }
@@ -638,6 +636,7 @@ class TransactionTable extends XFilesModule {
     entryArbiter.io.in(i).bits.asid := table(i).asid
     entryArbiter.io.in(i).bits.nnid := table(i).nnid
     entryArbiter.io.in(i).bits.coreIdx := table(i).coreIdx
+    entryArbiter.io.in(i).bits.transactionType := table(i).transactionType
     // State info
     entryArbiter.io.in(i).bits.currentNodeInLayer := table(i).currentNodeInLayer
     entryArbiter.io.in(i).bits.currentLayer := table(i).currentLayer
@@ -650,6 +649,7 @@ class TransactionTable extends XFilesModule {
     entryArbiter.io.in(i).bits.regFileAddrOut := table(i).regFileAddrOut
     entryArbiter.io.in(i).bits.regFileAddrDelta := table(i).regFileAddrDelta
     entryArbiter.io.in(i).bits.regFileAddrDW := table(i).regFileAddrDW
+    entryArbiter.io.in(i).bits.regFileAddrSlope := table(i).regFileAddrSlope
     entryArbiter.io.in(i).bits.stateLearn := table(i).stateLearn
   }
   io.control.req <> entryArbiter.io.out
@@ -757,6 +757,10 @@ class TransactionTable extends XFilesModule {
           table(tIdx).needsLayerInfo := Bool(false)
           table(tIdx).currentLayer := table(tIdx).currentLayer
         }
+      }
+      is(e_TTABLE_STATE_LEARN_UPDATE_SLOPE){
+        table(tIdx).needsLayerInfo := Bool(false)
+        table(tIdx).stateLearn := e_TTABLE_STATE_ERROR
       }
       is (e_TTABLE_STATE_LEARN_WEIGHT_UPDATE) {
         when (inLastNode && notInLastLayer) {
@@ -867,9 +871,9 @@ class TransactionTable extends XFilesModule {
     "TTable sending valid RoCC read response, but RegisterFile response not valid")
 
   // Certain transaction types are not currently supported
-  assert(!(io.arbiter.rocc.cmd.valid && cmd.readOrWrite && cmd.isNew &&
-    cmd.transactionType === e_TTYPE_BATCH),
-    "TTable saw unsupported transaction type")
+  //assert(!(io.arbiter.rocc.cmd.valid && cmd.readOrWrite && cmd.isNew &&
+  //  cmd.transactionType === e_TTYPE_BATCH),
+  //  "TTable saw unsupported transaction type")
 
   // No writes should show up if the transaction is already valid
   assert(!(io.arbiter.rocc.cmd.valid && cmd.readOrWrite &&

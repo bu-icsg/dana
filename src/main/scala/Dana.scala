@@ -89,9 +89,10 @@ abstract class DanaModule extends Module with DanaParameters
     e_TTABLE_STATE_LEARN_FEEDFORWARD ::    // 2
     e_TTABLE_STATE_LEARN_ERROR_BACKPROP :: // 3
     e_TTABLE_STATE_LEARN_WEIGHT_STORE ::   // 4
-    e_TTABLE_STATE_LEARN_WEIGHT_UPDATE ::  // 5
-    e_TTABLE_STATE_ERROR ::                // 6
-    Nil) = Enum(UInt(), 7)
+    e_TTABLE_STATE_LEARN_UPDATE_SLOPE ::   // 5
+    e_TTABLE_STATE_LEARN_WEIGHT_UPDATE ::  // 6
+    e_TTABLE_STATE_ERROR ::                // 7
+    Nil) = Enum(UInt(), 8)
   // Cache Request Type
   val (e_CACHE_LOAD ::                // 0
     e_CACHE_LAYER_INFO ::             // 1
@@ -135,13 +136,15 @@ abstract class DanaModule extends Module with DanaParameters
       'e_PE_WAIT_FOR_OUTPUTS_ERROR_BACKPROP,              // 19
       'e_PE_REQUEST_DELTA_WEIGHT_PRODUCT_ERROR_BACKPROP,  // 20
       'e_PE_WAIT_FOR_DELTA_WEIGHT_PRODUCT_ERROR_BACKPROP, // 21
-      'e_PE_WEIGHT_UPDATE_REQUEST_DELTA,                  // 22
-      'e_PE_WEIGHT_UPDATE_WAIT_FOR_DELTA,                 // 23
-      'e_PE_RUN_WEIGHT_UPDATE,                            // 24
-      'e_PE_WEIGHT_UPDATE_WRITE_BACK,                     // 25
-      'e_PE_WEIGHT_UPDATE_WRITE_BIAS,                     // 26
-      'e_PE_DONE,                                         // 27
-      'e_PE_ERROR))                                       // 28
+      'e_PE_RUN_UPDATE_SLOPE,                             // 22
+      'e_PE_SLOPE_WB,                                     // 23
+      'e_PE_WEIGHT_UPDATE_REQUEST_DELTA,                  // 24
+      'e_PE_WEIGHT_UPDATE_WAIT_FOR_DELTA,                 // 25
+      'e_PE_RUN_WEIGHT_UPDATE,                            // 26
+      'e_PE_WEIGHT_UPDATE_WRITE_BACK,                     // 27
+      'e_PE_WEIGHT_UPDATE_WRITE_BIAS,                     // 28
+      'e_PE_DONE,                                         // 29
+      'e_PE_ERROR))                                       // 30
     // Nil) = Enum(UInt(), 8).map(i => (UInt(1) << i)(7, 0))
   val (e_PE_REQ_INPUT ::             // 0
     e_PE_REQ_EXPECTED_OUTPUT ::      // 1
