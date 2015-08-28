@@ -130,7 +130,8 @@ class ProcessingElement extends DanaModule {
     is (PE_states('e_PE_WAIT_FOR_INFO)) {
       //state := Mux(io.req.valid, PE_states('e_PE_REQUEST_INPUTS_AND_WEIGHTS), state)
       when (io.req.valid && (io.req.bits.stateLearn === e_TTABLE_STATE_FEEDFORWARD ||
-      io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_FEEDFORWARD)) {
+      io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_FEEDFORWARD ||
+      io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_UPDATE_SLOPE)) {
         state := PE_states('e_PE_REQUEST_INPUTS_AND_WEIGHTS)
       } .elsewhen (io.req.valid && (io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_ERROR_BACKPROP)) {
         state := PE_states('e_PE_REQUEST_OUTPUTS_ERROR_BACKPROP)
@@ -154,7 +155,8 @@ class ProcessingElement extends DanaModule {
     is (PE_states('e_PE_WAIT_FOR_INPUTS_AND_WEIGHTS)) {
       when(io.req.valid){
         when(io.req.bits.tType === e_TTYPE_BATCH && 
-          (io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_ERROR_BACKPROP)){
+          (io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_ERROR_BACKPROP ||
+          io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_UPDATE_SLOPE)){
           state := PE_states('e_PE_RUN_UPDATE_SLOPE)
         }.elsewhen(io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_WEIGHT_UPDATE ||
         (io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_ERROR_BACKPROP)){
@@ -266,14 +268,10 @@ class ProcessingElement extends DanaModule {
           errorOut := (der * io.req.bits.dw_in) >> decimal
           printf("[INFO] PE sees delta/derivative 0x%x/0x%x\n",
             (der * io.req.bits.dw_in) >> decimal, der)
-          when (io.req.bits.inFirst) {
-            when(io.req.bits.tType === e_TTYPE_INCREMENTAL) {
-              state := PE_states('e_PE_REQUEST_INPUTS_AND_WEIGHTS)
-            }.elsewhen(io.req.bits.tType === e_TTYPE_BATCH){
-              state := PE_states('e_PE_REQUEST_INPUTS_AND_WEIGHTS)
-              index := UInt(0)
-            }
-          } .otherwise {
+          when(io.req.bits.inFirst &&
+            io.req.bits.tType === e_TTYPE_INCREMENTAL) {
+            state := PE_states('e_PE_REQUEST_INPUTS_AND_WEIGHTS)
+          }.otherwise {
             state := PE_states('e_PE_DELTA_WRITE_BACK)
           }
         }
@@ -288,13 +286,14 @@ class ProcessingElement extends DanaModule {
       // `incWriteCount` flag to tell the Register File to increment its write
       // count
       when((io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_ERROR_BACKPROP)){
-        state := Mux(io.req.valid,PE_states('e_PE_ERROR_BACKPROP_REQUEST_WEIGHTS), state)
+        state := Mux(io.req.valid,Mux(io.req.bits.tType === e_TTYPE_BATCH,
+          PE_states('e_PE_REQUEST_INPUTS_AND_WEIGHTS), PE_states('e_PE_ERROR_BACKPROP_REQUEST_WEIGHTS)), state)
       }.otherwise {
         state := Mux(io.req.valid, Mux(io.req.bits.inLast &&
           io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_FEEDFORWARD,
           PE_states('e_PE_ERROR_BACKPROP_REQUEST_WEIGHTS), PE_states('e_PE_DONE)), state)
       }
-      io.resp.bits.incWriteCount := Bool(true)
+      io.resp.bits.incWriteCount := Mux((io.req.bits.tType === e_TTYPE_BATCH),Bool(false),Bool(true))
       io.resp.valid := Bool(true)
     }
     is (PE_states('e_PE_ERROR_BACKPROP_REQUEST_WEIGHTS)) {
@@ -368,6 +367,7 @@ class ProcessingElement extends DanaModule {
       weightWB(blockIndex) := ((delta * io.req.bits.wBlock(blockIndex)) 
         >> decimal)(elementWidth-1,0)
       index := index + UInt(1)
+      printf("[INFO] PE : numWeights/index 0x%x/0x%x\n", io.req.bits.numWeights, index)
     }
     is(PE_states('e_PE_SLOPE_WB)){
       val nextState = Mux(index === io.req.bits.numWeights,
@@ -375,6 +375,7 @@ class ProcessingElement extends DanaModule {
         PE_states('e_PE_REQUEST_INPUTS_AND_WEIGHTS))
       state := Mux(io.req.valid, nextState, state)
       io.resp.valid := Bool(true)
+      io.resp.bits.incWriteCount := index === io.req.bits.numWeights
     }
     is (PE_states('e_PE_WEIGHT_UPDATE_REQUEST_DELTA)){
       state := Mux(io.req.valid, PE_states('e_PE_WEIGHT_UPDATE_WAIT_FOR_DELTA), state)

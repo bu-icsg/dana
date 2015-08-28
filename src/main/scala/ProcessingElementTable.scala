@@ -229,8 +229,8 @@ class ProcessingElementTable extends DanaModule {
     table(nextFree).deltaAddr := io.control.req.bits.deltaAddr
     table(nextFree).dwAddr := io.control.req.bits.dwAddr
     table(nextFree).slopeAddr := io.control.req.bits.slopeAddr
-    table(nextFree).newslopeAddr := io.control.req.bits.slopeAddr + 
-      io.control.req.bits.numWeightBlocks
+    table(nextFree).newslopeAddr := (io.control.req.bits.slopeAddr + 
+      (io.control.req.bits.numWeightBlocks) << (UInt(log2Up(elementsPerBlock))))
     table(nextFree).location := io.control.req.bits.location
     table(nextFree).numWeights := SInt(-1)
     table(nextFree).weightValid := Bool(false)
@@ -257,7 +257,7 @@ class ProcessingElementTable extends DanaModule {
     printf("[INFO]   DW addr:        0x%x\n", io.control.req.bits.dwAddr)
     printf("[INFO]   slope addr:     0x%x\n", io.control.req.bits.slopeAddr)
     printf("[INFO]   new slope addr: 0x%x\n", io.control.req.bits.slopeAddr + 
-      io.control.req.bits.numWeightBlocks)
+      (io.control.req.bits.numWeightBlocks << (UInt(log2Up(elementsPerBlock)))))
     printf("[INFO]   stateLearn:     0x%x\n", io.control.req.bits.stateLearn)
     printf("[INFO]   tType:          0x%x\n", io.control.req.bits.tType)
     printf("[INFO]   inLast:         0x%x\n", io.control.req.bits.inLast)
@@ -282,7 +282,8 @@ class ProcessingElementTable extends DanaModule {
         indexIntoData := io.cache.resp.bits.indexIntoData
         table(peIndex).weightPtr := cacheRespVec(indexIntoData).weightPtr
         table(peIndex).weightPtrSaved := cacheRespVec(indexIntoData).weightPtr
-        table(peIndex).weightoffset:= cacheRespVec(indexIntoData).weightPtr - table(peIndex).globalWtptr
+        table(peIndex).weightoffset:= (cacheRespVec(indexIntoData).weightPtr - table(peIndex).globalWtptr)>> 
+          (UInt(log2Up(elementsPerBlock)))
         // table(peIndex).numWeights :=
         //   cacheRespVec(indexIntoData).numWeights + UInt(elementsPerBlock)
         // table(peIndex).numWeightsSaved :=
@@ -606,7 +607,7 @@ class ProcessingElementTable extends DanaModule {
         io.regFile.req.bits.dataBlock := peArbiter.io.out.bits.dataBlock.toBits
         io.regFile.req.bits.location := table(peIdx).location
 
-        table(peIdx).slopeAddr := table(peIdx).slopeAddr + UInt(elementsPerBlock * elementWidth / 8)
+        table(peIdx).slopeAddr := table(peIdx).slopeAddr + UInt(elementsPerBlock)
 
         pe(peIdx).req.valid := Bool(true)
       }
