@@ -199,7 +199,7 @@ vcd-verilog: $(DIR_BUILD)/t_XFilesDana$(FPGA_CONFIG_DOT)-vcd.vvp Makefile
 debug: $(TEST_EXECUTABLES) Makefile
 	$< -d $(<:$(DIR_BUILD)/t_%=$(DIR_BUILD)/%.prm)
 
-rv: libraries nets $(DIR_BUILD)/cache $(RV_TESTS_EXECUTABLES) $(RV_TESTS_DISASM)
+rv: libraries nets $(RV_TESTS_EXECUTABLES) $(RV_TESTS_DISASM)
 
 #------------------- Library Targets
 $(DIR_BUILD)/xfiles-user.o: xfiles-user.c
