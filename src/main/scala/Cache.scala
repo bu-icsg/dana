@@ -163,8 +163,9 @@ class Cache extends DanaModule {
   io.control.resp.bits.tableIndex := UInt(0)
   io.control.resp.bits.tableMask := UInt(0)
   io.control.resp.bits.cacheIndex := UInt(0)
-  io.control.resp.bits.data := Vec.fill(5){UInt(0)}
+  io.control.resp.bits.data := Vec.fill(6){UInt(0)}
   io.control.resp.bits.decimalPoint := UInt(0)
+  io.control.resp.bits.globalWtptr := UInt(0)
   io.control.resp.bits.field := UInt(0)
 
   controlRespPipe(0).valid := Bool(false)
@@ -172,8 +173,9 @@ class Cache extends DanaModule {
   controlRespPipe(0).bits.tableIndex := UInt(0)
   controlRespPipe(0).bits.tableMask := UInt(0)
   controlRespPipe(0).bits.cacheIndex := UInt(0)
-  controlRespPipe(0).bits.data := Vec.fill(5){UInt(0)}
+  controlRespPipe(0).bits.data := Vec.fill(6){UInt(0)}
   controlRespPipe(0).bits.decimalPoint := UInt(0)
+  controlRespPipe(0).bits.globalWtptr := UInt(0)
   controlRespPipe(0).bits.field := UInt(0)
   controlRespPipe(0).bits.location := UInt(0)
   controlRespPipe(0).bits.totalWritesMul := UInt(0)
@@ -323,7 +325,7 @@ class Cache extends DanaModule {
           decimalPointWidth + errorFunctionWidth - 1, decimalPointWidth)
         val unused_0 = mem(controlRespPipe(0).bits.cacheIndex).dout(0)(
           16 - 1, decimalPointWidth + errorFunctionWidth)
-        val totalEdges = mem(controlRespPipe(0).bits.cacheIndex).dout(0)(
+        val totalWeightBlocks = mem(controlRespPipe(0).bits.cacheIndex).dout(0)(
           32 - 1, 16)
         val totalNeurons = mem(controlRespPipe(0).bits.cacheIndex).dout(0)(
           48 - 1, 32)
@@ -338,6 +340,8 @@ class Cache extends DanaModule {
         val lambda = mem(controlRespPipe(0).bits.cacheIndex).dout(0)(
           128 - 1, 112)
       }
+      //global Weight pointer
+      controlRespPipe(1).bits.globalWtptr := compressedInfo.weightsPointer
       // Decimal Point
       controlRespPipe(1).bits.decimalPoint := compressedInfo.decimalPoint
       // Layers
@@ -351,6 +355,8 @@ class Cache extends DanaModule {
       controlRespPipe(1).bits.data(3) := compressedInfo.learningRate
       // Weight decay lambda
       controlRespPipe(1).bits.data(4) := compressedInfo.lambda
+      // Total Weight Blocks
+      controlRespPipe(1).bits.data(5) := compressedInfo.totalWeightBlocks
     }
     is (e_CACHE_LAYER_INFO) {
       val compressedLayers = Vec((0 until bitsPerBlock / 32).map(i =>

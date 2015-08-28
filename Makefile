@@ -82,6 +82,7 @@ RV_TESTS             = hello.c \
 	rsa-rocc.c \
 	rsa-rocc-supervisor.c \
 	rsa-rocc-supervisor-incremental.c \
+	rsa-rocc-supervisor-batch.c \
 	torture.c
 RV_TESTS_EXECUTABLES = $(RV_TESTS:%.c=$(DIR_BUILD)/%.rv)
 RV_TESTS_DISASM      = $(RV_TESTS:%.c=$(DIR_BUILD)/%.rvS)

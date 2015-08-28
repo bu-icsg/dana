@@ -371,7 +371,7 @@ class ProcessingElement extends DanaModule {
     }
     is(PE_states('e_PE_SLOPE_WB)){
       val nextState = Mux(index === io.req.bits.numWeights,
-        PE_states('e_PE_ERROR),
+        PE_states('e_PE_UNALLOCATED),
         PE_states('e_PE_REQUEST_INPUTS_AND_WEIGHTS))
       state := Mux(io.req.valid, nextState, state)
       io.resp.valid := Bool(true)

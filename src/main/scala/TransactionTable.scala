@@ -28,9 +28,11 @@ class TransactionState extends XFilesBundle {
   val tid = UInt(width = tidWidth)
   val nnid = UInt(width = nnidWidth) // formerly nn_hash
   val decimalPoint = UInt(width = decimalPointWidth)
+  val globalWtptr = UInt(width = 16) //[TODO] fragile
   val errorFunction = UInt(width = log2Up(2)) // [TODO] fragile
   val learningRate = UInt(width = 16) // [TODO] fragile
   val lambda = UInt(width = 16) // [TODO] fragile
+  val numWeightBlocks = UInt(width = 16) // [TODO] fragile
   val numLayers = UInt(width = 16) // [TODO] fragile
   val numNodes = UInt(width = 16) // [TODO] fragile
   val currentNode = UInt(width = 16) // [TODO] fragile
@@ -81,6 +83,8 @@ class ControlReq extends XFilesBundle {
   val errorFunction = UInt(width = log2Up(2)) // [TODO] fragile
   val learningRate = UInt(width = 16) // [TODO] fragile
   val lambda = UInt(width = 16) // [TODO] fragile
+  val globalWtptr = UInt(width = 16) // [TODO] fragile
+  val numWeightBlocks = UInt(width = 16) // [TODO] fragile
   val regFileAddrIn = UInt(width = log2Up(regFileNumElements))
   val regFileAddrOut = UInt(width = log2Up(regFileNumElements))
   val regFileAddrDelta = UInt(width = log2Up(regFileNumElements))
@@ -96,8 +100,9 @@ class ControlResp extends XFilesBundle {
   val cacheValid = Bool()
   val tableIndex = UInt(width = log2Up(transactionTableNumEntries))
   val field = UInt(width = 4) // [TODO] fragile on Constants.scala
-  val data = Vec.fill(5){UInt(width = 16)} // [TODO] fragile
+  val data = Vec.fill(6){UInt(width = 16)} // [TODO] fragile
   val decimalPoint = UInt(width = decimalPointWidth)
+  val globalWtptr = UInt(width = 16) //[TODO] fragile
   val layerValid = Bool()
   val layerValidIndex = UInt(width = log2Up(transactionTableNumEntries))
 }
@@ -385,6 +390,8 @@ class TransactionTable extends XFilesModule {
             errorFunctionWidth - 1, 0)
           table(tIdx).learningRate := io.control.resp.bits.data(3)
           table(tIdx).lambda := io.control.resp.bits.data(4)
+          table(tIdx).numWeightBlocks := io.control.resp.bits.data(5)
+          table(tIdx).globalWtptr := io.control.resp.bits.globalWtptr
           // Once we know the cache is valid, this entry is no longer waiting
           table(tIdx).waiting := Bool(false)
           printf("[INFO] TTable: Updating global info from Cache...\n")
@@ -402,6 +409,10 @@ class TransactionTable extends XFilesModule {
             io.control.resp.bits.data(3))
           printf("[INFO]   lambda:                  0x%x\n",
             io.control.resp.bits.data(4))
+          printf("[INFO]   Totalweightblocks :      0x%x\n",
+            io.control.resp.bits.data(5))
+          printf("[INFO]   Global Weight Pointer :  0x%x\n",
+            io.control.resp.bits.globalWtptr)
         }
         is(e_TTABLE_LAYER) {
           table(tIdx).needsLayerInfo := Bool(false)
@@ -508,9 +519,6 @@ class TransactionTable extends XFilesModule {
                 }
               }
             }
-            is(e_TTABLE_STATE_LEARN_UPDATE_SLOPE){
-
-            }
             is(e_TTABLE_STATE_LEARN_WEIGHT_UPDATE){
               table(tIdx).regFileAddrDW := table(tIdx).regFileAddrIn
               table(tIdx).regFileAddrIn := table(tIdx).regFileAddrIn + niplOffset
@@ -549,12 +557,12 @@ class TransactionTable extends XFilesModule {
           printf("[INFO]   regFileAddrOut:             0x%x\n",
             table(tIdx).regFileAddrOut +  niclMSBs + round)
           when(table(tIdx).currentLayer === table(tIdx).numLayers - UInt(1)){
-            printf("[INFO]   regFileAddrDelta:           0x%x\n",
+            printf("[INFO]   regFileAddrDelta:          0x%x\n",
                 table(tIdx).regFileAddrOut +  UInt(2) * (niclMSBs + round))
-            printf("[INFO]   regFileAddrDW:              0x%x\n",
+            printf("[INFO]   regFileAddrDW:             0x%x\n",
                 table(tIdx).regFileAddrOut + UInt(3) * (niclMSBs + round))
           }
-          printf("[INFO]   regFileAddrSlope:             0x%x\n",
+          printf("[INFO]   regFileAddrSlope:           0x%x\n",
             table(tIdx).regFileAddrDW +  niclMSBs + round)
         }
       }
@@ -645,6 +653,8 @@ class TransactionTable extends XFilesModule {
     entryArbiter.io.in(i).bits.errorFunction := table(i).errorFunction
     entryArbiter.io.in(i).bits.learningRate := table(i).learningRate
     entryArbiter.io.in(i).bits.lambda := table(i).lambda
+    entryArbiter.io.in(i).bits.globalWtptr := table(i).globalWtptr
+    entryArbiter.io.in(i).bits.numWeightBlocks := table(i).numWeightBlocks
     entryArbiter.io.in(i).bits.regFileAddrIn := table(i).regFileAddrIn
     entryArbiter.io.in(i).bits.regFileAddrOut := table(i).regFileAddrOut
     entryArbiter.io.in(i).bits.regFileAddrDelta := table(i).regFileAddrDelta
@@ -745,7 +755,11 @@ class TransactionTable extends XFilesModule {
         when(table(tIdx).inFirst && inLastNode) {
           table(tIdx).needsLayerInfo := Bool(true)
           table(tIdx).currentLayer := table(tIdx).currentLayer + UInt(1)
-          table(tIdx).stateLearn := e_TTABLE_STATE_LEARN_WEIGHT_UPDATE
+          when(table(tIdx).transactionType === e_TTYPE_BATCH){
+            table(tIdx).stateLearn := e_TTABLE_STATE_LEARN_UPDATE_SLOPE
+          }.otherwise{
+            table(tIdx).stateLearn := e_TTABLE_STATE_LEARN_WEIGHT_UPDATE
+          }
           table(tIdx).inFirst := Bool(false)
           table(tIdx).inLastEarly :=
             table(tIdx).currentLayer === (table(tIdx).numLayers - UInt(2))

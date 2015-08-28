@@ -77,6 +77,7 @@ class ProcessingElementState extends DanaBundle {
   val deltaAddr = UInt(width = log2Up(regFileNumElements))
   val dwAddr = UInt(width = log2Up(regFileNumElements))
   val slopeAddr = UInt(width = log2Up(regFileNumElements))
+  val newslopeAddr= UInt(width = log2Up(regFileNumElements))
   val location = UInt(width = 1)
   val neuronPtr = UInt(width = // neuron_pointer
     log2Up(elementWidth * elementsPerBlock * cacheNumBlocks))
@@ -94,13 +95,16 @@ class ProcessingElementState extends DanaBundle {
   val activationFunction = UInt(width = activationFunctionWidth)
   val errorFunction = UInt(width = log2Up(2)) // [TODO] fragile
   val learningRate = UInt(width = 16) // [TODO] fragile
-  val lambda = UInt(width = 16)
+  val lambda = UInt(width = 16) // [TODO] fragile
+  val globalWtptr = UInt(width = 16) // [TODO] fragile
+  val numWeightBlocks = UInt(width = 16)
   val steepness = UInt(width = steepnessWidth)
   val bias = UInt(width = elementWidth)
   val stateLearn = UInt(width = log2Up(7)) // [TODO] fragile
   val tType = UInt(width = log2Up(3)) // [TODO] fragile
   val inLast = Bool()
   val inFirst = Bool()
+  val weightoffset = UInt(width = 16)
 }
 
 class ProcessingElementTable extends DanaModule {
@@ -213,6 +217,8 @@ class ProcessingElementTable extends DanaModule {
     table(nextFree).errorFunction := io.control.req.bits.errorFunction
     table(nextFree).learningRate := io.control.req.bits.learningRate
     table(nextFree).lambda := io.control.req.bits.lambda
+    table(nextFree).globalWtptr := io.control.req.bits.globalWtptr
+    table(nextFree).numWeightBlocks := io.control.req.bits.numWeightBlocks
     table(nextFree).stateLearn := io.control.req.bits.stateLearn
     table(nextFree).tType := io.control.req.bits.tType
     table(nextFree).inLast := io.control.req.bits.inLast
@@ -223,6 +229,8 @@ class ProcessingElementTable extends DanaModule {
     table(nextFree).deltaAddr := io.control.req.bits.deltaAddr
     table(nextFree).dwAddr := io.control.req.bits.dwAddr
     table(nextFree).slopeAddr := io.control.req.bits.slopeAddr
+    table(nextFree).newslopeAddr := io.control.req.bits.slopeAddr + 
+      io.control.req.bits.numWeightBlocks
     table(nextFree).location := io.control.req.bits.location
     table(nextFree).numWeights := SInt(-1)
     table(nextFree).weightValid := Bool(false)
@@ -233,24 +241,27 @@ class ProcessingElementTable extends DanaModule {
     // [TODO] Kick the PE
     pe(nextFree).req.valid := Bool(true)
     printf("[INFO] PETable: Received control request...\n")
-    printf("[INFO]   next free:  0x%x\n", nextFree);
-    printf("[INFO]   tid idx:    0x%x\n", io.control.req.bits.tIdx)
-    printf("[INFO]   cache idx:  0x%x\n", io.control.req.bits.cacheIndex)
-    printf("[INFO]   neuron ptr: 0x%x\n", io.control.req.bits.neuronPointer)
-    printf("[INFO]   decimal:    0x%x\n", io.control.req.bits.decimalPoint)
-    printf("[INFO]   error func: 0x%x\n", io.control.req.bits.errorFunction)
-    printf("[INFO]   learn rate: 0x%x\n", io.control.req.bits.learningRate)
-    printf("[INFO]   lambda:     0x%x\n", io.control.req.bits.lambda)
-    printf("[INFO]   in addr:    0x%x\n", io.control.req.bits.inAddr)
-    printf("[INFO]   out addr:   0x%x\n", io.control.req.bits.outAddr)
-    printf("[INFO]   learn addr: 0x%x\n", io.control.req.bits.learnAddr)
-    printf("[INFO]   Delta addr: 0x%x\n", io.control.req.bits.deltaAddr)
-    printf("[INFO]   DW addr:    0x%x\n", io.control.req.bits.dwAddr)
-    printf("[INFO]   slope addr: 0x%x\n", io.control.req.bits.slopeAddr)
-    printf("[INFO]   stateLearn: 0x%x\n", io.control.req.bits.stateLearn)
-    printf("[INFO]   tType:      0x%x\n", io.control.req.bits.tType)
-    printf("[INFO]   inLast:     0x%x\n", io.control.req.bits.inLast)
-    printf("[INFO]   inFirst:    0x%x\n", io.control.req.bits.inFirst)
+    printf("[INFO]   next free:      0x%x\n", nextFree);
+    printf("[INFO]   tid idx:        0x%x\n", io.control.req.bits.tIdx)
+    printf("[INFO]   cache idx:      0x%x\n", io.control.req.bits.cacheIndex)
+    printf("[INFO]   neuron ptr:     0x%x\n", io.control.req.bits.neuronPointer)
+    printf("[INFO]   decimal:        0x%x\n", io.control.req.bits.decimalPoint)
+    printf("[INFO]   error func:     0x%x\n", io.control.req.bits.errorFunction)
+    printf("[INFO]   learn rate:     0x%x\n", io.control.req.bits.learningRate)
+    printf("[INFO]   lambda:         0x%x\n", io.control.req.bits.lambda)
+    printf("[INFO]   Global wtptr:   0x%x\n", io.control.req.bits.globalWtptr)
+    printf("[INFO]   in addr:        0x%x\n", io.control.req.bits.inAddr)
+    printf("[INFO]   out addr:       0x%x\n", io.control.req.bits.outAddr)
+    printf("[INFO]   learn addr:     0x%x\n", io.control.req.bits.learnAddr)
+    printf("[INFO]   Delta addr:     0x%x\n", io.control.req.bits.deltaAddr)
+    printf("[INFO]   DW addr:        0x%x\n", io.control.req.bits.dwAddr)
+    printf("[INFO]   slope addr:     0x%x\n", io.control.req.bits.slopeAddr)
+    printf("[INFO]   new slope addr: 0x%x\n", io.control.req.bits.slopeAddr + 
+      io.control.req.bits.numWeightBlocks)
+    printf("[INFO]   stateLearn:     0x%x\n", io.control.req.bits.stateLearn)
+    printf("[INFO]   tType:          0x%x\n", io.control.req.bits.tType)
+    printf("[INFO]   inLast:         0x%x\n", io.control.req.bits.inLast)
+    printf("[INFO]   inFirst:        0x%x\n", io.control.req.bits.inFirst)
   }
 
   // Inbound requests from the cache. I setup some helper nodes here
@@ -271,6 +282,7 @@ class ProcessingElementTable extends DanaModule {
         indexIntoData := io.cache.resp.bits.indexIntoData
         table(peIndex).weightPtr := cacheRespVec(indexIntoData).weightPtr
         table(peIndex).weightPtrSaved := cacheRespVec(indexIntoData).weightPtr
+        table(peIndex).weightoffset:= cacheRespVec(indexIntoData).weightPtr - table(peIndex).globalWtptr
         // table(peIndex).numWeights :=
         //   cacheRespVec(indexIntoData).numWeights + UInt(elementsPerBlock)
         // table(peIndex).numWeightsSaved :=
@@ -394,8 +406,7 @@ class ProcessingElementTable extends DanaModule {
     peArbiter.io.in(i).bits.index := pe(i).resp.bits.index
     peArbiter.io.in(i).bits.error := pe(i).resp.bits.error
     peArbiter.io.in(i).bits.incWriteCount := pe(i).resp.bits.incWriteCount
-    // block write
-    //peArbiter.io.in(i).bits.uwBlock := pe(i).resp.bits.uwBlock
+
   }
 
   val biasIndex = table(peArbiter.io.out.bits.index).neuronPtr(
@@ -590,12 +601,12 @@ class ProcessingElementTable extends DanaModule {
         io.regFile.req.bits.isWrite := Bool(true)
         io.regFile.req.bits.incWriteCount := peArbiter.io.out.bits.incWriteCount
         io.regFile.req.bits.reqType := e_PE_WRITE_BLOCK_NEW
-        io.regFile.req.bits.addr := table(peIdx).slopeAddr
+        io.regFile.req.bits.addr := table(peIdx).slopeAddr + table(peIdx).weightoffset
         io.regFile.req.bits.tIdx := table(peIdx).tIdx
         io.regFile.req.bits.dataBlock := peArbiter.io.out.bits.dataBlock.toBits
         io.regFile.req.bits.location := table(peIdx).location
 
-        table(peIdx).slopeAddr := table(peIdx).slopeAddr + UInt(elementsPerBlock)
+        table(peIdx).slopeAddr := table(peIdx).slopeAddr + UInt(elementsPerBlock * elementWidth / 8)
 
         pe(peIdx).req.valid := Bool(true)
       }
