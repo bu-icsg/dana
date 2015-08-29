@@ -415,9 +415,6 @@ class Cache extends DanaModule {
         mem(io.pe.req.bits.cacheIndex).we(0) := Bool(true)
         mem(io.pe.req.bits.cacheIndex).inc(0) := Bool(true)
         mem(io.pe.req.bits.cacheIndex).din(0) := io.pe.req.bits.data
-        // [TODO] This needs to optionally respond to the TTable
-        // indicating that we're done with all weight updates for a
-        // specific neuron
       }
     }
   }

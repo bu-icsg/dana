@@ -130,13 +130,19 @@ class ProcessingElement extends DanaModule {
     is (PE_states('e_PE_WAIT_FOR_INFO)) {
       //state := Mux(io.req.valid, PE_states('e_PE_REQUEST_INPUTS_AND_WEIGHTS), state)
       when (io.req.valid && (io.req.bits.stateLearn === e_TTABLE_STATE_FEEDFORWARD ||
-      io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_FEEDFORWARD ||
-      io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_UPDATE_SLOPE)) {
+        io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_FEEDFORWARD ||
+        io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_UPDATE_SLOPE)) {
         state := PE_states('e_PE_REQUEST_INPUTS_AND_WEIGHTS)
-      } .elsewhen (io.req.valid && (io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_ERROR_BACKPROP)) {
+      } .elsewhen (io.req.valid &&
+        (io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_ERROR_BACKPROP)) {
         state := PE_states('e_PE_REQUEST_OUTPUTS_ERROR_BACKPROP)
       } .elsewhen (io.req.valid &&
-        (io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_WEIGHT_UPDATE)) {
+        (io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_WEIGHT_UPDATE) &&
+        (io.req.bits.tType === e_TTYPE_BATCH)) {
+          state := PE_states('e_PE_REQUEST_INPUTS_AND_WEIGHTS)
+      } .elsewhen (io.req.valid &&
+        (io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_WEIGHT_UPDATE) ||
+        (io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_UPDATE_SLOPE)) {
         state := PE_states('e_PE_WEIGHT_UPDATE_REQUEST_DELTA)
       } .otherwise{
         state := state
@@ -154,7 +160,7 @@ class ProcessingElement extends DanaModule {
     }
     is (PE_states('e_PE_WAIT_FOR_INPUTS_AND_WEIGHTS)) {
       when(io.req.valid){
-        when(io.req.bits.tType === e_TTYPE_BATCH && 
+        when(io.req.bits.tType === e_TTYPE_BATCH &&
           (io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_ERROR_BACKPROP ||
           io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_UPDATE_SLOPE)){
           state := PE_states('e_PE_RUN_UPDATE_SLOPE)
@@ -199,15 +205,16 @@ class ProcessingElement extends DanaModule {
         // [TODO] negative shifts, probably broken!
         printf("[INFO] PE: decimal point is 0x%x\n", decimal)
         is(e_FANN_LINEAR) {
-          derivative := SInt(1) >> (decimal + UInt(steepnessOffset) - io.req.bits.steepness)
+          derivative := SInt(1) >> (decimal + UInt(steepnessOffset) -
+            io.req.bits.steepness)
         }
         is(e_FANN_SIGMOID) {
-          derivative := (dataOut * ((SInt(1) << decimal) - dataOut)) >> (decimal + UInt(steepnessOffset) - io.req.bits.steepness - UInt(1))
-
+          derivative := (dataOut * ((SInt(1) << decimal) - dataOut)) >>
+            (decimal + UInt(steepnessOffset) - io.req.bits.steepness - UInt(1))
         }
         is(e_FANN_SIGMOID_STEPWISE) {
-          derivative := (dataOut * ((SInt(1) << decimal) - dataOut)) >> (decimal + UInt(steepnessOffset) - io.req.bits.steepness - UInt(1))
-
+          derivative := (dataOut * ((SInt(1) << decimal) - dataOut)) >>
+            (decimal + UInt(steepnessOffset) - io.req.bits.steepness - UInt(1))
         }
         is(e_FANN_SIGMOID_SYMMETRIC) {
           // [TODO] shift by steepness possibly broken if "steepness" is negative
@@ -260,16 +267,15 @@ class ProcessingElement extends DanaModule {
       switch(io.req.bits.stateLearn){
         is(e_TTABLE_STATE_LEARN_FEEDFORWARD){
           errorOut := (der * errorOut) >> decimal
-          printf("[INFO] PE sees errFn/(errFn*derivative)/ derivative 0x%x/0x%x/0x%x\n", errorOut,
-            (der * errorOut) >> decimal, der)
+          printf("[INFO] PE sees errFn/(errFn*derivative)/ derivative 0x%x/0x%x/0x%x\n",
+            errorOut, (der * errorOut) >> decimal, der)
           state := PE_states('e_PE_DELTA_WRITE_BACK)
         }
         is(e_TTABLE_STATE_LEARN_ERROR_BACKPROP){
           errorOut := (der * io.req.bits.dw_in) >> decimal
           printf("[INFO] PE sees delta/derivative 0x%x/0x%x\n",
             (der * io.req.bits.dw_in) >> decimal, der)
-          when(io.req.bits.inFirst &&
-            io.req.bits.tType === e_TTYPE_INCREMENTAL) {
+          when(io.req.bits.inFirst) {
             state := PE_states('e_PE_REQUEST_INPUTS_AND_WEIGHTS)
           }.otherwise {
             state := PE_states('e_PE_DELTA_WRITE_BACK)
@@ -287,13 +293,15 @@ class ProcessingElement extends DanaModule {
       // count
       when((io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_ERROR_BACKPROP)){
         state := Mux(io.req.valid,Mux(io.req.bits.tType === e_TTYPE_BATCH,
-          PE_states('e_PE_REQUEST_INPUTS_AND_WEIGHTS), PE_states('e_PE_ERROR_BACKPROP_REQUEST_WEIGHTS)), state)
+          PE_states('e_PE_REQUEST_INPUTS_AND_WEIGHTS),
+          PE_states('e_PE_ERROR_BACKPROP_REQUEST_WEIGHTS)), state)
       }.otherwise {
         state := Mux(io.req.valid, Mux(io.req.bits.inLast &&
           io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_FEEDFORWARD,
           PE_states('e_PE_ERROR_BACKPROP_REQUEST_WEIGHTS), PE_states('e_PE_DONE)), state)
       }
-      io.resp.bits.incWriteCount := Mux((io.req.bits.tType === e_TTYPE_BATCH),Bool(false),Bool(true))
+      io.resp.bits.incWriteCount := Mux((io.req.bits.tType === e_TTYPE_BATCH),
+        Bool(false),Bool(true))
       io.resp.valid := Bool(true)
     }
     is (PE_states('e_PE_ERROR_BACKPROP_REQUEST_WEIGHTS)) {
@@ -335,15 +343,18 @@ class ProcessingElement extends DanaModule {
       io.resp.valid := Bool(true)
     }
     is (PE_states('e_PE_REQUEST_OUTPUTS_ERROR_BACKPROP)) {
-      state := Mux(io.req.valid, PE_states('e_PE_WAIT_FOR_OUTPUTS_ERROR_BACKPROP), state)
+      state := Mux(io.req.valid,
+        PE_states('e_PE_WAIT_FOR_OUTPUTS_ERROR_BACKPROP), state)
       io.resp.valid := Bool(true)
     }
     is (PE_states('e_PE_WAIT_FOR_OUTPUTS_ERROR_BACKPROP)) {
-      state := Mux(io.req.valid, PE_states('e_PE_REQUEST_DELTA_WEIGHT_PRODUCT_ERROR_BACKPROP), state)
+      state := Mux(io.req.valid,
+        PE_states('e_PE_REQUEST_DELTA_WEIGHT_PRODUCT_ERROR_BACKPROP), state)
     }
     is (PE_states('e_PE_REQUEST_DELTA_WEIGHT_PRODUCT_ERROR_BACKPROP)) {
       dataOut := io.req.bits.learnReg
-      state := Mux(io.req.valid, PE_states('e_PE_WAIT_FOR_DELTA_WEIGHT_PRODUCT_ERROR_BACKPROP), state)
+      state := Mux(io.req.valid,
+        PE_states('e_PE_WAIT_FOR_DELTA_WEIGHT_PRODUCT_ERROR_BACKPROP), state)
       io.resp.valid := Bool(true)
     }
     is (PE_states('e_PE_WAIT_FOR_DELTA_WEIGHT_PRODUCT_ERROR_BACKPROP))
@@ -364,8 +375,8 @@ class ProcessingElement extends DanaModule {
       } .otherwise {
         state := state
       }
-      weightWB(blockIndex) := ((delta * io.req.bits.wBlock(blockIndex)) 
-        >> decimal)(elementWidth-1,0)
+      weightWB(blockIndex) := ((delta * io.req.bits.iBlock(blockIndex)) >>
+        decimal)(elementWidth-1,0)
       index := index + UInt(1)
       printf("[INFO] PE : numWeights/index 0x%x/0x%x\n", io.req.bits.numWeights, index)
     }
@@ -399,8 +410,15 @@ class ProcessingElement extends DanaModule {
         decimal
       printf("[INFO] PE: delta after 0.7 learning rate: 0x%x\n", delta)
       printf("[INFO] PE: weight decay: 0x%x\n", weightDecay)
-      weightWB(blockIndex):=
-        ((delta * io.req.bits.iBlock(blockIndex)) >> decimal) + weightDecay
+      when (io.req.bits.tType === e_TTYPE_BATCH) {
+        // [TODO] Need to divide the learning rate by the number of
+        // training items
+        weightWB(blockIndex):= ((io.req.bits.iBlock(blockIndex) *
+          io.req.bits.learningRate) >> decimal) + weightDecay
+      } .otherwise {
+        weightWB(blockIndex):=
+          ((delta * io.req.bits.iBlock(blockIndex)) >> decimal) + weightDecay
+      }
       index := index + UInt(1)
       dataOut := delta
     }

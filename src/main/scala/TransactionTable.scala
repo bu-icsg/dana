@@ -44,6 +44,9 @@ class TransactionState extends XFilesBundle {
   val countPeWrites = UInt(width = 16) // [TODO] fragile
   val numTrainOutputs = UInt(width = 16) // [TODO] fragile
   val mse = UInt(width = elementWidth)
+  // Batch training information
+  val numBatchItems = UInt(width = 1)
+  val curBatchItem = UInt(width = 1)
   // We need to keep track of where inputs and outputs should be
   // written to in the Register File.
   val regFileAddrInFixed = UInt(width = log2Up(regFileNumElements))
@@ -274,6 +277,9 @@ class TransactionTable extends XFilesModule {
         table(nextFree).countPeWrites := UInt(0)
         table(nextFree).readIdx := UInt(0)
         table(nextFree).coreIdx := cmd.coreIdx
+        // [TODO] Temporary value for number of batch items
+        table(nextFree).numBatchItems := UInt(1)
+        table(nextFree).curBatchItem := UInt(0)
         arbiterRespPipe.valid := Bool(true)
         // Initiate a response that will containt the TID
         arbiterRespPipe.bits.respType := e_TID
@@ -382,7 +388,11 @@ class TransactionTable extends XFilesModule {
         is(e_TTABLE_CACHE_VALID) {
           table(tIdx).cacheValid := Bool(true)
           table(tIdx).numLayers := io.control.resp.bits.data(0)
-          table(tIdx).numNodes := io.control.resp.bits.data(1)
+          when (table(tIdx).transactionType === e_TTYPE_BATCH) {
+            table(tIdx).numNodes := io.control.resp.bits.data(1) * UInt(2)
+          } .otherwise {
+            table(tIdx).numNodes := io.control.resp.bits.data(1)
+          }
           table(tIdx).cacheIndex := io.control.resp.bits.data(2)(
             log2Up(cacheNumEntries) + errorFunctionWidth - 1, errorFunctionWidth)
           table(tIdx).decimalPoint := io.control.resp.bits.decimalPoint
@@ -514,8 +524,8 @@ class TransactionTable extends XFilesModule {
               when (table(tIdx).currentLayer === UInt(0)){
                 table(tIdx).regFileAddrDW := table(tIdx).regFileAddrInFixed
                 when(table(tIdx).transactionType === e_TTYPE_BATCH){
-                  table(tIdx).regFileAddrSlope := table(tIdx).regFileAddrDW + 
-                  niclOffset * UInt(2)
+                  table(tIdx).regFileAddrSlope := table(tIdx).regFileAddrDW +
+                  niclOffset * UInt(1)
                 }
               }
             }
@@ -528,29 +538,31 @@ class TransactionTable extends XFilesModule {
               when (table(tIdx).currentLayer === UInt(1)){
                 table(tIdx).regFileAddrDelta := table(tIdx).regFileAddrOut -
                   niclOffset * UInt(1)
-              } 
+              }
             }
             is(e_TTABLE_STATE_LEARN_WEIGHT_UPDATE){
               when(table(tIdx).transactionType === e_TTYPE_BATCH){
                 when (table(tIdx).currentLayer === UInt(0)){
                   table(tIdx).regFileAddrDW := table(tIdx).regFileAddrInFixed
-                  table(tIdx).regFileAddrIn := table(tIdx).regFileAddrInFixed + niclOffset
+                  table(tIdx).regFileAddrIn := table(tIdx).regFileAddrInFixed +
+                    niclOffset
                   table(tIdx).regFileAddrDelta := table(tIdx).regFileAddrDelta
                 }.otherwise{
                   table(tIdx).regFileAddrDW := table(tIdx).regFileAddrIn
                   table(tIdx).regFileAddrIn := table(tIdx).regFileAddrIn + niclOffset
-                  table(tIdx).regFileAddrDelta := table(tIdx).regFileAddrDelta + niclOffset + niplOffset
+                  table(tIdx).regFileAddrDelta := table(tIdx).regFileAddrDelta +
+                    niclOffset + niplOffset
                 }
               }.otherwise{
                 table(tIdx).regFileAddrDW := table(tIdx).regFileAddrIn
                 table(tIdx).regFileAddrIn := table(tIdx).regFileAddrIn + niplOffset
                 table(tIdx).regFileAddrDelta := table(tIdx).regFileAddrDelta -
                   niclOffset - niplOffset
-              // Handle special case of being in the second hidden layer
+                // Handle special case of being in the second hidden layer
                 when (table(tIdx).currentLayer === UInt(1)){
                   table(tIdx).regFileAddrDelta := table(tIdx).regFileAddrOut -
-                    niclOffset * UInt(1)
-                } 
+                  niclOffset * UInt(1)
+                }
               }
             }
           }
@@ -590,7 +602,8 @@ class TransactionTable extends XFilesModule {
       printf("[INFO] TTable: RegFile has all outputs of tIdx 0x%x\n",
         io.control.resp.bits.layerValidIndex)
       printf("[INFO]   inFirst/inLast/inLastEarly/state: 0x%x/0x%x->0x%x/0x%x/0x%x\n",
-        table(tIdx).inFirst, inLastOld, inLastNew, table(tIdx).inLastEarly,table(tIdx).stateLearn)
+        table(tIdx).inFirst, inLastOld, inLastNew, table(tIdx).inLastEarly,
+        table(tIdx).stateLearn)
       switch (table(tIdx).transactionType) {
         is (e_TTYPE_FEEDFORWARD) {
           when (!inLastOld) {
@@ -611,6 +624,7 @@ class TransactionTable extends XFilesModule {
         }
         is (e_TTYPE_BATCH) {
           when (inLastOld &&
+            table(tIdx).currentLayer === (table(tIdx).numLayers - UInt(1)) &&
             table(tIdx).stateLearn === e_TTABLE_STATE_LEARN_WEIGHT_UPDATE) {
             table(tIdx).waiting := Bool(false)
             table(tIdx).decInUse := Bool(true)
@@ -743,7 +757,7 @@ class TransactionTable extends XFilesModule {
           table(tIdx).needsLayerInfo := Bool(true)
           table(tIdx).currentLayer := table(tIdx).currentLayer - UInt(1)
           table(tIdx).inFirst := table(tIdx).currentLayer === UInt(1)
-          table(tIdx).inLastEarly := Bool(false)
+          table(tIdx).inLastEarly := Bool(true)
           table(tIdx).stateLearn := e_TTABLE_STATE_LEARN_ERROR_BACKPROP
         } .elsewhen (inLastNode && notInLastLayer) {
           table(tIdx).needsLayerInfo := Bool(true)
@@ -786,11 +800,18 @@ class TransactionTable extends XFilesModule {
       }
       is(e_TTABLE_STATE_LEARN_UPDATE_SLOPE){
         when(table(tIdx).inLast && inLastNode){
-          table(tIdx).needsLayerInfo := Bool(true)
-          table(tIdx).currentLayer := table(tIdx).currentLayer - UInt(1)
-          table(tIdx).inFirst := table(tIdx).currentLayer === UInt(1)
+          table(tIdx).needsLayerInfo := Bool(false)
+          table(tIdx).currentLayer := UInt(0)
+          table(tIdx).inFirst := Bool(true)
           table(tIdx).inLastEarly := Bool(false)
-          table(tIdx).stateLearn := e_TTABLE_STATE_LEARN_WEIGHT_UPDATE
+          // We need to take some specific action based on whether or
+          // not we're done with an epoch
+          when (table(tIdx).curBatchItem === (table(tIdx).numBatchItems - UInt(1))) {
+            table(tIdx).needsLayerInfo := Bool(true)
+            table(tIdx).stateLearn := e_TTABLE_STATE_LEARN_WEIGHT_UPDATE
+          } .otherwise {
+            table(tIdx).stateLearn := e_TTABLE_STATE_ERROR
+          }
         } .elsewhen (inLastNode && notInLastLayer) {
           table(tIdx).needsLayerInfo := Bool(true)
           table(tIdx).currentLayer := table(tIdx).currentLayer + UInt(1)
@@ -810,7 +831,7 @@ class TransactionTable extends XFilesModule {
         }
       }
       is (e_TTABLE_STATE_LEARN_WEIGHT_UPDATE) {
-        when(table(tIdx).transactionType === e_TTYPE_INCREMENTAL){
+        // when(table(tIdx).transactionType === e_TTYPE_INCREMENTAL){
           when (inLastNode && notInLastLayer) {
             table(tIdx).needsLayerInfo := Bool(true)
             table(tIdx).currentLayer := table(tIdx).currentLayer + UInt(1)
@@ -820,7 +841,9 @@ class TransactionTable extends XFilesModule {
             table(tIdx).inLastEarly :=
               table(tIdx).currentLayer === (table(tIdx).numLayers - UInt(2))
           }
-        }
+        // } .otherwise {
+
+        // }
       }
     }
   }

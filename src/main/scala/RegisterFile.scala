@@ -90,10 +90,10 @@ class RegisterFile extends DanaModule {
         state(sIdx).countWrites := state(sIdx).countWrites + UInt(1)
         printf("[INFO] RegFile: write count loc/seen/expected 0x%x/0x%x/0x%x\n",
           sIdx, state(sIdx).countWrites + UInt(1), state(sIdx).totalWrites)
-      }
-      when (state(sIdx).countWrites === state(sIdx).totalWrites - UInt(1)) {
-        io.control.resp.valid := Bool(true)
-        io.control.resp.bits.tIdx := tIdx
+        when (state(sIdx).countWrites === state(sIdx).totalWrites - UInt(1)) {
+          io.control.resp.valid := Bool(true)
+          io.control.resp.bits.tIdx := tIdx
+        }
       }
     } .otherwise {                  // This is a read
       mem(tIdx).we(0) := Bool(false)
