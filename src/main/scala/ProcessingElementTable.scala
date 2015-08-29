@@ -78,6 +78,7 @@ class ProcessingElementState extends DanaBundle {
   val dwAddr = UInt(width = log2Up(regFileNumElements))
   val slopeAddr = UInt(width = log2Up(regFileNumElements))
   val newslopeAddr= UInt(width = log2Up(regFileNumElements))
+  val biasAddr = UInt(width = log2Up(regFileNumElements))
   val location = UInt(width = 1)
   val neuronPtr = UInt(width = // neuron_pointer
     log2Up(elementWidth * elementsPerBlock * cacheNumBlocks))
@@ -231,6 +232,7 @@ class ProcessingElementTable extends DanaModule {
     table(nextFree).slopeAddr := io.control.req.bits.slopeAddr
     table(nextFree).newslopeAddr := (io.control.req.bits.slopeAddr +
       (io.control.req.bits.numWeightBlocks) << (UInt(log2Up(elementsPerBlock))))
+    table(nextFree).biasAddr := io.control.req.bits.biasAddr
     table(nextFree).location := io.control.req.bits.location
     table(nextFree).numWeights := SInt(-1)
     table(nextFree).weightValid := Bool(false)
@@ -646,7 +648,7 @@ class ProcessingElementTable extends DanaModule {
 
         io.regFile.req.valid := Bool(true)
         io.regFile.req.bits.isWrite := Bool(true)
-        io.regFile.req.bits.incWriteCount := peArbiter.io.out.bits.incWriteCount
+        io.regFile.req.bits.incWriteCount := Bool(false)
         // [TODO] This needs to be updated for when we do a batch
         // update with more than one input--output pair
         io.regFile.req.bits.reqType := e_PE_WRITE_BLOCK_NEW
@@ -654,6 +656,20 @@ class ProcessingElementTable extends DanaModule {
           table(peIdx).weightoffset
         io.regFile.req.bits.tIdx := table(peIdx).tIdx
         io.regFile.req.bits.dataBlock := peArbiter.io.out.bits.dataBlock.toBits
+        io.regFile.req.bits.location := table(peIdx).location
+
+        pe(peIdx).req.valid := Bool(true)
+      }
+      is (PE_states('e_PE_SLOPE_BIAS_WB)) {
+        val peIdx = peArbiter.io.out.bits.index
+
+        io.regFile.req.valid := Bool(true)
+        io.regFile.req.bits.isWrite := Bool(true)
+        io.regFile.req.bits.incWriteCount := Bool(true)
+        io.regFile.req.bits.reqType := e_PE_WRITE_ELEMENT
+        io.regFile.req.bits.addr := table(peIdx).biasAddr
+        io.regFile.req.bits.tIdx := table(peIdx).tIdx
+        io.regFile.req.bits.data := peArbiter.io.out.bits.data
         io.regFile.req.bits.location := table(peIdx).location
 
         pe(peIdx).req.valid := Bool(true)

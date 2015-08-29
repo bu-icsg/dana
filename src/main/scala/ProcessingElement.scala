@@ -381,12 +381,18 @@ class ProcessingElement extends DanaModule {
       printf("[INFO] PE : numWeights/index 0x%x/0x%x\n", io.req.bits.numWeights, index)
     }
     is(PE_states('e_PE_SLOPE_WB)){
+      val delta = Mux(io.req.bits.inFirst, errorOut, io.req.bits.learnReg)
       val nextState = Mux(index === io.req.bits.numWeights,
-        PE_states('e_PE_UNALLOCATED),
+        PE_states('e_PE_SLOPE_BIAS_WB),
         PE_states('e_PE_REQUEST_INPUTS_AND_WEIGHTS))
       state := Mux(io.req.valid, nextState, state)
       io.resp.valid := Bool(true)
-      io.resp.bits.incWriteCount := index === io.req.bits.numWeights
+      // Setup the bias to be written back
+      dataOut := delta
+    }
+    is (PE_states('e_PE_SLOPE_BIAS_WB)) {
+      state := Mux(io.req.valid, PE_states('e_PE_UNALLOCATED), state)
+      io.resp.valid := Bool(true)
     }
     is (PE_states('e_PE_WEIGHT_UPDATE_REQUEST_DELTA)){
       state := Mux(io.req.valid, PE_states('e_PE_WEIGHT_UPDATE_WAIT_FOR_DELTA), state)

@@ -138,13 +138,14 @@ abstract class DanaModule extends Module with DanaParameters
       'e_PE_WAIT_FOR_DELTA_WEIGHT_PRODUCT_ERROR_BACKPROP, // 21
       'e_PE_RUN_UPDATE_SLOPE,                             // 22
       'e_PE_SLOPE_WB,                                     // 23
-      'e_PE_WEIGHT_UPDATE_REQUEST_DELTA,                  // 24
-      'e_PE_WEIGHT_UPDATE_WAIT_FOR_DELTA,                 // 25
-      'e_PE_RUN_WEIGHT_UPDATE,                            // 26
-      'e_PE_WEIGHT_UPDATE_WRITE_BACK,                     // 27
-      'e_PE_WEIGHT_UPDATE_WRITE_BIAS,                     // 28
-      'e_PE_DONE,                                         // 29
-      'e_PE_ERROR))                                       // 30
+      'e_PE_SLOPE_BIAS_WB,                                // 24
+      'e_PE_WEIGHT_UPDATE_REQUEST_DELTA,                  // 25
+      'e_PE_WEIGHT_UPDATE_WAIT_FOR_DELTA,                 // 26
+      'e_PE_RUN_WEIGHT_UPDATE,                            // 27
+      'e_PE_WEIGHT_UPDATE_WRITE_BACK,                     // 28
+      'e_PE_WEIGHT_UPDATE_WRITE_BIAS,                     // 29
+      'e_PE_DONE,                                         // 30
+      'e_PE_ERROR))                                       // 31
     // Nil) = Enum(UInt(), 8).map(i => (UInt(1) << i)(7, 0))
   val (e_PE_REQ_INPUT ::             // 0
     e_PE_REQ_EXPECTED_OUTPUT ::      // 1

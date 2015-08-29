@@ -47,6 +47,8 @@ class TransactionState extends XFilesBundle {
   // Batch training information
   val numBatchItems = UInt(width = 1)
   val curBatchItem = UInt(width = 1)
+  val biasAddr = UInt(width = 16) // [TODO] fragile
+  val offsetBias = UInt(width = 16) // [TODO] fragile
   // We need to keep track of where inputs and outputs should be
   // written to in the Register File.
   val regFileAddrInFixed = UInt(width = log2Up(regFileNumElements))
@@ -93,6 +95,7 @@ class ControlReq extends XFilesBundle {
   val regFileAddrDelta = UInt(width = log2Up(regFileNumElements))
   val regFileAddrDW = UInt(width = log2Up(regFileNumElements))
   val regFileAddrSlope = UInt(width = log2Up(regFileNumElements))
+  val regFileAddrBias = UInt(width = log2Up(regFileNumElements))
   val stateLearn = UInt(width = log2Up(5)) // [TODO] fragile
   val transactionType = UInt(width = log2Up(3)) // [TODO] fragile
 }
@@ -280,6 +283,8 @@ class TransactionTable extends XFilesModule {
         // [TODO] Temporary value for number of batch items
         table(nextFree).numBatchItems := UInt(1)
         table(nextFree).curBatchItem := UInt(0)
+        table(nextFree).offsetBias := UInt(0)
+
         arbiterRespPipe.valid := Bool(true)
         // Initiate a response that will containt the TID
         arbiterRespPipe.bits.respType := e_TID
@@ -503,6 +508,9 @@ class TransactionTable extends XFilesModule {
                 table(tIdx).numNodes := table(tIdx).numNodes +
                   io.control.resp.bits.data(0) * UInt(2)
               }
+
+              // Update the Bias Offset
+              table(tIdx).offsetBias := table(tIdx).offsetBias + niclOffset
             }
             is(e_TTABLE_STATE_LEARN_ERROR_BACKPROP){
               table(tIdx).regFileAddrOut := table(tIdx).regFileAddrDW
@@ -525,7 +533,9 @@ class TransactionTable extends XFilesModule {
                 table(tIdx).regFileAddrDW := table(tIdx).regFileAddrInFixed
                 when(table(tIdx).transactionType === e_TTYPE_BATCH){
                   table(tIdx).regFileAddrSlope := table(tIdx).regFileAddrDW +
-                  niclOffset * UInt(1)
+                    table(tIdx).offsetBias + niclOffset * UInt(1)
+                  table(tIdx).biasAddr := table(tIdx).regFileAddrDW +
+                    niclOffset * UInt(1)
                 }
               }
             }
@@ -534,6 +544,7 @@ class TransactionTable extends XFilesModule {
               table(tIdx).regFileAddrIn := table(tIdx).regFileAddrIn + niplOffset
               table(tIdx).regFileAddrDelta := table(tIdx).regFileAddrDelta -
                 niclOffset * UInt(2)
+              table(tIdx).biasAddr := table(tIdx).biasAddr + niclOffset
               // Handle special case of being in the second hidden layer
               when (table(tIdx).currentLayer === UInt(1)){
                 table(tIdx).regFileAddrDelta := table(tIdx).regFileAddrOut -
@@ -686,6 +697,7 @@ class TransactionTable extends XFilesModule {
     entryArbiter.io.in(i).bits.regFileAddrDelta := table(i).regFileAddrDelta
     entryArbiter.io.in(i).bits.regFileAddrDW := table(i).regFileAddrDW
     entryArbiter.io.in(i).bits.regFileAddrSlope := table(i).regFileAddrSlope
+    entryArbiter.io.in(i).bits.regFileAddrBias := table(i).biasAddr
     entryArbiter.io.in(i).bits.stateLearn := table(i).stateLearn
   }
   io.control.req <> entryArbiter.io.out

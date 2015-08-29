@@ -56,6 +56,7 @@ class ControlPETableInterface extends DanaBundle with ControlParameters {
     val deltaAddr = UInt(width = ioIdxWidth)
     val dwAddr = UInt(width = ioIdxWidth)
     val slopeAddr = UInt(width = ioIdxWidth)
+    val biasAddr = UInt(width = ioIdxWidth)
     val location = UInt(width = 1)
     val neuronPointer = UInt(width = 12) // [TODO] fragile
     val decimalPoint = UInt(width = decimalPointWidth)
@@ -114,7 +115,7 @@ class Control extends DanaModule {
   }
   def reqPETable(valid: Bool, cacheIndex: UInt, tIdx: UInt,  inAddr: UInt,
     outAddr: UInt, learnAddr: UInt, deltaAddr: UInt, dwAddr: UInt, slopeAddr: UInt,
-    neuronPointer: UInt, decimalPoint: UInt, errorFunction: UInt,
+    biasAddr: UInt, neuronPointer: UInt, decimalPoint: UInt, errorFunction: UInt,
     location: UInt, stateLearn: UInt, transactionType: UInt,
     inLast: UInt, resetWB: Bool, inFirst: Bool,
     learningRate: UInt, lambda: UInt, numWeightBlocks: UInt, globalWtptr: UInt) {
@@ -127,6 +128,7 @@ class Control extends DanaModule {
     io.peTable.req.bits.deltaAddr := deltaAddr
     io.peTable.req.bits.dwAddr := dwAddr
     io.peTable.req.bits.slopeAddr := slopeAddr
+    io.peTable.req.bits.biasAddr := biasAddr
     io.peTable.req.bits.neuronPointer := neuronPointer
     io.peTable.req.bits.decimalPoint := decimalPoint
     io.peTable.req.bits.errorFunction := errorFunction
@@ -163,7 +165,8 @@ class Control extends DanaModule {
   reqCache(Bool(false), UInt(0), UInt(0), UInt(0), UInt(0), UInt(0), UInt(0),
     UInt(0), UInt(0))
   // io.petable defaults
-  reqPETable(Bool(false), UInt(0), UInt(0), UInt(0), UInt(0), UInt(0), UInt(0), UInt(0),
+  reqPETable(Bool(false), UInt(0), UInt(0), UInt(0), UInt(0), UInt(0), UInt(0),
+    UInt(0), UInt(0),
     UInt(0), UInt(0), UInt(0), UInt(0), UInt(0), UInt(0), UInt(0), UInt(0), Bool(false),
     Bool(false), UInt(0), UInt(0), UInt(0),UInt(0))
   // io.regFile defaults
@@ -278,6 +281,11 @@ class Control extends DanaModule {
         io.tTable.req.bits.regFileAddrDW,
 
         io.tTable.req.bits.regFileAddrSlope,
+
+        // Give the PE information about where in the Register File to
+        // write its updated slope
+        io.tTable.req.bits.regFileAddrBias + io.tTable.req.bits.currentNodeInLayer,
+
         // Mux((io.tTable.req.bits.stateLearn === e_TTABLE_STATE_LEARN_ERROR_BACKPROP) &&
         //   io.tTable.req.bits.inFirst,
         //   io.tTable.req.bits.regFileAddrDW + io.tTable.req.bits.currentNodeInLayer,
