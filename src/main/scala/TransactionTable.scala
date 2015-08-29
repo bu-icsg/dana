@@ -497,9 +497,9 @@ class TransactionTable extends XFilesModule {
             is(e_TTABLE_STATE_LEARN_ERROR_BACKPROP){
               table(tIdx).regFileAddrOut := table(tIdx).regFileAddrDW
               table(tIdx).regFileAddrDelta := table(tIdx).regFileAddrDW +
-                niclMSBs + round
+                niclOffset
               table(tIdx).regFileAddrDW := table(tIdx).regFileAddrDW +
-                (niclMSBs + round) * UInt(2)
+                niclOffset * UInt(2)
 
               // Handle special case of being in the last hidden layer
               when (table(tIdx).currentLayer === table(tIdx).numLayers - UInt(2)) {
@@ -507,7 +507,7 @@ class TransactionTable extends XFilesModule {
                 table(tIdx).regFileAddrIn := table(tIdx).regFileAddrIn
               } .otherwise {
                 table(tIdx).regFileAddrIn := table(tIdx).regFileAddrIn -
-                  (niclMSBs + round)
+                  niclOffset
               }
 
               // Handle special case of being in the first hidden layer
@@ -515,22 +515,42 @@ class TransactionTable extends XFilesModule {
                 table(tIdx).regFileAddrDW := table(tIdx).regFileAddrInFixed
                 when(table(tIdx).transactionType === e_TTYPE_BATCH){
                   table(tIdx).regFileAddrSlope := table(tIdx).regFileAddrDW + 
-                  niclMSBs + round
+                  niclOffset * UInt(2)
                 }
               }
             }
-            is(e_TTABLE_STATE_LEARN_WEIGHT_UPDATE){
+            is(e_TTABLE_STATE_LEARN_UPDATE_SLOPE){
               table(tIdx).regFileAddrDW := table(tIdx).regFileAddrIn
               table(tIdx).regFileAddrIn := table(tIdx).regFileAddrIn + niplOffset
               table(tIdx).regFileAddrDelta := table(tIdx).regFileAddrDelta -
                 niclOffset * UInt(2)
-              // table(tIdx).regFileAddrOut := table(tIdx).regFileAddrOut -
-              //   niclOffset * UInt(2)
-
               // Handle special case of being in the second hidden layer
               when (table(tIdx).currentLayer === UInt(1)){
                 table(tIdx).regFileAddrDelta := table(tIdx).regFileAddrOut -
                   niclOffset * UInt(1)
+              } 
+            }
+            is(e_TTABLE_STATE_LEARN_WEIGHT_UPDATE){
+              when(table(tIdx).transactionType === e_TTYPE_BATCH){
+                when (table(tIdx).currentLayer === UInt(0)){
+                  table(tIdx).regFileAddrDW := table(tIdx).regFileAddrInFixed
+                  table(tIdx).regFileAddrIn := table(tIdx).regFileAddrInFixed + niclOffset
+                  table(tIdx).regFileAddrDelta := table(tIdx).regFileAddrDelta
+                }.otherwise{
+                  table(tIdx).regFileAddrDW := table(tIdx).regFileAddrIn
+                  table(tIdx).regFileAddrIn := table(tIdx).regFileAddrIn + niclOffset
+                  table(tIdx).regFileAddrDelta := table(tIdx).regFileAddrDelta + niclOffset + niplOffset
+                }
+              }.otherwise{
+                table(tIdx).regFileAddrDW := table(tIdx).regFileAddrIn
+                table(tIdx).regFileAddrIn := table(tIdx).regFileAddrIn + niplOffset
+                table(tIdx).regFileAddrDelta := table(tIdx).regFileAddrDelta -
+                  niclOffset - niplOffset
+              // Handle special case of being in the second hidden layer
+                when (table(tIdx).currentLayer === UInt(1)){
+                  table(tIdx).regFileAddrDelta := table(tIdx).regFileAddrOut -
+                    niclOffset * UInt(1)
+                } 
               }
             }
           }
@@ -556,14 +576,6 @@ class TransactionTable extends XFilesModule {
             table(tIdx).regFileAddrOut)
           printf("[INFO]   regFileAddrOut:             0x%x\n",
             table(tIdx).regFileAddrOut +  niclMSBs + round)
-          when(table(tIdx).currentLayer === table(tIdx).numLayers - UInt(1)){
-            printf("[INFO]   regFileAddrDelta:          0x%x\n",
-                table(tIdx).regFileAddrOut +  UInt(2) * (niclMSBs + round))
-            printf("[INFO]   regFileAddrDW:             0x%x\n",
-                table(tIdx).regFileAddrOut + UInt(3) * (niclMSBs + round))
-          }
-          printf("[INFO]   regFileAddrSlope:           0x%x\n",
-            table(tIdx).regFileAddrDW +  niclMSBs + round)
         }
       }
     }
@@ -773,18 +785,41 @@ class TransactionTable extends XFilesModule {
         }
       }
       is(e_TTABLE_STATE_LEARN_UPDATE_SLOPE){
-        table(tIdx).needsLayerInfo := Bool(false)
-        table(tIdx).stateLearn := e_TTABLE_STATE_ERROR
-      }
-      is (e_TTABLE_STATE_LEARN_WEIGHT_UPDATE) {
-        when (inLastNode && notInLastLayer) {
+        when(table(tIdx).inLast && inLastNode){
+          table(tIdx).needsLayerInfo := Bool(true)
+          table(tIdx).currentLayer := table(tIdx).currentLayer - UInt(1)
+          table(tIdx).inFirst := table(tIdx).currentLayer === UInt(1)
+          table(tIdx).inLastEarly := Bool(false)
+          table(tIdx).stateLearn := e_TTABLE_STATE_LEARN_WEIGHT_UPDATE
+        } .elsewhen (inLastNode && notInLastLayer) {
           table(tIdx).needsLayerInfo := Bool(true)
           table(tIdx).currentLayer := table(tIdx).currentLayer + UInt(1)
+          table(tIdx).inFirst := table(tIdx).currentLayer === UInt(0)
+
+          // inLastEarly will assert as soon as the last PE Request goes
+          // out. This is useful if you need something that goes high at
+          // the earliest possible definition of "being in the last
+          // layer", e.g., when generating a request for the next layer
+          // information.
+          table(tIdx).inLastEarly :=
+            table(tIdx).currentLayer === (table(tIdx).numLayers - UInt(2))
         } .otherwise {
           table(tIdx).needsLayerInfo := Bool(false)
           table(tIdx).currentLayer := table(tIdx).currentLayer
-          table(tIdx).inLastEarly :=
-            table(tIdx).currentLayer === (table(tIdx).numLayers - UInt(2))
+          table(tIdx).inFirst := table(tIdx).currentLayer === UInt(0)
+        }
+      }
+      is (e_TTABLE_STATE_LEARN_WEIGHT_UPDATE) {
+        when(table(tIdx).transactionType === e_TTYPE_INCREMENTAL){
+          when (inLastNode && notInLastLayer) {
+            table(tIdx).needsLayerInfo := Bool(true)
+            table(tIdx).currentLayer := table(tIdx).currentLayer + UInt(1)
+          } .otherwise {
+            table(tIdx).needsLayerInfo := Bool(false)
+            table(tIdx).currentLayer := table(tIdx).currentLayer
+            table(tIdx).inLastEarly :=
+              table(tIdx).currentLayer === (table(tIdx).numLayers - UInt(2))
+          }
         }
       }
     }

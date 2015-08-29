@@ -379,6 +379,8 @@ class Cache extends DanaModule {
     // that it's being passed correctly.
     mem(io.pe.req.bits.cacheIndex).addr(0) :=
       io.pe.req.bits.cacheAddr >> (UInt(2 + log2Up(elementsPerBlock)))
+      printf("[INFO] cache: block address from byte address 0x%x/0x%x\n", io.pe.req.bits.cacheAddr,
+        io.pe.req.bits.cacheAddr >> (UInt(2 + log2Up(elementsPerBlock))) )
     // Fill the first stage of the PE pipeline
     switch (io.pe.req.bits.field) {
       is (e_CACHE_NEURON) {

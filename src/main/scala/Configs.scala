@@ -48,7 +48,7 @@ class DefaultXFilesDanaConfig extends ChiselConfig (
     case "NUM_PES" => 1
     case "TRANSACTION_TABLE_NUM_ENTRIES" => 2
     case "CACHE_NUM_ENTRIES" => 8
-    case "REGISTER_FILE_NUM_ELEMENTS" => 1024
+    case "REGISTER_FILE_NUM_ELEMENTS" => 16384
   }
 )
 
