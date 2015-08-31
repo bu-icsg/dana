@@ -260,6 +260,7 @@ class ProcessingElementTable extends DanaModule {
     printf("[INFO]   slope addr:     0x%x\n", io.control.req.bits.slopeAddr)
     printf("[INFO]   new slope addr: 0x%x\n", io.control.req.bits.slopeAddr +
       (io.control.req.bits.numWeightBlocks << (UInt(log2Up(elementsPerBlock)))))
+    printf("[INFO]   bias addr:      0x%x\n", io.control.req.bits.biasAddr)
     printf("[INFO]   stateLearn:     0x%x\n", io.control.req.bits.stateLearn)
     printf("[INFO]   tType:          0x%x\n", io.control.req.bits.tType)
     printf("[INFO]   inLast:         0x%x\n", io.control.req.bits.inLast)
@@ -406,6 +407,17 @@ class ProcessingElementTable extends DanaModule {
         printf("[INFO]          input delta weight product -> dataVec(0x%x): 0x%x\n",
           addr, dataVec(addr))
       }
+      is (e_PE_REQ_BIAS) {
+        val addr = table(peIndex).outAddr(log2Up(elementsPerBlock)-1,0)
+        val dataVec = Vec((0 until elementsPerBlock).map(i =>
+          (io.regFile.resp.bits.data)(elementWidth * (i + 1) - 1, elementWidth * i)))
+        table(peIndex).dw_in := dataVec(addr)
+        pe(peIndex).req.valid := Bool(true)
+        printf("[INFO] PETable: Valid RegFile bias resp PE/data 0x%x/0x%x\n",
+          peIndex, io.regFile.resp.bits.data)
+        printf("[INFO]          bias put in dw_in -> dataVec(0x%x): 0x%x\n",
+          addr, dataVec(addr))
+      }
     }
   }
 
@@ -511,7 +523,6 @@ class ProcessingElementTable extends DanaModule {
           table(peArbiter.io.out.bits.index).tIdx,
           table(peArbiter.io.out.bits.index).location,
           e_PE_REQ_EXPECTED_OUTPUT)
-
         pe(peArbiter.io.out.bits.index).req.valid := Bool(true)
       }
       is(PE_states('e_PE_DELTA_WRITE_BACK)){
@@ -568,7 +579,6 @@ class ProcessingElementTable extends DanaModule {
         io.regFile.req.bits.location := table(peIdx).location
 
         table(peIdx).dwAddr := table(peIdx).dwAddr + UInt(elementsPerBlock)
-
         pe(peIdx).req.valid := Bool(true)
       }
       is(PE_states('e_PE_REQUEST_OUTPUTS_ERROR_BACKPROP)){
@@ -622,21 +632,16 @@ class ProcessingElementTable extends DanaModule {
         io.cache.req.bits.peIndex := peArbiter.io.out.bits.index
         io.cache.req.bits.cacheIndex := table(peArbiter.io.out.bits.index).cIdx
         io.cache.req.bits.cacheAddr := table(peArbiter.io.out.bits.index).neuronPtr
-        // [TODO] Kludge (see #28). I'm currently _not_ writing
-        // anything to the cache to update the weight if we're in
-        // batch mode.
-        when (table(peArbiter.io.out.bits.index).tType === e_TTYPE_BATCH) {
-          io.cache.req.bits.data := UInt(0)
-        } .otherwise {
-          io.cache.req.bits.data := biasUpdateVec.toBits
-        }
+        io.cache.req.bits.data := biasUpdateVec.toBits
         printf("[INFO] PE Table: Trying to write bias biasIndex/bias 0x%x/0x%x\n",
           biasIndex, biasUpdateVec.toBits)
+        printf("[INFO]           .data: 0x%x\n", peArbiter.io.out.bits.data)
 
         // Send a dummy write to the register file so it kicks the
         // Transaction Table
         io.regFile.req.valid := Bool(true)
         io.regFile.req.bits.isWrite := Bool(true)
+        io.regFile.req.bits.peIndex := peArbiter.io.out.bits.index
         io.regFile.req.bits.reqType := e_PE_INCREMENT_WRITE_COUNT
         io.regFile.req.bits.incWriteCount := Bool(true)
         io.regFile.req.bits.location := table(peArbiter.io.out.bits.index).location
@@ -649,6 +654,7 @@ class ProcessingElementTable extends DanaModule {
         io.regFile.req.valid := Bool(true)
         io.regFile.req.bits.isWrite := Bool(true)
         io.regFile.req.bits.incWriteCount := Bool(false)
+        io.regFile.req.bits.peIndex := peArbiter.io.out.bits.index
         // [TODO] This needs to be updated for when we do a batch
         // update with more than one input--output pair
         io.regFile.req.bits.reqType := e_PE_WRITE_BLOCK_NEW
@@ -658,6 +664,7 @@ class ProcessingElementTable extends DanaModule {
         io.regFile.req.bits.dataBlock := peArbiter.io.out.bits.dataBlock.toBits
         io.regFile.req.bits.location := table(peIdx).location
 
+        table(peIdx).dwAddr := table(peIdx).dwAddr + UInt(elementsPerBlock)
         pe(peIdx).req.valid := Bool(true)
       }
       is (PE_states('e_PE_SLOPE_BIAS_WB)) {
@@ -666,7 +673,22 @@ class ProcessingElementTable extends DanaModule {
         io.regFile.req.valid := Bool(true)
         io.regFile.req.bits.isWrite := Bool(true)
         io.regFile.req.bits.incWriteCount := Bool(true)
+        io.regFile.req.bits.peIndex := peArbiter.io.out.bits.index
         io.regFile.req.bits.reqType := e_PE_WRITE_ELEMENT
+        io.regFile.req.bits.addr := table(peIdx).biasAddr
+        io.regFile.req.bits.tIdx := table(peIdx).tIdx
+        io.regFile.req.bits.data := peArbiter.io.out.bits.data
+        io.regFile.req.bits.location := table(peIdx).location
+
+        pe(peIdx).req.valid := Bool(true)
+      }
+      is (PE_states('e_PE_WEIGHT_UPDATE_REQUEST_BIAS)) {
+        val peIdx = peArbiter.io.out.bits.index
+
+        io.regFile.req.valid := Bool(true)
+        io.regFile.req.bits.isWrite := Bool(false)
+        io.regFile.req.bits.peIndex := peArbiter.io.out.bits.index
+        io.regFile.req.bits.reqType := e_PE_REQ_BIAS
         io.regFile.req.bits.addr := table(peIdx).biasAddr
         io.regFile.req.bits.tIdx := table(peIdx).tIdx
         io.regFile.req.bits.data := peArbiter.io.out.bits.data

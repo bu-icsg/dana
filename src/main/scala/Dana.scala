@@ -144,19 +144,23 @@ abstract class DanaModule extends Module with DanaParameters
       'e_PE_RUN_WEIGHT_UPDATE,                            // 27
       'e_PE_WEIGHT_UPDATE_WRITE_BACK,                     // 28
       'e_PE_WEIGHT_UPDATE_WRITE_BIAS,                     // 29
-      'e_PE_DONE,                                         // 30
-      'e_PE_ERROR))                                       // 31
+      'e_PE_WEIGHT_UPDATE_REQUEST_BIAS,                   // 30
+      'e_PE_WEIGHT_UPDATE_WAIT_FOR_BIAS,                  // 31
+      'e_PE_WEIGHT_UPDATE_WAIT_FOR_BIAS_d0,               // 32
+      'e_PE_DONE,                                         // 33
+      'e_PE_ERROR))                                       // 34
     // Nil) = Enum(UInt(), 8).map(i => (UInt(1) << i)(7, 0))
   val (e_PE_REQ_INPUT ::             // 0
     e_PE_REQ_EXPECTED_OUTPUT ::      // 1
     e_PE_REQ_OUTPUT ::               // 2
     e_PE_REQ_DELTA ::                // 3
-    e_PE_REQ_DELTA_WEIGHT_PRODUCT :: // 4
-    e_PE_WRITE_ELEMENT ::            // 5
-    e_PE_WRITE_BLOCK_NEW ::          // 6
-    e_PE_WRITE_BLOCK_ACC ::          // 7
-    e_PE_INCREMENT_WRITE_COUNT ::    // 8
-    Nil) = Enum(UInt(), 9)
+    e_PE_REQ_BIAS ::                 // 4
+    e_PE_REQ_DELTA_WEIGHT_PRODUCT :: // 5
+    e_PE_WRITE_ELEMENT ::            // 6
+    e_PE_WRITE_BLOCK_NEW ::          // 7
+    e_PE_WRITE_BLOCK_ACC ::          // 8
+    e_PE_INCREMENT_WRITE_COUNT ::    // 9
+    Nil) = Enum(UInt(), 10)
   // Location of inputs and outputs
   val (e_LOCATION_REG_0 :: // 0
     e_LOCATION_REG_1 ::    // 1

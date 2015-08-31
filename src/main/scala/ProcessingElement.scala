@@ -120,6 +120,7 @@ class ProcessingElement extends DanaModule {
       state := Mux(io.req.valid, PE_states('e_PE_GET_INFO), state)
       io.req.ready := Bool(true)
       hasBias := Bool(false)
+      index := UInt(0)
     }
     is (PE_states('e_PE_GET_INFO)) {
       dataOut := UInt(0)
@@ -429,11 +430,29 @@ class ProcessingElement extends DanaModule {
       dataOut := delta
     }
     is (PE_states('e_PE_WEIGHT_UPDATE_WRITE_BACK)){
+      when (io.req.valid) {
+        printf("[INFO] PE: weight update writeback index/numWeights 0x%x/0x%x\n",
+          index, io.req.bits.numWeights)
+      }
       val nextState = Mux(index === io.req.bits.numWeights,
-        PE_states('e_PE_WEIGHT_UPDATE_WRITE_BIAS),
+        Mux(io.req.bits.tType === e_TTYPE_BATCH,
+          PE_states('e_PE_WEIGHT_UPDATE_REQUEST_BIAS),
+          PE_states('e_PE_WEIGHT_UPDATE_WRITE_BIAS)),
         PE_states('e_PE_REQUEST_INPUTS_AND_WEIGHTS))
       state := Mux(io.req.valid, nextState, state)
       io.resp.valid := Bool(true)
+    }
+    is (PE_states('e_PE_WEIGHT_UPDATE_REQUEST_BIAS)) {
+      state := Mux(io.req.valid, PE_states('e_PE_WEIGHT_UPDATE_WAIT_FOR_BIAS), state)
+      io.resp.valid := Bool(true)
+    }
+    is (PE_states('e_PE_WEIGHT_UPDATE_WAIT_FOR_BIAS)) {
+      state := Mux(io.req.valid, PE_states('e_PE_WEIGHT_UPDATE_WAIT_FOR_BIAS_d0), state)
+    }
+    is (PE_states('e_PE_WEIGHT_UPDATE_WAIT_FOR_BIAS_d0)) {
+      state := PE_states('e_PE_WEIGHT_UPDATE_WRITE_BIAS)
+      // [TODO] Need to divide the learning rate by the number of training items
+      dataOut := (io.req.bits.dw_in * io.req.bits.learningRate) >> decimal
     }
     is (PE_states('e_PE_WEIGHT_UPDATE_WRITE_BIAS)) {
       state := Mux(io.req.valid, PE_states('e_PE_UNALLOCATED), state)

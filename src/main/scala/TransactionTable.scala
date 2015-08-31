@@ -558,11 +558,19 @@ class TransactionTable extends XFilesModule {
                   table(tIdx).regFileAddrIn := table(tIdx).regFileAddrInFixed +
                     niclOffset
                   table(tIdx).regFileAddrDelta := table(tIdx).regFileAddrDelta
+                  // If we're in the first layer, then we need to go
+                  // ahead and update the slope address. We can
+                  // compute this because we know both the slope
+                  // offset (which is the offset from the bias region
+                  // to the start of the weight update region).
+                  table(tIdx).biasAddr := table(tIdx).regFileAddrSlope -
+                    table(tIdx).offsetBias
                 }.otherwise{
                   table(tIdx).regFileAddrDW := table(tIdx).regFileAddrIn
                   table(tIdx).regFileAddrIn := table(tIdx).regFileAddrIn + niclOffset
                   table(tIdx).regFileAddrDelta := table(tIdx).regFileAddrDelta +
                     niclOffset + niplOffset
+                  table(tIdx).biasAddr := table(tIdx).biasAddr + niclOffset
                 }
               }.otherwise{
                 table(tIdx).regFileAddrDW := table(tIdx).regFileAddrIn
