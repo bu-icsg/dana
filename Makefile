@@ -140,10 +140,12 @@ FLOAT_TO_FIXED=$(DIR_USR_BIN)/fann-float-to-fixed
 WRITE_FANN_CONFIG=$(DIR_USR_BIN)/write-fann-config-for-accelerator
 BIN_TO_C_HEADER=$(DIR_USR_BIN)/bin-config-to-c-header
 TRAIN_TO_C_HEADER=$(DIR_USR_BIN)/fann-train-to-c-header
+FANN_RANDOM=$(DIR_USR_BIN)/fann-random
 NETS_TOOLS = $(FLOAT_TO_FIXED) \
 	$(WRITE_FANN_CONFIG) \
 	$(BIN_TO_C_HEADER) \
-	$(TRAIN_TO_C_HEADER)
+	$(TRAIN_TO_C_HEADER) \
+	$(FANN_RANDOM)
 DECIMAL_POINT_OFFSET=7
 
 vpath %.scala $(DIR_SRC_SCALA)
