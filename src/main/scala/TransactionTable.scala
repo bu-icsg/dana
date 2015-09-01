@@ -253,6 +253,8 @@ class TransactionTable extends XFilesModule {
           switch(cmd.regId) {
             is (e_TTABLE_WRITE_REG_BATCH_ITEMS) {
               table(derefTidIndex).numBatchItems := cmd.regValue }
+            is (e_TTABLE_WRITE_REG_LEARNING_RATE) {
+              table(derefTidIndex).learningRate := cmd.regValue }
           }
           printf("[INFO] X-Files saw reg write TID/Reg/Value 0x%x/0x%x/0x%x\n",
             cmd.tid, cmd.regId, cmd.regValue)
@@ -426,7 +428,7 @@ class TransactionTable extends XFilesModule {
           table(tIdx).decimalPoint := io.control.resp.bits.decimalPoint
           table(tIdx).errorFunction := io.control.resp.bits.data(2)(
             errorFunctionWidth - 1, 0)
-          table(tIdx).learningRate := io.control.resp.bits.data(3)
+          // table(tIdx).learningRate := io.control.resp.bits.data(3)
           table(tIdx).lambda := io.control.resp.bits.data(4)
           table(tIdx).numWeightBlocks := io.control.resp.bits.data(5)
           table(tIdx).globalWtptr := io.control.resp.bits.globalWtptr

@@ -16,7 +16,8 @@ typedef int32_t element_type;
 typedef uint64_t x_len;
 
 typedef enum {
-  xfiles_reg_batch_items = 0
+  xfiles_reg_batch_items = 0,
+  xfiles_reg_learning_rate
 } xfiles_reg;
 
 //-------------------------------------- Userland
