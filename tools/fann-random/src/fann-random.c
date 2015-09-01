@@ -10,9 +10,11 @@ static char * usage_message =
   "to the specified file. The network must have at least two layers.\n"
   "\n"
   "Options:\n"
+  "  -a, --af-hidden            set the activation function of all hidden neurons\n"
   "  -f, --fixed-point          write output file as fixed point\n"
   "  -h, --help                 print this help and exit\n"
   "  -l, --layers               adds a layer to the network of a specific size\n"
+  "  -o, --af-output            set the activation function of all output neurons\n"
   ;
 
 void usage () {
@@ -22,6 +24,8 @@ void usage () {
 typedef struct {
   int size;
   int valid;
+  enum fann_activationfunc_enum af_hidden;
+  enum fann_activationfunc_enum af_output;
   unsigned int * layer_array;
 } layers_struct;
 
@@ -49,19 +53,26 @@ int main (int argc, char * argv[]) {
 
   layers->size = 4;
   layers->valid = 0;
+  layers->af_hidden = FANN_SIGMOID_STEPWISE;
+  layers->af_output = FANN_SIGMOID_STEPWISE;
   layers->layer_array = (unsigned int *) malloc (layers->size * sizeof(int));
 
   while (1) {
     static struct option long_options[] = {
+      {"af-hidden", required_argument, 0, 'a'},
+      {"af-ouput", required_argument, 0, 'o'},
       {"fixed-point", no_argument,       0, 'f'},
       {"help",        no_argument,       0, 'h'},
       {"add-layer",   required_argument, 0, 'l'}
     };
     int option_index = 0;
-    c = getopt_long (argc, argv, "fhl:", long_options, &option_index);
+    c = getopt_long (argc, argv, "a:fhl:o:", long_options, &option_index);
     if (c == -1)
       break;
     switch (c) {
+    case 'a':
+      layers->af_hidden = atoi(optarg);
+      break;
     case 'f':
       fixed_point = 1;
       break;
@@ -70,6 +81,9 @@ int main (int argc, char * argv[]) {
       goto failure;
     case 'l':
       add_layer(&layers, atoi(optarg));
+      break;
+    case 'o':
+      layers->af_output = atoi(optarg);
       break;
     default:
       abort ();
@@ -92,6 +106,8 @@ int main (int argc, char * argv[]) {
   // Create the network
   struct fann * ann;
   ann = fann_create_standard_array(layers->valid, layers->layer_array);
+  fann_set_activation_function_hidden(ann, layers->af_hidden);
+  fann_set_activation_function_output(ann, layers->af_output);
   if (fixed_point) {
     fann_save_to_fixed(ann, file);
   }
