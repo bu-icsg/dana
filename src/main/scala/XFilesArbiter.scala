@@ -58,7 +58,8 @@ class XFilesArbiter extends XFilesModule {
     // the ASID as the core provided the TID. We also need to respond
     // to the specific core that initiated this request telling it
     // what the TID is.
-    when (io.core(i).cmd.bits.inst.funct(0) && io.core(i).cmd.bits.inst.funct(1)) {
+    when (io.core(i).cmd.bits.inst.funct(0) && io.core(i).cmd.bits.inst.funct(1) &&
+      !io.core(i).cmd.bits.inst.funct(2)) {
       coreQueue(i).enq.bits := io.core(i).cmd.bits
       coreQueue(i).enq.bits.rs1 :=
         io.core(i).cmd.bits.rs1(feedbackWidth - 1, 0) ##

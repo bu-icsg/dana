@@ -62,20 +62,20 @@ class RegisterFile extends DanaModule {
         is (e_PE_WRITE_ELEMENT) {
           mem(tIdx).wType(0) := UInt(0)
           mem(tIdx).dinElement(0) := io.pe.req.bits.data
-          printf("[INFO] RegFile: PE write element tIdx/Addr/Data 0x%x/0x%x/0x%x\n", tIdx,
-            io.pe.req.bits.addr, io.pe.req.bits.data)
+          printf("[INFO] RegFile: PE write element tIdx/Addr/Data 0x%x/0x%x/0x%x\n",
+            tIdx, io.pe.req.bits.addr, io.pe.req.bits.data)
         }
         is (e_PE_WRITE_BLOCK_NEW) {
           mem(tIdx).wType(0) := UInt(1)
           mem(tIdx).dinBlock(0) := io.pe.req.bits.dataBlock
-          printf("[INFO] RegFile: PE write block new tIdx/Addr/Data 0x%x/0x%x/0x%x\n", tIdx,
-            io.pe.req.bits.addr, io.pe.req.bits.dataBlock)
+          printf("[INFO] RegFile: PE write block new tIdx/Addr/Data 0x%x/0x%x/0x%x\n",
+            tIdx, io.pe.req.bits.addr, io.pe.req.bits.dataBlock)
         }
         is (e_PE_WRITE_BLOCK_ACC) {
           mem(tIdx).wType(0) := UInt(2)
           mem(tIdx).dinBlock(0) := io.pe.req.bits.dataBlock
-          printf("[INFO] RegFile: PE write block inc tIdx/Addr/Data 0x%x/0x%x/0x%x\n", tIdx,
-            io.pe.req.bits.addr, io.pe.req.bits.dataBlock)
+          printf("[INFO] RegFile: PE write block inc tIdx/Addr/Data 0x%x/0x%x/0x%x\n",
+            tIdx, io.pe.req.bits.addr, io.pe.req.bits.dataBlock)
         }
         // Kludge to kill the write _if_ we're just incrementing the
         // write count

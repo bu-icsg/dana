@@ -93,6 +93,10 @@ abstract class DanaModule extends Module with DanaParameters
     e_TTABLE_STATE_LEARN_WEIGHT_UPDATE ::  // 6
     e_TTABLE_STATE_ERROR ::                // 7
     Nil) = Enum(UInt(), 8)
+  // Transaction register IDs used for write register request
+  val (e_TTABLE_WRITE_REG_BATCH_ITEMS :: // 0
+    Nil) = Enum(UInt(), 1)
+
   // Cache Request Type
   val (e_CACHE_LOAD ::                // 0
     e_CACHE_LAYER_INFO ::             // 1

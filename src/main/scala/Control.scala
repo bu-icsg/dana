@@ -65,6 +65,7 @@ class ControlPETableInterface extends DanaBundle with ControlParameters {
     val inLast = Bool()
     val resetWB = Bool()
     val inFirst = Bool()
+    val batchFirst = Bool()
     val learningRate = UInt(width = 16) // [TODO] fragile
     val lambda = UInt(width = 16) // [TODO] fragile
     val numWeightBlocks = UInt(width = 16) // [TODO] fragile
@@ -118,7 +119,8 @@ class Control extends DanaModule {
     biasAddr: UInt, neuronPointer: UInt, decimalPoint: UInt, errorFunction: UInt,
     location: UInt, stateLearn: UInt, transactionType: UInt,
     inLast: UInt, resetWB: Bool, inFirst: Bool,
-    learningRate: UInt, lambda: UInt, numWeightBlocks: UInt, globalWtptr: UInt) {
+    learningRate: UInt, lambda: UInt, numWeightBlocks: UInt, globalWtptr: UInt,
+    batchFirst: Bool) {
     io.peTable.req.valid := valid
     io.peTable.req.bits.cacheIndex := cacheIndex
     io.peTable.req.bits.tIdx := tIdx
@@ -142,6 +144,7 @@ class Control extends DanaModule {
     io.peTable.req.bits.lambda := lambda
     io.peTable.req.bits.numWeightBlocks := numWeightBlocks
     io.peTable.req.bits.globalWtptr := globalWtptr
+    io.peTable.req.bits.batchFirst := batchFirst
   }
 
   // io.tTable defaults
@@ -168,7 +171,7 @@ class Control extends DanaModule {
   reqPETable(Bool(false), UInt(0), UInt(0), UInt(0), UInt(0), UInt(0), UInt(0),
     UInt(0), UInt(0),
     UInt(0), UInt(0), UInt(0), UInt(0), UInt(0), UInt(0), UInt(0), UInt(0), Bool(false),
-    Bool(false), UInt(0), UInt(0), UInt(0),UInt(0))
+    Bool(false), UInt(0), UInt(0), UInt(0), UInt(0), Bool(false))
   // io.regFile defaults
   io.regFile.req.valid := Bool(false)
   io.regFile.req.bits.tIdx := UInt(0)
@@ -331,7 +334,10 @@ class Control extends DanaModule {
         //Total number of weight blocks
         io.tTable.req.bits.numWeightBlocks,
         //global weight pointer
-        io.tTable.req.bits.globalWtptr
+        io.tTable.req.bits.globalWtptr,
+
+        // If we're in the first item of a batch make it known
+        io.tTable.req.bits.batchFirst
       )
     }
   }

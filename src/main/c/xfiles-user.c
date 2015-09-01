@@ -38,6 +38,15 @@ tid_type new_write_request(nnid_type nnid, int learning_type,
   return (out >> 32) & ~((~0) << 16);
 }
 
+void write_register(tid_type tid, xfiles_reg reg, uint32_t value) {
+
+  uint64_t rs2;
+  rs2 = (uint64_t) value | ((uint64_t) reg << 32);
+
+  asm volatile ("custom0 0, %[rs1], %[rs2], 7"
+                :: [rs1] "r" (tid), [rs2] "r" (rs2));
+}
+
 void write_data(tid_type tid, element_type * data, size_t count) {
   int i;
 

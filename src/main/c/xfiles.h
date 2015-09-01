@@ -15,6 +15,10 @@ typedef uint16_t tid_type;
 typedef int32_t element_type;
 typedef uint64_t x_len;
 
+typedef enum {
+  xfiles_reg_batch_items = 0
+} xfiles_reg;
+
 //-------------------------------------- Userland
 
 // Initiate a new Transaction for a specific NNID. The X-Files Arbiter
@@ -24,6 +28,12 @@ typedef uint64_t x_len;
 // this is a learning request.
 tid_type new_write_request(nnid_type nnid, int learning_type,
                            element_type num_train_outputs);
+
+// Function to write a specific register inside of the X-Files
+// Arbiter. The value is passed as a 32-bit unsigned, but only the
+// LSBs will be used if the destination register has fewer than 32
+// bits.
+void write_register(tid_type tid, xfiles_reg reg, uint32_t value);
 
 // Write the contents of an input array of some size to the X-Files
 // Arbiter. After completing this function, the transaction is deemed

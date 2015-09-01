@@ -45,8 +45,8 @@ class TransactionState extends XFilesBundle {
   val numTrainOutputs = UInt(width = 16) // [TODO] fragile
   val mse = UInt(width = elementWidth)
   // Batch training information
-  val numBatchItems = UInt(width = 1)
-  val curBatchItem = UInt(width = 1)
+  val numBatchItems = UInt(width = 16) // [TODO] fragile
+  val curBatchItem = UInt(width = 16) // [TODO] fragile
   val biasAddr = UInt(width = 16) // [TODO] fragile
   val offsetBias = UInt(width = 16) // [TODO] fragile
   // We need to keep track of where inputs and outputs should be
@@ -98,6 +98,7 @@ class ControlReq extends XFilesBundle {
   val regFileAddrBias = UInt(width = log2Up(regFileNumElements))
   val stateLearn = UInt(width = log2Up(5)) // [TODO] fragile
   val transactionType = UInt(width = log2Up(3)) // [TODO] fragile
+  val batchFirst = Bool()
 }
 
 class ControlResp extends XFilesBundle {
@@ -174,6 +175,8 @@ class TransactionTable extends XFilesModule {
     val nnid = io.arbiter.rocc.cmd.bits.rs2(nnidWidth - 1, 0)
     val data = io.arbiter.rocc.cmd.bits.rs2
     val rd = io.arbiter.rocc.cmd.bits.inst.rd
+    val regId = io.arbiter.rocc.cmd.bits.rs2(63,32)
+    val regValue = io.arbiter.rocc.cmd.bits.rs2(31,0)
   }
 
   // Vector of all the table entries
@@ -245,55 +248,55 @@ class TransactionTable extends XFilesModule {
     // This is a new packet
     when (cmd.readOrWrite) { // Write == True
       when (cmd.isNew) {
-        // [TODO] A lot of this can be removed as not everything has
-        // to be initialized
-        table(nextFree).reserved := Bool(true)
-        table(nextFree).cacheValid := Bool(false)
-        table(nextFree).waiting := Bool(false)
-        table(nextFree).needsLayerInfo := Bool(true)
-        table(nextFree).inFirst := Bool(true)
-        table(nextFree).inLast := Bool(false)
-        table(nextFree).inLastEarly := Bool(false)
-        table(nextFree).transactionType := cmd.transactionType
-        when (cmd.transactionType === e_TTYPE_INCREMENTAL ||
-          cmd.transactionType === e_TTYPE_BATCH) {
-          table(nextFree).numTrainOutputs := cmd.numTrainOutputs
-          table(nextFree).stateLearn := e_TTABLE_STATE_LOAD_OUTPUTS
+        when (cmd.isLast) {
+          // This is a register write
+          switch(cmd.regId) {
+            is (e_TTABLE_WRITE_REG_BATCH_ITEMS) {
+              table(derefTidIndex).numBatchItems := cmd.regValue }
+          }
+          printf("[INFO] X-Files saw reg write TID/Reg/Value 0x%x/0x%x/0x%x\n",
+            cmd.tid, cmd.regId, cmd.regValue)
         } .otherwise {
-          table(nextFree).stateLearn := e_TTABLE_STATE_FEEDFORWARD
-        }
-        table(nextFree).asid := cmd.asid
-        table(nextFree).tid := cmd.tid
-        table(nextFree).nnid := cmd.nnid
-        table(nextFree).currentNode := UInt(0)
-        table(nextFree).currentLayer := UInt(0)
-        table(nextFree).request := Bool(false)
-        table(nextFree).countFeedback := cmd.countFeedback
-        table(nextFree).regFileAddrIn := UInt(0)
-        table(nextFree).regFileAddrOut := UInt(0)
-        table(nextFree).regFileAddrDelta := UInt(0)
-        table(nextFree).regFileAddrDW := UInt(0)
-        table(nextFree).regFileAddrSlope := UInt(0)
-        table(nextFree).done := Bool(false)
-        table(nextFree).decInUse := Bool(false)
-        table(nextFree).indexElement := UInt(0)
-        table(nextFree).countPeWrites := UInt(0)
-        table(nextFree).readIdx := UInt(0)
-        table(nextFree).coreIdx := cmd.coreIdx
-        // [TODO] Temporary value for number of batch items
-        table(nextFree).numBatchItems := UInt(1)
-        table(nextFree).curBatchItem := UInt(0)
-        table(nextFree).offsetBias := UInt(0)
+          // [TODO] A lot of this can be removed as not everything has
+          // to be initialized
+          table(nextFree).reserved := Bool(true)
+          table(nextFree).cacheValid := Bool(false)
+          table(nextFree).waiting := Bool(false)
+          table(nextFree).needsLayerInfo := Bool(true)
+          table(nextFree).transactionType := cmd.transactionType
+          when (cmd.transactionType === e_TTYPE_INCREMENTAL ||
+            cmd.transactionType === e_TTYPE_BATCH) {
+            table(nextFree).numTrainOutputs := cmd.numTrainOutputs
+            table(nextFree).stateLearn := e_TTABLE_STATE_LOAD_OUTPUTS
+          } .otherwise {
+            table(nextFree).stateLearn := e_TTABLE_STATE_FEEDFORWARD
+          }
+          table(nextFree).asid := cmd.asid
+          table(nextFree).tid := cmd.tid
+          table(nextFree).nnid := cmd.nnid
+          table(nextFree).currentLayer := UInt(0)
+          table(nextFree).request := Bool(false)
+          table(nextFree).countFeedback := cmd.countFeedback
+          table(nextFree).done := Bool(false)
+          table(nextFree).decInUse := Bool(false)
+          table(nextFree).indexElement := UInt(0)
+          table(nextFree).coreIdx := cmd.coreIdx
+          table(nextFree).regFileAddrInFixed := UInt(0)
+          table(nextFree).regFileAddrOut := UInt(0)
+          // [TODO] Temporary value for number of batch items
+          table(nextFree).numBatchItems := UInt(1)
+          table(nextFree).curBatchItem := UInt(0)
 
-        arbiterRespPipe.valid := Bool(true)
-        // Initiate a response that will containt the TID
-        arbiterRespPipe.bits.respType := e_TID
-        arbiterRespPipe.bits.tid := cmd.tid
-        arbiterRespPipe.bits.tidIdx := derefTidIndex
-        arbiterRespPipe.bits.coreIdx := cmd.coreIdx
-        arbiterRespPipe.bits.rd := cmd.rd
-        printf("[INFO] X-Files saw new write request for NNID/TType 0x%x/0x%x\n",
-          cmd.nnid, cmd.transactionType)
+          arbiterRespPipe.valid := Bool(true)
+          // Initiate a response that will containt the TID
+          arbiterRespPipe.bits.respType := e_TID
+          arbiterRespPipe.bits.tid := cmd.tid
+          arbiterRespPipe.bits.tidIdx := derefTidIndex
+          arbiterRespPipe.bits.coreIdx := cmd.coreIdx
+          arbiterRespPipe.bits.rd := cmd.rd
+          printf("[INFO] X-Files saw new write request for NNID/TType 0x%x/0x%x\n",
+            cmd.nnid, cmd.transactionType)
+        }
       }
         .elsewhen(cmd.isLast) {
         // Write data to the Register File
@@ -315,6 +318,19 @@ class TransactionTable extends XFilesModule {
             cmd.tid, cmd.data);
         } .otherwise {
           table(derefTidIndex).valid := Bool(true)
+          table(derefTidIndex).currentNode := UInt(0)
+          table(derefTidIndex).readIdx := UInt(0)
+          table(derefTidIndex).countPeWrites := UInt(0)
+          table(derefTidIndex).inFirst := Bool(true)
+          table(derefTidIndex).inLast := Bool(false)
+          table(derefTidIndex).inLastEarly := Bool(false)
+          table(derefTidIndex).regFileAddrIn := UInt(0)
+          table(derefTidIndex).regFileAddrDelta := UInt(0)
+          table(derefTidIndex).regFileAddrDW := UInt(0)
+          table(derefTidIndex).regFileAddrSlope := UInt(0)
+          table(derefTidIndex).needsLayerInfo := Bool(true)
+          table(derefTidIndex).offsetBias := UInt(0)
+          table(derefTidIndex).done := Bool(false)
           printf("[INFO] TTable: LAST input write TID/data 0x%x/0x%x\n",
             cmd.tid, cmd.data);
         }
@@ -351,11 +367,18 @@ class TransactionTable extends XFilesModule {
         arbiterRespPipe.bits.readIdx := table(derefTidIndex).readIdx
         arbiterRespPipe.bits.coreIdx := cmd.coreIdx
         arbiterRespPipe.bits.rd := cmd.rd
-        // Check to see if all outputs have been read
-        when (table(derefTidIndex).readIdx ===
-          table(derefTidIndex).nodesInCurrentLayer - UInt(1)) {
+        // Check to see if all outputs have been read and we're not in
+        // some batch training state where we expect to see a new set
+        // training input/output item.
+        when ((table(derefTidIndex).readIdx ===
+          table(derefTidIndex).nodesInCurrentLayer - UInt(1)) &&
+          (table(derefTidIndex).stateLearn != e_TTABLE_STATE_LOAD_OUTPUTS)) {
           table(derefTidIndex).valid := Bool(false)
           table(derefTidIndex).reserved := Bool(false)
+          printf("[INFO] TTable: All outputs read, evicting ASID/TID 0x%x/0x%x\n",
+            table(derefTidIndex).asid, table(derefTidIndex).tid)
+          printf("[INFO]         State is: 0x%x\n",
+            table(derefTidIndex).stateLearn)
         }
         table(derefTidIndex).readIdx := table(derefTidIndex).readIdx + UInt(1)
         printf("[INFO] X-Files saw read request on TID %x\n",
@@ -647,6 +670,10 @@ class TransactionTable extends XFilesModule {
             table(tIdx).stateLearn === e_TTABLE_STATE_LEARN_WEIGHT_UPDATE) {
             table(tIdx).waiting := Bool(false)
             table(tIdx).decInUse := Bool(true)
+          } .elsewhen (table(tIdx).stateLearn === e_TTABLE_STATE_LOAD_OUTPUTS) {
+            table(tIdx).indexElement := UInt(0)
+            table(tIdx).done := Bool(true)
+            table(tIdx).valid := Bool(false)
           } .otherwise {
             table(tIdx).waiting := Bool(false)
           }
@@ -690,6 +717,7 @@ class TransactionTable extends XFilesModule {
     entryArbiter.io.in(i).bits.nnid := table(i).nnid
     entryArbiter.io.in(i).bits.coreIdx := table(i).coreIdx
     entryArbiter.io.in(i).bits.transactionType := table(i).transactionType
+    entryArbiter.io.in(i).bits.batchFirst := table(i).curBatchItem === UInt(0)
     // State info
     entryArbiter.io.in(i).bits.currentNodeInLayer := table(i).currentNodeInLayer
     entryArbiter.io.in(i).bits.currentLayer := table(i).currentLayer
@@ -830,7 +858,8 @@ class TransactionTable extends XFilesModule {
             table(tIdx).needsLayerInfo := Bool(true)
             table(tIdx).stateLearn := e_TTABLE_STATE_LEARN_WEIGHT_UPDATE
           } .otherwise {
-            table(tIdx).stateLearn := e_TTABLE_STATE_ERROR
+            table(tIdx).stateLearn := e_TTABLE_STATE_LOAD_OUTPUTS
+            table(tIdx).curBatchItem := table(tIdx).curBatchItem + UInt(1)
           }
         } .elsewhen (inLastNode && notInLastLayer) {
           table(tIdx).needsLayerInfo := Bool(true)
@@ -925,8 +954,12 @@ class TransactionTable extends XFilesModule {
     "TTable saw read or non-new write req on a non-existent ASID/TID")
   // A new write request should not hit a tid
   assert(!(foundTid && io.arbiter.rocc.cmd.valid &&
-    cmd.readOrWrite && cmd.isNew),
+    cmd.readOrWrite && cmd.isNew && !cmd.isLast),
     "TTable saw new write req on an existing ASID/TID")
+  // A register write should hit a tid
+  assert(!(!foundTid && io.arbiter.rocc.cmd.valid &&
+    cmd.readOrWrite && cmd.isNew && cmd.isLast),
+    "TTable saw write register on non-existent ASID/TID")
 
   // A response from the Control module should never be dually valid
   // in terms of actions on the same transaction table index. This

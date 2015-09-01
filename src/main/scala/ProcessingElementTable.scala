@@ -39,7 +39,7 @@ class PERegisterFileInterface extends DanaBundle {
     val data = UInt(width = elementWidth)
     val dataBlock = UInt(width = bitsPerBlock)
     val location = UInt(width = 1)
-    val reqType = UInt(width = log2Up(8)) // [TODO] Fragile on Dana.scala
+    val reqType = UInt(width = log2Up(10)) // [TODO] Fragile on Dana.scala
     val incWriteCount = Bool()
   })
   val resp = Decoupled(new DanaBundle {
@@ -105,6 +105,7 @@ class ProcessingElementState extends DanaBundle {
   val tType = UInt(width = log2Up(3)) // [TODO] fragile
   val inLast = Bool()
   val inFirst = Bool()
+  val batchFirst = Bool()
   val weightoffset = UInt(width = 16)
 }
 
@@ -224,6 +225,7 @@ class ProcessingElementTable extends DanaModule {
     table(nextFree).tType := io.control.req.bits.tType
     table(nextFree).inLast := io.control.req.bits.inLast
     table(nextFree).inFirst := io.control.req.bits.inFirst
+    table(nextFree).batchFirst := io.control.req.bits.batchFirst
     table(nextFree).inAddr := io.control.req.bits.inAddr
     table(nextFree).outAddr := io.control.req.bits.outAddr
     table(nextFree).learnAddr := io.control.req.bits.learnAddr
@@ -265,6 +267,7 @@ class ProcessingElementTable extends DanaModule {
     printf("[INFO]   tType:          0x%x\n", io.control.req.bits.tType)
     printf("[INFO]   inLast:         0x%x\n", io.control.req.bits.inLast)
     printf("[INFO]   inFirst:        0x%x\n", io.control.req.bits.inFirst)
+    printf("[INFO]   batchFirst:     0x%x\n", io.control.req.bits.batchFirst)
   }
 
   // Inbound requests from the cache. I setup some helper nodes here
@@ -557,8 +560,8 @@ class ProcessingElementTable extends DanaModule {
         pe(peArbiter.io.out.bits.index).req.valid := Bool(true)
       }
       is (PE_states('e_PE_ERROR_BACKPROP_WEIGHT_WB)) {
-        val tIdx = table(peArbiter.io.out.bits.index).tIdx
         val peIdx = peArbiter.io.out.bits.index
+        val tIdx = table(peIdx).tIdx
         val addrWB = table(tIdx).dwAddr
         // Send a request to the Register File to writeback the
         // partial weight block. If this is the first weight block
@@ -570,8 +573,12 @@ class ProcessingElementTable extends DanaModule {
         when (addrWB > regFileBlockWbTable(tIdx)) {
           regFileBlockWbTable(tIdx) := addrWB
           io.regFile.req.bits.reqType := e_PE_WRITE_BLOCK_NEW
+          printf("[INFO] PE Table: _WEIGHT_WB reqType/datablock 0x%x/0x%x\n",
+            e_PE_WRITE_BLOCK_NEW, peArbiter.io.out.bits.dataBlock.toBits)
         } .otherwise {
           io.regFile.req.bits.reqType := e_PE_WRITE_BLOCK_ACC
+          printf("[INFO] PE Table: _WEIGHT_WB reqType/datablock 0x%x/0x%x\n",
+            e_PE_WRITE_BLOCK_ACC, peArbiter.io.out.bits.dataBlock.toBits)
         }
         io.regFile.req.bits.addr := addrWB
         io.regFile.req.bits.tIdx := tIdx
@@ -657,7 +664,11 @@ class ProcessingElementTable extends DanaModule {
         io.regFile.req.bits.peIndex := peArbiter.io.out.bits.index
         // [TODO] This needs to be updated for when we do a batch
         // update with more than one input--output pair
-        io.regFile.req.bits.reqType := e_PE_WRITE_BLOCK_NEW
+        when (table(peIdx).batchFirst) {
+          io.regFile.req.bits.reqType := e_PE_WRITE_BLOCK_NEW
+        } .otherwise {
+          io.regFile.req.bits.reqType := e_PE_WRITE_BLOCK_ACC
+        }
         io.regFile.req.bits.addr := table(peIdx).slopeAddr - UInt(elementsPerBlock) +
           table(peIdx).weightoffset
         io.regFile.req.bits.tIdx := table(peIdx).tIdx
@@ -669,15 +680,31 @@ class ProcessingElementTable extends DanaModule {
       }
       is (PE_states('e_PE_SLOPE_BIAS_WB)) {
         val peIdx = peArbiter.io.out.bits.index
+        val biasAddrLSBs = table(peIdx).biasAddr(log2Up(elementsPerBlock)-1,0)
 
         io.regFile.req.valid := Bool(true)
         io.regFile.req.bits.isWrite := Bool(true)
         io.regFile.req.bits.incWriteCount := Bool(true)
         io.regFile.req.bits.peIndex := peArbiter.io.out.bits.index
-        io.regFile.req.bits.reqType := e_PE_WRITE_ELEMENT
+        // [TODO] This needs to be an increment update in the event
+        // that we're in batch mode and not in the first item
+        when (table(peIdx).batchFirst) {
+          io.regFile.req.bits.reqType := e_PE_WRITE_ELEMENT
+        } .otherwise {
+          io.regFile.req.bits.reqType := e_PE_WRITE_BLOCK_ACC
+        }
+        io.regFile.req.bits.data := peArbiter.io.out.bits.data
+        io.regFile.req.bits.dataBlock := UInt(0)
+        // io.regFile.req.bits.dataBlock :=
+        //   peArbiter.io.out.bits.data << UInt(UInt(elementWidth) * biasAddrLSBs)
+        io.regFile.req.bits.dataBlock(
+          UInt(elementWidth) * (biasAddrLSBs + UInt(1)) - UInt(1),
+          UInt(elementWidth) * biasAddrLSBs) := peArbiter.io.out.bits.data
+        printf("[INFO] PE Table: Bias addressing [%d, %d]\n",
+          UInt(elementWidth) * (biasAddrLSBs + UInt(1)) - UInt(1),
+          UInt(elementWidth) * biasAddrLSBs)
         io.regFile.req.bits.addr := table(peIdx).biasAddr
         io.regFile.req.bits.tIdx := table(peIdx).tIdx
-        io.regFile.req.bits.data := peArbiter.io.out.bits.data
         io.regFile.req.bits.location := table(peIdx).location
 
         pe(peIdx).req.valid := Bool(true)

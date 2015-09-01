@@ -33,7 +33,7 @@ class AsidUnit extends DanaModule with XFilesParameters {
   val updateAsid = io.core.s && io.core.cmd.bits.inst.funct === UInt(0)
   val updateANTP = io.core.s && io.core.cmd.bits.inst.funct === UInt(1)
   val newRequest = !io.core.s && io.core.cmd.bits.inst.funct(0) &&
-    io.core.cmd.bits.inst.funct(1)
+    io.core.cmd.bits.inst.funct(1) && !io.core.cmd.bits.inst.funct(2)
 
   // Defaults
   io.antw.req.valid := Bool(false)
