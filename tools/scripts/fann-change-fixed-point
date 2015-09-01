@@ -1,0 +1,54 @@
+#!/usr/bin/perl
+
+use strict;
+use warnings;
+
+sub usage {
+    my $usage = <<'END';
+Usage: fann-change-fixed-point net binary-point
+Changes the binary point of an existing FANN configuration.
+END
+    print $usage;
+}
+
+if ($#ARGV != 1) {
+    usage() and die "[ERROR] Wrong number of inputs";
+}
+
+my $file_net = $ARGV[0];
+my $binary_point = $ARGV[1];
+
+open FILE_IN, "<$file_net" or die "[ERROR] unable to open <$file_net";
+
+my $old_binary_point = -1;
+my $multiplier = 0;
+while (<FILE_IN>) {
+    if ($_ =~ /^decimal_point=(\d+)/) {
+        $old_binary_point = $1;
+        $multiplier = 2**($binary_point-$old_binary_point);
+        print "decimal_point=$binary_point\n";
+        next;
+    }
+
+    if ($_ =~ /^(neurons.+=)(.+)$/) {
+        my $new_neurons = $2;
+        print "$1";
+        $new_neurons =~
+            s/\((\d+), (\d+), (\d+)\)/"($1, $2, ".int($3*$multiplier).")"/eg;
+        print "$new_neurons\n";
+        next;
+    }
+
+    if ($_ =~ /^(connections.+=)(.+)/) {
+        my $new_connections = $2;
+        print "$1";
+        $new_connections =~
+            s/\((\d+), (-?\d+)\)/"($1, ".int($2*$multiplier).")"/eg;
+        print "$new_connections\n";
+        next;
+    }
+
+    print $_;
+}
+
+close FILE_IN;
