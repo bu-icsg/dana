@@ -445,6 +445,12 @@ class ProcessingElementTable extends DanaModule {
   biasUpdateVec := UInt(0)
   biasUpdateVec(biasIndex * UInt(2) + UInt(1)) := peArbiter.io.out.bits.data
 
+  val biasAddrLSBs = table(peArbiter.io.out.bits.index).biasAddr(
+    log2Up(elementsPerBlock)-1,0)
+  val biasUpdateVecSlope = Vec.fill(elementsPerBlock){UInt(width=elementWidth)}
+  biasUpdateVecSlope := UInt(0)
+  biasUpdateVecSlope(biasAddrLSBs) := peArbiter.io.out.bits.data
+
   // If the arbiter is showing a valid output, then we have to
   // generate some requests based on which PE the arbiter has
   // determined needs something. The action taken depends on the state
@@ -680,7 +686,6 @@ class ProcessingElementTable extends DanaModule {
       }
       is (PE_states('e_PE_SLOPE_BIAS_WB)) {
         val peIdx = peArbiter.io.out.bits.index
-        val biasAddrLSBs = table(peIdx).biasAddr(log2Up(elementsPerBlock)-1,0)
 
         io.regFile.req.valid := Bool(true)
         io.regFile.req.bits.isWrite := Bool(true)
@@ -694,15 +699,20 @@ class ProcessingElementTable extends DanaModule {
           io.regFile.req.bits.reqType := e_PE_WRITE_BLOCK_ACC
         }
         io.regFile.req.bits.data := peArbiter.io.out.bits.data
-        io.regFile.req.bits.dataBlock := UInt(0)
         // io.regFile.req.bits.dataBlock :=
         //   peArbiter.io.out.bits.data << UInt(UInt(elementWidth) * biasAddrLSBs)
-        io.regFile.req.bits.dataBlock(
-          UInt(elementWidth) * (biasAddrLSBs + UInt(1)) - UInt(1),
-          UInt(elementWidth) * biasAddrLSBs) := peArbiter.io.out.bits.data
-        printf("[INFO] PE Table: Bias addressing [%d, %d]\n",
-          UInt(elementWidth) * (biasAddrLSBs + UInt(1)) - UInt(1),
-          UInt(elementWidth) * biasAddrLSBs)
+        // io.regFile.req.bits.dataBlock := UInt(0)
+        // io.regFile.req.bits.dataBlock(
+        //   UInt(elementWidth) * (biasAddrLSBs + UInt(1)) - UInt(1),
+        //   UInt(elementWidth) * biasAddrLSBs) := peArbiter.io.out.bits.data
+        // printf("[INFO] PE Table: Bias addressing [%d, %d]\n",
+        //   UInt(elementWidth) * (biasAddrLSBs + UInt(1)) - UInt(1),
+        //   UInt(elementWidth) * biasAddrLSBs)
+
+        io.regFile.req.bits.dataBlock := biasUpdateVecSlope.toBits
+        printf("[INFO] PE Table: bias wb slope: 0x%x\n",
+          biasUpdateVecSlope.toBits)
+
         io.regFile.req.bits.addr := table(peIdx).biasAddr
         io.regFile.req.bits.tIdx := table(peIdx).tIdx
         io.regFile.req.bits.location := table(peIdx).location

@@ -316,8 +316,6 @@ class ActivationFunction extends DanaModule {
           out := dataIn
         }
         is (e_FANN_ERRORFUNC_TANH) {
-          printf("[INFO] AF: atanhSlope/dataIn/atanhOffsetX/atanhOffsetY %x/%x/%x/%x\n",
-            atanhSlope, dataIn, atanhOffsetX, atanhOffsetY)
           out := ((atanhSlope*(dataIn-atanhOffsetX) >> decimal) + atanhOffsetY)
         }
       }

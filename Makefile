@@ -84,6 +84,7 @@ RV_TESTS             = hello.c \
 	rsa-rocc-supervisor-incremental.c \
 	rsa-rocc-supervisor-batch.c \
 	rsa-rocc-supervisor-batch-fast.c \
+	xor-batch.c \
 	torture.c
 RV_TESTS_EXECUTABLES = $(RV_TESTS:%.c=$(DIR_BUILD)/%.rv)
 RV_TESTS_DISASM      = $(RV_TESTS:%.c=$(DIR_BUILD)/%.rvS)
@@ -115,8 +116,9 @@ XFILES_LIBRARIES_OBJECTS = $(DIR_BUILD)/xfiles-user.o $(DIR_BUILD)/xfiles-superv
 # Network Configurations
 NETS=3sum collatz rsa ll edip blackscholes fft inversek2j jmeint jpeg kmeans sobel amos
 NETS_THRESHOLD=3sum collatz ll rsa amos
+NETS += xor
 # Only certain networks have valid training files
-NETS_TRAIN=blackscholes fft inversek2j jmeint jpeg kmeans rsa sobel
+NETS_TRAIN=blackscholes fft inversek2j jmeint jpeg kmeans rsa sobel xor
 NETS_BIN=$(addprefix $(DIR_BUILD)/nets/, $(addsuffix -fixed.16bin, $(NETS)) \
 	$(addsuffix -fixed.32bin, $(NETS)) \
 	$(addsuffix -fixed.64bin, $(NETS)) \
@@ -140,12 +142,15 @@ FLOAT_TO_FIXED=$(DIR_USR_BIN)/fann-float-to-fixed
 WRITE_FANN_CONFIG=$(DIR_USR_BIN)/write-fann-config-for-accelerator
 BIN_TO_C_HEADER=$(DIR_USR_BIN)/bin-config-to-c-header
 TRAIN_TO_C_HEADER=$(DIR_USR_BIN)/fann-train-to-c-header
+TRAIN_TO_C_HEADER_FIXED=$(DIR_USR_BIN)/fann-train-to-c-header-fixed
 FANN_RANDOM=$(DIR_USR_BIN)/fann-random
+FANN_CHANGE_FIXED_POINT=$(DIR_USR_BIN)/fann-change-fixed-point
 NETS_TOOLS = $(FLOAT_TO_FIXED) \
 	$(WRITE_FANN_CONFIG) \
 	$(BIN_TO_C_HEADER) \
 	$(TRAIN_TO_C_HEADER) \
-	$(FANN_RANDOM)
+	$(FANN_RANDOM) \
+	$(FANN_CHANGE_FIXED_POINT)
 DECIMAL_POINT_OFFSET=7
 
 vpath %.scala $(DIR_SRC_SCALA)
@@ -163,7 +168,7 @@ vpath %bin $(DIR_BUILD)/nets
 .PHONY: all clean cpp debug dot fann libraries mrproper nets run run-verilog \
 	tools vcd vcd-verilog verilog
 
-.PRECIOUS: $(DIR_BUILD)/nets/%-fixed.net
+.PRECIOUS: $(DIR_BUILD)/nets/%-fixed.net $(DIR_BUILD)/nets/%.net
 
 default: all
 
@@ -263,6 +268,11 @@ $(DIR_BUILD)/%.rvS: $(DIR_BUILD)/%.rv
 $(DIR_BUILD)/nets/%-fixed.net: %.net $(NETS_TOOLS)
 	$(FLOAT_TO_FIXED) $< $@
 
+$(DIR_BUILD)/nets/xor-fixed.net: $(NETS_TOOLS)
+	$(FANN_RANDOM) -l2 -l3 -l1 -a5 -o5 -f $@.tmp
+	$(FANN_CHANGE_FIXED_POINT) $@.tmp 10 > $@
+	rm $@.tmp
+
 $(DIR_BUILD)/nets/%.16bin: $(DIR_BUILD)/nets/%.net $(NETS_TOOLS)
 	$(WRITE_FANN_CONFIG) 16 $< $@ $(DECIMAL_POINT_OFFSET)
 
@@ -300,7 +310,8 @@ $(DIR_BUILD)/nets/%-128bin-64.h: $(DIR_BUILD)/nets/%.128bin $(NETS_TOOLS)
 	$(BIN_TO_C_HEADER) $< $(subst -,_,init-$(basename $(notdir $<))-128bin-64) 64 > $@
 
 $(DIR_BUILD)/nets/%_train.h: %.train $(NETS_TOOLS)
-	$(TRAIN_TO_C_HEADER) $(basename $<).net $< $(basename $(notdir $<)) > $@
+	$(TRAIN_TO_C_HEADER) $(basename $<).net $< $(basename $(notdir $<)) > $@ || \
+	$(TRAIN_TO_C_HEADER_FIXED) $(DIR_BUILD)/nets/$(notdir $(basename $<).net) $< $(basename $(notdir $<)) > $@
 
 $(DIR_BUILD)/nets:
 	mkdir -p $@

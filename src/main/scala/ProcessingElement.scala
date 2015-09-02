@@ -93,7 +93,7 @@ class ProcessingElement extends DanaModule {
   acc := acc
   derivative := derivative
   derivativeSigmoidSymmetric := applySteepness(
-    (SInt(1) << decimal) - (dataOut * dataOut >> decimal)(elementWidth-1,0),
+    (SInt(1) << decimal) - ((dataOut * dataOut) >> decimal)(elementWidth-1,0),
     io.req.bits.steepness)
   io.req.ready := Bool(false)
   io.resp.valid := Bool(false)
@@ -188,6 +188,11 @@ class ProcessingElement extends DanaModule {
       acc := acc + ((io.req.bits.iBlock(blockIndex) * io.req.bits.wBlock(blockIndex)) >>
         (io.req.bits.decimalPoint + UInt(decimalPointOffset, width = decimalPointWidth + 1)))(elementWidth-1,0)
       index := index + UInt(1)
+      printf("[INFO] PE: run 0x%x + (0x%x * 0x%x) >> 0x%x = 0x%x\n",
+        acc, io.req.bits.iBlock(blockIndex), io.req.bits.wBlock(blockIndex),
+        (io.req.bits.decimalPoint + UInt(decimalPointOffset, width = decimalPointWidth + 1)),
+        acc + ((io.req.bits.iBlock(blockIndex) * io.req.bits.wBlock(blockIndex)) >>
+        (io.req.bits.decimalPoint + UInt(decimalPointOffset, width = decimalPointWidth + 1)))(elementWidth-1,0))
     }
     is (PE_states('e_PE_ACTIVATION_FUNCTION)) {
       af.io.req.valid := Bool(true)
@@ -204,27 +209,37 @@ class ProcessingElement extends DanaModule {
 
       switch (io.req.bits.activationFunction) {
         // [TODO] negative shifts, probably broken!
-        printf("[INFO] PE: decimal point is 0x%x\n", decimal)
         is(e_FANN_LINEAR) {
           derivative := SInt(1) >> (decimal + UInt(steepnessOffset) -
             io.req.bits.steepness)
+          printf("[INFO] PE: derivative linear: 0x%x\n",
+            SInt(1) >> (decimal + UInt(steepnessOffset) -
+            io.req.bits.steepness))
         }
         is(e_FANN_SIGMOID) {
           derivative := (dataOut * ((SInt(1) << decimal) - dataOut)) >>
             (decimal + UInt(steepnessOffset) - io.req.bits.steepness - UInt(1))
+          printf("[INFO] PE: derivative sigmoid: 0x%x\n",
+            (dataOut * ((SInt(1) << decimal) - dataOut)) >>
+              (decimal + UInt(steepnessOffset) - io.req.bits.steepness - UInt(1)))
         }
         is(e_FANN_SIGMOID_STEPWISE) {
           derivative := (dataOut * ((SInt(1) << decimal) - dataOut)) >>
             (decimal + UInt(steepnessOffset) - io.req.bits.steepness - UInt(1))
+          printf("[INFO] PE: derivative sigmoid: 0x%x\n",
+            (dataOut * ((SInt(1) << decimal) - dataOut)) >>
+              (decimal + UInt(steepnessOffset) - io.req.bits.steepness - UInt(1)))
         }
         is(e_FANN_SIGMOID_SYMMETRIC) {
           // [TODO] shift by steepness possibly broken if "steepness" is negative
           derivative := derivativeSigmoidSymmetric
-
+          printf("[INFO] PE: derivative sigmoid symmetric: 0x%x\n",
+            derivativeSigmoidSymmetric)
         }
         is(e_FANN_SIGMOID_SYMMETRIC_STEPWISE) {
           derivative := derivativeSigmoidSymmetric
-
+          printf("[INFO] PE: derivative sigmoid symmetric: 0x%x\n",
+            derivativeSigmoidSymmetric)
         }
       }
     }
@@ -236,20 +251,20 @@ class ProcessingElement extends DanaModule {
       state := Mux(io.req.valid, PE_states('e_PE_COMPUTE_ERROR), state)
     }
     is (PE_states('e_PE_COMPUTE_ERROR)) {
+      val error = io.req.bits.learnReg - dataOut
+      val errorSym = error >> UInt(1)
       // Divide by 2 should be conditional on being in a symmetric
       when (io.req.bits.activationFunction === e_FANN_SIGMOID_SYMMETRIC ||
         io.req.bits.activationFunction === e_FANN_SIGMOID_SYMMETRIC_STEPWISE) {
-        errorOut := (io.req.bits.learnReg - dataOut) >> UInt(1)
-        mse := (((io.req.bits.learnReg - dataOut) >> UInt(1)) * ((io.req.bits.learnReg - dataOut) >> UInt(1))) >> decimal
+        errorOut := errorSym
+        mse := (errorSym * errorSym) >> decimal
         printf("[INFO] PE: errorOut and Error square set to 0x%x and  0x%x\n",
-          (io.req.bits.learnReg - dataOut) >> UInt(1),
-          (((io.req.bits.learnReg - dataOut) >> UInt(1)) * ((io.req.bits.learnReg - dataOut) >> UInt(1))) >> decimal)
+          errorSym, (errorSym * errorSym) >> decimal)
       } .otherwise {
-        errorOut := io.req.bits.learnReg - dataOut
-        mse := (((io.req.bits.learnReg - dataOut)) * ((io.req.bits.learnReg - dataOut))) >> decimal
+        errorOut := error
+        mse := (error * error) >> decimal
         printf("[INFO] PE: errorOut and Error square set to 0x%x and  0x%x\n",
-          io.req.bits.learnReg - dataOut,
-          (((io.req.bits.learnReg - dataOut)) * ((io.req.bits.learnReg - dataOut))) >> decimal)
+          error, (error * error) >> decimal)
       }
       state := PE_states('e_PE_ERROR_FUNCTION)
     }
@@ -259,6 +274,9 @@ class ProcessingElement extends DanaModule {
       af.io.req.bits.afType := e_AF_DO_ERROR_FUNCTION
       state := Mux(af.io.resp.valid, PE_states('e_PE_COMPUTE_DELTA), state)
       errorOut := Mux(af.io.resp.valid, af.io.resp.bits.out, errorOut)
+      when (af.io.resp.valid) {
+        printf("[INFO] PE: errFn(0x%x) = 0x%x\n", errorOut, af.io.resp.bits.out)
+      }
     }
     is (PE_states('e_PE_COMPUTE_DELTA)){
       // Reset the index in preparation for doing the deltas in the
@@ -268,14 +286,13 @@ class ProcessingElement extends DanaModule {
       switch(io.req.bits.stateLearn){
         is(e_TTABLE_STATE_LEARN_FEEDFORWARD){
           errorOut := (der * errorOut) >> decimal
-          printf("[INFO] PE sees errFn/(errFn*derivative)/ derivative 0x%x/0x%x/0x%x\n",
-            errorOut, (der * errorOut) >> decimal, der)
+          printf("[INFO] PE: delta (output) 0x%x * 0x%x = 0x%x\n",
+            der, errorOut, (der * errorOut) >> decimal)
           state := PE_states('e_PE_DELTA_WRITE_BACK)
         }
         is(e_TTABLE_STATE_LEARN_ERROR_BACKPROP){
           errorOut := (der * io.req.bits.dw_in) >> decimal
-          printf("[INFO] PE sees delta/derivative 0x%x/0x%x\n",
-            (der * io.req.bits.dw_in) >> decimal, der)
+          printf("[INFO] PE sees errFn*derivative 0x%x\n", der)
           when(io.req.bits.inFirst) {
             state := PE_states('e_PE_REQUEST_INPUTS_AND_WEIGHTS)
           }.otherwise {
@@ -327,6 +344,13 @@ class ProcessingElement extends DanaModule {
       weightWB(blockIndex) := (errorOut * io.req.bits.wBlock(blockIndex)) >>
         (io.req.bits.decimalPoint +
           UInt(decimalPointOffset, width=decimalPointWidth +1))
+      printf("[INFO] PE: d*weight (0x%x * 0x%x) >> 0x%x = 0x%x\n",
+        errorOut, io.req.bits.wBlock(blockIndex),
+        (io.req.bits.decimalPoint +
+          UInt(decimalPointOffset, width=decimalPointWidth +1)),
+        (errorOut * io.req.bits.wBlock(blockIndex)) >>
+        (io.req.bits.decimalPoint +
+          UInt(decimalPointOffset, width=decimalPointWidth +1)))
       index := index + UInt(1)
     }
     is (PE_states('e_PE_ERROR_BACKPROP_WEIGHT_WB)) {
@@ -368,7 +392,7 @@ class ProcessingElement extends DanaModule {
       io.resp.valid := Bool(true)
     }
     is(PE_states('e_PE_RUN_UPDATE_SLOPE)){
-      val delta = Mux(io.req.bits.inFirst, errorOut, io.req.bits.learnReg)
+      val delta = Mux(io.req.bits.inFirst, io.req.bits.dw_in, io.req.bits.learnReg)
       val blockIndex = index(log2Up(elementsPerBlock) - 1, 0)
       when (index === (io.req.bits.numWeights - UInt(1)) ||
         blockIndex === UInt(elementsPerBlock - 1)) {
@@ -378,17 +402,21 @@ class ProcessingElement extends DanaModule {
       }
       weightWB(blockIndex) := ((delta * io.req.bits.iBlock(blockIndex)) >>
         decimal)(elementWidth-1,0)
+      printf("[INFO] PE: update slope 0x%x * 0x%x = 0x%x\n",
+        delta, io.req.bits.iBlock(blockIndex),
+        ((delta * io.req.bits.iBlock(blockIndex)) >>
+          decimal)(elementWidth-1,0))
       index := index + UInt(1)
-      printf("[INFO] PE : numWeights/index 0x%x/0x%x\n", io.req.bits.numWeights, index)
     }
     is(PE_states('e_PE_SLOPE_WB)){
-      val delta = Mux(io.req.bits.inFirst, errorOut, io.req.bits.learnReg)
+      val delta = Mux(io.req.bits.inFirst, io.req.bits.dw_in, io.req.bits.learnReg)
       val nextState = Mux(index === io.req.bits.numWeights,
         PE_states('e_PE_SLOPE_BIAS_WB),
         PE_states('e_PE_REQUEST_INPUTS_AND_WEIGHTS))
       state := Mux(io.req.valid, nextState, state)
       io.resp.valid := Bool(true)
       // Setup the bias to be written back
+      printf("[INFO] PE: bias wb: 0x%x\n", delta)
       dataOut := delta
     }
     is (PE_states('e_PE_SLOPE_BIAS_WB)) {
@@ -415,16 +443,23 @@ class ProcessingElement extends DanaModule {
         io.req.bits.learningRate) >> decimal
       val weightDecay = (-io.req.bits.wBlock(blockIndex) * io.req.bits.lambda) >>
         decimal
-      printf("[INFO] PE: delta after 0.7 learning rate: 0x%x\n", delta)
-      printf("[INFO] PE: weight decay: 0x%x\n", weightDecay)
       when (io.req.bits.tType === e_TTYPE_BATCH) {
         // [TODO] Need to divide the learning rate by the number of
         // training items
         weightWB(blockIndex):= ((io.req.bits.iBlock(blockIndex) *
           io.req.bits.learningRate) >> decimal) + weightDecay
+        printf("[INFO] PE: weight update %d: 0x%x * 0x%x + 0x%x = 0x%x\n",
+          blockIndex,
+          io.req.bits.iBlock(blockIndex), io.req.bits.learningRate, weightDecay,
+          ((io.req.bits.iBlock(blockIndex) *
+          io.req.bits.learningRate) >> decimal) + weightDecay)
       } .otherwise {
         weightWB(blockIndex):=
           ((delta * io.req.bits.iBlock(blockIndex)) >> decimal) + weightDecay
+        printf("[INFO] PE: weight update %d: 0x%x * 0x%x + 0x%x = 0x%x\n",
+          blockIndex,
+          io.req.bits.iBlock(blockIndex), delta, weightDecay,
+          ((delta * io.req.bits.iBlock(blockIndex)) >> decimal) + weightDecay)
       }
       index := index + UInt(1)
       dataOut := delta
