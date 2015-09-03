@@ -269,7 +269,7 @@ $(DIR_BUILD)/nets/%-fixed.net: %.net $(NETS_TOOLS)
 	$(FLOAT_TO_FIXED) $< $@
 
 $(DIR_BUILD)/nets/xor-fixed.net: $(NETS_TOOLS)
-	$(FANN_RANDOM) -l2 -l3 -l1 -a5 -o5 -f $@.tmp
+	$(FANN_RANDOM) -r0.7 -l2 -l3 -l1 -a5 -o5 -f $@.tmp
 	$(FANN_CHANGE_FIXED_POINT) $@.tmp 10 > $@
 	rm $@.tmp
 
