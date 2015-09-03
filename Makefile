@@ -113,10 +113,18 @@ XFILES_LIBRARIES = $(DIR_BUILD)/libxfiles.a
 #$(DIR_BUILD)/libxfiles.so
 XFILES_LIBRARIES_OBJECTS = $(DIR_BUILD)/xfiles-user.o $(DIR_BUILD)/xfiles-supervisor.o
 
-# Network Configurations
+# Network Configurations -- the convenction here is floating point
+# nets look like "foo.net" while the fixed point equivalent of this is
+# "foo-fixed.net". NETS and NETS_THRESHOLD have floating point
+# configurations which live in src/main/resources. NETS_GEN are
+# randomly initialized networks which have to be generated with
+# `fann-random` and will have their floating point versions put in
+# build/nets.
 NETS=3sum collatz rsa ll edip blackscholes fft inversek2j jmeint jpeg kmeans sobel amos
 NETS_THRESHOLD=3sum collatz ll rsa amos
-NETS += xor
+NETS_GEN=xor
+NETS+=$(NETS_GEN)
+NETS_FLOAT=$(addsuffix -float, $(NETS))
 # Only certain networks have valid training files
 NETS_TRAIN=blackscholes fft inversek2j jmeint jpeg kmeans rsa sobel xor
 NETS_BIN=$(addprefix $(DIR_BUILD)/nets/, $(addsuffix -fixed.16bin, $(NETS)) \
@@ -161,14 +169,16 @@ vpath %.h src/main/c
 vpath %.v $(DIR_TEST_V)
 vpath %.v $(DIR_SRC_V)
 vpath %.v $(DIR_BUILD)
-vpath %.net $(DIR_MAIN_RES) $(DIR_BUILD)/nets
+vpath %-float.net $(DIR_MAIN_RES)
 vpath %.train $(DIR_MAIN_RES) # This is missing *.train.X, e.g., *.train.100
 vpath %bin $(DIR_BUILD)/nets
 
 .PHONY: all clean cpp debug dot fann libraries mrproper nets run run-verilog \
 	tools vcd vcd-verilog verilog
 
-.PRECIOUS: $(DIR_BUILD)/nets/%-fixed.net $(DIR_BUILD)/nets/%.net
+.PRECIOUS: $(DIR_BUILD)/nets/%-fixed.net \
+	$(DIR_BUILD)/nets/%-float.net \
+	$(DIR_BUILD)/nets/%.net
 
 default: all
 
@@ -182,7 +192,7 @@ dot: $(BACKEND_DOT)
 fann:
 	cd submodules/fann && cmake . && make -j$(JOBS)
 
-nets: build/nets $(NETS_BIN) $(NETS_H) $(TRAIN_H)
+nets: $(DIR_BUILD)/nets $(NETS_BIN) $(NETS_H) $(TRAIN_H)
 
 libraries: $(XFILES_LIBRARIES)
 
@@ -257,7 +267,7 @@ $(DIR_BUILD)/%$(FPGA_CONFIG_DOT)-vcd.vvp: %.v $(BACKEND_VERILOG) $(HEADERS_V)
 
 #------------------- RISC-V Tests
 $(DIR_BUILD)/%.rv: %.c $(XFILES_LIBRARIES)
-	$(RV_GCC) -Wall -Werror -static -march=RV64IMAFDXcustom -Isrc/main/c -Ibuild/nets $< -o $@ -L$(DIR_BUILD) -lm -lxfiles
+	$(RV_GCC) -Wall -Werror -static -march=RV64IMAFDXcustom -Isrc/main/c -I$(DIR_BUILD)/nets $< -o $@ -L$(DIR_BUILD) -lm -lxfiles
 
 $(DIR_BUILD)/%.rvS: $(DIR_BUILD)/%.rv
 	$(RV_OBJDUMP) -S $< > $@
@@ -265,13 +275,14 @@ $(DIR_BUILD)/%.rvS: $(DIR_BUILD)/%.rv
 #------------------- Tools
 
 #------------------- Nets
-$(DIR_BUILD)/nets/%-fixed.net: %.net $(NETS_TOOLS)
+$(DIR_BUILD)/nets/%-fixed.net: $(DIR_BUILD)/nets/%-float.net $(NETS_TOOLS)
 	$(FLOAT_TO_FIXED) $< $@
 
-$(DIR_BUILD)/nets/xor-fixed.net: $(NETS_TOOLS)
-	$(FANN_RANDOM) -r0.7 -l2 -l3 -l1 -a5 -o5 -f $@.tmp
-	$(FANN_CHANGE_FIXED_POINT) $@.tmp 10 > $@
-	rm $@.tmp
+$(DIR_BUILD)/nets/%-fixed.net: %-float.net $(NETS_TOOLS)
+	$(FLOAT_TO_FIXED) $< $@
+
+$(DIR_BUILD)/nets/%-float.net: $(NETS_TOOLS)
+	$(FANN_RANDOM) -r0.7 -l2 -l3 -l1 -a5 -o5 $@
 
 $(DIR_BUILD)/nets/%.16bin: $(DIR_BUILD)/nets/%.net $(NETS_TOOLS)
 	$(WRITE_FANN_CONFIG) 16 $< $@ $(DECIMAL_POINT_OFFSET)
@@ -310,8 +321,10 @@ $(DIR_BUILD)/nets/%-128bin-64.h: $(DIR_BUILD)/nets/%.128bin $(NETS_TOOLS)
 	$(BIN_TO_C_HEADER) $< $(subst -,_,init-$(basename $(notdir $<))-128bin-64) 64 > $@
 
 $(DIR_BUILD)/nets/%_train.h: %.train $(NETS_TOOLS)
-	$(TRAIN_TO_C_HEADER) $(basename $<).net $< $(basename $(notdir $<)) > $@ || \
-	$(TRAIN_TO_C_HEADER_FIXED) $(DIR_BUILD)/nets/$(notdir $(basename $<).net) $< $(basename $(notdir $<)) > $@
+	if [[ -e $(DIR_MAIN_RES)/$(notdir $(basename $<)-float.net) ]]; \
+	  then $(TRAIN_TO_C_HEADER) $(basename $<)-float.net $< $(basename $(notdir $<)) > $@;\
+	  else $(TRAIN_TO_C_HEADER) $(DIR_BUILD)/nets/$(notdir $(basename $<)-float.net) $< $(basename $(notdir $<)) > $@; \
+	fi
 
 $(DIR_BUILD)/nets:
 	mkdir -p $@
