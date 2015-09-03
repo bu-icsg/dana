@@ -6,12 +6,11 @@
 
 static char * usage_message =
   "fann-random -l[1st hidden size] -l[2nd hidden size] -l... [options] file\n"
-  "Generate a random fann network with a specific topology and write it\n"
-  "to the specified file. The network must have at least two layers.\n"
+  "Generate a random floating point fann network with a specific topology\n"
+  "and write it to the specified file. The network must have at least two layers.\n"
   "\n"
   "Options:\n"
   "  -a, --af-hidden            set the activation function of all hidden neurons\n"
-  "  -f, --fixed-point          write output file as fixed point\n"
   "  -h, --help                 print this help and exit\n"
   "  -l, --layers               adds a layer to the network of a specific size\n"
   "  -n, --randomize-nguyen     initialize weights using Nguyen-Widrow (needs data)\n"
@@ -51,7 +50,7 @@ void add_layer (layers_struct ** layers, int new_layer) {
 }
 
 int main (int argc, char * argv[]) {
-  int c, fixed_point = 0;
+  int c;
   layers_struct * layers;
   const char * file;
 
@@ -69,22 +68,18 @@ int main (int argc, char * argv[]) {
     static struct option long_options[] = {
       {"af-hidden",          required_argument, 0, 'a'},
       {"help",               no_argument,       0, 'h'},
-      {"fixed-point",        no_argument,       0, 'f'},
       {"add-layer",          required_argument, 0, 'l'},
       {"randomize-nguyen",   required_argument, 0, 'n'},
       {"af-ouput",           required_argument, 0, 'o'},
       {"randomize-weights",  required_argument, 0, 'r'}
     };
     int option_index = 0;
-    c = getopt_long (argc, argv, "a:fhl:n:o:r:", long_options, &option_index);
+    c = getopt_long (argc, argv, "a:hl:n:o:r:", long_options, &option_index);
     if (c == -1)
       break;
     switch (c) {
     case 'a':
       layers->af_hidden = atoi(optarg);
-      break;
-    case 'f':
-      fixed_point = 1;
       break;
     case 'h':
       usage();
@@ -139,10 +134,7 @@ int main (int argc, char * argv[]) {
     fann_init_weights(ann, data);
     fann_destroy_train(data);
   }
-  if (fixed_point)
-    fann_save_to_fixed(ann, file);
-  else
-    fann_save(ann, file);
+  fann_save(ann, file);
   fann_destroy(ann);
 
   // Destroy the layers array
