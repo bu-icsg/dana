@@ -84,7 +84,8 @@ RV_TESTS             = hello.c \
 	rsa-rocc-supervisor-incremental.c \
 	rsa-rocc-supervisor-batch.c \
 	rsa-rocc-supervisor-batch-fast.c \
-	xor-batch.c \
+	xorSigmoid-batch.c \
+	xorSigmoidSymmetric-batch.c \
 	torture.c
 RV_TESTS_EXECUTABLES = $(RV_TESTS:%.c=$(DIR_BUILD)/%.rv)
 RV_TESTS_DISASM      = $(RV_TESTS:%.c=$(DIR_BUILD)/%.rvS)
@@ -122,11 +123,12 @@ XFILES_LIBRARIES_OBJECTS = $(DIR_BUILD)/xfiles-user.o $(DIR_BUILD)/xfiles-superv
 # build/nets.
 NETS=3sum collatz rsa ll edip blackscholes fft inversek2j jmeint jpeg kmeans sobel amos
 NETS_THRESHOLD=3sum collatz ll rsa amos
-NETS_GEN=xor
+NETS_GEN=xorSigmoid xorSigmoidSymmetric
 NETS+=$(NETS_GEN)
 NETS_FLOAT=$(addsuffix -float, $(NETS))
 # Only certain networks have valid training files
-NETS_TRAIN=blackscholes fft inversek2j jmeint jpeg kmeans rsa sobel xor
+NETS_TRAIN=blackscholes fft inversek2j jmeint jpeg kmeans rsa sobel \
+	xorSigmoid xorSigmoidSymmetric
 NETS_BIN=$(addprefix $(DIR_BUILD)/nets/, $(addsuffix -fixed.16bin, $(NETS)) \
 	$(addsuffix -fixed.32bin, $(NETS)) \
 	$(addsuffix -fixed.64bin, $(NETS)) \
@@ -281,8 +283,12 @@ $(DIR_BUILD)/nets/%-fixed.net: $(DIR_BUILD)/nets/%-float.net $(NETS_TOOLS)
 $(DIR_BUILD)/nets/%-fixed.net: %-float.net $(NETS_TOOLS)
 	$(FLOAT_TO_FIXED) $< $@
 
-$(DIR_BUILD)/nets/%-float.net: $(NETS_TOOLS)
-	$(FANN_RANDOM) -r0.7 -l2 -l3 -l1 -a5 -o5 $@
+$(DIR_BUILD)/nets/xorSigmoid-float.net: $(NETS_TOOLS)
+	$(FANN_RANDOM) -r0.7 -l2 -l3 -l1 -a5 -o3 $@
+
+$(DIR_BUILD)/nets/xorSigmoidSymmetric-float.net: $(NETS_TOOLS)
+	$(FANN_RANDOM) -nsrc/main/resources/xorSigmoidSymmetric.train \
+	-l2 -l3 -l1 -a5 -o5 $@
 
 $(DIR_BUILD)/nets/%.16bin: $(DIR_BUILD)/nets/%.net $(NETS_TOOLS)
 	$(WRITE_FANN_CONFIG) 16 $< $@ $(DECIMAL_POINT_OFFSET)
