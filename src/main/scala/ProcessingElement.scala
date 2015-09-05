@@ -131,8 +131,7 @@ class ProcessingElement extends DanaModule {
     is (PE_states('e_PE_WAIT_FOR_INFO)) {
       //state := Mux(io.req.valid, PE_states('e_PE_REQUEST_INPUTS_AND_WEIGHTS), state)
       when (io.req.valid && (io.req.bits.stateLearn === e_TTABLE_STATE_FEEDFORWARD ||
-        io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_FEEDFORWARD ||
-        io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_UPDATE_SLOPE)) {
+        io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_FEEDFORWARD)) {
         state := PE_states('e_PE_REQUEST_INPUTS_AND_WEIGHTS)
       } .elsewhen (io.req.valid &&
         (io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_ERROR_BACKPROP)) {
@@ -142,8 +141,8 @@ class ProcessingElement extends DanaModule {
         (io.req.bits.tType === e_TTYPE_BATCH)) {
           state := PE_states('e_PE_REQUEST_INPUTS_AND_WEIGHTS)
       } .elsewhen (io.req.valid &&
-        (io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_WEIGHT_UPDATE) ||
-        (io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_UPDATE_SLOPE)) {
+        (io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_WEIGHT_UPDATE ||
+          io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_UPDATE_SLOPE)) {
         state := PE_states('e_PE_WEIGHT_UPDATE_REQUEST_DELTA)
       } .otherwise{
         state := state
@@ -392,7 +391,7 @@ class ProcessingElement extends DanaModule {
       io.resp.valid := Bool(true)
     }
     is(PE_states('e_PE_RUN_UPDATE_SLOPE)){
-      val delta = Mux(io.req.bits.inFirst, io.req.bits.dw_in, io.req.bits.learnReg)
+      val delta = Mux(io.req.bits.inFirst, errorOut, io.req.bits.learnReg)
       val blockIndex = index(log2Up(elementsPerBlock) - 1, 0)
       when (index === (io.req.bits.numWeights - UInt(1)) ||
         blockIndex === UInt(elementsPerBlock - 1)) {
@@ -409,7 +408,7 @@ class ProcessingElement extends DanaModule {
       index := index + UInt(1)
     }
     is(PE_states('e_PE_SLOPE_WB)){
-      val delta = Mux(io.req.bits.inFirst, io.req.bits.dw_in, io.req.bits.learnReg)
+      val delta = Mux(io.req.bits.inFirst, errorOut, io.req.bits.learnReg)
       val nextState = Mux(index === io.req.bits.numWeights,
         PE_states('e_PE_SLOPE_BIAS_WB),
         PE_states('e_PE_REQUEST_INPUTS_AND_WEIGHTS))

@@ -180,6 +180,10 @@ class ActivationFunction extends DanaModule {
     dataIn := SInt(0)
   }
 
+  when (ioVal_d1) {
+    printf("[INFO] PE: AF(0x%x) = 0x%x\n", dataIn, out)
+  }
+
   def applySteepness(x: SInt, steepness: UInt): SInt = {
     val tmp = SInt()
     when (steepness < UInt(steepnessOffset)) {

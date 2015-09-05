@@ -95,9 +95,10 @@ abstract class DanaModule extends Module with DanaParameters
     Nil) = Enum(UInt(), 8)
   // Transaction register IDs used for write register request. This
   // must match "typedef enum xfiles_reg" in "xfiles.h".
-  val (e_TTABLE_WRITE_REG_BATCH_ITEMS :: // 0
-    e_TTABLE_WRITE_REG_LEARNING_RATE ::  // 1
-    Nil) = Enum(UInt(), 2)
+  val (e_TTABLE_WRITE_REG_BATCH_ITEMS ::      // 0
+    e_TTABLE_WRITE_REG_LEARNING_RATE ::       // 1
+    e_TTABLE_WRITE_REG_WEIGHT_DECAY_LAMBDA :: // 2
+    Nil) = Enum(UInt(), 3)
 
   // Cache Request Type
   val (e_CACHE_LOAD ::                // 0

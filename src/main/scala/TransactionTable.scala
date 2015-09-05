@@ -252,9 +252,17 @@ class TransactionTable extends XFilesModule {
           // This is a register write
           switch(cmd.regId) {
             is (e_TTABLE_WRITE_REG_BATCH_ITEMS) {
-              table(derefTidIndex).numBatchItems := cmd.regValue }
+              table(derefTidIndex).numBatchItems := cmd.regValue
+              printf("[INFO] TTable setting TID 0x%x numBatchItems to 0x%x\n",
+                cmd.tid, cmd.regValue)}
             is (e_TTABLE_WRITE_REG_LEARNING_RATE) {
-              table(derefTidIndex).learningRate := cmd.regValue }
+              table(derefTidIndex).learningRate := cmd.regValue
+              printf("[INFO] TTable setting TID 0x%x learningRate to 0x%x\n",
+                cmd.tid, cmd.regValue)}
+            is (e_TTABLE_WRITE_REG_WEIGHT_DECAY_LAMBDA) {
+              table(derefTidIndex).lambda := cmd.regValue
+              printf("[INFO] TTable setting TID 0x%x lambda to 0x%x\n",
+                cmd.tid, cmd.regValue)}
           }
           printf("[INFO] X-Files saw reg write TID/Reg/Value 0x%x/0x%x/0x%x\n",
             cmd.tid, cmd.regId, cmd.regValue)
@@ -429,7 +437,7 @@ class TransactionTable extends XFilesModule {
           table(tIdx).errorFunction := io.control.resp.bits.data(2)(
             errorFunctionWidth - 1, 0)
           // table(tIdx).learningRate := io.control.resp.bits.data(3)
-          table(tIdx).lambda := io.control.resp.bits.data(4)
+          // table(tIdx).lambda := io.control.resp.bits.data(4)
           table(tIdx).numWeightBlocks := io.control.resp.bits.data(5)
           table(tIdx).globalWtptr := io.control.resp.bits.globalWtptr
           // Once we know the cache is valid, this entry is no longer waiting
@@ -445,9 +453,9 @@ class TransactionTable extends XFilesModule {
           printf("[INFO]   error function:          0x%x\n",
             io.control.resp.bits.data(2)(
               errorFunctionWidth - 1, 0))
-          printf("[INFO]   learning rate:           0x%x\n",
+          printf("[INFO]   learning rate:           0x%x (NOT SET)\n",
             io.control.resp.bits.data(3))
-          printf("[INFO]   lambda:                  0x%x\n",
+          printf("[INFO]   lambda:                  0x%x (NOT SET)\n",
             io.control.resp.bits.data(4))
           printf("[INFO]   Totalweightblocks :      0x%x\n",
             io.control.resp.bits.data(5))
@@ -906,10 +914,10 @@ class TransactionTable extends XFilesModule {
 
   // Assertions
 
-  // The X-FILES arbiter should only receive a request if it is
-  // asserting its ready signal.
+  // The X-FILES arbiter should only receive a new transaction request
+  // if it is asserting its ready signal (it has a free entry)
   assert(!(io.arbiter.rocc.cmd.valid && cmd.readOrWrite && cmd.isNew &&
-    !hasFree),
+    !cmd.isLast && !hasFree),
     "TTable saw new write req, but doesn't have any free entries")
 
   // Only one inbound request or response on the same line can

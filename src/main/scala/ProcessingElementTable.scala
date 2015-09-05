@@ -405,7 +405,7 @@ class ProcessingElementTable extends DanaModule {
           (io.regFile.resp.bits.data)(elementWidth * (i + 1) - 1, elementWidth * i)))
         table(peIndex).dw_in := dataVec(addr)
         pe(peIndex).req.valid := Bool(true)
-        printf("[INFO] PETable: Valid RegFile E[out] resp PE/data 0x%x/0x%x\n",
+        printf("[INFO] PETable: Valid RegFile delta--weight resp PE/data 0x%x/0x%x\n",
           peIndex, io.regFile.resp.bits.data)
         printf("[INFO]          input delta weight product -> dataVec(0x%x): 0x%x\n",
           addr, dataVec(addr))
