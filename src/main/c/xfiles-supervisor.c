@@ -4,11 +4,11 @@ uint64_t set_asid (asid_type asid) {
   // This currently depends on a backing OS system call supported by
   // the Proxy Kernel (a basic RISC-V OS). Using the RISC-V function
   // calling convention, the asid is placed into register a0, the
-  // syscall ID (#1337) in register a7, and we generate a syscall. The
+  // syscall ID (#512) in register a7, and we generate a syscall. The
   // Proxy Kernel will then generate a special custom0 instruction
   // that sets the ASID. No output is expected, so we just return
   // whenever the OS returns control.
-  asm volatile ("mv a0, %[asid]; li a7, 1337; ecall"
+  asm volatile ("mv a0, %[asid]; li a7, 512; ecall"
                 :: [asid] "r" (asid)
                 : "a0", "a7");
   return 0;
@@ -18,7 +18,7 @@ uint64_t set_antp (asid_nnid_table * os_antp) {
   // As with `set_asid`, this relies on the Proxy Kernel to handle
   // this system call. This passes a pointer to the first ASID--NNID
   // table entry and the size (i.e., the number of ASIDs).
-  asm volatile ("mv a0, %[antp]; mv a1, %[size]; li a7, 1338; ecall"
+  asm volatile ("mv a0, %[antp]; mv a1, %[size]; li a7, 513; ecall"
                 :: [antp] "r" (os_antp->entry), [size] "r" (os_antp->size)
                 : "a0", "a7");
   return 0;
@@ -130,7 +130,7 @@ void asid_nnid_table_info(asid_nnid_table * table) {
 
 int attach_nn_configuration(asid_nnid_table ** table, uint16_t asid,
                             const char * file_name) {
-  int file_size;
+  int file_size, nnid;
   FILE *fp;
 
   if (asid >= (*table)->size) {
@@ -145,17 +145,22 @@ int attach_nn_configuration(asid_nnid_table ** table, uint16_t asid,
   // Open the file and find out how big it is so that we can allocate
   // the correct amount of space
   fp = fopen(file_name, "rb");
+  if (fp == NULL) {
+    printf("[ERROR] Unable to open %s\n", file_name);
+    return -1;
+  }
+  nnid = (*table)->entry[asid].num_valid;
   fseek(fp, 0, SEEK_END);
   file_size = ftell(fp) / sizeof(x_len);
   file_size += (ftell(fp) % sizeof(x_len)) ? 1 : 0;
   fseek(fp, 0, SEEK_SET);
-  (*table)->entry[asid].asid_nnid->size = file_size;
+  (*table)->entry[asid].asid_nnid[nnid].size = file_size;
 
   // Allocate space for this configuraiton
-  (*table)->entry[asid].asid_nnid->config =
+  (*table)->entry[asid].asid_nnid[nnid].config =
     (x_len *) malloc(file_size * sizeof(x_len));
   // Write the configuration
-  fread((*table)->entry[asid].asid_nnid->config, sizeof(x_len),
+  fread((*table)->entry[asid].asid_nnid[nnid].config, sizeof(x_len),
         file_size, fp);
 
   fclose(fp);

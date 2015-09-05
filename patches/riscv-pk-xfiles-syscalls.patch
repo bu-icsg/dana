@@ -119,17 +119,17 @@ index 44c62cd..39aa786 100644
  
    const static void* old_syscall_table[] = {
 diff --git a/pk/syscall.h b/pk/syscall.h
-index a4a1522..c407adc 100644
+index a4a1522..633858c 100644
 --- a/pk/syscall.h
 +++ b/pk/syscall.h
-@@ -54,6 +54,10 @@
- #define SYS_lstat 1039
- #define SYS_time 1062
+@@ -44,6 +44,10 @@
+ #define SYS_rt_sigprocmask 135
+ #define SYS_ioctl 29
  
 +// X-Files/Dana
-+#define SYS_xfiles_dana_set_asid 1337
-+#define SYS_xfiles_dana_set_antp 1338
++#define SYS_xfiles_dana_set_asid 512
++#define SYS_xfiles_dana_set_antp 513
 +
- #define IS_ERR_VALUE(x) ((unsigned long)(x) >= (unsigned long)-4096)
- #define ERR_PTR(x) ((void*)(long)(x))
- #define PTR_ERR(x) ((long)(x))
+ #define OLD_SYSCALL_THRESHOLD 1024
+ #define SYS_open 1024
+ #define SYS_link 1025
