@@ -86,7 +86,8 @@ RV_TESTS             = hello.c \
 	rsa-rocc-supervisor-batch-fast.c \
 	xorSigmoid-batch.c \
 	xorSigmoidSymmetric-batch.c \
-	torture.c
+	torture.c \
+	fann-batch.c
 RV_TESTS_EXECUTABLES = $(RV_TESTS:%.c=$(DIR_BUILD)/%.rv)
 RV_TESTS_DISASM      = $(RV_TESTS:%.c=$(DIR_BUILD)/%.rvS)
 
@@ -99,9 +100,9 @@ INCLUDES      = $(addprefix -include $(DIR_BUILD)/, \
 GPP_FLAGS     = $(INCLUDES) $(INCLUDE_PATHS:%=-I %) -g -std=c++11
 
 # RISC-V related options
-RV_GCC        = riscv64-unknown-elf-gcc
-RV_AR         = riscv64-unknown-elf-ar
-RV_OBJDUMP    = riscv64-unknown-elf-objdump
+RV_GCC        = riscv64-unknown-linux-gnu-gcc
+RV_AR         = riscv64-unknown-linux-gnu-ar
+RV_OBJDUMP    = riscv64-unknown-linux-gnu-objdump
 
 # Linker related options
 LIB_PATHS     = ../usr/lib
@@ -283,7 +284,7 @@ $(DIR_BUILD)/%$(FPGA_CONFIG_DOT)-vcd.vvp: %.v $(BACKEND_VERILOG) $(HEADERS_V)
 
 #------------------- RISC-V Tests
 $(DIR_BUILD)/%.rv: %.c $(XFILES_LIBRARIES)
-	$(RV_GCC) -Wall -Werror -static -march=RV64IMAFDXcustom -Isrc/main/c -I$(DIR_BUILD)/nets $< -o $@ -L$(DIR_BUILD) -lm -lxfiles
+	$(RV_GCC) -Wall -Werror -static -march=RV64IMAFDXcustom -Isrc/main/c -I$(DIR_BUILD)/nets -I$(DIR_USR_INCLUDE) $< -o $@ -Lusr/lib-rv -lxfiles -lfixedfann -lm
 
 $(DIR_BUILD)/%.rvS: $(DIR_BUILD)/%.rv
 	$(RV_OBJDUMP) -S $< > $@
