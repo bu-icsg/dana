@@ -191,10 +191,24 @@ cpp: $(BACKEND_CPP)
 
 dot: $(BACKEND_DOT)
 
-fann:
-	cd submodules/fann && cmake . && make -j$(JOBS)
+fann: $(DIR_BUILD)/fann
+	cd $(DIR_BUILD)/fann && \
+	cmake -DCMAKE_LIBRARY_OUTPUT_DIRECTORY=\
+	$(shell readlink -f $(DIR_BUILD)/fann) \
+	../../submodules/fann && \
+	make
 
-nets: $(DIR_BUILD)/nets $(NETS_BIN) $(NETS_H) $(TRAIN_H)
+fann-rv: $(DIR_BUILD)/fann-rv
+	cd $(DIR_BUILD)/fann-rv && \
+	cmake -DCMAKE_ARCHIVE_OUTPUT_DIRECTORY=\
+	$(shell readlink -f $(DIR_BUILD)/fann-rv) \
+	-DCMAKE_C_COMPILER=$$RISCV/bin/riscv64-unknown-linux-gnu-gcc \
+	-DCMAKE_CXX_COMPILER=$$RISCV/bin/riscv64-unknown-linux-gnu-g++ \
+	-DBUILD_SHARED_LIBS=OFF \
+	../../submodules/fann && \
+	make
+
+nets: tools $(DIR_BUILD)/nets $(NETS_BIN) $(NETS_H) $(TRAIN_H)
 
 libraries: $(XFILES_LIBRARIES)
 
@@ -209,7 +223,7 @@ run: $(TEST_EXECUTABLES) Makefile
 run-verilog: $(TEST_V_EXECUTABLES) Makefile
 	vvp $<
 
-tools: fann
+tools: fann fann-rv
 	make -j$(JOBS) -C tools
 
 vcd-verilog: $(DIR_BUILD)/t_XFilesDana$(FPGA_CONFIG_DOT)-vcd.vvp Makefile
@@ -333,6 +347,12 @@ $(DIR_BUILD)/nets/%_train.h: %.train $(NETS_TOOLS)
 	fi
 
 $(DIR_BUILD)/nets:
+	mkdir -p $@
+
+$(DIR_BUILD)/fann-rv:
+	mkdir -p $@
+
+$(DIR_BUILD)/fann:
 	mkdir -p $@
 
 #------------------- Populate a dummy cache (shouldn't be needed!)
