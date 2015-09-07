@@ -192,8 +192,8 @@ int main (int argc, char * argv[]) {
 
   // Print overall statistics in a parser-friendly way
  finish:
-  printf("[STAT] fann-batch-id%d-bit-fail %d\n", id, bits_failing);
-  printf("[STAT] fann-batch-id%d-final-epoch %d\n", id, epoch);
+  printf("# [STAT] fann-batch-id%d-bit-fail %d\n", id, bits_failing);
+  printf("# [STAT] fann-batch-id%d-final-epoch %d\n", id, epoch);
 
   // Free memory
  bail:
