@@ -1,0 +1,100 @@
+#! /usr/bin/perl
+
+# Completely generic data parser that adheres to a specific output log
+# format. All lines that we care about look like:
+#
+#    |------------------------------------- start of line, i.e., will match m/^/
+#    |    |-------------------------------- independent variable label and value
+#    |    |    |--------------------------- first dependent variable
+#    |    |    |    |---------------------- second dependent variable
+#    |    |    |    |                       ...
+#    |    |    |    |        |------------- last dependent variable
+#    |    v    v    v        v
+#    v   |-| |--| |--|     |--|
+# [STAT] x 0 y1 1 y2 2 ... yn n
+#
+# Variable labels are camelcase words that can include numbers.
+# Variable values are signed floats.
+
+use strict;
+use warnings;
+
+sub usage () {
+    print <<END
+Usage: $0 [file]
+END
+}
+
+sub append_hash {
+    # Grab the first two things and append them to the hash, recursing
+    # until we hit the end of the array.
+    my ($hash, $label, $value, @tail) = @_;
+    if ($#tail > 1) { append_hash(\%{$hash->{$value}}, @tail) }
+    else { $hash->{$value} = $tail[1] }
+}
+
+sub append_label {
+    my ($array, $label, $value, @tail) = @_;
+    push @{$array}, $label;
+    if (@tail) {
+        append_label(\@{$array}, @tail);
+    }
+}
+
+sub walk_hash {
+    my ($header, $string, $labels, $y) = @_;
+    foreach my $x (sort {$a <=> $b} keys $y) {
+        if (ref($y->{$x}) eq "HASH") {
+            my $new_string = $string."-".@{$labels}[0].$x;
+            my @new_labels = @{$labels}[1..scalar @{$labels}];
+            walk_hash($header, $new_string, \@new_labels, $y->{$x});
+        }
+        else {
+            if ($header) {
+                print $string."-".@{$labels}[0].$x." ";
+            }
+            else {
+                print $y->{$x}." ";
+            }
+        }
+    }
+}
+
+if ($#ARGV != 0) {
+    usage() and die "$0: Incorrect usage\n";
+}
+
+open FILE, "<$ARGV[0]" or die "Unable to open $ARGV[0]\n";
+
+# Populate the hash y
+my (%y, @words);
+while (<FILE>) {
+    my $line;
+    $line = $_;
+    chomp($line);
+    if ($line !~ m/^\[STAT\]/) { next; }
+    $line =~ s/^\[STAT\] *//;
+
+    @words = split(' ', $line);
+    # foreach (@words) { print "main: ".$_."\n"; }
+    append_hash(\%y, @words);
+}
+
+# Populate an array of labels for y
+my @labels;
+append_label(\@labels, @words);
+
+# Print the labels
+my @labels_dependent = @labels[1..$#labels];
+print $labels[0]." ";
+walk_hash(1, "mse", \@labels_dependent, \%{$y{0}});
+print "\n";
+
+# Print the data
+foreach my $x (sort {$a <=> $b} keys %y) {
+    print $x." ";
+    walk_hash(0, "",  \@labels_dependent, \%{$y{$x}});
+    print"\n";
+}
+
+close FILE;
