@@ -185,7 +185,7 @@ int main (int argc, char * argv[]) {
     if (flag_verbose)
       printf("%5d\n\n", epoch);
     if (flag_mse)
-      printf("[STAT] id%d bp%d mse%8.8f\n", id, binary_point, mse);
+      printf("[STAT] epoch%d id%d bp%d mse%8.8f\n", epoch, id, binary_point, mse);
     if (bits_failing == 0)
       goto finish;
   }
