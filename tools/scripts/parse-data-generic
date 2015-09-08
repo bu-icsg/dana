@@ -40,16 +40,24 @@ sub append_label {
 
 sub compress_hash_on_depth {
     my ($old_hash, $new_hash, $type, $depth, $target_depth) = @_;
-    my $num_compressed = 1;
+    my $num_compressed = 0;
     foreach my $x (sort {$a <=> $b} keys %{$old_hash}) {
         # If we hit a leaf, accumulate
         if (ref($old_hash->{$x}) ne "HASH") {
-            if ($type eq "acc") {
-                $new_hash->{$x} += $old_hash->{$x}}
-            else {die "Unknown compress type $type\n"}
+            if ($depth == $target_depth) {
+                if ($type eq "acc") {
+                    $new_hash->{0} += $old_hash->{$x};}
+                else {die "Unknown compress type $type\n"}
+                $num_compressed++;
+            }
+            else {
+                if ($type eq "acc") {
+                    $new_hash->{$x} += $old_hash->{$x};}
+                else {die "Unknown compress type $type\n"}
+            }
         }
         # If this we hit the target depth, then skip
-        elsif ($depth eq $target_depth) {
+        elsif ($depth == $target_depth) {
             compress_hash_on_depth($old_hash->{$x}, \%{$new_hash}, $type,
                                    $depth + 1, $target_depth);
             $num_compressed++;
