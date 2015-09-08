@@ -16,6 +16,7 @@ static char * usage_message =
   "  -f, --bit-fail-limit       sets the bit fail limit (default 0.05)\n"
   "  -h, --help                 print this help and exit\n"
   "  -i, --id                   numeric id to use for printing data (default 0)\n"
+  "  -l, --stat-last            print last epoch number statistic\n"
   "  -m, --stat-mse             print mse statistics\n"
   "  -n, --nn-config            the binary NN configuration to use\n"
   "  -t, --train-file           the fixed point FANN training file to use\n"
@@ -28,8 +29,8 @@ void usage() {
 }
 
 int main (int argc, char * argv[]) {
-  int exit_code = 0, max_epochs = 10000, flag_verbose = 0, bits_failing = -1,
-    id = 0, flag_mse = 0;
+  int exit_code = 0, max_epochs = 10000, bits_failing = -1, id = 0;
+  int flag_last = 0, flag_mse = 0, flag_verbose = 0;
   float bit_fail_limit = 0.05;
   struct fann_train_data * data = NULL;
 
@@ -42,6 +43,7 @@ int main (int argc, char * argv[]) {
       {"bit-fail-limit", required_argument, 0, 'f'},
       {"help",           no_argument,       0, 'h'},
       {"id",             required_argument, 0, 'i'},
+      {"stat-last",      no_argument,       0, 'l'},
       {"stat-mse",       no_argument,       0, 'm'},
       {"nn-config",      required_argument, 0, 'n'},
       {"train-file",     required_argument, 0, 't'},
@@ -68,6 +70,9 @@ int main (int argc, char * argv[]) {
       break;
     case 'i':
       id = atoi(optarg);
+      break;
+    case 'l':
+      flag_last = 1;
       break;
     case 'm':
       flag_mse = 1;
@@ -194,6 +199,8 @@ int main (int argc, char * argv[]) {
  finish:
   printf("# [STAT] fann-batch-id%d-bit-fail %d\n", id, bits_failing);
   printf("# [STAT] fann-batch-id%d-final-epoch %d\n", id, epoch);
+  if (flag_last)
+    printf("[STAT] epoch %d id %d\n", epoch, id);
 
   // Free memory
  bail:
