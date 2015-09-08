@@ -18,12 +18,9 @@
 
 use strict;
 use warnings;
-
-sub usage () {
-    print <<END
-Usage: $0 [file]
-END
-}
+use List::Util qw(first);
+use Getopt::Long;
+use Pod::Usage;
 
 sub append_hash {
     # Grab the first two things and append them to the hash, recursing
@@ -41,13 +38,55 @@ sub append_label {
     }
 }
 
+sub compress_hash_on_depth {
+    my ($old_hash, $new_hash, $type, $depth, $target_depth) = @_;
+    my $num_compressed = 1;
+    foreach my $x (sort {$a <=> $b} keys %{$old_hash}) {
+        # If we hit a leaf, accumulate
+        if (ref($old_hash->{$x}) ne "HASH") {
+            if ($type eq "acc") {
+                $new_hash->{$x} += $old_hash->{$x}}
+            else {die "Unknown compress type $type\n"}
+        }
+        # If this we hit the target depth, then skip
+        elsif ($depth eq $target_depth) {
+            compress_hash_on_depth($old_hash->{$x}, \%{$new_hash}, $type,
+                                   $depth + 1, $target_depth);
+            $num_compressed++;
+        }
+        # This isn't the target depth, so just recurse
+        else {
+            $num_compressed =
+                compress_hash_on_depth($old_hash->{$x}, \%{$new_hash->{$x}},
+                                       $type, $depth + 1, $target_depth);
+        }
+    }
+    return $num_compressed;
+}
+
+sub scale_leaves {
+    my ($hash, $scale) = @_;
+    foreach my $x (sort {$a <=> $b} keys %{$hash}) {
+        if (ref($hash->{$x}) ne "HASH") {
+            $hash->{$x} *= $scale;
+        }
+        else {
+            scale_leaves($hash->{$x}, $scale);
+        }
+    }
+}
+
 sub walk_hash {
-    my ($header, $string, $labels, $y) = @_;
-    foreach my $x (sort {$a <=> $b} keys $y) {
+    my ($header, $string, $labels, $y, $depth, $skip_depth) = @_;
+    foreach my $x (sort {$a <=> $b} keys %{$y}) {
         if (ref($y->{$x}) eq "HASH") {
-            my $new_string = $string."-".@{$labels}[0].$x;
+            my $new_string = $string;
+            if ($depth != $skip_depth) {
+                $new_string = $new_string."-".@{$labels}[0].$x;
+            }
             my @new_labels = @{$labels}[1..scalar @{$labels}];
-            walk_hash($header, $new_string, \@new_labels, $y->{$x});
+            walk_hash($header, $new_string, \@new_labels, $y->{$x}, $depth + 1,
+                $skip_depth);
         }
         else {
             if ($header) {
@@ -57,11 +96,27 @@ sub walk_hash {
                 print $y->{$x}." ";
             }
         }
+        if ($depth == $skip_depth) { last }
     }
 }
 
+# Parse options
+my $process = "none";
+my $key = "";
+my $help = 0;
+GetOptions ("process=s" => \$process,
+            "key=s" => \$key,
+            "help|?" => \$help)
+    or pod2usage(-1) and die "Bad command line arguments";
+
+if ($process ne "none") {
+    die "Process $process needs a key (--key)" if not $key;
+}
+
+pod2usage(1) if $help;
+
 if ($#ARGV != 0) {
-    usage() and die "$0: Incorrect usage\n";
+    pod2usage() and die "$0: Incorrect usage\n";
 }
 
 open FILE, "<$ARGV[0]" or die "Unable to open $ARGV[0]\n";
@@ -76,25 +131,95 @@ while (<FILE>) {
     $line =~ s/^\[STAT\] *//;
 
     @words = split(' ', $line);
-    # foreach (@words) { print "main: ".$_."\n"; }
     append_hash(\%y, @words);
 }
 
 # Populate an array of labels for y
 my @labels;
 append_label(\@labels, @words);
-
-# Print the labels
 my @labels_dependent = @labels[1..$#labels];
-print $labels[0]." ";
-walk_hash(1, "mse", \@labels_dependent, \%{$y{0}});
-print "\n";
 
-# Print the data
-foreach my $x (sort {$a <=> $b} keys %y) {
-    print $x." ";
-    walk_hash(0, "",  \@labels_dependent, \%{$y{$x}});
-    print"\n";
+# Process the data and generate an output
+if ($process eq "none") {
+    # Print labels
+    print $labels[0]." ";
+    walk_hash(1, "mse", \@labels_dependent, \%{$y{0}}, 1, -1);
+    print "\n";
+
+    # Print the data
+    foreach my $x (sort {$a <=> $b} keys %y) {
+        print $x." ";
+        walk_hash(0, "",  \@labels_dependent, \%{$y{$x}}, 1, -1);
+        print"\n";
+    }
+}
+elsif ($process eq "mean") {
+    # Accumulate data on a label using method "acc" (accumulate)
+    my %z;
+    my $scale = compress_hash_on_depth(\%y, \%z, "acc", 0,
+                                       first {$labels[$_] eq $key} 0..$#labels);
+
+    # Scale the leaf data by the number IDs
+    scale_leaves(\%z, 1/$scale);
+
+    # Compress the labels down based on the key
+    print $labels[0]." ";
+    walk_hash(1, "mse", \@labels_dependent, \%{$y{0}}, 1,
+              first {$labels[$_] eq $key} 0..$#labels);
+    print "\n";
+
+    # Print the data
+    foreach my $x (sort {$a <=> $b} keys %z) {
+        print $x." ";
+        walk_hash(0, "",  \@labels_dependent, \%{$z{$x}}, 1, -1);
+        print"\n";
+    }
+
 }
 
 close FILE;
+
+__END__
+
+=head1 NAME
+
+parse-data-generic
+
+=head1 SYNOPSIS
+
+parse-data-generic [options] file
+
+=head1 OPTIONS
+
+=over 4
+
+=item B<-h, -?, --help>
+
+Print this help message
+
+=item B<-p, --process>
+
+Type of post-processing to apply, options are:
+
+  * none: no processing, just dump data (the default)
+
+  * mean: average about a specific key with --key
+
+=item B<-k, --key>
+
+The key (label from the data) to use when processing the data. For
+example, when running "mean" processing, it's expected that you just
+generated a bunch of different runs and would like to get the average.
+These runs have some redundant label called "id". By passing this
+string on, we'll treat this key as the redundant dimension to
+compress.
+
+=head1 EXAMPLES
+
+Example Usage:
+
+  Parse a file and dump the data:
+    parse-data-generic run.log
+
+  Parse a file and compute the average compressing on key "id":
+    parse-data-generic run.log -p mean -k id
