@@ -74,8 +74,9 @@ class ProcessingElement extends DanaModule {
   // Local state storage. Any and all of these are possible kludges
   // which could be implemented more cleanly.
   val hasBias = Reg(Bool())
-  val steepness = UInt(width = elementWidth)
-  val decimal = UInt(decimalPointOffset, width = decimalPointWidth + 1) + io.req.bits.decimalPoint
+  val steepness = UInt(steepnessOffset) - io.req.bits.steepness
+  val decimal = UInt(decimalPointOffset, width = decimalPointWidth + 1) +
+    io.req.bits.decimalPoint
 
   def applySteepness(x: SInt, steepness: UInt): SInt = {
     val tmp = SInt()
@@ -88,6 +89,13 @@ class ProcessingElement extends DanaModule {
     }
     tmp
   }
+
+  // DSP Unit
+  // val a = SInt(width = elementWidth)
+  // val b = SInt(width = elementWidth)
+  // val c = SInt(width = elementWidth)
+  // val d = SInt(width = elementWidth)
+  // d := (a * b) >> c
 
   // Default values
   acc := acc
@@ -185,13 +193,13 @@ class ProcessingElement extends DanaModule {
         state := state
       }
       acc := acc + ((io.req.bits.iBlock(blockIndex) * io.req.bits.wBlock(blockIndex)) >>
-        (io.req.bits.decimalPoint + UInt(decimalPointOffset, width = decimalPointWidth + 1)))(elementWidth-1,0)
+        decimal)(elementWidth-1,0)
       index := index + UInt(1)
       printf("[INFO] PE: run 0x%x + (0x%x * 0x%x) >> 0x%x = 0x%x\n",
         acc, io.req.bits.iBlock(blockIndex), io.req.bits.wBlock(blockIndex),
-        (io.req.bits.decimalPoint + UInt(decimalPointOffset, width = decimalPointWidth + 1)),
+        decimal,
         acc + ((io.req.bits.iBlock(blockIndex) * io.req.bits.wBlock(blockIndex)) >>
-        (io.req.bits.decimalPoint + UInt(decimalPointOffset, width = decimalPointWidth + 1)))(elementWidth-1,0))
+        decimal)(elementWidth-1,0))
     }
     is (PE_states('e_PE_ACTIVATION_FUNCTION)) {
       af.io.req.valid := Bool(true)
@@ -209,25 +217,23 @@ class ProcessingElement extends DanaModule {
       switch (io.req.bits.activationFunction) {
         // [TODO] negative shifts, probably broken!
         is(e_FANN_LINEAR) {
-          derivative := SInt(1) >> (decimal + UInt(steepnessOffset) -
-            io.req.bits.steepness)
+          derivative := SInt(1) >> (decimal + steepness)
           printf("[INFO] PE: derivative linear: 0x%x\n",
-            SInt(1) >> (decimal + UInt(steepnessOffset) -
-            io.req.bits.steepness))
+            SInt(1) >> (decimal + steepness))
         }
         is(e_FANN_SIGMOID) {
           derivative := (dataOut * ((SInt(1) << decimal) - dataOut)) >>
-            (decimal + UInt(steepnessOffset) - io.req.bits.steepness - UInt(1))
+            (decimal + steepness - UInt(1))
           printf("[INFO] PE: derivative sigmoid: 0x%x\n",
             (dataOut * ((SInt(1) << decimal) - dataOut)) >>
-              (decimal + UInt(steepnessOffset) - io.req.bits.steepness - UInt(1)))
+              (decimal + steepness - UInt(1)))
         }
         is(e_FANN_SIGMOID_STEPWISE) {
           derivative := (dataOut * ((SInt(1) << decimal) - dataOut)) >>
-            (decimal + UInt(steepnessOffset) - io.req.bits.steepness - UInt(1))
+            (decimal + steepness - UInt(1))
           printf("[INFO] PE: derivative sigmoid: 0x%x\n",
             (dataOut * ((SInt(1) << decimal) - dataOut)) >>
-              (decimal + UInt(steepnessOffset) - io.req.bits.steepness - UInt(1)))
+              (decimal + steepness - UInt(1)))
         }
         is(e_FANN_SIGMOID_SYMMETRIC) {
           // [TODO] shift by steepness possibly broken if "steepness" is negative
@@ -341,15 +347,10 @@ class ProcessingElement extends DanaModule {
       }
 
       weightWB(blockIndex) := (errorOut * io.req.bits.wBlock(blockIndex)) >>
-        (io.req.bits.decimalPoint +
-          UInt(decimalPointOffset, width=decimalPointWidth +1))
+        decimal
       printf("[INFO] PE: d*weight (0x%x * 0x%x) >> 0x%x = 0x%x\n",
-        errorOut, io.req.bits.wBlock(blockIndex),
-        (io.req.bits.decimalPoint +
-          UInt(decimalPointOffset, width=decimalPointWidth +1)),
-        (errorOut * io.req.bits.wBlock(blockIndex)) >>
-        (io.req.bits.decimalPoint +
-          UInt(decimalPointOffset, width=decimalPointWidth +1)))
+        errorOut, io.req.bits.wBlock(blockIndex), decimal,
+        (errorOut * io.req.bits.wBlock(blockIndex)) >> decimal)
       index := index + UInt(1)
     }
     is (PE_states('e_PE_ERROR_BACKPROP_WEIGHT_WB)) {
