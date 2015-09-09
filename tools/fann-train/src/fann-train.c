@@ -29,8 +29,8 @@ int main (int argc, char * argv[]) {
   int max_epochs = 10000, exit_code = 0, id = 0;
   int flag_last = 0, flag_mse = 0, flag_verbose = 0;
   float bit_fail_limit = 0.05;
-  struct fann * ann;
-  struct fann_train_data * data;
+  struct fann * ann = NULL;
+  struct fann_train_data * data = NULL;
   fann_type * calc_out;
 
   char * file_nn = NULL, * file_train = NULL;
@@ -141,8 +141,10 @@ int main (int argc, char * argv[]) {
     printf("[STAT] x 0 id %d epoch %d\n", id, epoch);
 
  bail:
-  fann_destroy(ann);
-  fann_destroy_train(data);
+  if (ann != NULL)
+    fann_destroy(ann);
+  if (data != NULL)
+    fann_destroy_train(data);
 
   return exit_code;
 }
