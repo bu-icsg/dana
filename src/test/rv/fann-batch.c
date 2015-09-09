@@ -50,7 +50,7 @@ int main (int argc, char * argv[]) {
       {"verbose",        no_argument,       0, 'v'}
     };
     int option_index = 0;
-    c = getopt_long (argc, argv, "b:e:f:hi:mn:t:v", long_options, &option_index);
+    c = getopt_long (argc, argv, "b:e:f:hi:lmn:t:v", long_options, &option_index);
     if (c == -1)
       break;
     switch (c) {
@@ -197,10 +197,10 @@ int main (int argc, char * argv[]) {
 
   // Print overall statistics in a parser-friendly way
  finish:
-  printf("# [STAT] fann-batch-id%d-bit-fail %d\n", id, bits_failing);
-  printf("# [STAT] fann-batch-id%d-final-epoch %d\n", id, epoch);
+  // printf("# [STAT] fann-batch-id%d-bit-fail %d\n", id, bits_failing);
+  // printf("# [STAT] fann-batch-id%d-final-epoch %d\n", id, epoch);
   if (flag_last)
-    printf("[STAT] epoch %d id %d\n", epoch, id);
+    printf("[STAT] bp %d id %d epoch %d\n", binary_point, id, epoch);
 
   // Free memory
  bail:

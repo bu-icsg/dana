@@ -138,7 +138,7 @@ int main (int argc, char * argv[]) {
 
  finish:
   if (flag_last)
-    printf("[STAT] epoch %d id %d\n", epoch, id);
+    printf("[STAT] x 0 id %d epoch %d\n", id, epoch);
 
  bail:
   fann_destroy(ann);

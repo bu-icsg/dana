@@ -46,13 +46,46 @@ sub compress_hash_on_depth {
         if (ref($old_hash->{$x}) ne "HASH") {
             if ($depth == $target_depth) {
                 if ($type eq "acc") {
-                    $new_hash->{0} += $old_hash->{$x};}
+                    $new_hash->{0} += $old_hash->{$x};
+                    $num_compressed++;}
+                elsif ($type =~ /acc-(\w+)-([-.\d]+)/) {
+                    if ($1 eq "lt") {
+                        if ($old_hash->{$x} < $2) {
+                            $new_hash->{0} += $old_hash->{$x};
+                            $num_compressed++;}
+                        if (not $new_hash->{0}) {
+                            $new_hash->{0} = 0;}
+                    }
+                    else {die "Unknown comparison $1\n"}
+                }
+                elsif ($type =~ /percent-(\w+)-([-.\d]+)/) {
+                    my $comparison = $1;
+                    my $value = $2;
+                    if ($comparison eq "lt") {
+                        $new_hash->{0} += ($old_hash->{$x} < $value);
+                        $num_compressed++;}
+                    else {die "Unknown comparison $comparison\n"}
+                }
                 else {die "Unknown compress type $type\n"}
-                $num_compressed++;
             }
             else {
                 if ($type eq "acc") {
                     $new_hash->{$x} += $old_hash->{$x};}
+                elsif ($type =~ /acc-(\w+)-([-.\d]+)/) {
+                    if ($1 eq "lt") {
+                        if ($old_hash->{$x} < $2) {
+                            $new_hash->{$x} += $old_hash->{$x}}
+                        if (not $new_hash->{$x}) {
+                            $new_hash->{$x} = 0;}}
+                    else {die "Unknown comparison $1\n"}
+                }
+                elsif ($type =~ /percent-(\w+)-([-.\d]+)/) {
+                    my $comparison = $1;
+                    my $value = $2;
+                    if ($comparison eq "lt") {
+                        $new_hash->{$x} += ($old_hash->{$x} < $value);}
+                    else {die "Unknown comparison $comparison\n"}
+                }
                 else {die "Unknown compress type $type\n"}
             }
         }
@@ -111,9 +144,11 @@ sub walk_hash {
 # Parse options
 my $process = "none";
 my $key = "";
+my $label = "stat";
 my $help = 0;
 GetOptions ("process=s" => \$process,
             "key=s" => \$key,
+            "label=s" => \$label,
             "help|?" => \$help)
     or pod2usage(-1) and die "Bad command line arguments";
 
@@ -151,8 +186,11 @@ my @labels_dependent = @labels[1..$#labels];
 if ($process eq "none") {
     # Print labels
     print $labels[0]." ";
-    walk_hash(1, "mse", \@labels_dependent, \%{$y{0}}, 1, -1);
-    print "\n";
+    foreach my $x (sort {$a <=> $b} keys %y) {
+        walk_hash(1, $label, \@labels_dependent, \%{$y{$x}}, 1, -1);
+        print "\n";
+        last;
+    }
 
     # Print the data
     foreach my $x (sort {$a <=> $b} keys %y) {
@@ -172,17 +210,75 @@ elsif ($process eq "mean") {
 
     # Compress the labels down based on the key
     print $labels[0]." ";
-    walk_hash(1, "mse", \@labels_dependent, \%{$y{0}}, 1,
-              first {$labels[$_] eq $key} 0..$#labels);
-    print "\n";
+    foreach my $x (sort {$a <=> $b} keys %y) {
+        walk_hash(1, $label, \@labels_dependent, \%{$y{$x}}, 1,
+                  first {$labels[$_] eq $key} 0..$#labels);
+        print "\n";
+        last;
+    }
 
     # Print the data
+
     foreach my $x (sort {$a <=> $b} keys %z) {
         print $x." ";
         walk_hash(0, "",  \@labels_dependent, \%{$z{$x}}, 1, -1);
         print"\n";
     }
+}
+elsif ($process =~ m/mean-(\w+)-([-.\d]+)/) {
+    # Compress on a label, returning the percentage that are in
+    # relation to a specified value
+    my %z;
+    my $scale = compress_hash_on_depth(\%y, \%z, "acc-$1-$2", 0,
+                                       first {$labels[$_] eq $key} 0..$#labels);
+    # Scale the leaf data by the number IDs
+    scale_leaves(\%z, 1/$scale);
 
+    # Compress the labels down based on the key
+    print $labels[0]." ";
+    foreach my $x (sort {$a <=> $b} keys %y) {
+        walk_hash(1, $label, \@labels_dependent, \%{$y{$x}}, 1,
+                  first {$labels[$_] eq $key} 0..$#labels);
+        print "\n";
+        last;
+    }
+
+    # Print the data
+
+    foreach my $x (sort {$a <=> $b} keys %z) {
+        print $x." ";
+        walk_hash(0, "",  \@labels_dependent, \%{$z{$x}}, 1, -1);
+        print"\n";
+    }
+}
+elsif ($process =~ m/percent-(\w+)-([-.\d]+)/) {
+    # Compress on a label, returning the percentage that are in
+    # relation to a specified value
+    my %z;
+    my $scale = compress_hash_on_depth(\%y, \%z, $process, 0,
+                                       first {$labels[$_] eq $key} 0..$#labels);
+
+    scale_leaves(\%z, 1/$scale * 100);
+
+    # Compress the labels down based on the key
+    print $labels[0]." ";
+    foreach my $x (sort {$a <=> $b} keys %y) {
+        walk_hash(1, $label, \@labels_dependent, \%{$y{$x}}, 1,
+                  first {$labels[$_] eq $key} 0..$#labels);
+        print "\n";
+        last;
+    }
+
+    # Print the data
+
+    foreach my $x (sort {$a <=> $b} keys %z) {
+        print $x." ";
+        walk_hash(0, "",  \@labels_dependent, \%{$z{$x}}, 1, -1);
+        print"\n";
+    }
+}
+else {
+    pod2usage(1) and die "Bad command line arguments";
 }
 
 close FILE;
@@ -221,6 +317,10 @@ generated a bunch of different runs and would like to get the average.
 These runs have some redundant label called "id". By passing this
 string on, we'll treat this key as the redundant dimension to
 compress.
+
+=item B<-l, --label>
+
+Statistic label to use. Defaults to "stat" if not specif
 
 =head1 EXAMPLES
 
