@@ -35,6 +35,7 @@ int main (int argc, char * argv[]) {
   struct fann_train_data * data = NULL;
 
   char * file_nn = NULL, * file_train = NULL;
+  element_type * outputs = NULL;
   int binary_point = 0, c;
   while (1) {
     static struct option long_options[] = {
@@ -127,7 +128,6 @@ int main (int argc, char * argv[]) {
 
   // Train on the provided data
   int epoch, item, i;
-  element_type * outputs = NULL;
   tid_type tid;
   float mse;
 
