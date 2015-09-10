@@ -14,6 +14,7 @@ static char * usage_message =
   "  -b, --binary-point         the binary point (number of fractional bits)\n"
   "  -e, --max-epochs           the epoch limit (default 10k)\n"
   "  -f, --bit-fail-limit       sets the bit fail limit (default 0.05)\n"
+  "  -g, --mse-fail-limit       sets the maximum MSE (default -1, i.e., off)\n"
   "  -h, --help                 print this help and exit\n"
   "  -i, --id                   numeric id to use for printing data (default 0)\n"
   "  -l, --stat-last            print last epoch number statistic\n"
@@ -31,10 +32,11 @@ void usage() {
 int main (int argc, char * argv[]) {
   int exit_code = 0, max_epochs = 10000, bits_failing = -1, id = 0;
   int flag_last = 0, flag_mse = 0, flag_verbose = 0;
-  float bit_fail_limit = 0.05;
+  float bit_fail_limit = 0.05, mse_fail_limit = -1.0;
   struct fann_train_data * data = NULL;
 
   char * file_nn = NULL, * file_train = NULL;
+  asid_nnid_table * table = NULL;
   element_type * outputs = NULL;
   int binary_point = 0, c;
   while (1) {
@@ -42,6 +44,7 @@ int main (int argc, char * argv[]) {
       {"binary-point",   required_argument, 0, 'b'},
       {"max-epochs",     required_argument, 0, 'e'},
       {"bit-fail-limit", required_argument, 0, 'f'},
+      {"mse-fail-limit", required_argument, 0, 'g'},
       {"help",           no_argument,       0, 'h'},
       {"id",             required_argument, 0, 'i'},
       {"stat-last",      no_argument,       0, 'l'},
@@ -51,7 +54,7 @@ int main (int argc, char * argv[]) {
       {"verbose",        no_argument,       0, 'v'}
     };
     int option_index = 0;
-    c = getopt_long (argc, argv, "b:e:f:hi:lmn:t:v", long_options, &option_index);
+    c = getopt_long (argc, argv, "b:e:f:g:hi:lmn:t:v", long_options, &option_index);
     if (c == -1)
       break;
     switch (c) {
@@ -63,6 +66,9 @@ int main (int argc, char * argv[]) {
       break;
     case 'f':
       bit_fail_limit = atof(optarg);
+      break;
+    case 'g':
+      mse_fail_limit = atof(optarg);
       break;
     case 'h':
       usage();
@@ -107,7 +113,6 @@ int main (int argc, char * argv[]) {
   }
 
   // Create the ASID--NNID Table
-  asid_nnid_table * table = NULL;
   asid_nnid_table_create(&table, 4, 17);
   set_antp(table);
 
@@ -191,7 +196,7 @@ int main (int argc, char * argv[]) {
       printf("%5d\n\n", epoch);
     if (flag_mse)
       printf("[STAT] epoch %d id %d bp %d mse %8.8f\n", epoch, id, binary_point, mse);
-    if (bits_failing == 0)
+    if (bits_failing == 0 || mse < mse_fail_limit)
       goto finish;
   }
 

@@ -10,6 +10,7 @@ static char * usage_message =
   "Options:\n"
   "  -e, --max-epochs           the epoch limit (default 10k)\n"
   "  -f, --bit-fail-limit       sets the bit fail limit (default 0.05)\n"
+  "  -g, --mse-fail-limit       sets the maximum MSE (default -1, i.e., off)\n"
   "  -h, --help                 print this help and exit\n"
   "  -i, --id                   numeric id to use for printing data (default 0)\n"
   "  -l, --stat-last            print last epoch number statistic\n"
@@ -28,7 +29,7 @@ int main (int argc, char * argv[]) {
   int i, epoch, k, num_bits_failing;
   int max_epochs = 10000, exit_code = 0, id = 0;
   int flag_last = 0, flag_mse = 0, flag_verbose = 0;
-  float bit_fail_limit = 0.05;
+  float bit_fail_limit = 0.05, mse_fail_limit = -1.0;
   struct fann * ann = NULL;
   struct fann_train_data * data = NULL;
   fann_type * calc_out;
@@ -39,6 +40,7 @@ int main (int argc, char * argv[]) {
     static struct option long_options[] = {
       {"max-epochs",     required_argument, 0, 'e'},
       {"bit-fail-limit", required_argument, 0, 'f'},
+      {"mse-fail-limit", required_argument, 0, 'g'},
       {"help",           no_argument,       0, 'h'},
       {"id",             required_argument, 0, 'i'},
       {"stat-last",      no_argument,       0, 'l'},
@@ -48,7 +50,7 @@ int main (int argc, char * argv[]) {
       {"verbose",        no_argument,       0, 'v'}
     };
     int option_index = 0;
-    c = getopt_long (argc, argv, "e:f:hi:lmn:t:v", long_options, &option_index);
+    c = getopt_long (argc, argv, "e:f:g:hi:lmn:t:v", long_options, &option_index);
     if (c == -1)
       break;
     switch (c) {
@@ -57,6 +59,9 @@ int main (int argc, char * argv[]) {
       break;
     case 'f':
       bit_fail_limit = atof(optarg);
+      break;
+    case 'g':
+      mse_fail_limit = atof(optarg);
       break;
     case 'h':
       usage();
@@ -131,7 +136,7 @@ int main (int argc, char * argv[]) {
       printf("%5d\n\n", epoch);
     if (flag_mse)
       printf("[STAT] epoch %d id %d mse %8.8f\n", epoch, id, fann_get_MSE(ann));
-    if (num_bits_failing == 0)
+    if (num_bits_failing == 0 || fann_get_MSE(ann) < mse_fail_limit)
       goto finish;
     // printf("%8.5f\n\n", fann_get_MSE(ann));
   }
