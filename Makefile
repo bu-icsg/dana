@@ -152,6 +152,8 @@ NETS_H+=$(addprefix $(DIR_BUILD)/nets/, $(addsuffix -fixed-16bin-64.h, $(NETS)) 
 	$(addsuffix -fixed-64bin-64.h, $(NETS)) \
 	$(addsuffix -fixed-128bin-64.h, $(NETS)))
 TRAIN_H=$(addprefix $(DIR_BUILD)/nets/, $(addsuffix _train.h, $(NETS_TRAIN)))
+TRAIN_FIXED=$(addprefix $(DIR_BUILD)/nets/, $(addsuffix -fixed.train, $(NETS_GEN)))
+TRAIN_FIXED+=$(addprefix $(DIR_BUILD)/nets/, $(addsuffix -fixed.train, $(NETS_FANN)))
 FLOAT_TO_FIXED=$(DIR_USR_BIN)/fann-float-to-fixed
 WRITE_FANN_CONFIG=$(DIR_USR_BIN)/write-fann-config-for-accelerator
 BIN_TO_C_HEADER=$(DIR_USR_BIN)/bin-config-to-c-header
@@ -159,12 +161,14 @@ TRAIN_TO_C_HEADER=$(DIR_USR_BIN)/fann-train-to-c-header
 TRAIN_TO_C_HEADER_FIXED=$(DIR_USR_BIN)/fann-train-to-c-header-fixed
 FANN_RANDOM=$(DIR_USR_BIN)/fann-random
 FANN_CHANGE_FIXED_POINT=$(DIR_USR_BIN)/fann-change-fixed-point
+FANN_TRAIN_TO_FIXED=$(DIR_USR_BIN)/fann-data-to-fixed
 NETS_TOOLS = $(FLOAT_TO_FIXED) \
 	$(WRITE_FANN_CONFIG) \
 	$(BIN_TO_C_HEADER) \
 	$(TRAIN_TO_C_HEADER) \
 	$(FANN_RANDOM) \
-	$(FANN_CHANGE_FIXED_POINT)
+	$(FANN_CHANGE_FIXED_POINT) \
+	$(FANN_TRAIN_TO_FIXED)
 DECIMAL_POINT_OFFSET=7
 
 vpath %.scala $(DIR_SRC_SCALA)
@@ -177,6 +181,7 @@ vpath %.v $(DIR_SRC_V)
 vpath %.v $(DIR_BUILD)
 vpath %-float.net $(DIR_MAIN_RES)
 vpath %.train $(DIR_MAIN_RES) # This is missing *.train.X, e.g., *.train.100
+vpath %.train $(DIR_FANN)/datasets
 vpath %bin $(DIR_BUILD)/nets
 
 .PHONY: all clean cpp debug dot fann libraries mrproper nets run run-verilog \
@@ -212,7 +217,7 @@ fann-rv: $(DIR_BUILD)/fann-rv
 	../../submodules/fann && \
 	make
 
-nets: tools $(DIR_BUILD)/nets $(NETS_BIN) $(NETS_H) $(TRAIN_H)
+nets: tools $(DIR_BUILD)/nets $(NETS_BIN) $(NETS_H) $(TRAIN_H) $(TRAIN_FIXED)
 
 libraries: $(XFILES_LIBRARIES)
 
@@ -377,6 +382,10 @@ $(DIR_BUILD)/nets/%-128bin-32.h: $(DIR_BUILD)/nets/%.128bin $(NETS_TOOLS)
 
 $(DIR_BUILD)/nets/%-128bin-64.h: $(DIR_BUILD)/nets/%.128bin $(NETS_TOOLS)
 	$(BIN_TO_C_HEADER) $< $(subst -,_,init-$(basename $(notdir $<))-128bin-64) 64 > $@
+
+#--------- Fixed point training files
+$(DIR_BUILD)/nets/%-fixed.train: %.train $(DIR_BUILD)/nets/%-fixed.net $(NETS_TOOLS)
+	$(FANN_TRAIN_TO_FIXED) $< $@ `grep decimal_point $(word 2,$^) | sed 's/^.\+=//'`
 
 $(DIR_BUILD)/nets/%_train.h: %.train $(NETS_TOOLS)
 	if [[ -e $(DIR_MAIN_RES)/$(notdir $(basename $<)-float.net) ]]; \
