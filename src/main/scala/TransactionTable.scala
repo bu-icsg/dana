@@ -341,6 +341,7 @@ class TransactionTable extends XFilesModule {
           table(derefTidIndex).needsLayerInfo := Bool(true)
           table(derefTidIndex).offsetBias := UInt(0)
           table(derefTidIndex).done := Bool(false)
+          table(derefTidIndex).waiting := Bool(false)
           printf("[INFO] TTable: LAST input write TID/data 0x%x/0x%x\n",
             cmd.tid, cmd.data);
         }
@@ -484,7 +485,13 @@ class TransactionTable extends XFilesModule {
           // start before the Register File has _all_ of its valid data,
           // but I'm leaving this the way it is due to the lack of a
           // non-trivial path to add this functionality.
-          table(tIdx).waiting := table(tIdx).currentLayer > UInt(0)
+          when ((table(tIdx).currentLayer === UInt(0)) &&
+            (table(tIdx).stateLearn === e_TTABLE_STATE_LEARN_FEEDFORWARD ||
+              table(tIdx).stateLearn === e_TTABLE_STATE_FEEDFORWARD)) {
+            table(tIdx).waiting := Bool(false)
+          }
+          // table(tIdx).waiting := !((table(tIdx).currentLayer === UInt(0)) &&
+          //   table(tIdx).stateLearn === e_TTABLE_STATE_LEARN_FEEDFORWARD)
           // Once we have layer information, we can update the
           // previous and current layer addresses. These are adjusted
           // to be on block boundaries, so there's an optional round
@@ -504,8 +511,7 @@ class TransactionTable extends XFilesModule {
           val niplLSBs = table(tIdx).nodesInCurrentLayer(log2Up(elementsPerBlock-1),0)
           val niplOffset = niplMSBs + Mux(niclLSBs != UInt(0),
             UInt(elementsPerBlock), UInt(0))
-          switch(table(tIdx).stateLearn)
-          {
+          switch(table(tIdx).stateLearn) {
             is(e_TTABLE_STATE_FEEDFORWARD){
               table(tIdx).regFileAddrIn := table(tIdx).regFileAddrOut
               table(tIdx).regFileAddrOut := table(tIdx).regFileAddrOut + niclMSBs + round
@@ -868,6 +874,7 @@ class TransactionTable extends XFilesModule {
             table(tIdx).needsLayerInfo := Bool(true)
             table(tIdx).stateLearn := e_TTABLE_STATE_LEARN_WEIGHT_UPDATE
           } .otherwise {
+            table(tIdx).waiting := Bool(true)
             table(tIdx).stateLearn := e_TTABLE_STATE_LOAD_OUTPUTS
             table(tIdx).curBatchItem := table(tIdx).curBatchItem + UInt(1)
           }
@@ -891,15 +898,18 @@ class TransactionTable extends XFilesModule {
       }
       is (e_TTABLE_STATE_LEARN_WEIGHT_UPDATE) {
         // when(table(tIdx).transactionType === e_TTYPE_INCREMENTAL){
-          when (inLastNode && notInLastLayer) {
-            table(tIdx).needsLayerInfo := Bool(true)
-            table(tIdx).currentLayer := table(tIdx).currentLayer + UInt(1)
-          } .otherwise {
-            table(tIdx).needsLayerInfo := Bool(false)
-            table(tIdx).currentLayer := table(tIdx).currentLayer
-            table(tIdx).inLastEarly :=
-              table(tIdx).currentLayer === (table(tIdx).numLayers - UInt(2))
-          }
+        when(table(tIdx).inLast && inLastNode){
+            table(tIdx).waiting := Bool(true)
+          table(tIdx).currentLayer := table(tIdx).currentLayer
+        } .elsewhen(inLastNode && notInLastLayer) {
+          table(tIdx).needsLayerInfo := Bool(true)
+          table(tIdx).currentLayer := table(tIdx).currentLayer + UInt(1)
+        } .otherwise {
+          table(tIdx).needsLayerInfo := Bool(false)
+          table(tIdx).currentLayer := table(tIdx).currentLayer
+          table(tIdx).inLastEarly :=
+          table(tIdx).currentLayer === (table(tIdx).numLayers - UInt(2))
+        }
         // } .otherwise {
 
         // }

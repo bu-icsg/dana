@@ -161,7 +161,8 @@ class ProcessingElementTable extends DanaModule {
     io.regFile.req.bits.location := location
     io.regFile.req.bits.reqType := reqType
   }
-  def regFileWriteReq(incWC: Bool, reqType: UInt, addr: UInt, tIdx: UInt, data: SInt, location: UInt){
+  def regFileWriteReq(incWC: Bool, reqType: UInt, addr: UInt, tIdx: UInt,
+    data: SInt, location: UInt){
     io.regFile.req.valid := Bool(true)
     io.regFile.req.bits.isWrite := Bool(true)
     io.regFile.req.bits.incWriteCount := incWC

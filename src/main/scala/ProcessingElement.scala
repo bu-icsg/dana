@@ -345,8 +345,9 @@ class ProcessingElement extends DanaModule {
           io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_FEEDFORWARD,
           PE_states('e_PE_ERROR_BACKPROP_REQUEST_WEIGHTS), PE_states('e_PE_DONE)), state)
       }
-      io.resp.bits.incWriteCount := Mux((io.req.bits.tType === e_TTYPE_BATCH),
-        Bool(false),Bool(true))
+      io.resp.bits.incWriteCount := Bool(true)
+      // io.resp.bits.incWriteCount := Mux((io.req.bits.tType === e_TTYPE_BATCH),
+      //   Bool(false),Bool(true))
       io.resp.valid := Bool(true)
     }
     is (PE_states('e_PE_ERROR_BACKPROP_REQUEST_WEIGHTS)) {
