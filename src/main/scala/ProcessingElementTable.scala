@@ -569,7 +569,7 @@ class ProcessingElementTable extends DanaModule {
       is (PE_states('e_PE_ERROR_BACKPROP_WEIGHT_WB)) {
         val peIdx = peArbiter.io.out.bits.index
         val tIdx = table(peIdx).tIdx
-        val addrWB = table(tIdx).dwAddr
+        val addrWB = table(peIdx).dwAddr
         // Send a request to the Register File to writeback the
         // partial weight block. If this is the first weight block
         // that we're writing back, then we need to tell the Register
