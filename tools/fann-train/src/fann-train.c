@@ -118,8 +118,8 @@ int main (int argc, char * argv[]) {
   for (epoch = 0; epoch < max_epochs; epoch++) {
     fann_train_epoch(ann, data);
     num_bits_failing = 0;
+    fann_reset_MSE(ann);
     for (i = 0; i < fann_length_train_data(data); i++) {
-      fann_reset_MSE(ann);
       calc_out = fann_test(ann, data->input[i], data->output[i]);
       if (flag_verbose) {
         printf("[INFO] ");

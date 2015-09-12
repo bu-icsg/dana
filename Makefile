@@ -125,14 +125,14 @@ XFILES_LIBRARIES_OBJECTS = $(DIR_BUILD)/xfiles-user.o $(DIR_BUILD)/xfiles-superv
 # build/nets.
 NETS=3sum collatz rsa ll edip blackscholes fft inversek2j jmeint jpeg kmeans sobel amos
 NETS_THRESHOLD=3sum collatz ll rsa amos
-NETS_GEN=xorSigmoid xorSigmoidSymmetric
+NETS_GEN=xorSigmoid xorSigmoidSymmetric xorSigmoidSymmetricPair
 NETS_FANN=census-house mushroom diabetes gene kin32fm soybean thyroid two-spiral
 NETS+=$(NETS_GEN)
 NETS+=$(NETS_FANN)
 NETS_FLOAT=$(addsuffix -float, $(NETS))
 # Only certain networks have valid training files
 NETS_TRAIN=blackscholes fft inversek2j jmeint jpeg kmeans rsa sobel \
-	xorSigmoid xorSigmoidSymmetric
+	xorSigmoid xorSigmoidSymmetric xorSigmoidSymmetricPair
 NETS_BIN=$(addprefix $(DIR_BUILD)/nets/, $(addsuffix -fixed.16bin, $(NETS)) \
 	$(addsuffix -fixed.32bin, $(NETS)) \
 	$(addsuffix -fixed.64bin, $(NETS)) \
@@ -313,6 +313,10 @@ $(DIR_BUILD)/nets/xorSigmoid-float.net: $(NETS_TOOLS)
 $(DIR_BUILD)/nets/xorSigmoidSymmetric-float.net: $(NETS_TOOLS)
 	$(FANN_RANDOM) -nsrc/main/resources/xorSigmoidSymmetric.train \
 	-l2 -l3 -l1 -a5 -o5 $@
+
+$(DIR_BUILD)/nets/xorSigmoidSymmetricPair-float.net: $(NETS_TOOLS)
+	$(FANN_RANDOM) -nsrc/main/resources/xorSigmoidSymmetricPair.train \
+	-l2 -l3 -l2 -a5 -o5 $@
 
 $(DIR_BUILD)/nets/census-house-float.net: $(NETS_TOOLS)
 	$(FANN_RANDOM) -n$(DIR_FANN)/datasets/census-house.train \

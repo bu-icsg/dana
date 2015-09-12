@@ -190,6 +190,7 @@ int main (int argc, char * argv[]) {
     exit_code = -2;
     goto bail;
   }
+  printf("[INFO] Done reading input file\n");
 
   float multiplier = pow(2, binary_point);
 
@@ -270,7 +271,7 @@ int main (int argc, char * argv[]) {
     if (flag_verbose)
       printf("%5d\n\n", epoch);
     if (flag_mse) {
-      mse /= batch_items;
+      mse /= batch_items * data->num_output;
       printf("[STAT] epoch %d id %d bp %d mse %8.8f\n", epoch, id, binary_point, mse);
     }
     if (bits_failing == 0 || mse < mse_fail_limit)
