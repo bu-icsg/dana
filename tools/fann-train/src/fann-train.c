@@ -112,9 +112,12 @@ int main (int argc, char * argv[]) {
 
   ann = fann_create_from_file(file_nn);
   data = fann_read_train_from_file(file_train);
+  enum fann_activationfunc_enum af =
+    fann_get_activation_function(ann, ann->last_layer - ann->first_layer -1, 0);
 
   ann->training_algorithm = FANN_TRAIN_BATCH;
 
+  float mse;
   for (epoch = 0; epoch < max_epochs; epoch++) {
     fann_train_epoch(ann, data);
     num_bits_failing = 0;
@@ -139,9 +142,24 @@ int main (int argc, char * argv[]) {
     }
     if (flag_verbose)
       printf("%5d\n\n", epoch);
-    if (flag_mse)
-      printf("[STAT] epoch %d id %d mse %8.8f\n", epoch, id, fann_get_MSE(ann));
-    if (num_bits_failing == 0 || fann_get_MSE(ann) < mse_fail_limit)
+    if (flag_mse) {
+      mse = fann_get_MSE(ann);
+      switch(af) {
+      case FANN_LINEAR_PIECE_SYMMETRIC:
+      case FANN_THRESHOLD_SYMMETRIC:
+      case FANN_SIGMOID_SYMMETRIC:
+      case FANN_SIGMOID_SYMMETRIC_STEPWISE:
+      case FANN_ELLIOT_SYMMETRIC:
+      case FANN_GAUSSIAN_SYMMETRIC:
+      case FANN_SIN_SYMMETRIC:
+      case FANN_COS_SYMMETRIC:
+        mse *= 4.0;
+      default:
+        break;
+      }
+      printf("[STAT] epoch %d id %d mse %8.8f\n", epoch, id, mse);
+    }
+    if (num_bits_failing == 0 || mse < mse_fail_limit)
       goto finish;
     // printf("%8.5f\n\n", fann_get_MSE(ann));
   }
