@@ -44,6 +44,7 @@ class TransactionState extends XFilesBundle {
   val countPeWrites = UInt(width = 16) // [TODO] fragile
   val numTrainOutputs = UInt(width = 16) // [TODO] fragile
   val mse = UInt(width = elementWidth)
+  val regFileLocationBit = UInt(width = 1)
   // Batch training information
   val numBatchItems = UInt(width = 16) // [TODO] fragile
   val curBatchItem = UInt(width = 16) // [TODO] fragile
@@ -99,6 +100,7 @@ class ControlReq extends XFilesBundle {
   val stateLearn = UInt(width = log2Up(5)) // [TODO] fragile
   val transactionType = UInt(width = log2Up(3)) // [TODO] fragile
   val batchFirst = Bool()
+  val regFileLocationBit = UInt(width = 1) // [TODO] fragile on definition above
 }
 
 class ControlResp extends XFilesBundle {
@@ -342,6 +344,7 @@ class TransactionTable extends XFilesModule {
           table(derefTidIndex).offsetBias := UInt(0)
           table(derefTidIndex).done := Bool(false)
           table(derefTidIndex).waiting := Bool(false)
+          table(derefTidIndex).regFileLocationBit := UInt(0)
           printf("[INFO] TTable: LAST input write TID/data 0x%x/0x%x\n",
             cmd.tid, cmd.data);
         }
@@ -734,6 +737,7 @@ class TransactionTable extends XFilesModule {
     entryArbiter.io.in(i).bits.coreIdx := table(i).coreIdx
     entryArbiter.io.in(i).bits.transactionType := table(i).transactionType
     entryArbiter.io.in(i).bits.batchFirst := table(i).curBatchItem === UInt(0)
+    entryArbiter.io.in(i).bits.regFileLocationBit := table(i).regFileLocationBit
     // State info
     entryArbiter.io.in(i).bits.currentNodeInLayer := table(i).currentNodeInLayer
     entryArbiter.io.in(i).bits.currentLayer := table(i).currentLayer
@@ -810,6 +814,7 @@ class TransactionTable extends XFilesModule {
         when(inLastNode && notInLastLayer) {
           table(tIdx).needsLayerInfo := Bool(true)
           table(tIdx).currentLayer := table(tIdx).currentLayer + UInt(1)
+          table(tIdx).regFileLocationBit := !table(tIdx).regFileLocationBit
         } .otherwise {
           table(tIdx).needsLayerInfo := Bool(false)
           table(tIdx).currentLayer := table(tIdx).currentLayer
@@ -820,12 +825,14 @@ class TransactionTable extends XFilesModule {
         when(table(tIdx).inLast && inLastNode){
           table(tIdx).needsLayerInfo := Bool(true)
           table(tIdx).currentLayer := table(tIdx).currentLayer - UInt(1)
+          table(tIdx).regFileLocationBit := !table(tIdx).regFileLocationBit
           table(tIdx).inFirst := table(tIdx).currentLayer === UInt(1)
           table(tIdx).inLastEarly := Bool(true)
           table(tIdx).stateLearn := e_TTABLE_STATE_LEARN_ERROR_BACKPROP
         } .elsewhen (inLastNode && notInLastLayer) {
           table(tIdx).needsLayerInfo := Bool(true)
           table(tIdx).currentLayer := table(tIdx).currentLayer + UInt(1)
+          table(tIdx).regFileLocationBit := !table(tIdx).regFileLocationBit
           table(tIdx).inFirst := table(tIdx).currentLayer === UInt(0)
 
           // inLastEarly will assert as soon as the last PE Request goes
@@ -845,6 +852,7 @@ class TransactionTable extends XFilesModule {
         when(table(tIdx).inFirst && inLastNode) {
           table(tIdx).needsLayerInfo := Bool(true)
           table(tIdx).currentLayer := table(tIdx).currentLayer + UInt(1)
+          table(tIdx).regFileLocationBit := !table(tIdx).regFileLocationBit
           when(table(tIdx).transactionType === e_TTYPE_BATCH){
             table(tIdx).stateLearn := e_TTABLE_STATE_LEARN_UPDATE_SLOPE
           }.otherwise{
@@ -856,6 +864,7 @@ class TransactionTable extends XFilesModule {
         } .elsewhen(inLastNode && (table(tIdx).currentLayer > UInt(0))) {
           table(tIdx).needsLayerInfo := Bool(true)
           table(tIdx).currentLayer := table(tIdx).currentLayer - UInt(1)
+          table(tIdx).regFileLocationBit := !table(tIdx).regFileLocationBit
           table(tIdx).inFirst := table(tIdx).currentLayer === UInt(1)
         } .otherwise {
           table(tIdx).needsLayerInfo := Bool(false)
@@ -866,6 +875,7 @@ class TransactionTable extends XFilesModule {
         when(table(tIdx).inLast && inLastNode){
           table(tIdx).needsLayerInfo := Bool(false)
           table(tIdx).currentLayer := UInt(0)
+          table(tIdx).regFileLocationBit := !table(tIdx).regFileLocationBit
           table(tIdx).inFirst := Bool(true)
           table(tIdx).inLastEarly := Bool(false)
           // We need to take some specific action based on whether or
@@ -881,6 +891,7 @@ class TransactionTable extends XFilesModule {
         } .elsewhen (inLastNode && notInLastLayer) {
           table(tIdx).needsLayerInfo := Bool(true)
           table(tIdx).currentLayer := table(tIdx).currentLayer + UInt(1)
+          table(tIdx).regFileLocationBit := !table(tIdx).regFileLocationBit
           table(tIdx).inFirst := table(tIdx).currentLayer === UInt(0)
 
           // inLastEarly will assert as soon as the last PE Request goes
@@ -904,6 +915,7 @@ class TransactionTable extends XFilesModule {
         } .elsewhen(inLastNode && notInLastLayer) {
           table(tIdx).needsLayerInfo := Bool(true)
           table(tIdx).currentLayer := table(tIdx).currentLayer + UInt(1)
+          table(tIdx).regFileLocationBit := !table(tIdx).regFileLocationBit
         } .otherwise {
           table(tIdx).needsLayerInfo := Bool(false)
           table(tIdx).currentLayer := table(tIdx).currentLayer

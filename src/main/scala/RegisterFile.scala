@@ -177,4 +177,16 @@ class RegisterFile extends DanaModule {
     i => (state(i).valid &&
       state(i).countWrites > state(i).totalWrites))).contains(Bool(true)),
     "The total writes to a Regsiter File entry exceeded the number expected")
+
+  // A request to change the total number of writes should only happen
+  // to a state entry marked as valid if it's countWrites is equal to
+  // the totalWrites.
+  assert(!(io.control.req.valid &&
+    state(io.control.req.bits.tIdx << UInt(1) |
+      io.control.req.bits.location).valid &&
+    (state(io.control.req.bits.tIdx << UInt(1) |
+      io.control.req.bits.location).countWrites !=
+      state(io.control.req.bits.tIdx << UInt(1) |
+        io.control.req.bits.location).totalWrites)),
+    "RegFile totalWrites being changed when valid && (countWrites != totalWrites)")
 }

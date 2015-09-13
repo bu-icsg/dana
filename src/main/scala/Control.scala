@@ -245,7 +245,9 @@ class Control extends DanaModule {
       reqCache(Bool(true), e_CACHE_LAYER_INFO, io.tTable.req.bits.asid,
         io.tTable.req.bits.nnid, io.tTable.req.bits.tableIndex,
         io.tTable.req.bits.coreIdx, io.tTable.req.bits.currentLayer,
-        io.tTable.req.bits.currentLayer(0), totalWritesMul)
+        // io.tTable.req.bits.currentLayer(0),
+        io.tTable.req.bits.regFileLocationBit,
+        totalWritesMul)
     }
     // If this entry is done, then its cache entry needs to be invalidated
       .elsewhen (io.tTable.req.bits.isDone) {
@@ -307,7 +309,9 @@ class Control extends DanaModule {
         // Communicate the "location" which eventually the Register
         // File will use to determine which of two locations is the
         // "writeCount" for the current layer vs. the next layer
-        io.tTable.req.bits.currentLayer(0),
+        // io.tTable.req.bits.currentLayer(0),
+        io.tTable.req.bits.regFileLocationBit,
+
         // Pass along the state (TTable "stateLearn") to the PE Table
         // so that the PE can handle this differently based on the
         // type of opeartion the PE needs to perform

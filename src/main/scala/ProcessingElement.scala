@@ -337,7 +337,8 @@ class ProcessingElement extends DanaModule {
       // `incWriteCount` flag to tell the Register File to increment its write
       // count
       when((io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_ERROR_BACKPROP)){
-        state := Mux(io.req.valid,Mux(io.req.bits.tType === e_TTYPE_BATCH,
+        state := Mux(io.req.valid,Mux(io.req.bits.tType === e_TTYPE_BATCH &&
+          io.req.bits.inFirst,
           PE_states('e_PE_REQUEST_INPUTS_AND_WEIGHTS),
           PE_states('e_PE_ERROR_BACKPROP_REQUEST_WEIGHTS)), state)
       }.otherwise {
