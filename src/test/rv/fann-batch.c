@@ -190,6 +190,8 @@ int main (int argc, char * argv[]) {
     exit_code = -2;
     goto bail;
   }
+  size_t num_input = data->num_input;
+  size_t num_output = data->num_output;
   printf("[INFO] Done reading input file\n");
 
   float multiplier = pow(2, binary_point);
@@ -199,7 +201,7 @@ int main (int argc, char * argv[]) {
   tid_type tid;
   float mse, error;
 
-  outputs = (element_type *) malloc(data->num_output * sizeof(element_type));
+  outputs = (element_type *) malloc(num_output * sizeof(element_type));
   int batch_items = fann_length_train_data(data);
   int32_t learn_rate = (int32_t)((0.7 / batch_items) * multiplier);
 
@@ -227,10 +229,10 @@ int main (int argc, char * argv[]) {
       // Write the output and input data
       write_data_train_incremental(tid, (element_type *) data->input[item],
                                    (element_type *) data->output[item],
-                                   data->num_input, data->num_output);
+                                   num_input, num_output);
 
       // Blocking read
-      read_data_spinlock(tid, outputs, data->num_output);
+      read_data_spinlock(tid, outputs, num_output);
     }
 
     // Check the outputs
@@ -239,17 +241,17 @@ int main (int argc, char * argv[]) {
       mse = 0.0;
     for (item = 0; item < batch_items; item++) {
       tid = new_write_request(nnid, 0, 0);
-      write_data(tid, (element_type *) data->input[item], data->num_input);
-      read_data_spinlock(tid, outputs, data->num_output);
+      write_data(tid, (element_type *) data->input[item], num_input);
+      read_data_spinlock(tid, outputs, num_output);
 
       if (flag_verbose) {
         printf("[INFO] ");
-        for (i = 0; i < data->num_input; i++) {
+        for (i = 0; i < num_input; i++) {
           printf("%8.5f ", ((float)data->input[item][i]) / multiplier);
         }
       }
 
-      for (i = 0; i < data->num_output; i++) {
+      for (i = 0; i < num_output; i++) {
         if (flag_verbose)
           printf("%8.5f ", ((float)outputs[i])/multiplier);
         bits_failing +=
@@ -271,7 +273,7 @@ int main (int argc, char * argv[]) {
     if (flag_verbose)
       printf("%5d\n\n", epoch);
     if (flag_mse) {
-      mse /= batch_items * data->num_output;
+      mse /= batch_items * num_output;
       printf("[STAT] epoch %d id %d bp %d mse %8.8f\n", epoch, id, binary_point, mse);
     }
     if (bits_failing == 0 || mse < mse_fail_limit)
@@ -290,12 +292,11 @@ int main (int argc, char * argv[]) {
 
     for (item = 0; item < batch_items; item++) {
       // Write the output and input data
-      write_data_train_incremental(tid, (element_type *) data->input[item],
-                                   (element_type *) data->output[item],
-                                   data->num_input, data->num_output);
+      write_data_train_incremental(tid, data->input[item], data->output[item],
+                                   num_input, num_output);
 
       // Blocking read
-      read_data_spinlock(tid, outputs, data->num_output);
+      read_data_spinlock(tid, outputs, num_output);
     }
   }
   goto finish;
@@ -308,9 +309,9 @@ int main (int argc, char * argv[]) {
   if (flag_last)
     printf("[STAT] bp %d id %d epoch %d\n", binary_point, id, epoch);
   if (flag_cycles) {
-    printf("[STAT] bp %d id %d cycles %ld\n", binary_point, id, cycles);
-    printf("[STAT] bp %d id %d CUPC %0.8f\n", binary_point, id,
-           (connections_per_epoch * epoch) / (double) cycles);
+    printf("[STAT] id %d bp %d cycles %ld\n", id, binary_point, cycles);
+    printf("[STAT] id %d bp %d CUPC %0.8f\n", id, binary_point,
+           (connections_per_epoch * epoch * batch_items) / (double) cycles);
   }
 
   // Free memory
