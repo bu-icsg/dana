@@ -199,8 +199,8 @@ int main (int argc, char * argv[]) {
   if (flag_last)
     printf("[STAT] id %d epoch %d\n", id, epoch);
   if (flag_cycles) {
-    printf("[STAT] id %d x 0 cycles %ld\n", id, cycles);
-    printf("[STAT] id %d x 0 CUPC %0.8f\n", id,
+    printf("[STAT] x 0 id %d cycles %ld\n", id, cycles);
+    printf("[STAT] x 0 id %d CUPC %0.8f\n", id,
            (fann_get_total_connections(ann) * epoch * batch_items) / (double) cycles);
   }
 

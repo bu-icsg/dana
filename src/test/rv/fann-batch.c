@@ -309,8 +309,8 @@ int main (int argc, char * argv[]) {
   if (flag_last)
     printf("[STAT] bp %d id %d epoch %d\n", binary_point, id, epoch);
   if (flag_cycles) {
-    printf("[STAT] id %d bp %d cycles %ld\n", id, binary_point, cycles);
-    printf("[STAT] id %d bp %d CUPC %0.8f\n", id, binary_point,
+    printf("[STAT] x 0 id %d bp %d cycles %ld\n", id, binary_point, cycles);
+    printf("[STAT] x 0 id %d bp %d CUPC %0.8f\n", id, binary_point,
            (connections_per_epoch * epoch * batch_items) / (double) cycles);
   }
 
