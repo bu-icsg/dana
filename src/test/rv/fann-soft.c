@@ -22,7 +22,7 @@ static char * usage_message =
   "  -h, --help                 print this help and exit\n"
   "  -i, --id                   numeric id to use for printing data (default 0)\n"
   "  -l, --stat-last            print last epoch number statistic\n"
-  "  -m, --stat-mse             print mse statistics\n"
+  "  -m, --stat-mse             print mse statistics (optional arg: MSE period)\n"
   "  -n, --nn-config            the binary NN configuration to use\n"
   "  -p, --performance-mode     runs until an epoch limit, all checks disabled\n"
   "  -t, --train-file           the fixed point FANN training file to use\n"
@@ -40,6 +40,7 @@ int main (int argc, char * argv[]) {
   int exit_code = 0, max_epochs = 10000, bits_failing = -1, id = 0;
   int flag_cycles = 0, flag_last = 0, flag_mse = 0, flag_performance = 0,
     flag_verbose = 0;
+  int mse_reporting_period = 1;
   uint64_t cycles;
   float bit_fail_limit = 0.05, mse_fail_limit = -1.0;
   struct fann_train_data * data = NULL;
@@ -56,14 +57,14 @@ int main (int argc, char * argv[]) {
       {"help",             no_argument,       0, 'h'},
       {"id",               required_argument, 0, 'i'},
       {"stat-last",        no_argument,       0, 'l'},
-      {"stat-mse",         no_argument,       0, 'm'},
+      {"stat-mse",         optional_argument, 0, 'm'},
       {"nn-config",        required_argument, 0, 'n'},
       {"performance-mode", no_argument,       0, 'p'},
       {"train-file",       required_argument, 0, 't'},
       {"verbose",          no_argument,       0, 'v'}
     };
     int option_index = 0;
-    c = getopt_long (argc, argv, "ce:f:g:hi:lmn:pt:v", long_options, &option_index);
+    c = getopt_long (argc, argv, "ce:f:g:hi:lm::n:pt:v", long_options, &option_index);
     if (c == -1)
       break;
     switch (c) {
@@ -91,6 +92,8 @@ int main (int argc, char * argv[]) {
       flag_last = 1;
       break;
     case 'm':
+      if (optarg)
+        mse_reporting_period = atoi(optarg);
       flag_mse = 1;
       break;
     case 'n':
@@ -163,7 +166,7 @@ int main (int argc, char * argv[]) {
     }
     if (flag_verbose)
       printf("%5d\n\n", epoch);
-    if (flag_mse) {
+    if (flag_mse  && (epoch % mse_reporting_period == 0)) {
       mse = fann_get_MSE(ann);
       switch(af) {
       case FANN_LINEAR_PIECE_SYMMETRIC:
