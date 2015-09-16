@@ -290,8 +290,8 @@ class ProcessingElementTable extends DanaModule {
         table(peIndex).weightPtr := cacheRespVec(indexIntoData).weightPtr
         table(peIndex).weightPtrSaved := cacheRespVec(indexIntoData).weightPtr
         table(peIndex).weightoffset:=
-          (cacheRespVec(indexIntoData).weightPtr - table(peIndex).globalWtptr)>>
-          (UInt(log2Up(elementsPerBlock)))
+          (cacheRespVec(indexIntoData).weightPtr - table(peIndex).globalWtptr) >>
+          (UInt(log2Up(elementWidth / 8))) // [TODO] possibly fragile
         // table(peIndex).numWeights :=
         //   cacheRespVec(indexIntoData).numWeights + UInt(elementsPerBlock)
         // table(peIndex).numWeightsSaved :=
