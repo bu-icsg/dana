@@ -26,8 +26,10 @@ static char * usage_message =
   "  -m, --stat-mse             print mse statistics (optional arg: MSE period)\n"
   "  -n, --nn-config            the binary NN configuration to use\n"
   "  -p, --performance-mode     runs until an epoch limit, all checks disabled\n"
+  "  -r, --learning-rate        set the learning rate (default 0.7)\n"
   "  -t, --train-file           the fixed point FANN training file to use\n"
   "  -v, --verbose              turn on per-item inputs/output printfs\n"
+  "  -y, --weight-decay-lambda  set the weight decay parameter, lambda (default 0)\n"
   "\n"
   "Flags -n, -t, and -b are required.\n"
   "When gathering data related to connection updates per second, -p\n"
@@ -85,7 +87,8 @@ int main (int argc, char * argv[]) {
     flag_verbose = 0;
   int mse_reporting_period = 1;
   uint64_t cycles;
-  float bit_fail_limit = 0.05, mse_fail_limit = -1.0;
+  float bit_fail_limit = 0.05, mse_fail_limit = -1.0,
+    learning_rate = 0.7, weight_decay_lambda = 0.0;
   struct fann_train_data * data = NULL;
 
   char * file_nn = NULL, * file_train = NULL;
@@ -109,7 +112,8 @@ int main (int argc, char * argv[]) {
       {"verbose",          no_argument,       0, 'v'}
     };
     int option_index = 0;
-    c = getopt_long (argc, argv, "b:ce:f:g:hi:lm::n:pt:v", long_options, &option_index);
+    c = getopt_long (argc, argv, "b:ce:f:g:hi:lm::n:pr:t:vy:",
+                     long_options, &option_index);
     if (c == -1)
       break;
     switch (c) {
@@ -150,11 +154,17 @@ int main (int argc, char * argv[]) {
     case 'p':
       flag_performance = 1;
       break;
+    case 'r':
+      learning_rate = atof(optarg);
+      break;
     case 't':
       file_train = optarg;
       break;
     case 'v':
       flag_verbose = 1;
+      break;
+    case 'y':
+      weight_decay_lambda = atof(optarg);
       break;
     }
   };
@@ -206,7 +216,14 @@ int main (int argc, char * argv[]) {
 
   outputs = (element_type *) malloc(num_output * sizeof(element_type));
   int batch_items = fann_length_train_data(data);
-  int32_t learn_rate = (int32_t)((0.7 / batch_items) * multiplier);
+  int32_t learn_rate = (int32_t)((learning_rate / batch_items) * multiplier);
+  int32_t weight_decay = (int32_t)((weight_decay_lambda / batch_items) * multiplier);
+  // weight_decay = 1;
+  if (learn_rate == 0) {
+    printf("[ERROR] Learning rate would be 0. Trying 0x1");
+    learn_rate = 1;
+  }
+  printf("[INFO] Computed learning rate is 0x%x\n", learn_rate);
 
   // Execution is broken down into two different modes "performance"
   // and "verbose". "Verbose" allows for early training exits based on
@@ -226,7 +243,7 @@ int main (int argc, char * argv[]) {
     tid = new_write_request(nnid, 2, 0);
     write_register(tid, xfiles_reg_batch_items, batch_items);
     write_register(tid, xfiles_reg_learning_rate, learn_rate);
-    write_register(tid, xfiles_reg_weight_decay_lambda, 0);
+    write_register(tid, xfiles_reg_weight_decay_lambda, weight_decay);
 
     for (item = 0; item < batch_items; item++) {
       // Write the output and input data
