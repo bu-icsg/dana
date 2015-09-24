@@ -191,10 +191,10 @@ class TransactionTable extends XFilesModule {
 
   // Determine if there exits a free entry in the table and the index
   // of the next availble free entry
-  val hasFree = Bool()
-  val nextFree = UInt()
-  val foundTid = Bool()
-  val derefTidIndex = UInt()
+  val hasFree = Wire(Bool())
+  val nextFree = Wire(UInt())
+  val foundTid = Wire(Bool())
+  val derefTidIndex = Wire(UInt())
   hasFree := table.exists(isFree)
   nextFree := table.indexWhere(isFree)
   foundTid := table.exists(derefTid(_, cmd.asid, cmd.tid))

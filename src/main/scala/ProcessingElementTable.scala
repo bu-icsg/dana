@@ -174,8 +174,8 @@ class ProcessingElementTable extends DanaModule {
   }
 
   def isFree(x: ProcessingElementInterface): Bool = { x.req.ready }
-  val hasFree = Bool()
-  val nextFree = UInt()
+  val hasFree = Wire(Bool())
+  val nextFree = Wire(UInt())
   hasFree := pe.exists(isFree)
   nextFree := pe.indexWhere(isFree)
 
@@ -273,8 +273,8 @@ class ProcessingElementTable extends DanaModule {
 
   // Inbound requests from the cache. I setup some helper nodes here
   // that interpret the data coming from the cache.
-  val cacheRespVec = Vec.fill(bitsPerBlock / 64){new CompressedNeuron}
-  val indexIntoData = UInt()
+  val cacheRespVec = Wire(Vec.fill(bitsPerBlock / 64){new CompressedNeuron})
+  val indexIntoData = Wire(UInt())
   indexIntoData := UInt(0)
   (0 until cacheRespVec.length).map(i =>
     cacheRespVec(i).populate(io.cache.resp.bits.data((i+1) * cacheRespVec(i).getWidth - 1,
@@ -442,13 +442,13 @@ class ProcessingElementTable extends DanaModule {
 
   val biasIndex = table(peArbiter.io.out.bits.index).neuronPtr(
     log2Up(bitsPerBlock) - 3 - 1, log2Up(64) - 3)
-  val biasUpdateVec = Vec.fill(elementsPerBlock){UInt(width=elementWidth)}
+  val biasUpdateVec = Wire(Vec.fill(elementsPerBlock){UInt(width=elementWidth)})
   biasUpdateVec := UInt(0)
   biasUpdateVec(biasIndex * UInt(2) + UInt(1)) := peArbiter.io.out.bits.data
 
   val biasAddrLSBs = table(peArbiter.io.out.bits.index).biasAddr(
     log2Up(elementsPerBlock)-1,0)
-  val biasUpdateVecSlope = Vec.fill(elementsPerBlock){UInt(width=elementWidth)}
+  val biasUpdateVecSlope = Wire(Vec.fill(elementsPerBlock){UInt(width=elementWidth)})
   biasUpdateVecSlope := UInt(0)
   biasUpdateVecSlope(biasAddrLSBs) := peArbiter.io.out.bits.data
 

@@ -13,7 +13,7 @@ import Chisel._
 class SRAMElementCounterResp (
   val sramDepth: Int
 ) extends Bundle {
-  override def clone = new SRAMElementCounterResp (
+  override def cloneType = new SRAMElementCounterResp (
     sramDepth = sramDepth).asInstanceOf[this.type]
   val index = UInt(width = log2Up(sramDepth))
 }
@@ -24,7 +24,7 @@ class SRAMElementCounterInterface (
   val numPorts: Int,
   val elementWidth: Int
 ) extends Bundle {
-  override def clone = new SRAMElementInterface(
+  override def cloneType = new SRAMElementInterface(
     dataWidth = dataWidth,
     sramDepth = sramDepth,
     numPorts = numPorts,

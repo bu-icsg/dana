@@ -13,7 +13,7 @@ class SRAMElementInterface (
   val numPorts: Int,
   val elementWidth: Int
 ) extends Bundle {
-  override def clone = new SRAMElementInterface(
+  override def cloneType = new SRAMElementInterface(
     dataWidth = dataWidth,
     sramDepth = sramDepth,
     numPorts = numPorts,
@@ -30,7 +30,7 @@ class WritePendingBundle (
   val dataWidth: Int,
   val sramDepth: Int
 ) extends Bundle {
-  override def clone = new WritePendingBundle (
+  override def cloneType = new WritePendingBundle (
     elementWidth = elementWidth,
     dataWidth = dataWidth,
     sramDepth = sramDepth).asInstanceOf[this.type]

@@ -27,7 +27,7 @@ class RegisterFile extends DanaModule {
       numPorts = 1,
       elementWidth = elementWidth)).io}
   val state = Vec.fill(transactionTableNumEntries * 2){Reg(new RegisterFileState)}
-  val stateToggle = Vec.fill(transactionTableNumEntries){Reg(UInt(width=1))}
+  val stateToggle = Reg(Vec.fill(transactionTableNumEntries){UInt(width=1)})
   val tTableRespValid = Reg(Bool())
   val tTableRespTIdx = Reg(UInt(width=log2Up(transactionTableNumEntries)))
   val tTableRespAddr = Reg(UInt(width=log2Up(regFileNumElements)))

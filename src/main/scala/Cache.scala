@@ -57,9 +57,9 @@ class CacheInterface extends Bundle {
 class CompressedNeuron extends DanaBundle {
   val weightPtr = UInt(width = 16)
   val numWeights = UInt(width = 8)
-  val activationFunction = UInt(width = activationFunctionWidth)
-  val steepness = UInt(width = steepnessWidth)
-  val bias = UInt(width = elementWidth)
+  val activationFunction = Wire(UInt(width = activationFunctionWidth))
+  val steepness = Wire(UInt(width = steepnessWidth))
+  val bias = Wire(UInt(width = elementWidth))
   def populate(data: UInt, out: CompressedNeuron) {
     out.weightPtr := data(15, 0)
     out.numWeights := data(23, 16)
@@ -73,7 +73,7 @@ class Cache extends DanaModule {
   val io = new CacheInterface
 
   // Create the table of cache entries
-  val table = Vec.fill(cacheNumEntries){Reg(new CacheState)}
+  val table = Reg(Vec.fill(cacheNumEntries){new CacheState})
   // val mem = Vec((0 until cacheNumEntries).map(i => Module(new SRAM(
   //   dataWidth = elementWidth * elementsPerBlock,
   //   numReadPorts = 0,
@@ -107,8 +107,8 @@ class Cache extends DanaModule {
     Vec.fill(2){Reg(Valid(new ControlCacheInterfaceResp))}
   val peRespPipe =
     Vec.fill(2){Reg(Valid(new PECacheInterfaceResp))}
-  val cacheRead = Vec.fill(cacheNumEntries){
-    (Reg(UInt(width=log2Up(cacheNumBlocks)))) }
+  val cacheRead = Reg(Vec.fill(cacheNumEntries){
+    (UInt(width=log2Up(cacheNumBlocks)))})
   // We also need to store the cache index of an inbound request by a
   // PE so that we can dereference it one cycle later when the cache
   // line SRAM output is valid. [TODO] Should this be gated by the PE
@@ -122,14 +122,14 @@ class Cache extends DanaModule {
   def isDoneFetching(x: CacheState): Bool = {x.notifyFlag}
 
   // State that we need to derive from the cache
-  val hasFree = Bool()
-  val hasUnused = Bool()
-  val nextFree = UInt()
-  val nextUnused = UInt()
-  val foundNnid = Bool()
-  val derefNnid = UInt()
-  val hasNotify = Bool()
-  val idxNotify = UInt()
+  val hasFree = Wire(Bool())
+  val hasUnused = Wire(Bool())
+  val nextFree = Wire(UInt())
+  val nextUnused = Wire(UInt())
+  val foundNnid = Wire(Bool())
+  val derefNnid = Wire(UInt())
+  val hasNotify = Wire(Bool())
+  val idxNotify = Wire(UInt())
   hasFree := table.exists(isFree)
   hasUnused := table.exists(isUnused)
   nextFree := table.indexWhere(isFree)

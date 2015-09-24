@@ -58,13 +58,13 @@ class ProcessingElement extends DanaModule {
 
   val index = Reg(UInt(width = 8)) // [TODO] fragile, should match numWeights
   val acc = Reg(SInt(width = elementWidth))
-  val weightWB = Vec.fill(elementsPerBlock){Reg(SInt(width=elementWidth))}
+  val weightWB = Reg(Vec.fill(elementsPerBlock){SInt(width=elementWidth)})
   val dataOut = Reg(SInt(width = elementWidth))
   val derivative = Reg(SInt(width = elementWidth)) //delta
   val errorOut = Reg(SInt(width = elementWidth)) //ek
   val mse = Reg(UInt(width = elementWidth))
   //val updated_weight = Vec.fill(elementsPerBlock){Reg(SInt(INPUT, elementWidth))}
-  val derivativeSigmoidSymmetric = SInt(width = elementWidth)
+  val derivativeSigmoidSymmetric = Wire(SInt(width = elementWidth))
 
 
 
@@ -79,7 +79,7 @@ class ProcessingElement extends DanaModule {
     io.req.bits.decimalPoint
 
   def applySteepness(x: SInt, steepness: UInt): SInt = {
-    val tmp = SInt()
+    val tmp = Wire(SInt())
     when (steepness < UInt(steepnessOffset)) {
       tmp := x >> (UInt(steepnessOffset) - steepness)
     } .elsewhen (steepness === UInt(steepnessOffset)) {
@@ -92,10 +92,12 @@ class ProcessingElement extends DanaModule {
 
   // DSP Unit
   val dsp = new Bundle {
-    val a = SInt(width = elementWidth)
-    val b = SInt(width = elementWidth)
-    val c = UInt(width = elementWidth)
-    val d = SInt(width = elementWidth)
+    // [TODO] These internal wires **may** be completely wrong.
+    // Constructors are generally forbidden inside of Bundle!
+    val a = Wire(SInt(width = elementWidth))
+    val b = Wire(SInt(width = elementWidth))
+    val c = Wire(UInt(width = elementWidth))
+    val d = Wire(SInt(width = elementWidth))
   }
 
   def DSP(a: SInt, b: SInt, c: UInt) {

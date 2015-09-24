@@ -18,7 +18,7 @@ class SRAMElementIncrementInterface (
   val numPorts: Int,
   val elementWidth: Int
 ) extends Bundle {
-  override def clone = new SRAMElementIncrementInterface(
+  override def cloneType = new SRAMElementIncrementInterface(
     dataWidth = dataWidth,
     sramDepth = sramDepth,
     numPorts = numPorts,
@@ -37,7 +37,7 @@ class WritePendingIncrementBundle (
   val dataWidth: Int,
   val sramDepth: Int
 ) extends Bundle {
-  override def clone = new WritePendingIncrementBundle (
+  override def cloneType = new WritePendingIncrementBundle (
     elementWidth = elementWidth,
     dataWidth = dataWidth,
     sramDepth = sramDepth).asInstanceOf[this.type]
@@ -85,17 +85,18 @@ class SRAMElementIncrement (
   val elementsPerBlock = divUp(dataWidth, elementWidth)
 
   val addr = Vec.fill(numPorts){ new Bundle{
-    val addrHi = UInt(width = log2Up(sramDepth))
-    val addrLo = UInt(width = log2Up(elementsPerBlock))}}
+    // [TODO] Use of Wire inside Vec may be verboten
+    val addrHi = Wire(UInt(width = log2Up(sramDepth)))
+    val addrLo = Wire(UInt(width = log2Up(elementsPerBlock)))}}
 
   val writePending = Vec.fill(numPorts){Reg(new WritePendingIncrementBundle(
     elementWidth = elementWidth,
     dataWidth = dataWidth,
     sramDepth = sramDepth))}
 
-  val tmp = Vec.fill(numPorts){
-    Vec.fill(elementsPerBlock){ UInt(width = elementWidth) }}
-  val forwarding = Vec.fill(numPorts){ Bool() }
+  val tmp = Wire(Vec.fill(numPorts){
+    Vec.fill(elementsPerBlock){ UInt(width = elementWidth) }})
+  val forwarding = Wire(Vec.fill(numPorts){ Bool() })
 
   // Combinational Logic
   for (i <- 0 until numPorts) {
@@ -166,10 +167,10 @@ class SRAMElementIncrement (
               writePending(i).dataBlock(elementWidth*(j+1) - 1,
                 elementWidth * j))
           }
-           
+
         }
       }
-      printf("[INFO] SRAMElementIncrement: PE write block Addr/Data_acc/Data_new/Data_old 0x%x/0x%x/0x%x/0x%x\n", 
+      printf("[INFO] SRAMElementIncrement: PE write block Addr/Data_acc/Data_new/Data_old 0x%x/0x%x/0x%x/0x%x\n",
               writePending(i).addrHi##writePending(i).addrLo, tmp(i).toBits, writePending(i).dataBlock, sram.io.doutR(i).toBits)
     }
   }

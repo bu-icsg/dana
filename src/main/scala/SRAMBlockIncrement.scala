@@ -18,7 +18,7 @@ class SRAMBlockIncrementInterface (
   val numPorts: Int,
   val elementWidth: Int
 ) extends Bundle {
-  override def clone = new SRAMBlockIncrementInterface(
+  override def cloneType = new SRAMBlockIncrementInterface(
     dataWidth = dataWidth,
     sramDepth = sramDepth,
     numPorts = numPorts,
@@ -35,7 +35,7 @@ class WritePendingBlockIncrementBundle (
   val dataWidth: Int,
   val sramDepth: Int
 ) extends Bundle {
-  override def clone = new WritePendingBlockIncrementBundle (
+  override def cloneType = new WritePendingBlockIncrementBundle (
     elementWidth = elementWidth,
     dataWidth = dataWidth,
     sramDepth = sramDepth).asInstanceOf[this.type]
@@ -83,9 +83,9 @@ class SRAMBlockIncrement (
     dataWidth = dataWidth,
     sramDepth = sramDepth))}
 
-  val tmp = Vec.fill(numPorts){
-    Vec.fill(elementsPerBlock){ UInt(width = elementWidth) }}
-  val forwarding = Vec.fill(numPorts){ Bool() }
+  val tmp = Wire(Vec.fill(numPorts){
+    Vec.fill(elementsPerBlock){ UInt(width = elementWidth) }})
+  val forwarding = Wire(Vec.fill(numPorts){ Bool() })
 
   // Combinational Logic
   for (i <- 0 until numPorts) {

@@ -9,7 +9,7 @@ class SRAMInterface(
   val numReadWritePorts: Int,
   val sramDepth: Int
 ) extends Bundle {
-  override def clone = new SRAMInterface(
+  override def cloneType = new SRAMInterface(
     dataWidth = dataWidth,
     numReadPorts = numReadPorts,
     numWritePorts = numWritePorts,
@@ -63,8 +63,8 @@ class SRAM (
     sramDepth = sramDepth
   ).flip
   val mem = Mem(UInt(width = dataWidth), sramDepth)
-  val buf = Vec.fill(numReadWritePorts){Reg(UInt(width = dataWidth))}
-  val bufR = Vec.fill(numReadPorts){Reg(UInt(width = dataWidth))}
+  val buf = Reg(Vec.fill(numReadWritePorts){UInt(width = dataWidth)})
+  val bufR = Reg(Vec.fill(numReadPorts){UInt(width = dataWidth)})
 
   for (i <- 0 until numReadPorts) {
     bufR(i) := mem(io.addrR(i))

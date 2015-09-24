@@ -28,8 +28,8 @@ class ActivationFunction extends DanaModule {
   val io = new ActivationFunctionInterface
 
   // Temporary values
-  val inD0 = SInt(width = elementWidth)
-  val decimal = UInt()
+  val inD0 = Wire(SInt(width = elementWidth))
+  val decimal = Wire(UInt())
   val out = Reg(init = SInt(0, width = elementWidth))
 
   val _xmin      = SInt(-1420910720) // -54B16080
@@ -185,7 +185,7 @@ class ActivationFunction extends DanaModule {
   }
 
   def applySteepness(x: SInt, steepness: UInt): SInt = {
-    val tmp = SInt()
+    val tmp = Wire(SInt())
     when (steepness < UInt(steepnessOffset)) {
       tmp := x >> (UInt(steepnessOffset) - steepness)
     } .elsewhen (steepness === UInt(steepnessOffset)) {
@@ -200,11 +200,11 @@ class ActivationFunction extends DanaModule {
   val negOne = SInt(-1, width = elementWidth) << decimal
   val seventeen = SInt(17, width = elementWidth) << decimal
   val negSeventeen = SInt(-17, width = elementWidth) << decimal
-  val offsetX = SInt(width = elementWidth)
-  val offsetSigY = SInt(width = elementWidth)
-  val offsetSymY = SInt(width = elementWidth)
-  val slopeSig = SInt(width = elementWidth)
-  val slopeSym = SInt(width = elementWidth)
+  val offsetX = Wire(SInt(width = elementWidth))
+  val offsetSigY = Wire(SInt(width = elementWidth))
+  val offsetSymY = Wire(SInt(width = elementWidth))
+  val slopeSig = Wire(SInt(width = elementWidth))
+  val slopeSym = Wire(SInt(width = elementWidth))
   when(inD0 < xmin) {
     offsetX    := SInt(0)
     offsetSigY := SInt(0)
@@ -249,9 +249,9 @@ class ActivationFunction extends DanaModule {
     slopeSym   := SInt(0)
   }
   // Atanh error function
-  val atanhOffsetX = SInt(width = elementWidth)
-  val atanhOffsetY = SInt(width = elementWidth)
-  val atanhSlope = UInt(width = elementWidth)
+  val atanhOffsetX = Wire(SInt(width = elementWidth))
+  val atanhOffsetY = Wire(SInt(width = elementWidth))
+  val atanhSlope = Wire(UInt(width = elementWidth))
   when (dataIn < atanh_x0) {
     atanhOffsetX := SInt(0)
     atanhOffsetY := negSeventeen
