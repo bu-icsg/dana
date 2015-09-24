@@ -17,6 +17,7 @@ static char * usage_message =
   "Options:\n"
   "  -b, --binary-point         the binary point (number of fractional bits)\n"
   "  -c, --stat-cycles          print the total number of cycles in the ROI\n"
+  "  -d, --num-batch-items      specify the number of batch items to use\n"
   "  -e, --max-epochs           the epoch limit (default 10k)\n"
   "  -f, --bit-fail-limit       sets the bit fail limit (default 0.05)\n"
   "  -g, --mse-fail-limit       sets the maximum MSE (default -1, i.e., off)\n"
@@ -82,7 +83,8 @@ uint64_t binary_config_num_connections(char * file_nn) {
 }
 
 int main (int argc, char * argv[]) {
-  int exit_code = 0, max_epochs = 10000, bits_failing = -1, id = 0;
+  int exit_code = 0, max_epochs = 10000, bits_failing = -1, id = 0,
+    batch_items = -1;
   int flag_cycles = 0, flag_last = 0, flag_mse = 0, flag_performance = 0,
     flag_verbose = 0;
   int mse_reporting_period = 1;
@@ -99,6 +101,7 @@ int main (int argc, char * argv[]) {
     static struct option long_options[] = {
       {"binary-point",     required_argument, 0, 'b'},
       {"stat-cycles",      no_argument,       0, 'c'},
+      {"num-batch-items",  required_argument, 0, 'd'},
       {"max-epochs",       required_argument, 0, 'e'},
       {"bit-fail-limit",   required_argument, 0, 'f'},
       {"mse-fail-limit",   required_argument, 0, 'g'},
@@ -109,10 +112,12 @@ int main (int argc, char * argv[]) {
       {"nn-config",        required_argument, 0, 'n'},
       {"performance-mode", no_argument,       0, 'p'},
       {"train-file",       required_argument, 0, 't'},
-      {"verbose",          no_argument,       0, 'v'}
+      {"verbose",          no_argument,       0, 'v'},
+      {"muti-run",         required_argument, 0, 'x'},
+      {"weight-decay-lamba,",required_argument,0,'y'}
     };
     int option_index = 0;
-    c = getopt_long (argc, argv, "b:ce:f:g:hi:lm::n:pr:t:vy:",
+    c = getopt_long (argc, argv, "b:cd:e:f:g:hi:lm::n:pr:t:vy:",
                      long_options, &option_index);
     if (c == -1)
       break;
@@ -122,6 +127,9 @@ int main (int argc, char * argv[]) {
       break;
     case 'c':
       flag_cycles = 1;
+      break;
+    case 'd':
+      batch_items = atoi(optarg);
       break;
     case 'e':
       max_epochs = atoi(optarg);
@@ -215,7 +223,8 @@ int main (int argc, char * argv[]) {
   float mse, error;
 
   outputs = (element_type *) malloc(num_output * sizeof(element_type));
-  int batch_items = fann_length_train_data(data);
+  if (batch_items == -1)
+    batch_items = fann_length_train_data(data);
   int32_t learn_rate = (int32_t)((learning_rate / batch_items) * multiplier);
   int32_t weight_decay = (int32_t)((weight_decay_lambda / batch_items) * multiplier);
   // weight_decay = 1;

@@ -9,6 +9,7 @@ static char * usage_message =
   "\n"
   "Options:\n"
   "  -c, --stat-cups            print information about the # of connectsion\n"
+  "  -d, --num-batch-items      number of batch items to use\n"
   "  -e, --max-epochs           the epoch limit (default 10k)\n"
   "  -f, --bit-fail-limit       sets the bit fail limit (default 0.05)\n"
   "  -g, --mse-fail-limit       sets the maximum MSE (default -1, i.e., off)\n"
@@ -28,7 +29,7 @@ void usage () {
 
 int main (int argc, char * argv[]) {
   int i, epoch, k, num_bits_failing;
-  int max_epochs = 10000, exit_code = 0, id = 0;
+  int max_epochs = 10000, exit_code = 0, id = 0, batch_items = -1;
   int flag_cups = 0, flag_last = 0, flag_mse = 0, flag_verbose = 0;
   int mse_reporting_period = 1;
   float bit_fail_limit = 0.05, mse_fail_limit = -1.0;
@@ -41,6 +42,7 @@ int main (int argc, char * argv[]) {
   while (1) {
     static struct option long_options[] = {
       {"stat-cups",      no_argument,       0, 'c'},
+      {"num-batch-items",required_argument, 0, 'd'},
       {"max-epochs",     required_argument, 0, 'e'},
       {"bit-fail-limit", required_argument, 0, 'f'},
       {"mse-fail-limit", required_argument, 0, 'g'},
@@ -53,12 +55,15 @@ int main (int argc, char * argv[]) {
       {"verbose",        no_argument,       0, 'v'}
     };
     int option_index = 0;
-    c = getopt_long (argc, argv, "ce:f:g:hi:lm::n:t:v", long_options, &option_index);
+    c = getopt_long (argc, argv, "cd:e:f:g:hi:lm::n:t:v", long_options, &option_index);
     if (c == -1)
       break;
     switch (c) {
     case 'c':
       flag_cups = 1;
+      break;
+    case 'd':
+      batch_items = atoi(optarg);
       break;
     case 'e':
       max_epochs = atoi(optarg);
@@ -115,6 +120,8 @@ int main (int argc, char * argv[]) {
 
   ann = fann_create_from_file(file_nn);
   data = fann_read_train_from_file(file_train);
+  if (batch_items != -1)
+    data->num_data = batch_items;
   enum fann_activationfunc_enum af =
     fann_get_activation_function(ann, ann->last_layer - ann->first_layer -1, 0);
 
