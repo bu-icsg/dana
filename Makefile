@@ -333,8 +333,8 @@ $(DIR_BUILD)/nets/census-house-float.net: $(NETS_TOOLS)
 	-l16 -l1 -l1 -a5 -o3 $@
 
 $(DIR_BUILD)/nets/mushroom-float.net: $(NETS_TOOLS)
-	$(FANN_RANDOM) -n$(DIR_FANN)/datasets/mushroom.train \
-	-l125 -l1 -l2 -a5 -o3 $@
+	$(FANN_RANDOM) -r0.05 \
+	-l125 -l1 -l2 -a3 -o3 $@
 
 $(DIR_BUILD)/nets/diabetes-float.net: $(NETS_TOOLS)
 	$(FANN_RANDOM) -n$(DIR_FANN)/datasets/diabetes.train \
