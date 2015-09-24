@@ -102,9 +102,10 @@ INCLUDES      = $(addprefix -include $(DIR_BUILD)/, \
 GPP_FLAGS     = $(INCLUDES) $(INCLUDE_PATHS:%=-I %) -g -std=c++11
 
 # RISC-V related options
-RV_GCC        = riscv64-unknown-linux-gnu-gcc
-RV_AR         = riscv64-unknown-linux-gnu-ar
-RV_OBJDUMP    = riscv64-unknown-linux-gnu-objdump
+RV_TARGET     = unknown-linux-gnu
+RV_GCC        = riscv64-$(RV_TARGET)-gcc
+RV_AR         = riscv64-$(RV_TARGET)-ar
+RV_OBJDUMP    = riscv64-$(RV_TARGET)-objdump
 
 # Linker related options
 LIB_PATHS     = ../usr/lib
