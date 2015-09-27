@@ -209,6 +209,8 @@ fann: $(DIR_BUILD)/fann
 	cd $(DIR_BUILD)/fann && \
 	cmake -DCMAKE_LIBRARY_OUTPUT_DIRECTORY=\
 	$(shell readlink -f $(DIR_BUILD)/fann) \
+	-DCMAKE_C_FLAGS="-DFANN_NO_SEED" \
+	-DCMAKE_CXX_FLAGS="-DFANN_NO_SEED" \
 	../../submodules/fann && \
 	make
 
@@ -225,6 +227,8 @@ fann-rv: $(DIR_BUILD)/fann-rv
 	-DCMAKE_CXX_COMPILER=$$RISCV/bin/$(RV_GPP) \
 	-DCMAKE_SYSTEM_NAME=Generic \
 	-DBUILD_SHARED_LIBS=OFF \
+	-DCMAKE_C_FLAGS="-DFANN_NO_SEED" \
+	-DCMAKE_CXX_FLAGS="-DFANN_NO_SEED" \
 	../../submodules/fann && \
 	make
 
@@ -322,50 +326,60 @@ $(DIR_BUILD)/nets/%-fixed.net: %-float.net $(NETS_TOOLS)
 
 #--------- Randomly generated nets based on some training data
 $(DIR_BUILD)/nets/xorSigmoid-float.net: $(NETS_TOOLS)
-	$(FANN_RANDOM) -r0.7 -l2 -l3 -l1 -a5 -o3 $@
+	$(FANN_RANDOM) -s$$RANDOM -r0.7 -l2 -l3 -l1 -a5 -o3 $@
 
 $(DIR_BUILD)/nets/xorSigmoidSymmetric-float.net: $(NETS_TOOLS)
-	$(FANN_RANDOM) -nsrc/main/resources/xorSigmoidSymmetric.train \
+	$(FANN_RANDOM) -s$$RANDOM \
+	-nsrc/main/resources/xorSigmoidSymmetric.train \
 	-l2 -l3 -l1 -a5 -o5 $@
 
 $(DIR_BUILD)/nets/xorSigmoidSymmetricPair-float.net: $(NETS_TOOLS)
-	$(FANN_RANDOM) -nsrc/main/resources/xorSigmoidSymmetricPair.train \
+	$(FANN_RANDOM) -s$$RANDOM \
+	-nsrc/main/resources/xorSigmoidSymmetricPair.train \
 	-l2 -l3 -l2 -a5 -o5 $@
 
 $(DIR_BUILD)/nets/xorSigmoidSymmetricPairThreeLayer-float.net: $(NETS_TOOLS)
-	$(FANN_RANDOM) -nsrc/main/resources/xorSigmoidSymmetricPairThreeLayer.train \
+	$(FANN_RANDOM) -s$$RANDOM \
+	-nsrc/main/resources/xorSigmoidSymmetricPairThreeLayer.train \
 	-l2 -l3 -l3 -l2 -a5 -o5 $@
 
 $(DIR_BUILD)/nets/census-house-float.net: $(NETS_TOOLS)
-	$(FANN_RANDOM) -n$(DIR_FANN)/datasets/census-house.train \
+	$(FANN_RANDOM) -s$$RANDOM \
+	-n$(DIR_FANN)/datasets/census-house.train \
 	-l16 -l1 -l1 -a5 -o3 $@
 
 $(DIR_BUILD)/nets/mushroom-float.net: $(NETS_TOOLS)
-	$(FANN_RANDOM) -r0.05 \
+	$(FANN_RANDOM) -s$$RANDOM -r0.05 \
 	-l125 -l1 -l2 -a3 -o3 $@
 
 $(DIR_BUILD)/nets/diabetes-float.net: $(NETS_TOOLS)
-	$(FANN_RANDOM) -n$(DIR_FANN)/datasets/diabetes.train \
+	$(FANN_RANDOM) -s$$RANDOM \
+	-n$(DIR_FANN)/datasets/diabetes.train \
 	-l8 -l10 -l2 -a5 -o3 $@
 
 $(DIR_BUILD)/nets/gene-float.net: $(NETS_TOOLS)
-	$(FANN_RANDOM) -n$(DIR_FANN)/datasets/gene.train \
+	$(FANN_RANDOM) -s$$RANDOM \
+	-n$(DIR_FANN)/datasets/gene.train \
 	-l120 -l19 -l3 -a5 -o3 $@
 
 $(DIR_BUILD)/nets/kin32fm-float.net: $(NETS_TOOLS)
-	$(FANN_RANDOM) -n$(DIR_FANN)/datasets/kin32fm.train \
+	$(FANN_RANDOM) -s$$RANDOM \
+	-n$(DIR_FANN)/datasets/kin32fm.train \
 	-l32 -l20 -l1 -a5 -o3 $@
 
 $(DIR_BUILD)/nets/soybean-float.net: $(NETS_TOOLS)
-	$(FANN_RANDOM) -n$(DIR_FANN)/datasets/soybean.train \
+	$(FANN_RANDOM) -s$$RANDOM \
+	-n$(DIR_FANN)/datasets/soybean.train \
 	-l82 -l20 -l19 -a5 -o3 $@
 
 $(DIR_BUILD)/nets/thyroid-float.net: $(NETS_TOOLS)
-	$(FANN_RANDOM) -n$(DIR_FANN)/datasets/thyroid.train \
+	$(FANN_RANDOM) -s$$RANDOM \
+	-n$(DIR_FANN)/datasets/thyroid.train \
 	-l21 -l1 -l3 -a5 -o3 $@
 
 $(DIR_BUILD)/nets/two-spiral-float.net: $(NETS_TOOLS)
-	$(FANN_RANDOM) -n$(DIR_FANN)/datasets/two-spiral.train \
+	$(FANN_RANDOM) -s$$RANDOM \
+	-n$(DIR_FANN)/datasets/two-spiral.train \
 	-l2 -l10 -l30 -l3 -l1 -a5 -o3 $@
 
 #--------- Non-randomly generated networks

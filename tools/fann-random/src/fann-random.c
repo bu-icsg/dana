@@ -16,8 +16,9 @@ static char * usage_message =
   "  -n, --randomize-nguyen     initialize weights using Nguyen-Widrow (needs data)\n"
   "  -o, --af-output            set the activation function of all output neurons\n"
   "  -r, --randomize-weights    randomize weights on a specified range\n"
+  "  -s, --seed                 specify a specific seed"
   "\n"
-  "Only of of -n or -r may be specified\n"
+  "Only one of -n or -r may be specified\n"
   ;
 
 void usage () {
@@ -71,10 +72,11 @@ int main (int argc, char * argv[]) {
       {"add-layer",          required_argument, 0, 'l'},
       {"randomize-nguyen",   required_argument, 0, 'n'},
       {"af-ouput",           required_argument, 0, 'o'},
-      {"randomize-weights",  required_argument, 0, 'r'}
+      {"randomize-weights",  required_argument, 0, 'r'},
+      {"seed",               required_argument, 0, 's'}
     };
     int option_index = 0;
-    c = getopt_long (argc, argv, "a:hl:n:o:r:", long_options, &option_index);
+    c = getopt_long (argc, argv, "a:hl:n:o:r:s:", long_options, &option_index);
     if (c == -1)
       break;
     switch (c) {
@@ -95,6 +97,10 @@ int main (int argc, char * argv[]) {
       break;
     case 'r':
       layers->weight_random = atof(optarg);
+      break;
+    case 's':
+      srand(atoi(optarg));
+      printf("Setting seed to %d\n", atoi(optarg));
       break;
     default:
       abort ();
