@@ -72,11 +72,14 @@ class AsidNnidTableWalker extends XFilesModule {
   io.cache.resp.bits.addr := UInt(0)
   for (i <- 0 until numCores) {
     io.mem(i).req.valid := Bool(false)
-    io.mem(i).invalidate_lr := Bool(false)
+    io.mem(i).req.bits.kill := Bool(false) // testing
+    io.mem(i).req.bits.phys := Bool(false) // testing
+    io.mem(i).req.bits.data := Bool(false) // testing
     io.mem(i).req.bits.addr := UInt(0)
     io.mem(i).req.bits.tag := UInt(0)
     io.mem(i).req.bits.cmd := UInt(0)
     io.mem(i).req.bits.typ := UInt(0)
+    io.mem(i).invalidate_lr := Bool(false)
   }
   cacheReqQueue.io.enq.valid := Bool(false)
   cacheReqQueue.io.enq.bits.asid := UInt(0)
@@ -138,11 +141,11 @@ class AsidNnidTableWalker extends XFilesModule {
     configRob(configRobSlot).cacheAddr :=
       respIdx >> UInt(log2Up(configBufSize))
     configRob(configRobSlot).data(configRobOffset) :=
-      io.mem(indexResp).resp.bits.data_subword
+      io.mem(indexResp).resp.bits.data_word_bypass
 
     // Print out the response [TODO] remove
     // printf("[INFO] ANTW: Resp addr/data 0x%x/0x%x\n",
-    //   respIdx, io.mem(indexResp).resp.bits.data_subword)
+    //   respIdx, io.mem(indexResp).resp.bits.data_word_bypass)
   }
 
   // Communication with the ASID Unit
@@ -212,8 +215,8 @@ class AsidNnidTableWalker extends XFilesModule {
     is (s_CHECK_NNID_WAIT) {
       when(io.mem.exists(respValid)) {
         // [TODO] Fragile on XLen
-        val numConfigs = io.mem(indexResp).resp.bits.data_subword(31, 0)
-        val numValid = io.mem(indexResp).resp.bits.data_subword(63, 32)
+        val numConfigs = io.mem(indexResp).resp.bits.data_word_bypass(31, 0)
+        val numValid = io.mem(indexResp).resp.bits.data_word_bypass(63, 32)
         printf("[INFO] ANTW: Saw CHECK_NNID resp w/ #configs 0x%x, #valid 0x%x\n",
           numConfigs, numValid)
         when (cacheReqCurrent.nnid < numValid) {
@@ -228,9 +231,9 @@ class AsidNnidTableWalker extends XFilesModule {
     }
     is (s_READ_NNID_POINTER) {
       when (io.mem.exists(respValid)) {
-        val reqAddr = io.mem(indexResp).resp.bits.data_subword +
+        val reqAddr = io.mem(indexResp).resp.bits.data_word_bypass +
           cacheReqCurrent.nnid * UInt(16)
-        configPtr := io.mem(indexResp).resp.bits.data_subword +
+        configPtr := io.mem(indexResp).resp.bits.data_word_bypass +
           cacheReqCurrent.nnid * UInt(16) + UInt(8)
         memRead(io.cache.req.bits.coreIndex, reqAddr)
         state := s_READ_CONFIGSIZE
@@ -238,7 +241,7 @@ class AsidNnidTableWalker extends XFilesModule {
     }
     is (s_READ_CONFIGSIZE) {
       when (io.mem.exists(respValid)) {
-        configSize := io.mem(indexResp).resp.bits.data_subword
+        configSize := io.mem(indexResp).resp.bits.data_word_bypass
         val reqAddr = configPtr
         memRead(io.cache.req.bits.coreIndex, reqAddr)
         state := s_READ_CONFIGPTR
@@ -246,11 +249,11 @@ class AsidNnidTableWalker extends XFilesModule {
     }
     is (s_READ_CONFIGPTR) {
       when (io.mem.exists(respValid)) {
-        configPtr := io.mem(indexResp).resp.bits.data_subword
+        configPtr := io.mem(indexResp).resp.bits.data_word_bypass
         configReqCount := UInt(1)
         configRespCount := UInt(0)
         configWbCount := UInt(0)
-        val reqAddr = io.mem(indexResp).resp.bits.data_subword
+        val reqAddr = io.mem(indexResp).resp.bits.data_word_bypass
         memRead(io.cache.req.bits.coreIndex, reqAddr)
         state := s_READ_CONFIG
       }
@@ -305,7 +308,7 @@ class AsidNnidTableWalker extends XFilesModule {
   // when (io.mem.exists(respValid)) {
   //   printf("[INFO] ANTW (state==%x): Memory response subword 0x%x\n",
   //     state,
-  //     io.mem(indexResp).resp.bits.data_subword)
+  //     io.mem(indexResp).resp.bits.data_word_bypass)
   // }
 
   // Reset conditions
