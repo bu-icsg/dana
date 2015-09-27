@@ -102,10 +102,11 @@ INCLUDES      = $(addprefix -include $(DIR_BUILD)/, \
 GPP_FLAGS     = $(INCLUDES) $(INCLUDE_PATHS:%=-I %) -g -std=c++11
 
 # RISC-V related options
-RV_TARGET     = unknown-linux-gnu
-RV_GCC        = riscv64-$(RV_TARGET)-gcc
-RV_AR         = riscv64-$(RV_TARGET)-ar
-RV_OBJDUMP    = riscv64-$(RV_TARGET)-objdump
+RV_TARGET     = riscv64-unknown-elf
+RV_GCC        = $(RV_TARGET)-gcc
+RV_GPP        = $(RV_TARGET)-g++
+RV_AR         = $(RV_TARGET)-ar
+RV_OBJDUMP    = $(RV_TARGET)-objdump
 
 # Linker related options
 LIB_PATHS     = ../usr/lib
@@ -215,8 +216,14 @@ fann-rv: $(DIR_BUILD)/fann-rv
 	cd $(DIR_BUILD)/fann-rv && \
 	cmake -DCMAKE_ARCHIVE_OUTPUT_DIRECTORY=\
 	$(shell readlink -f $(DIR_BUILD)/fann-rv) \
-	-DCMAKE_C_COMPILER=$$RISCV/bin/riscv64-unknown-linux-gnu-gcc \
-	-DCMAKE_CXX_COMPILER=$$RISCV/bin/riscv64-unknown-linux-gnu-g++ \
+	-DPKGCONFIG_INSTALL_DIR=$(shell readlink -f $(DIR_BUILD)/fann-rv) \
+	-DINCLUDE_INSTALL_DIR=$(shell readlink -f $(DIR_BUILD)/fann-rv) \
+	-DLIB_INSTALL_DIR=$(shell readlink -f $(DIR_BUILD)/fann-rv) \
+	-DCMAKE_CONFIG_DIR=$(shell readlink -f $(DIR_BUILD)/fann-rv) \
+	-DCMAKE_CURRENT_BINARY_DIR=$(shell readlink -f $(DIR_BUILD)/fann-rv) \
+	-DCMAKE_C_COMPILER=$$RISCV/bin/$(RV_GCC) \
+	-DCMAKE_CXX_COMPILER=$$RISCV/bin/$(RV_GPP) \
+	-DCMAKE_SYSTEM_NAME=Generic \
 	-DBUILD_SHARED_LIBS=OFF \
 	../../submodules/fann && \
 	make
