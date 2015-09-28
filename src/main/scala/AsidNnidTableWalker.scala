@@ -73,7 +73,7 @@ class AsidNnidTableWalker extends XFilesModule {
   for (i <- 0 until numCores) {
     io.mem(i).req.valid := Bool(false)
     io.mem(i).req.bits.kill := Bool(false) // testing
-    io.mem(i).req.bits.phys := Bool(false) // testing
+    io.mem(i).req.bits.phys := Bool(true) // testing
     io.mem(i).req.bits.data := Bool(false) // testing
     io.mem(i).req.bits.addr := UInt(0)
     io.mem(i).req.bits.tag := UInt(0)
@@ -146,6 +146,16 @@ class AsidNnidTableWalker extends XFilesModule {
     // Print out the response [TODO] remove
     // printf("[INFO] ANTW: Resp addr/data 0x%x/0x%x\n",
     //   respIdx, io.mem(indexResp).resp.bits.data_word_bypass)
+
+    // Assertions
+
+    // The Config ROB bit that we're setting valid should not already
+    // be valid. This indicates that we're overwritting some valid
+    // data that has not been written back, likely due to a dropped
+    // cache request.
+    assert(!((configRob(configRobSlot).valid &
+      UInt(1, width = configBufSize) << configRobOffset) >> configRobOffset),
+      "ANTW about to overwrite valid Config ROB entry. Possible dropped request?")
   }
 
   // Communication with the ASID Unit
@@ -168,7 +178,12 @@ class AsidNnidTableWalker extends XFilesModule {
   }
 
   // Pull memory requests out of the Memory Request Queue
-  when (memReqQueue.io.deq.valid && io.mem(memReqQueue.io.deq.bits.core).req.ready) {
+  when (memReqQueue.io.deq.valid &&
+    io.mem(memReqQueue.io.deq.bits.core).req.ready
+    // [TODO] This _shouldn't_ be necessary, here, but I'm having
+    // problems with dropped requests without it.
+    && Reg(next = !io.mem(memReqQueue.io.deq.bits.core).req.valid)
+  ) {
     val core = memReqQueue.io.deq.bits.core
     memReqQueue.io.deq.ready := Bool(true)
     io.mem(core).req.valid := Bool(true)
@@ -300,7 +315,8 @@ class AsidNnidTableWalker extends XFilesModule {
       configRob(configRobIdx).data.toBits,
       cacheReqCurrent.cacheIndex,
       configRob(configRobIdx).cacheAddr)
-    // printf("[INFO] ANTW: configWbCount: 0x%x\n", configWbCount)
+    // printf("[INFO] ANTW: configWbCount: 0x%x of 0x%x\n", configWbCount,
+    //   configSize >> UInt(log2Up(configBufSize)))
     configRob(configRobIdx).valid := UInt(0)
     configWbCount := configWbCount + UInt(1)
   }
@@ -314,7 +330,7 @@ class AsidNnidTableWalker extends XFilesModule {
   // Reset conditions
   when (reset) {
     antpReg.valid := Bool(false)
-    (0 until antwRobEntries).map(i => configRob(i).valid := Bool(false))
+    (0 until antwRobEntries).map(i => configRob(i).valid := UInt(0))
   }
 
   // Assertions
