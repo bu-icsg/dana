@@ -220,7 +220,7 @@ int main (int argc, char * argv[]) {
   // Train on the provided data
   int epoch, item, i;
   tid_type tid;
-  float mse, error;
+  float mse = 0.0, error;
 
   outputs = (element_type *) malloc(num_output * sizeof(element_type));
   if (batch_items == -1)
