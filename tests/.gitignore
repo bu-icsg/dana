@@ -1,0 +1,6 @@
+run.log
+*.good
+*.emulator
+*.rv
+*.net
+*.train

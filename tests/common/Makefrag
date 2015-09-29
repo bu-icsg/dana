@@ -1,0 +1,38 @@
+#-*- mode: makefile-*-
+DIR_TOP  = ../../..
+GCC      ?= riscv64-unknown-elf-gcc
+EMULATOR ?= ../$(DIR_TOP)/emulator/emulator-Top-XFilesDanaCPPConfig
+C_FLAGS  ?= -Wall \
+	-Werror \
+	-O3 \
+	-static \
+	-march=RV64IMAFDXcustom \
+	-I$(DIR_TOP)/usr/include \
+	-I$(DIR_TOP)/build/nets
+L_FLAGS  ?= -L$(DIR_TOP)/usr/lib-rv \
+	-lxfiles \
+	-lfixedfann \
+	-lm
+MAX_CYCLES ?= 100000000
+DECIMAL_POINT_OFFSET=7
+
+# Common tools
+FANN_RANDOM=$(DIR_TOP)/usr/bin/fann-random
+FLOAT_TO_FIXED=$(DIR_TOP)/usr/bin/fann-float-to-fixed
+WRITE_FANN_CONFIG=$(DIR_TOP)/usr/bin/write-fann-config-for-accelerator
+FANN_TRAIN_TO_FIXED=$(DIR_TOP)/usr/bin/fann-data-to-fixed
+
+PHONY += all default clean
+
+default: all
+
+%.rv: %.c
+	$(GCC) $(C_FLAGS) $< -o $@ $(L_FLAGS)
+
+# Common utilities
+TOOL_COMPARE = ../../common/compare.sh
+
+JUNK = *.emulator *.rv
+
+clean:
+	rm -f $(JUNK)
