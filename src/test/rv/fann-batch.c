@@ -85,8 +85,12 @@ uint64_t binary_config_num_connections(char * file_nn) {
 int main (int argc, char * argv[]) {
   int exit_code = 0, max_epochs = 10000, bits_failing = -1, id = 0,
     batch_items = -1;
-  int flag_cycles = 0, flag_last = 0, flag_mse = 0, flag_performance = 0,
-    flag_verbose = 0;
+  int flag_cycles = 0, flag_last = 0, flag_mse = 0, flag_performance = 0;
+#ifdef VERBOSE_DEFAULT
+  int flag_verbose = 1;
+#else
+  int flag_verbose = 0;
+#endif
   int mse_reporting_period = 1;
   uint64_t cycles;
   float bit_fail_limit = 0.05, mse_fail_limit = -1.0,
@@ -266,8 +270,6 @@ int main (int argc, char * argv[]) {
 
     // Check the outputs
     bits_failing = 0;
-    if (flag_mse)
-      mse = 0.0;
     for (item = 0; item < batch_items; item++) {
       tid = new_write_request(nnid, 0, 0);
       write_data(tid, (element_type *) data->input[item], num_input);
