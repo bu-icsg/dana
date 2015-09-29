@@ -11,14 +11,14 @@ NUM_CPUS=`cat /proc/cpuinfo | \
 # Find the worst load that we've seen over the past 3 reported load
 # average intevals
 WORST_LOAD=`cat /proc/loadavg | \
-    awk '{print $1" "$2" "$3}' | \
+    awk '{print $1"\n"$2"\n"$3}' | \
     sort -nr | \
-    awk '{print $1}'`
+    head -n1`
 
 # Grab the number of idle CPUs that we see, and, if the machine is
 # heavily loaded, just grab one
 COMMANDEERED_CPUS=`echo "$NUM_CPUS $WORST_LOAD-p" | dc | sed 's/\..\+$//'`
-if [[ $COMMANDEERED_CPUS = 0 ]]; then
+if [[ $COMMANDEERED_CPUS -lt 0 ]]; then
    COMMANDEERED_CPUS=1;
 fi
 echo $COMMANDEERED_CPUS
