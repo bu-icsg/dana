@@ -22,7 +22,7 @@ vpath %.train $(DIR_TOP)/submodules/fann/datasets
 
 .PHONY: $(PHONY) run compare
 
-.PRECIOUS: %.net %.train %bin
+.PRECIOUS: %-fixed.net %-float.net %-fixed.train %-fixed.16bin
 
 all: $(RUNS)
 
