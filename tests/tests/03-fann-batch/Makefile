@@ -46,6 +46,8 @@ xorSigmoidSymmetric-float.net:
 	-t $(basename $@)-fixed.train \
 	-b `grep decimal_point $(word 3,$^) | sed 's/^.\+=//'` \
 	-m -e100 > $(basename $@).emulator
-	@ $(TOOL_COMPARE) $(basename $@).good $(basename $@).emulator $(basename $@)
+	@ $(TOOL_COMPARE) $(basename $@).good \
+	$(basename $@).emulator \
+	$(TEST_NAME)-$(basename $@)
 
 JUNK += *.net *.*bin *.train

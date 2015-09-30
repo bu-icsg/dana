@@ -12,4 +12,4 @@ run: $(TARGETS)
 	@ spike pk hello.rv 2>&1 > hello.spike
 
 compare: run
-	@ $(TOOL_COMPARE) hello.spike hello.emulator hello
+	@ $(TOOL_COMPARE) hello.spike hello.emulator $(TEST_NAME)

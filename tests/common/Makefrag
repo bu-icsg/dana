@@ -15,6 +15,7 @@ L_FLAGS  ?= -L$(DIR_TOP)/usr/lib-rv \
 	-lm
 MAX_CYCLES ?= 100000000
 DECIMAL_POINT_OFFSET=7
+TEST_NAME ?= `readlink -f . | sed 's/^.\+\///'`
 
 # Common tools
 FANN_RANDOM=$(DIR_TOP)/usr/bin/fann-random
@@ -27,7 +28,7 @@ PHONY += all default clean
 default: all
 
 %.rv: %.c
-	$(GCC) $(C_FLAGS) $< -o $@ $(L_FLAGS)
+	@ $(GCC) $(C_FLAGS) $< -o $@ $(L_FLAGS)
 
 # Common utilities
 TOOL_COMPARE = ../../common/compare.sh
