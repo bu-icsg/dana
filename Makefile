@@ -14,6 +14,7 @@ DIR_USR_BIN     = usr/bin
 DIR_USR_LIB     = usr/lib
 DIR_USR_INCLUDE = usr/include
 DIR_FANN        = submodules/fann
+SEED            = $(shell echo "$$RANDOM")
 
 # Chisel/Scala configuration
 SBT			?= sbt
@@ -175,6 +176,8 @@ NETS_TOOLS = $(FLOAT_TO_FIXED) \
 	$(FANN_CHANGE_FIXED_POINT) \
 	$(FANN_TRAIN_TO_FIXED)
 DECIMAL_POINT_OFFSET=7
+DECIMAL_POINT_BITS=3
+MAX_DECIMAL_POINT=`echo "2 $(DECIMAL_POINT_BITS)^1-$(DECIMAL_POINT_OFFSET)+p"|dc`
 
 vpath %.scala $(DIR_SRC_SCALA)
 vpath %.cpp $(DIR_TEST_CPP)
@@ -320,65 +323,85 @@ $(DIR_BUILD)/%.rvS: $(DIR_BUILD)/%.rv
 #------------------- Nets
 $(DIR_BUILD)/nets/%-fixed.net: $(DIR_BUILD)/nets/%-float.net $(NETS_TOOLS)
 	$(FLOAT_TO_FIXED) $< $@
+	if [[ `grep decimal $@ | sed 's/.\+=//'` -gt $(MAX_DECIMAL_POINT) ]]; then \
+	echo "[WARN] Fixed point precision unexpectedly high, attempting to fix..."; \
+	mv $@ $@.tooBig; \
+	$(FANN_CHANGE_FIXED_POINT) $@.tooBig $(MAX_DECIMAL_POINT) > $@; \
+	rm $@.tooBig; \
+	elif [[ `grep decimal $@ | sed 's/.\+=//'` -lt $(DECIMAL_POINT_OFFSET) ]]; \
+	then echo "[WARN] Fixed point precision too low, attempting to fix..."; \
+	mv $@ $@.tooSmall; \
+	$(FANN_CHANGE_FIXED_POINT) $@.tooSmall $(DECIMAL_POINT_OFFSET) > $@; \
+	rm $@.tooSmall; fi
 
 $(DIR_BUILD)/nets/%-fixed.net: %-float.net $(NETS_TOOLS)
 	$(FLOAT_TO_FIXED) $< $@
+	if [[ `grep decimal $@ | sed 's/.\+=//'` -gt $(MAX_DECIMAL_POINT) ]]; then \
+	echo "[WARN] Fixed point precision unexpectedly high, attempting to fix..."; \
+	mv $@ $@.tooBig; \
+	$(FANN_CHANGE_FIXED_POINT) $@.tooBig $(MAX_DECIMAL_POINT) > $@; \
+	rm $@.tooBig; \
+	elif [[ `grep decimal $@ | sed 's/.\+=//'` -lt $(DECIMAL_POINT_OFFSET) ]]; \
+	then echo "[WARN] Fixed point precision too low, attempting to fix..."; \
+	mv $@ $@.tooSmall; \
+	$(FANN_CHANGE_FIXED_POINT) $@.tooSmall $(DECIMAL_POINT_OFFSET) > $@; \
+	rm $@.tooSmall; fi
 
 #--------- Randomly generated nets based on some training data
 $(DIR_BUILD)/nets/xorSigmoid-float.net: $(NETS_TOOLS)
-	$(FANN_RANDOM) -s$$RANDOM -r0.7 -l2 -l3 -l1 -a5 -o3 $@
+	$(FANN_RANDOM) -s$(SEED) -r0.7 -l2 -l3 -l1 -a5 -o3 $@
 
 $(DIR_BUILD)/nets/xorSigmoidSymmetric-float.net: $(NETS_TOOLS)
-	$(FANN_RANDOM) -s$$RANDOM \
+	$(FANN_RANDOM) -s$(SEED) \
 	-nsrc/main/resources/xorSigmoidSymmetric.train \
 	-l2 -l3 -l1 -a5 -o5 $@
 
 $(DIR_BUILD)/nets/xorSigmoidSymmetricPair-float.net: $(NETS_TOOLS)
-	$(FANN_RANDOM) -s$$RANDOM \
+	$(FANN_RANDOM) -s$(SEED) \
 	-nsrc/main/resources/xorSigmoidSymmetricPair.train \
 	-l2 -l3 -l2 -a5 -o5 $@
 
 $(DIR_BUILD)/nets/xorSigmoidSymmetricPairThreeLayer-float.net: $(NETS_TOOLS)
-	$(FANN_RANDOM) -s$$RANDOM \
+	$(FANN_RANDOM) -s$(SEED) \
 	-nsrc/main/resources/xorSigmoidSymmetricPairThreeLayer.train \
 	-l2 -l3 -l3 -l2 -a5 -o5 $@
 
 $(DIR_BUILD)/nets/census-house-float.net: $(NETS_TOOLS)
-	$(FANN_RANDOM) -s$$RANDOM \
+	$(FANN_RANDOM) -s$(SEED) \
 	-n$(DIR_FANN)/datasets/census-house.train \
 	-l16 -l1 -l1 -a5 -o3 $@
 
 $(DIR_BUILD)/nets/mushroom-float.net: $(NETS_TOOLS)
-	$(FANN_RANDOM) -s$$RANDOM -r0.05 \
+	$(FANN_RANDOM) -s$(SEED) -r0.05 \
 	-l125 -l1 -l2 -a3 -o3 $@
 
 $(DIR_BUILD)/nets/diabetes-float.net: $(NETS_TOOLS)
-	$(FANN_RANDOM) -s$$RANDOM \
+	$(FANN_RANDOM) -s$(SEED) \
 	-n$(DIR_FANN)/datasets/diabetes.train \
 	-l8 -l10 -l2 -a5 -o3 $@
 
 $(DIR_BUILD)/nets/gene-float.net: $(NETS_TOOLS)
-	$(FANN_RANDOM) -s$$RANDOM \
+	$(FANN_RANDOM) -s$(SEED) \
 	-n$(DIR_FANN)/datasets/gene.train \
 	-l120 -l19 -l3 -a5 -o3 $@
 
 $(DIR_BUILD)/nets/kin32fm-float.net: $(NETS_TOOLS)
-	$(FANN_RANDOM) -s$$RANDOM \
+	$(FANN_RANDOM) -s$(SEED) \
 	-n$(DIR_FANN)/datasets/kin32fm.train \
 	-l32 -l20 -l1 -a5 -o3 $@
 
 $(DIR_BUILD)/nets/soybean-float.net: $(NETS_TOOLS)
-	$(FANN_RANDOM) -s$$RANDOM \
+	$(FANN_RANDOM) -s$(SEED) \
 	-n$(DIR_FANN)/datasets/soybean.train \
 	-l82 -l20 -l19 -a5 -o3 $@
 
 $(DIR_BUILD)/nets/thyroid-float.net: $(NETS_TOOLS)
-	$(FANN_RANDOM) -s$$RANDOM \
+	$(FANN_RANDOM) -s$(SEED) \
 	-n$(DIR_FANN)/datasets/thyroid.train \
 	-l21 -l1 -l3 -a5 -o3 $@
 
 $(DIR_BUILD)/nets/two-spiral-float.net: $(NETS_TOOLS)
-	$(FANN_RANDOM) -s$$RANDOM \
+	$(FANN_RANDOM) -s$(SEED) \
 	-n$(DIR_FANN)/datasets/two-spiral.train \
 	-l2 -l10 -l30 -l3 -l1 -a5 -o3 $@
 
