@@ -93,7 +93,7 @@ int main (int argc, char * argv[]) {
 #endif
   int mse_reporting_period = 1;
   uint64_t cycles;
-  float bit_fail_limit = 0.05, mse_fail_limit = -1.0,
+  double bit_fail_limit = 0.05, mse_fail_limit = -1.0,
     learning_rate = 0.7, weight_decay_lambda = 0.0;
   struct fann_train_data * data = NULL;
 
@@ -219,12 +219,12 @@ int main (int argc, char * argv[]) {
   size_t num_output = data->num_output;
   printf("[INFO] Done reading input file\n");
 
-  float multiplier = pow(2, binary_point);
+  double multiplier = pow(2, binary_point);
 
   // Train on the provided data
   int epoch, item, i;
   tid_type tid;
-  float mse = 0.0, error;
+  double mse = 0.0, error;
 
   outputs = (element_type *) malloc(num_output * sizeof(element_type));
   if (batch_items == -1)
@@ -278,18 +278,18 @@ int main (int argc, char * argv[]) {
       if (flag_verbose) {
         printf("[INFO] ");
         for (i = 0; i < num_input; i++) {
-          printf("%8.5f ", ((float)data->input[item][i]) / multiplier);
+          printf("%8.5f ", ((double)data->input[item][i]) / multiplier);
         }
       }
 
       for (i = 0; i < num_output; i++) {
         if (flag_verbose)
-          printf("%8.5f ", ((float)outputs[i])/multiplier);
+          printf("%8.5f ", ((double)outputs[i])/multiplier);
         bits_failing +=
-          fabs((float)(outputs[i] - data->output[item][i]) / multiplier) >
+          fabs((double)(outputs[i] - data->output[item][i]) / multiplier) >
           bit_fail_limit;
         if (flag_mse) {
-          error = (float)(outputs[i] - data->output[item][i]) / multiplier;
+          error = (double)(outputs[i] - data->output[item][i]) / multiplier;
           mse += error * error;
         }
       }

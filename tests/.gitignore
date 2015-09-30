@@ -3,3 +3,4 @@ run.log
 *.rv
 *.net
 *.train
+*bin

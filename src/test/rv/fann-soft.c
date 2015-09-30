@@ -42,7 +42,7 @@ int main (int argc, char * argv[]) {
     flag_verbose = 0;
   int mse_reporting_period = 1;
   uint64_t cycles;
-  float bit_fail_limit = 0.05, mse_fail_limit = -1.0;
+  double bit_fail_limit = 0.05, mse_fail_limit = -1.0;
   struct fann_train_data * data = NULL;
   struct fann * ann = NULL;
 
@@ -136,7 +136,7 @@ int main (int argc, char * argv[]) {
 
   int epoch, item, k;
   fann_type * calc_out;
-  float mse;
+  double mse;
 
   if (flag_performance) goto fann_performance;
   else goto fann_verbose;
