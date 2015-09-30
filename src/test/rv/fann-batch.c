@@ -15,6 +15,7 @@ static char * usage_message =
   "Run batch training on a specific neural network and training file.\n"
   "\n"
   "Options:\n"
+  "  -a, --print-ant            print information about the asid--nnit table\n"
   "  -b, --binary-point         the binary point (number of fractional bits)\n"
   "  -c, --stat-cycles          print the total number of cycles in the ROI\n"
   "  -d, --num-batch-items      specify the number of batch items to use\n"
@@ -85,7 +86,8 @@ uint64_t binary_config_num_connections(char * file_nn) {
 int main (int argc, char * argv[]) {
   int exit_code = 0, max_epochs = 10000, bits_failing = -1, id = 0,
     batch_items = -1;
-  int flag_cycles = 0, flag_last = 0, flag_mse = 0, flag_performance = 0;
+  int flag_cycles = 0, flag_last = 0, flag_mse = 0, flag_performance = 0,
+    flag_ant_info = 0;
 #ifdef VERBOSE_DEFAULT
   int flag_verbose = 1;
 #else
@@ -103,6 +105,7 @@ int main (int argc, char * argv[]) {
   int binary_point = -1, c;
   while (1) {
     static struct option long_options[] = {
+      {"ant-info",         no_argument,       0, 'a'},
       {"binary-point",     required_argument, 0, 'b'},
       {"stat-cycles",      no_argument,       0, 'c'},
       {"num-batch-items",  required_argument, 0, 'd'},
@@ -121,11 +124,14 @@ int main (int argc, char * argv[]) {
       {"weight-decay-lamba,",required_argument,0,'y'}
     };
     int option_index = 0;
-    c = getopt_long (argc, argv, "b:cd:e:f:g:hi:lm::n:pr:t:vy:",
+    c = getopt_long (argc, argv, "ab:cd:e:f:g:hi:lm::n:pr:t:vy:",
                      long_options, &option_index);
     if (c == -1)
       break;
     switch (c) {
+    case 'a':
+      flag_ant_info = 1;
+      break;
     case 'b':
       binary_point = atoi(optarg);
       break;
@@ -206,6 +212,9 @@ int main (int argc, char * argv[]) {
   nnid_type nnid = 0;
   attach_nn_configuration(&table, asid, file_nn);
   set_asid(asid);
+
+  if (flag_ant_info)
+    asid_nnid_table_info(table);
 
   uint64_t connections_per_epoch = binary_config_num_connections(file_nn);
 
