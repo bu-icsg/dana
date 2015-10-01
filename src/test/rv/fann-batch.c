@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <math.h>
 #include <getopt.h>
+#include <time.h>
 
 #include "fixedfann.h"
 #include "xfiles.h"
@@ -24,6 +25,8 @@ static char * usage_message =
   "  -g, --mse-fail-limit       sets the maximum MSE (default -1, i.e., off)\n"
   "  -h, --help                 print this help and exit\n"
   "  -i, --id                   numeric id to use for printing data (default 0)\n"
+  "  -j, --set-asid             use a specific asic (default 0)\n"
+  "  -k, --set-nnid             use a specific nnid (default 0)\n"
   "  -l, --stat-last            print last epoch number statistic\n"
   "  -m, --stat-mse             print mse statistics (optional arg: MSE period)\n"
   "  -n, --nn-config            the binary NN configuration to use\n"
@@ -88,6 +91,8 @@ int main (int argc, char * argv[]) {
     batch_items = -1;
   int flag_cycles = 0, flag_last = 0, flag_mse = 0, flag_performance = 0,
     flag_ant_info = 0;
+  asid_type asid = 0;
+  nnid_type nnid = 0;
 #ifdef VERBOSE_DEFAULT
   int flag_verbose = 1;
 #else
@@ -114,6 +119,8 @@ int main (int argc, char * argv[]) {
       {"mse-fail-limit",   required_argument, 0, 'g'},
       {"help",             no_argument,       0, 'h'},
       {"id",               required_argument, 0, 'i'},
+      {"set-asid",         required_argument, 0, 'j'},
+      {"set-nnid",         required_argument, 0, 'k'},
       {"stat-last",        no_argument,       0, 'l'},
       {"stat-mse",         optional_argument, 0, 'm'},
       {"nn-config",        required_argument, 0, 'n'},
@@ -124,7 +131,7 @@ int main (int argc, char * argv[]) {
       {"weight-decay-lamba,",required_argument,0,'y'}
     };
     int option_index = 0;
-    c = getopt_long (argc, argv, "ab:cd:e:f:g:hi:lm::n:pr:t:vy:",
+    c = getopt_long (argc, argv, "ab:cd:e:f:g:hi:j:k:lm::n:pr:t:vy:",
                      long_options, &option_index);
     if (c == -1)
       break;
@@ -157,6 +164,12 @@ int main (int argc, char * argv[]) {
       break;
     case 'i':
       id = atoi(optarg);
+      break;
+    case 'j':
+      asid = atoi(optarg);
+      break;
+    case 'k':
+      nnid = atoi(optarg);
       break;
     case 'l':
       flag_last = 1;
@@ -204,13 +217,17 @@ int main (int argc, char * argv[]) {
   }
 
   // Create the ASID--NNID Table
-  asid_nnid_table_create(&table, 4, 17);
+  asid_nnid_table_create(&table, asid * 2 + 1, nnid * 2 + 1);
   set_antp(table);
 
   // Populate the ASID--NNID Table
-  asid_type asid = 1;
-  nnid_type nnid = 0;
-  attach_nn_configuration(&table, asid, file_nn);
+  int i;
+  for (i = 0; i < nnid * 2 + 1; i++) {
+    if (i == nnid)
+      attach_nn_configuration(&table, asid, file_nn);
+    else
+      attach_garbage(&table, asid);
+  }
   set_asid(asid);
 
   if (flag_ant_info)
@@ -231,7 +248,7 @@ int main (int argc, char * argv[]) {
   double multiplier = pow(2, binary_point);
 
   // Train on the provided data
-  int epoch, item, i;
+  int epoch, item;
   tid_type tid;
   double mse = 0.0, error;
 
