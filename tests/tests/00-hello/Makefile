@@ -13,3 +13,5 @@ run: $(TARGETS)
 
 compare: run
 	@ $(TOOL_COMPARE) hello.spike hello.emulator $(TEST_NAME)
+
+JUNK += *.spike

@@ -12,4 +12,4 @@ $(EMULATOR):
 	ROCKETCHIP_ADDONS=xfiles-dana)
 
 $(DIR_TESTS)/t-%: $(EMULATOR) go-for-it
-	@ $(MAKE) -B -C $@
+	@ $(MAKE) -C $@ clean && $(MAKE) -C $@

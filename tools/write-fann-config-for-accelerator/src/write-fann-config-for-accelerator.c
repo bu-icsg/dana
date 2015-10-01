@@ -5,36 +5,86 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <math.h>
+#include <getopt.h>
 
 #include "fixedfann.h"
 
 void usage()
 {
-  printf("Usage: ./write-fann-config-for-accelerator <block width (bytes)> <FANN config> <bin out> <decimal point offset>\n");
+  printf("Usage: write-fann-config-for-accelerator [OPTIONS] <block width (bytes)> <FANN config> <bin out> <decimal point offset>\n"
+         "\n"
+         "Options:\n"
+         "  -h, --help                 print this help and exit\n"
+         "  -v, --verbose              print exhaustive debug info\n"
+         );
 }
 
 int main(int argc, char *argv[])
 {
   int i;
-  char * null;
-  struct fann * ann;
+  char * null = NULL;
+  struct fann * ann = NULL;
   struct fann_neuron * neuron;
   struct fann_layer * layer;
-  int write_count;
+  int flag_verbose = 0;
+  int write_count, exit_code = 0;
 
-  if (argc != 5) {
-    usage();
-    return -1;
+  int c;
+  while ((c = getopt (argc, argv, "hv")) != -1)
+    switch (c) {
+      case 'h':
+        usage();
+        goto bail;
+        break;
+      case 'v':
+        flag_verbose = 1;
+        break;
+      default:
+        abort ();
+      }
+
+  FILE * file = NULL;
+  int size_of_block = -1;
+  int decimal_point_offset = -1024;
+  for (int index = 1; index < argc - optind + 1; index++) {
+    int index_optind = optind + index - 1;
+    switch (index) {
+    case 1:
+      size_of_block = strtol(argv[index_optind], (char **) NULL, 10);
+      break;
+    case 2:
+      if ((ann = fann_create_from_file(argv[index_optind])) == 0) {
+        fprintf(stderr, "[ERROR] Failed to read ANN from %s\n", argv[index_optind]);
+        usage();
+        exit_code = 1;
+        goto bail;
+      }
+      break;
+    case 3:
+      if ((file = fopen(argv[index_optind], "w")) == 0) {
+        fprintf(stderr, "[ERROR] Failed to open bin out %s\n", argv[index_optind]);
+        usage();
+        exit_code = 1;
+        goto bail;
+      }
+      break;
+    case 4:
+      decimal_point_offset = strtol(argv[index_optind], (char **) NULL, 10);
+      break;
+    default:
+      fprintf(stderr, "[ERROR] Too many arguments\n\n");
+      usage();
+      exit_code = 1;
+      goto bail;
+    }
   }
 
-  if ((ann = fann_create_from_file(argv[2])) == 0) {
+  if (file == NULL || size_of_block == -1 || decimal_point_offset == -1024) {
+    fprintf(stderr, "[ERROR] Missing command line arguments\n");
     usage();
-    return -1;
+    exit_code = 1;
+    goto bail;
   }
-
-  FILE * file = fopen(argv[3], "w");
-  int size_of_block = strtol(argv[1], (char **) NULL, 10);
-  int decimal_point_offset = strtol(argv[4], (char **) NULL, 10);
 
   // This is a bunch of zeros equal to the size of a block. This is
   // used for writing free space into the binary.
@@ -50,7 +100,8 @@ int main(int argc, char *argv[])
   int size_of_num_weights = 1;
   int size_of_config = 1;
   int size_of_steepness = 4;
-  int size_of_node = size_of_pointer + size_of_num_weights + size_of_config + size_of_steepness;
+  int size_of_node =
+    size_of_pointer + size_of_num_weights + size_of_config + size_of_steepness;
   // Each weight is just a 4-byte (32-bit) value
   int size_of_weight = 4;
 
@@ -58,29 +109,36 @@ int main(int argc, char *argv[])
   int nodes_per_block = size_of_block / size_of_node;
   int weights_per_block = size_of_block / size_of_weight;
 
-  printf("Sizes (#/block)\n  Block: %d\n  Layer: %d (%d)\n  Neuron: %d (%d)\n  Weight: %d (%d)\n",
-         size_of_block, size_of_layer, layers_per_block, size_of_node, nodes_per_block,
-         size_of_weight, weights_per_block);
+  if (flag_verbose)
+    printf("Sizes (#/block)\n  Block: %d\n  Layer: %d (%d)\n"
+           "Neuron: %d (%d)\n  Weight: %d (%d)\n",
+           size_of_block, size_of_layer, layers_per_block, size_of_node,
+           nodes_per_block, size_of_weight, weights_per_block);
 
   // The decimal point can be up to three bits and has an minimum
   // value of decimal point offset. The maximum value is decimal point
   // offset + 2^3 - 1.
   unsigned int decimal_point_encoded = ann->decimal_point - decimal_point_offset;
-  printf("Decimal point: 0x%x (%d), encoded: 0x%x\n",
-         ann->decimal_point, ann->decimal_point, decimal_point_encoded);
+  if (flag_verbose)
+    printf("Decimal point: 0x%x (%d), encoded: 0x%x\n",
+           ann->decimal_point, ann->decimal_point, decimal_point_encoded);
   if (decimal_point_encoded > 7) {
-    printf("Decimal point (%d) is not in range [%d, %d]\n",
-           ann->decimal_point, decimal_point_offset, decimal_point_offset + 7);
-    return -1;
+    if (flag_verbose)
+      printf("Decimal point (%d) is not in range [%d, %d]\n",
+             ann->decimal_point, decimal_point_offset, decimal_point_offset + 7);
+    exit_code = 3;
+    goto bail;
   }
 
   // The error function needs to be stored. This is a 1-bit value in
   // FANN. This value is stored in the the 4th bit, just after the
   // encoded decimal point.
   unsigned int error_function = ann->train_error_function;
-  printf("Error function: 0x%x (%d)\n", error_function, error_function);
   decimal_point_encoded |= error_function << 3;
-  printf("Encoded decimal point is now: 0x%x\n", decimal_point_encoded);
+  if (flag_verbose) {
+    printf("Error function: 0x%x (%d)\n", error_function, error_function);
+    printf("Encoded decimal point is now: 0x%x\n", decimal_point_encoded);
+  }
 
   // Compute the number of edges and nodes. This is the actual number
   // and not the FANN number. Consequently, I need to remove any bias
@@ -101,22 +159,25 @@ int main(int argc, char *argv[])
     }
   }
 
-  printf("Total Edges: 0x%x (%d)\n", num_edges, num_edges);
-  printf("Total Weight Blocks: 0x%x (%d)\n", num_weight_blocks, num_weight_blocks);
-  printf("Total Neurons: 0x%x (%d)\n", num_nodes, num_nodes);
   int num_layers = ann->last_layer - ann->first_layer - 1;
-  printf("Total Layers: 0x%x (%d)\n", num_layers, num_layers);
 
   // The first layer is always at byte 16
   int first_layer = size_of_block * 1;
-  printf("First Layer *: 0x%x\n", first_layer);
 
   // Each layer takes up 4 bytes. One block is 16 bytes. Any remaining
   // space due to the number of layers not being divisible by 4 is
   // left vacant. This is the location of the first neuron.
   int first_node = first_layer +
-    (num_layers / layers_per_block + (num_layers % layers_per_block != 0)) * size_of_block;
-  printf("[NOT USED] First Neuron *: 0x%x (%d)\n", first_node, first_node);
+    (num_layers / layers_per_block + (num_layers % layers_per_block != 0)) *
+    size_of_block;
+  if (flag_verbose) {
+    printf("Total Edges: 0x%x (%d)\n", num_edges, num_edges);
+    printf("Total Weight Blocks: 0x%x (%d)\n", num_weight_blocks, num_weight_blocks);
+    printf("Total Neurons: 0x%x (%d)\n", num_nodes, num_nodes);
+    printf("Total Layers: 0x%x (%d)\n", num_layers, num_layers);
+    printf("First Layer *: 0x%x\n", first_layer);
+    printf("[NOT USED] First Neuron *: 0x%x (%d)\n", first_node, first_node);
+  }
 
   // Pointer to the weights. This is the block immediately following
   // the layers and neurons. I need to do some math to figure out
@@ -129,7 +190,8 @@ int main(int argc, char *argv[])
     if (weights % size_of_block != 0)
       weights += size_of_block - (weights % size_of_block);
   }
-  printf("Weights *: 0x%x (%d)\n", weights, weights);
+  if (flag_verbose)
+    printf("Weights *: 0x%x (%d)\n", weights, weights);
 
   // Write the learning rate. Use a default value if the learning rate
   // is set to zero.
@@ -141,9 +203,10 @@ int main(int argc, char *argv[])
   // uint16_t weight_decay = (uint16_t)((double) 0.01 * pow(2, ann->decimal_point));
   uint16_t weight_decay = (uint16_t)((double)0.008 * pow(2.0, ann->decimal_point));
   if (weight_decay == 0) {
-    printf("Weight decay: 0x%x\n", weight_decay);
-    printf("[ERROR] Weight decay would be zero, exiting!");
-    return -1;
+    fprintf(stderr, "[ERROR] Weight decay would be zero (found 0x%x), exiting!",
+            weight_decay);
+    exit_code = 4;
+    goto bail;
   }
 
   // Write the Info Block
@@ -180,11 +243,13 @@ int main(int argc, char *argv[])
     write_count -= size_of_layer;
     if (write_count == 0)
       write_count = size_of_block;
-    printf("Layer %d: 0x%x is first node, 0x%x (%d) nodes/layer, 0x%x (%d) nodes/next layer\n",
-           i,
+    if (flag_verbose) {
+      printf("Layer %d: 0x%x is first node, 0x%x (%d) nodes/layer, "
+             "0x%x (%d) nodes/next layer\n", i,
            next_node, nodes_per_layer, nodes_per_layer,
            nodes_per_next_layer, nodes_per_next_layer);
-    printf("  Packed: 0x%08x\n", packed_layer_data);
+      printf("  Packed: 0x%08x\n", packed_layer_data);
+    }
     next_node += nodes_per_layer * size_of_node;
     if (next_node % size_of_block)
       next_node += size_of_block - (next_node % size_of_block);
@@ -220,8 +285,10 @@ int main(int argc, char *argv[])
       if ((steepness != round(steepness)) ||
           (steepness < 0) ||
           (steepness > 7)) {
-        printf("Steepness %d is not of the correct format\n", neuron->activation_steepness);
-        return -1;
+        fprintf(stderr, "[ERROR] Steepness %d is not of the correct format\n",
+                neuron->activation_steepness);
+        exit_code = 5;
+        goto bail;
       }
       config = neuron->activation_function | (int) steepness << 5;
       fwrite(&config, 1, 1, file);
@@ -230,16 +297,19 @@ int main(int argc, char *argv[])
       write_count -= size_of_node;
       if (write_count == 0)
         write_count = size_of_block;
-      printf("L%dN%d: 0x%x is the weight ptr, 0x%x (%d) total weights, ",
-             layer_count, node_count,
-             weight_offset, connections, connections);
-      printf("0x%x (%d) config, 0x%x (%d) bias\n", config, config,
-             ann->weights[weight_count - 1], ann->weights[weight_count - 1]);
       weight_offset += size_of_weight * (neuron->last_con - neuron->first_con - 1);
-      printf("  Computed weight offset pre-round: 0x%x", weight_offset);
+      if (flag_verbose) {
+        printf("L%dN%d: 0x%x is the weight ptr, 0x%x (%d) total weights, ",
+               layer_count, node_count,
+               weight_offset, connections, connections);
+        printf("0x%x (%d) config, 0x%x (%d) bias\n", config, config,
+               ann->weights[weight_count - 1], ann->weights[weight_count - 1]);
+        printf("  Computed weight offset pre-round: 0x%x", weight_offset);
+      }
       if (weight_offset % size_of_block != 0)
         weight_offset += size_of_block - (weight_offset % size_of_block);
-      printf(" (post: 0x%x)\n", weight_offset);
+      if (flag_verbose)
+        printf(" (post: 0x%x)\n", weight_offset);
       node_count++;
     }
     // Align the next write
@@ -257,16 +327,19 @@ int main(int argc, char *argv[])
     node_count = 0;
     for (neuron = layer->first_neuron; neuron != layer->last_neuron - 1; neuron++) {
       write_count = size_of_block;
-      printf("L%dN%d: ", layer_count, node_count);
+      if (flag_verbose)
+        printf("L%dN%d: ", layer_count, node_count);
       for (connection = neuron->first_con; connection != neuron->last_con - 1; connection++) {
-        printf("0x%08x (%d) ", ann->weights[i], ann->weights[i]);
+        if (flag_verbose)
+          printf("0x%08x (%d) ", ann->weights[i], ann->weights[i]);
         fwrite(&ann->weights[i], 4, 1, file);
         write_count -= size_of_weight;
         if (write_count == 0)
           write_count = size_of_block;
         i++;
       }
-      printf("\n");
+      if (flag_verbose)
+        printf("\n");
       // Align everything
       if (write_count % size_of_block)
         fwrite(null, write_count, 1, file);
@@ -277,9 +350,13 @@ int main(int argc, char *argv[])
     layer_count++;
   }
 
-  fclose(file);
-  fann_destroy(ann);
-  free(null);
+ bail:
+  if (file != NULL)
+    fclose(file);
+  if (ann != NULL)
+    fann_destroy(ann);
+  if (null != NULL) // Try this on for size...
+    free(null);
 
-  return 0;
+  return exit_code;
 }

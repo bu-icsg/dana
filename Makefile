@@ -1,5 +1,5 @@
 # Common configuration
-JOBS            = 4
+JOBS            = `./usr/bin/max-processors.sh`
 DIR_SRC_SCALA	= src/main/scala
 DIR_SRC_V	= src/main/verilog
 DIR_SRC_CPP	= src/main/cpp
@@ -199,7 +199,7 @@ vpath %bin $(DIR_BUILD)/nets
 	$(DIR_BUILD)/nets/%-float.net \
 	$(DIR_BUILD)/nets/%.net
 
-default: all
+default: rv
 
 all: $(TEST_EXECUTABLES)
 # all: $(BACKEND_CPP)
@@ -215,7 +215,7 @@ fann: $(DIR_BUILD)/fann
 	-DCMAKE_C_FLAGS="-DFANN_NO_SEED" \
 	-DCMAKE_CXX_FLAGS="-DFANN_NO_SEED" \
 	../../submodules/fann && \
-	make
+	$(MAKE)
 
 fann-rv: $(DIR_BUILD)/fann-rv
 	cd $(DIR_BUILD)/fann-rv && \
@@ -323,7 +323,7 @@ $(DIR_BUILD)/%.rvS: $(DIR_BUILD)/%.rv
 #------------------- Nets
 $(DIR_BUILD)/nets/%-fixed.net: $(DIR_BUILD)/nets/%-float.net $(NETS_TOOLS)
 	$(FLOAT_TO_FIXED) $< $@
-	if [[ `grep decimal $@ | sed 's/.\+=//'` -gt $(MAX_DECIMAL_POINT) ]]; then \
+	@ if [[ `grep decimal $@ | sed 's/.\+=//'` -gt $(MAX_DECIMAL_POINT) ]]; then \
 	echo "[WARN] Fixed point precision unexpectedly high, attempting to fix..."; \
 	mv $@ $@.tooBig; \
 	$(FANN_CHANGE_FIXED_POINT) $@.tooBig $(MAX_DECIMAL_POINT) > $@; \
@@ -336,7 +336,7 @@ $(DIR_BUILD)/nets/%-fixed.net: $(DIR_BUILD)/nets/%-float.net $(NETS_TOOLS)
 
 $(DIR_BUILD)/nets/%-fixed.net: %-float.net $(NETS_TOOLS)
 	$(FLOAT_TO_FIXED) $< $@
-	if [[ `grep decimal $@ | sed 's/.\+=//'` -gt $(MAX_DECIMAL_POINT) ]]; then \
+	@ if [[ `grep decimal $@ | sed 's/.\+=//'` -gt $(MAX_DECIMAL_POINT) ]]; then \
 	echo "[WARN] Fixed point precision unexpectedly high, attempting to fix..."; \
 	mv $@ $@.tooBig; \
 	$(FANN_CHANGE_FIXED_POINT) $@.tooBig $(MAX_DECIMAL_POINT) > $@; \
@@ -419,37 +419,47 @@ $(DIR_BUILD)/nets/%.128bin: $(DIR_BUILD)/nets/%.net $(NETS_TOOLS)
 	$(WRITE_FANN_CONFIG) 128 $< $@ $(DECIMAL_POINT_OFFSET)
 
 $(DIR_BUILD)/nets/%-16bin-32.h: $(DIR_BUILD)/nets/%.16bin $(NETS_TOOLS)
-	$(BIN_TO_C_HEADER) $< $(subst -,_,init-$(basename $(notdir $<))-16bin-32) 32 > $@
+	$(BIN_TO_C_HEADER) $< \
+	$(subst -,_,init-$(basename $(notdir $<))-16bin-32) 32 > $@
 
 $(DIR_BUILD)/nets/%-16bin-64.h: $(DIR_BUILD)/nets/%.16bin $(NETS_TOOLS)
-	$(BIN_TO_C_HEADER) $< $(subst -,_,init-$(basename $(notdir $<))-16bin-64) 64 > $@
+	$(BIN_TO_C_HEADER) $< \
+	$(subst -,_,init-$(basename $(notdir $<))-16bin-64) 64 > $@
 
 $(DIR_BUILD)/nets/%-32bin-32.h: $(DIR_BUILD)/nets/%.32bin $(NETS_TOOLS)
-	$(BIN_TO_C_HEADER) $< $(subst -,_,init-$(basename $(notdir $<))-32bin-32) 32 > $@
+	$(BIN_TO_C_HEADER) $< \
+	$(subst -,_,init-$(basename $(notdir $<))-32bin-32) 32 > $@
 
 $(DIR_BUILD)/nets/%-32bin-64.h: $(DIR_BUILD)/nets/%.32bin $(NETS_TOOLS)
-	$(BIN_TO_C_HEADER) $< $(subst -,_,init-$(basename $(notdir $<))-32bin-64) 64 > $@
+	$(BIN_TO_C_HEADER) $< \
+	$(subst -,_,init-$(basename $(notdir $<))-32bin-64) 64 > $@
 
 $(DIR_BUILD)/nets/%-64bin-32.h: $(DIR_BUILD)/nets/%.64bin $(NETS_TOOLS)
-	$(BIN_TO_C_HEADER) $< $(subst -,_,init-$(basename $(notdir $<))-64bin-32) 32 > $@
+	$(BIN_TO_C_HEADER) $< \
+	$(subst -,_,init-$(basename $(notdir $<))-64bin-32) 32 > $@
 
 $(DIR_BUILD)/nets/%-64bin-64.h: $(DIR_BUILD)/nets/%.64bin $(NETS_TOOLS)
-	$(BIN_TO_C_HEADER) $< $(subst -,_,init-$(basename $(notdir $<))-64bin-64) 64 > $@
+	$(BIN_TO_C_HEADER) $< \
+	$(subst -,_,init-$(basename $(notdir $<))-64bin-64) 64 > $@
 
 $(DIR_BUILD)/nets/%-128bin-32.h: $(DIR_BUILD)/nets/%.128bin $(NETS_TOOLS)
-	$(BIN_TO_C_HEADER) $< $(subst -,_,init-$(basename $(notdir $<))-128bin-32) 32 > $@
+	$(BIN_TO_C_HEADER) $< \
+	$(subst -,_,init-$(basename $(notdir $<))-128bin-32) 32 > $@
 
 $(DIR_BUILD)/nets/%-128bin-64.h: $(DIR_BUILD)/nets/%.128bin $(NETS_TOOLS)
-	$(BIN_TO_C_HEADER) $< $(subst -,_,init-$(basename $(notdir $<))-128bin-64) 64 > $@
+	$(BIN_TO_C_HEADER) $< \
+	$(subst -,_,init-$(basename $(notdir $<))-128bin-64) 64 > $@
 
 #--------- Fixed point training files
 $(DIR_BUILD)/nets/%-fixed.train: %.train $(DIR_BUILD)/nets/%-fixed.net $(NETS_TOOLS)
 	$(FANN_TRAIN_TO_FIXED) $< $@ `grep decimal_point $(word 2,$^) | sed 's/^.\+=//'`
 
 $(DIR_BUILD)/nets/%_train.h: %.train $(NETS_TOOLS)
-	if [[ -e $(DIR_MAIN_RES)/$(notdir $(basename $<)-float.net) ]]; \
-	  then $(TRAIN_TO_C_HEADER) $(basename $<)-float.net $< $(basename $(notdir $<)) > $@;\
-	  else $(TRAIN_TO_C_HEADER) $(DIR_BUILD)/nets/$(notdir $(basename $<)-float.net) $< $(basename $(notdir $<)) > $@; \
+	@ if [[ -e $(DIR_MAIN_RES)/$(notdir $(basename $<)-float.net) ]]; \
+	then $(TRAIN_TO_C_HEADER) \
+	$(basename $<)-float.net $< $(basename $(notdir $<)) > $@;\
+	else $(TRAIN_TO_C_HEADER) $(DIR_BUILD)/nets/$(notdir \
+	$(basename $<)-float.net) $< $(basename $(notdir $<)) > $@; \
 	fi
 
 $(DIR_BUILD)/nets:
