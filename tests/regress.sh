@@ -1,6 +1,6 @@
 #!/usr/bin/bash -xe
 
-PARALLEL_JOBS=`common/max-processors.sh`
+PARALLEL_JOBS=`../usr/bin/max-processors.sh`
 
 make -j$PARALLEL_JOBS -k 2>&1 | tee run.log
 
