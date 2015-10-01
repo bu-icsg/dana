@@ -49,7 +49,7 @@ void asid_nnid_table_create(asid_nnid_table ** new_table, size_t table_size,
   for (i = 0; i < table_size; i++) {
     // Create the configuration region
     (*new_table)->entry[i].asid_nnid =
-      (nn_configuration *) malloc(configs_per_entry * sizeof(nn_configuration*));
+      (nn_configuration *) malloc(configs_per_entry * sizeof(nn_configuration));
     (*new_table)->entry[i].asid_nnid->config = NULL;
     (*new_table)->entry[i].num_configs = configs_per_entry;
     (*new_table)->entry[i].num_valid = 0;
@@ -70,7 +70,8 @@ void asid_nnid_table_destroy(asid_nnid_table ** old_table) {
   for (i = 0; i < (*old_table)->size; i++) {
     // Destroy the configuration region
     for (j = 0; j < (*old_table)->entry[i].num_valid; j++)
-      free((*old_table)->entry[i].asid_nnid[j].config);
+      if ((*old_table)->entry[i].asid_nnid[j].config != NULL)
+        free((*old_table)->entry[i].asid_nnid[j].config);
     free((*old_table)->entry[i].asid_nnid);
 
     // Destroy the IO region
@@ -164,6 +165,26 @@ int attach_nn_configuration(asid_nnid_table ** table, uint16_t asid,
         file_size, fp);
 
   fclose(fp);
+  return ++(*table)->entry[asid].num_valid;
+}
+
+int attach_garbage(asid_nnid_table ** table, uint16_t asid) {
+
+  int nnid;
+
+  if (asid >= (*table)->size) {
+    printf("[ERROR] Cannot append NN because ASID is too large\n");
+    return -1;
+  }
+  if ((*table)->entry[asid].num_valid == (*table)->entry[asid].num_configs) {
+    printf("[ERROR] Cannot append configuration because all slots allocated\n");
+    return -1;
+  }
+
+  nnid = (*table)->entry[asid].num_valid;
+  (*table)->entry[asid].asid_nnid[nnid].size = 0;
+  (*table)->entry[asid].asid_nnid[nnid].config = NULL;
+
   return ++(*table)->entry[asid].num_valid;
 }
 

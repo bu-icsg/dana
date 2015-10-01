@@ -159,6 +159,12 @@ void asid_nnid_table_info(asid_nnid_table * table);
 int attach_nn_configuration(asid_nnid_table ** table, asid_type asid,
                             const char * nn_configuration_binary_file);
 
+// Attach an NN configuration that points to NULL. This is useful for
+// testing purposes to place a specific NN configuration in a specific
+// location and generate traps that will cause us to fail fast on an
+// invalid read.
+int attach_garbage(asid_nnid_table ** table, asid_type asid);
+
 // Append the NN configuration contained in an XLen-sized (64-bit or
 // 32-bit depending on RISC-V architecture) array and of a certain
 // size to the ASID of a specific ASID--NNID Table.
