@@ -235,7 +235,7 @@ class AsidNnidTableWalker extends XFilesModule {
         printf("[INFO] ANTW: Saw CHECK_NNID resp w/ #configs 0x%x, #valid 0x%x\n",
           numConfigs, numValid)
         when (cacheReqCurrent.nnid < numValid) {
-          val reqAddr = antpReg.antp + cacheReqCurrent.asid * UInt(32)
+          val reqAddr = antpReg.antp + cacheReqCurrent.asid * UInt(24) + UInt(8)
           memRead(io.cache.req.bits.coreIndex, reqAddr)
           state := s_READ_NNID_POINTER
         } .otherwise {
@@ -353,8 +353,12 @@ class AsidNnidTableWalker extends XFilesModule {
     "ANTW is in an error state")
   assert(Bool(isPow2(configBufSize)),
     "ANTW derived parameter configBufSize must be a power of 2")
-  // Outbound memory requests shouldn't happen on
+  // Outbound memory requests shouldn't happen when memory not ready
   (0 until numCores).map(core =>
     assert(!(io.mem(core).req.valid && !io.mem(core).req.ready),
       "ANTW just sent memory to a core when memory was not ready"))
+  // Outbound memory requests should try to read NULL
+  (0 until numCores).map(core =>
+    assert(!(io.mem(core).req.valid && io.mem(core).req.bits.addr === UInt(0)),
+      "ANTW tried to read from NULL"))
 }
