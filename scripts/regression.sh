@@ -33,6 +33,11 @@
 
 # Now jump into xfiles-dana and run the regression tests
 # cd xfiles-dana
+export RISCV=`readlink -f ../../riscv`
+echo RISCV ENV VAR is $RISCV
+export PATH=$PATH:$RISCV/bin
+echo PATH is $PATH
+
 git submodule update --init
 ./install-symlinks
 make rv
