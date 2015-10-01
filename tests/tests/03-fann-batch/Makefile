@@ -35,7 +35,7 @@ xorSigmoidSymmetric-float.net:
 
 %-fixed.net: %-float.net
 	@ $(FLOAT_TO_FIXED) $< $@ 2>&1 > /dev/null
-	if [[ `grep decimal $@ | sed 's/.\+=//'` -gt $(MAX_DECIMAL_POINT) ]]; then \
+	@ if [[ `grep decimal $@ | sed 's/.\+=//'` -gt $(MAX_DECIMAL_POINT) ]]; then \
 	echo "[WARN] Fixed point precision unexpectedly high, attempting to fix..."; \
 	mv $@ $@.tooBig; \
 	$(FANN_CHANGE_FIXED_POINT) $@.tooBig $(MAX_DECIMAL_POINT) > $@; \

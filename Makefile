@@ -233,7 +233,7 @@ fann-rv: $(DIR_BUILD)/fann-rv
 	-DCMAKE_C_FLAGS="-DFANN_NO_SEED" \
 	-DCMAKE_CXX_FLAGS="-DFANN_NO_SEED" \
 	../../submodules/fann && \
-	make
+	$(MAKE)
 
 nets: tools $(DIR_BUILD)/nets $(NETS_BIN) $(NETS_H) $(TRAIN_H) $(TRAIN_FIXED)
 
@@ -251,7 +251,7 @@ run-verilog: $(TEST_V_EXECUTABLES) Makefile
 	vvp $<
 
 tools: fann fann-rv
-	make -j$(JOBS) -C tools
+	$(MAKE) -j$(JOBS) -C tools
 
 vcd-verilog: $(DIR_BUILD)/t_XFilesDana$(FPGA_CONFIG_DOT)-vcd.vvp Makefile
 	vvp $<
@@ -471,5 +471,5 @@ clean:
 	rm -rf target
 
 mrproper: clean
-	make clean -C tools
-	make clean -C submodules/fann
+	$(MAKE) clean -C tools
+	$(MAKE) clean -C submodules/fann

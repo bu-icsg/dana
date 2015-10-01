@@ -10,7 +10,7 @@ fann-train
 default: all
 
 all: $(TOOLS)
-	$(foreach tool, $(TOOLS), make -C ./$(tool);)
+	$(foreach tool, $(TOOLS), $(MAKE) -C ./$(tool);)
 
 clean:
-	$(foreach tool, $(TOOLS), make clean -C ./$(tool);)
+	$(foreach tool, $(TOOLS), $(MAKE) clean -C ./$(tool);)
