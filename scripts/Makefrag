@@ -1,0 +1,121 @@
+#-*- mode: makefile-*-
+
+# Shared NN configurations used by fann-random to generate networks
+NET_XOR_SIGMOID=-r0.7 -l2 -l3 -l1 -a5 -o3
+NET_XOR_SIGMOID_SYMMETRIC=-l2 -l3 -l1 -a5 -o5
+NET_XOR_SIGMOID_SYMMETRIC_PAIR=-l2 -l3 -l2 -a5 -o5
+NET_XOR_SIGMOID_SYMMETRIC_THREE_LAYER=-l2 -l3 -l3 -l2 -a5 -o5
+NET_CENSUS_HOUSE=-l16 -l1 -l1 -a5 -o3
+NET_MUSHROOM=-l125 -l1 -l2 -a3 -o3
+NET_DIABETES=-l8 -l10 -l2 -a5 -o3
+NET_GENE=-l120 -l19 -l3 -a5 -o3
+NET_KIN32FM=-l32 -l20 -l1 -a5 -o3
+NET_SOYBEAN=-l82 -l20 -l19 -a5 -o3
+NET_THYROID=-l21 -l1 -l3 -a5 -o3
+NET_TWO_SPIRAL=-l2 -l10 -l30 -l3 -l1 -a5 -o3
+
+.PRECIOUS: $(DIR_BUILD_NETS)/%-fixed.net \
+	$(DIR_BUILD_NETS)/%-float.net \
+	$(DIR_BUILD_NETS)/%.net
+
+#--------------------------------------- Build floating point NNs
+# These depend on having DIR_TOP and DIR_BUILD_NETS defined
+$(DIR_BUILD_NETS)/xorSigmoid-float.net:
+	$(FANN_RANDOM) -s$(SEED) $(NET_XOR_SIGMOID) $@
+
+$(DIR_BUILD_NETS)/xorSigmoidSymmetric-float.net:
+	$(FANN_RANDOM) -s$(SEED) \
+	-n$(DIR_TOP)/src/main/resources/xorSigmoidSymmetric.train \
+	$(NET_XOR_SIGMOID_SYMMETRIC) $@
+
+$(DIR_BUILD_NETS)/xorSigmoidSymmetricPair-float.net:
+	$(FANN_RANDOM) -s$(SEED) \
+	-n$(DIR_TOP)/src/main/resources/xorSigmoidSymmetricPair.train \
+	$(NET_XOR_SIGMOID_SYMMETRIC_PAIR) $@
+
+$(DIR_BUILD_NETS)/xorSigmoidSymmetricPairThreeLayer-float.net:
+	$(FANN_RANDOM) -s$(SEED) \
+	-n$(DIR_TOP)/src/main/resources/xorSigmoidSymmetricPairThreeLayer.train \
+	$(NET_XOR_SIGMOID_SYMMETRIC_THREE_LAYER) $@
+
+$(DIR_BUILD_NETS)/census-house-float.net: $(NETS_TOOLS)
+	$(FANN_RANDOM) -s$(SEED) \
+	-n$(DIR_FANN)/datasets/census-house.train \
+	$(NET_CENSUS_HOUSE) $@
+
+$(DIR_BUILD_NETS)/mushroom-float.net: $(NETS_TOOLS)
+	$(FANN_RANDOM) -s$(SEED) -r0.05 \
+	$(NET_MUSHROOM) $@
+
+$(DIR_BUILD_NETS)/diabetes-float.net: $(NETS_TOOLS)
+	$(FANN_RANDOM) -s$(SEED) \
+	-n$(DIR_FANN)/datasets/diabetes.train \
+	$(NET_DIABETES) $@
+
+$(DIR_BUILD_NETS)/gene-float.net: $(NETS_TOOLS)
+	$(FANN_RANDOM) -s$(SEED) \
+	-n$(DIR_FANN)/datasets/gene.train \
+	$(NET_GENE) $@
+
+$(DIR_BUILD_NETS)/kin32fm-float.net: $(NETS_TOOLS)
+	$(FANN_RANDOM) -s$(SEED) \
+	-n$(DIR_FANN)/datasets/kin32fm.train \
+	$(NET_KIN32FM) $@
+
+$(DIR_BUILD_NETS)/soybean-float.net: $(NETS_TOOLS)
+	$(FANN_RANDOM) -s$(SEED) \
+	-n$(DIR_FANN)/datasets/soybean.train \
+	$(NET_SOYBEAN) $@
+
+$(DIR_BUILD_NETS)/thyroid-float.net: $(NETS_TOOLS)
+	$(FANN_RANDOM) -s$(SEED) \
+	-n$(DIR_FANN)/datasets/thyroid.train \
+	$(NET_THYROID) $@
+
+$(DIR_BUILD_NETS)/two-spiral-float.net: $(NETS_TOOLS)
+	$(FANN_RANDOM) -s$(SEED) \
+	-n$(DIR_FANN)/datasets/two-spiral.train \
+	$(NET_TWO_SPIRAL) $@
+
+$(DIR_BUILD_NETS)/%-fixed.net: $(DIR_BUILD_NETS)/%-float.net $(NETS_TOOLS)
+	$(FLOAT_TO_FIXED) $< $@
+	@ if [[ `grep decimal $@ | sed 's/.\+=//'` -gt $(MAX_DECIMAL_POINT) ]]; then \
+	echo "[WARN] Fixed point precision unexpectedly high, attempting to fix..."; \
+	mv $@ $@.tooBig; \
+	$(FANN_CHANGE_FIXED_POINT) $@.tooBig $(MAX_DECIMAL_POINT) > $@; \
+	rm $@.tooBig; \
+	elif [[ `grep decimal $@ | sed 's/.\+=//'` -lt $(DECIMAL_POINT_OFFSET) ]]; \
+	then echo "[WARN] Fixed point precision too low, attempting to fix..."; \
+	mv $@ $@.tooSmall; \
+	$(FANN_CHANGE_FIXED_POINT) $@.tooSmall $(DECIMAL_POINT_OFFSET) > $@; \
+	rm $@.tooSmall; fi
+
+$(DIR_BUILD_NETS)/%-fixed.net: %-float.net $(NETS_TOOLS)
+	$(FLOAT_TO_FIXED) $< $@
+	@ if [[ `grep decimal $@ | sed 's/.\+=//'` -gt $(MAX_DECIMAL_POINT) ]]; then \
+	echo "[WARN] Fixed point precision unexpectedly high, attempting to fix..."; \
+	mv $@ $@.tooBig; \
+	$(FANN_CHANGE_FIXED_POINT) $@.tooBig $(MAX_DECIMAL_POINT) > $@; \
+	rm $@.tooBig; \
+	elif [[ `grep decimal $@ | sed 's/.\+=//'` -lt $(DECIMAL_POINT_OFFSET) ]]; \
+	then echo "[WARN] Fixed point precision too low, attempting to fix..."; \
+	mv $@ $@.tooSmall; \
+	$(FANN_CHANGE_FIXED_POINT) $@.tooSmall $(DECIMAL_POINT_OFFSET) > $@; \
+	rm $@.tooSmall; fi
+
+#--------------------------------------- Binary configurations
+$(DIR_BUILD_NETS)/%.16bin: $(DIR_BUILD_NETS)/%.net $(NETS_TOOLS)
+	$(WRITE_FANN_CONFIG) 16 $< $@ $(DECIMAL_POINT_OFFSET)
+
+$(DIR_BUILD_NETS)/%.32bin: $(DIR_BUILD_NETS)/%.net $(NETS_TOOLS)
+	$(WRITE_FANN_CONFIG) 32 $< $@ $(DECIMAL_POINT_OFFSET)
+
+$(DIR_BUILD_NETS)/%.64bin: $(DIR_BUILD_NETS)/%.net $(NETS_TOOLS)
+	$(WRITE_FANN_CONFIG) 64 $< $@ $(DECIMAL_POINT_OFFSET)
+
+$(DIR_BUILD_NETS)/%.128bin: $(DIR_BUILD_NETS)/%.net $(NETS_TOOLS)
+	$(WRITE_FANN_CONFIG) 128 $< $@ $(DECIMAL_POINT_OFFSET)
+
+#--------------------------------------- Training Files
+$(DIR_BUILD_NETS)/%-fixed.train: %.train $(DIR_BUILD_NETS)/%-fixed.net $(NETS_TOOLS)
+	$(FANN_TRAIN_TO_FIXED) $< $@ `grep decimal_point $(word 2,$^) | sed 's/^.\+=//'`

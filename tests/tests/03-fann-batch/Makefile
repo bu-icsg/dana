@@ -17,7 +17,11 @@ SEED=0
 ASID=`shuf -i0-9 -n1`
 NNID=`shuf -i0-9 -n1`
 
+# Shared, wickedly fragile things
+DIR_BUILD_NETS=.
+
 include ../../common/Makefrag
+include ../../../scripts/Makefrag
 
 vpath %.train $(DIR_TOP)/src/main/resources
 vpath %.train $(DIR_TOP)/submodules/fann/datasets
@@ -28,29 +32,7 @@ vpath %.train $(DIR_TOP)/submodules/fann/datasets
 
 all: $(RUNS)
 
-xorSigmoidSymmetric-float.net:
-	@ $(FANN_RANDOM) -s$(SEED) \
-	-n$(DIR_TOP)/src/main/resources/xorSigmoidSymmetric.train \
-	-l2 -l3 -l1 -a5 -o5 $@ 2>&1 > /dev/null
-
-%-fixed.net: %-float.net
-	@ $(FLOAT_TO_FIXED) $< $@ 2>&1 > /dev/null
-	@ if [[ `grep decimal $@ | sed 's/.\+=//'` -gt $(MAX_DECIMAL_POINT) ]]; then \
-	echo "[WARN] Fixed point precision unexpectedly high, attempting to fix..."; \
-	mv $@ $@.tooBig; \
-	$(FANN_CHANGE_FIXED_POINT) $@.tooBig $(MAX_DECIMAL_POINT) > $@; \
-	rm $@.tooBig; \
-	elif [[ `grep decimal $@ | sed 's/.\+=//'` -lt $(DECIMAL_POINT_OFFSET) ]]; \
-	then echo "[WARN] Fixed point precision too low, attempting to fix..."; \
-	mv $@ $@.tooSmall; \
-	$(FANN_CHANGE_FIXED_POINT) $@.tooSmall $(DECIMAL_POINT_OFFSET) > $@; \
-	rm $@.tooSmall; fi
-
-%-fixed.16bin: %-fixed.net
-	@ $(WRITE_FANN_CONFIG) 16 $< $@ $(DECIMAL_POINT_OFFSET) 2>&1 > /dev/null
-
-%-fixed.train: %.train %-fixed.net
-	@ $(FANN_TRAIN_TO_FIXED) $< $@ `grep decimal_point $(word 2,$^) | sed 's/^.\+=//'` 2>&1 > /dev/null
+#--------- NN build rules are in xfiles-dana/scripts/Makefrag
 
 %.emulator: %-fixed.16bin %-fixed.train %-fixed.net $(TEST).rv %.good
 	@ echo [INFO] $(TEST_NAME) seed/asid/nnid $(SEED)/$(ASID)/$(NNID)

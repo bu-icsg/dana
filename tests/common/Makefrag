@@ -1,5 +1,6 @@
 #-*- mode: makefile-*-
 DIR_TOP  = ../../..
+DIR_FANN = $(DIR_TOP)/submodules/fann
 GCC      ?= riscv64-unknown-elf-gcc
 EMULATOR ?= ../$(DIR_TOP)/emulator/emulator-Top-XFilesDanaCPPConfig
 C_FLAGS  ?= -Wall \

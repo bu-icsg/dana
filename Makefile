@@ -13,8 +13,12 @@ DIR_USR         = usr
 DIR_USR_BIN     = usr/bin
 DIR_USR_LIB     = usr/lib
 DIR_USR_INCLUDE = usr/include
-DIR_FANN        = submodules/fann
 SEED            = $(shell echo "$$RANDOM")
+
+# Shared parameters (be careful messing with these)
+DIR_TOP         = .
+DIR_BUILD_NETS  = $(DIR_BUILD)/nets
+DIR_FANN        = submodules/fann
 
 # Chisel/Scala configuration
 SBT			?= sbt
@@ -139,27 +143,27 @@ NETS_FLOAT=$(addsuffix -float, $(NETS))
 NETS_TRAIN=blackscholes fft inversek2j jmeint jpeg kmeans rsa sobel \
 	xorSigmoid xorSigmoidSymmetric xorSigmoidSymmetricPair \
 	xorSigmoidSymmetricPairThreeLayer
-NETS_BIN=$(addprefix $(DIR_BUILD)/nets/, $(addsuffix -fixed.16bin, $(NETS)) \
+NETS_BIN=$(addprefix $(DIR_BUILD_NETS)/, $(addsuffix -fixed.16bin, $(NETS)) \
 	$(addsuffix -fixed.32bin, $(NETS)) \
 	$(addsuffix -fixed.64bin, $(NETS)) \
 	$(addsuffix -fixed.128bin, $(NETS)))
 # [TODO] Skip threshold nets as I don't have floating point *.net sources
-# NETS_BIN+=$(addprefix $(DIR_BUILD)/nets/, \
+# NETS_BIN+=$(addprefix $(DIR_BUILD_NETS)/, \
 # 	$(addsuffix -threshold-fixed.16bin, $(NETS_THRESHOLD)) \
 # 	$(addsuffix -threshold-fixed.32bin, $(NETS_THRESHOLD)) \
 # 	$(addsuffix -threshold-fixed.64bin, $(NETS_THRESHOLD)) \
 # 	$(addsuffix -threshold-fixed.128bin, $(NETS_THRESHOLD)))
-NETS_H+=$(addprefix $(DIR_BUILD)/nets/, $(addsuffix -fixed-16bin-32.h, $(NETS)) \
+NETS_H+=$(addprefix $(DIR_BUILD_NETS)/, $(addsuffix -fixed-16bin-32.h, $(NETS)) \
 	$(addsuffix -fixed-32bin-32.h, $(NETS)) \
 	$(addsuffix -fixed-64bin-32.h, $(NETS)) \
 	$(addsuffix -fixed-128bin-32.h, $(NETS)))
-NETS_H+=$(addprefix $(DIR_BUILD)/nets/, $(addsuffix -fixed-16bin-64.h, $(NETS)) \
+NETS_H+=$(addprefix $(DIR_BUILD_NETS)/, $(addsuffix -fixed-16bin-64.h, $(NETS)) \
 	$(addsuffix -fixed-32bin-64.h, $(NETS)) \
 	$(addsuffix -fixed-64bin-64.h, $(NETS)) \
 	$(addsuffix -fixed-128bin-64.h, $(NETS)))
-TRAIN_H=$(addprefix $(DIR_BUILD)/nets/, $(addsuffix _train.h, $(NETS_TRAIN)))
-TRAIN_FIXED=$(addprefix $(DIR_BUILD)/nets/, $(addsuffix -fixed.train, $(NETS_GEN)))
-TRAIN_FIXED+=$(addprefix $(DIR_BUILD)/nets/, $(addsuffix -fixed.train, $(NETS_FANN)))
+TRAIN_H=$(addprefix $(DIR_BUILD_NETS)/, $(addsuffix _train.h, $(NETS_TRAIN)))
+TRAIN_FIXED=$(addprefix $(DIR_BUILD_NETS)/, $(addsuffix -fixed.train, $(NETS_GEN)))
+TRAIN_FIXED+=$(addprefix $(DIR_BUILD_NETS)/, $(addsuffix -fixed.train, $(NETS_FANN)))
 FLOAT_TO_FIXED=$(DIR_USR_BIN)/fann-float-to-fixed
 WRITE_FANN_CONFIG=$(DIR_USR_BIN)/write-fann-config-for-accelerator
 BIN_TO_C_HEADER=$(DIR_USR_BIN)/bin-config-to-c-header
@@ -190,19 +194,16 @@ vpath %.v $(DIR_BUILD)
 vpath %-float.net $(DIR_MAIN_RES)
 vpath %.train $(DIR_MAIN_RES) # This is missing *.train.X, e.g., *.train.100
 vpath %.train $(DIR_FANN)/datasets
-vpath %bin $(DIR_BUILD)/nets
+vpath %bin $(DIR_BUILD_NETS)
 
 .PHONY: all clean cpp debug dot fann libraries mrproper nets run run-verilog \
 	tools vcd vcd-verilog verilog
 
-.PRECIOUS: $(DIR_BUILD)/nets/%-fixed.net \
-	$(DIR_BUILD)/nets/%-float.net \
-	$(DIR_BUILD)/nets/%.net
+default: all
 
-default: rv
-
-all: $(TEST_EXECUTABLES)
+# all: $(TEST_EXECUTABLES)
 # all: $(BACKEND_CPP)
+all: rv
 
 cpp: $(BACKEND_CPP)
 
@@ -235,7 +236,7 @@ fann-rv: $(DIR_BUILD)/fann-rv
 	../../submodules/fann && \
 	$(MAKE)
 
-nets: tools $(DIR_BUILD)/nets $(NETS_BIN) $(NETS_H) $(TRAIN_H) $(TRAIN_FIXED)
+nets: tools $(DIR_BUILD_NETS) $(NETS_BIN) $(NETS_H) $(TRAIN_H) $(TRAIN_FIXED)
 
 libraries: $(XFILES_LIBRARIES)
 
@@ -260,7 +261,7 @@ vcd-verilog: $(DIR_BUILD)/t_XFilesDana$(FPGA_CONFIG_DOT)-vcd.vvp Makefile
 debug: $(TEST_EXECUTABLES) Makefile
 	$< -d $(<:$(DIR_BUILD)/t_%=$(DIR_BUILD)/%.prm)
 
-rv: libraries nets $(RV_TESTS_EXECUTABLES) $(RV_TESTS_DISASM)
+rv: libraries nets $(NETS_TOOLS) $(RV_TESTS_EXECUTABLES) $(RV_TESTS_DISASM)
 
 #------------------- Library Targets
 $(DIR_BUILD)/xfiles-user.o: xfiles-user.c
@@ -310,159 +311,60 @@ $(DIR_BUILD)/%$(FPGA_CONFIG_DOT)-vcd.vvp: %.v $(BACKEND_VERILOG) $(HEADERS_V)
 
 #------------------- RISC-V Tests
 $(DIR_BUILD)/fann-soft.rv: fann-soft.c $(XFILES_LIBRARIES)
-	$(RV_GCC) -Wall -Werror -static -march=RV64IMAFDXcustom -Isrc/main/c -I$(DIR_BUILD)/nets -I$(DIR_USR_INCLUDE) $< -o $@ -Lusr/lib-rv -lxfiles -lfann -lm
+	$(RV_GCC) -Wall -Werror -static -march=RV64IMAFDXcustom -Isrc/main/c -I$(DIR_BUILD_NETS) -I$(DIR_USR_INCLUDE) $< -o $@ -Lusr/lib-rv -lxfiles -lfann -lm
 
 $(DIR_BUILD)/%.rv: %.c $(XFILES_LIBRARIES)
-	$(RV_GCC) -Wall -Werror -static -march=RV64IMAFDXcustom -Isrc/main/c -I$(DIR_BUILD)/nets -I$(DIR_USR_INCLUDE) $< -o $@ -Lusr/lib-rv -lxfiles -lfixedfann -lm
+	$(RV_GCC) -Wall -Werror -static -march=RV64IMAFDXcustom -Isrc/main/c -I$(DIR_BUILD_NETS) -I$(DIR_USR_INCLUDE) $< -o $@ -Lusr/lib-rv -lxfiles -lfixedfann -lm
 
 $(DIR_BUILD)/%.rvS: $(DIR_BUILD)/%.rv
 	$(RV_OBJDUMP) -S $< > $@
 
-#------------------- Tools
-
 #------------------- Nets
-$(DIR_BUILD)/nets/%-fixed.net: $(DIR_BUILD)/nets/%-float.net $(NETS_TOOLS)
-	$(FLOAT_TO_FIXED) $< $@
-	@ if [[ `grep decimal $@ | sed 's/.\+=//'` -gt $(MAX_DECIMAL_POINT) ]]; then \
-	echo "[WARN] Fixed point precision unexpectedly high, attempting to fix..."; \
-	mv $@ $@.tooBig; \
-	$(FANN_CHANGE_FIXED_POINT) $@.tooBig $(MAX_DECIMAL_POINT) > $@; \
-	rm $@.tooBig; \
-	elif [[ `grep decimal $@ | sed 's/.\+=//'` -lt $(DECIMAL_POINT_OFFSET) ]]; \
-	then echo "[WARN] Fixed point precision too low, attempting to fix..."; \
-	mv $@ $@.tooSmall; \
-	$(FANN_CHANGE_FIXED_POINT) $@.tooSmall $(DECIMAL_POINT_OFFSET) > $@; \
-	rm $@.tooSmall; fi
+include scripts/Makefrag
 
-$(DIR_BUILD)/nets/%-fixed.net: %-float.net $(NETS_TOOLS)
-	$(FLOAT_TO_FIXED) $< $@
-	@ if [[ `grep decimal $@ | sed 's/.\+=//'` -gt $(MAX_DECIMAL_POINT) ]]; then \
-	echo "[WARN] Fixed point precision unexpectedly high, attempting to fix..."; \
-	mv $@ $@.tooBig; \
-	$(FANN_CHANGE_FIXED_POINT) $@.tooBig $(MAX_DECIMAL_POINT) > $@; \
-	rm $@.tooBig; \
-	elif [[ `grep decimal $@ | sed 's/.\+=//'` -lt $(DECIMAL_POINT_OFFSET) ]]; \
-	then echo "[WARN] Fixed point precision too low, attempting to fix..."; \
-	mv $@ $@.tooSmall; \
-	$(FANN_CHANGE_FIXED_POINT) $@.tooSmall $(DECIMAL_POINT_OFFSET) > $@; \
-	rm $@.tooSmall; fi
-
-#--------- Randomly generated nets based on some training data
-$(DIR_BUILD)/nets/xorSigmoid-float.net: $(NETS_TOOLS)
-	$(FANN_RANDOM) -s$(SEED) -r0.7 -l2 -l3 -l1 -a5 -o3 $@
-
-$(DIR_BUILD)/nets/xorSigmoidSymmetric-float.net: $(NETS_TOOLS)
-	$(FANN_RANDOM) -s$(SEED) \
-	-nsrc/main/resources/xorSigmoidSymmetric.train \
-	-l2 -l3 -l1 -a5 -o5 $@
-
-$(DIR_BUILD)/nets/xorSigmoidSymmetricPair-float.net: $(NETS_TOOLS)
-	$(FANN_RANDOM) -s$(SEED) \
-	-nsrc/main/resources/xorSigmoidSymmetricPair.train \
-	-l2 -l3 -l2 -a5 -o5 $@
-
-$(DIR_BUILD)/nets/xorSigmoidSymmetricPairThreeLayer-float.net: $(NETS_TOOLS)
-	$(FANN_RANDOM) -s$(SEED) \
-	-nsrc/main/resources/xorSigmoidSymmetricPairThreeLayer.train \
-	-l2 -l3 -l3 -l2 -a5 -o5 $@
-
-$(DIR_BUILD)/nets/census-house-float.net: $(NETS_TOOLS)
-	$(FANN_RANDOM) -s$(SEED) \
-	-n$(DIR_FANN)/datasets/census-house.train \
-	-l16 -l1 -l1 -a5 -o3 $@
-
-$(DIR_BUILD)/nets/mushroom-float.net: $(NETS_TOOLS)
-	$(FANN_RANDOM) -s$(SEED) -r0.05 \
-	-l125 -l1 -l2 -a3 -o3 $@
-
-$(DIR_BUILD)/nets/diabetes-float.net: $(NETS_TOOLS)
-	$(FANN_RANDOM) -s$(SEED) \
-	-n$(DIR_FANN)/datasets/diabetes.train \
-	-l8 -l10 -l2 -a5 -o3 $@
-
-$(DIR_BUILD)/nets/gene-float.net: $(NETS_TOOLS)
-	$(FANN_RANDOM) -s$(SEED) \
-	-n$(DIR_FANN)/datasets/gene.train \
-	-l120 -l19 -l3 -a5 -o3 $@
-
-$(DIR_BUILD)/nets/kin32fm-float.net: $(NETS_TOOLS)
-	$(FANN_RANDOM) -s$(SEED) \
-	-n$(DIR_FANN)/datasets/kin32fm.train \
-	-l32 -l20 -l1 -a5 -o3 $@
-
-$(DIR_BUILD)/nets/soybean-float.net: $(NETS_TOOLS)
-	$(FANN_RANDOM) -s$(SEED) \
-	-n$(DIR_FANN)/datasets/soybean.train \
-	-l82 -l20 -l19 -a5 -o3 $@
-
-$(DIR_BUILD)/nets/thyroid-float.net: $(NETS_TOOLS)
-	$(FANN_RANDOM) -s$(SEED) \
-	-n$(DIR_FANN)/datasets/thyroid.train \
-	-l21 -l1 -l3 -a5 -o3 $@
-
-$(DIR_BUILD)/nets/two-spiral-float.net: $(NETS_TOOLS)
-	$(FANN_RANDOM) -s$(SEED) \
-	-n$(DIR_FANN)/datasets/two-spiral.train \
-	-l2 -l10 -l30 -l3 -l1 -a5 -o3 $@
-
-#--------- Non-randomly generated networks
-$(DIR_BUILD)/nets/%.16bin: $(DIR_BUILD)/nets/%.net $(NETS_TOOLS)
-	$(WRITE_FANN_CONFIG) 16 $< $@ $(DECIMAL_POINT_OFFSET)
-
-$(DIR_BUILD)/nets/%.32bin: $(DIR_BUILD)/nets/%.net $(NETS_TOOLS)
-	$(WRITE_FANN_CONFIG) 32 $< $@ $(DECIMAL_POINT_OFFSET)
-
-$(DIR_BUILD)/nets/%.64bin: $(DIR_BUILD)/nets/%.net $(NETS_TOOLS)
-	$(WRITE_FANN_CONFIG) 64 $< $@ $(DECIMAL_POINT_OFFSET)
-
-$(DIR_BUILD)/nets/%.128bin: $(DIR_BUILD)/nets/%.net $(NETS_TOOLS)
-	$(WRITE_FANN_CONFIG) 128 $< $@ $(DECIMAL_POINT_OFFSET)
-
-$(DIR_BUILD)/nets/%-16bin-32.h: $(DIR_BUILD)/nets/%.16bin $(NETS_TOOLS)
+$(DIR_BUILD_NETS)/%-16bin-32.h: $(DIR_BUILD_NETS)/%.16bin $(NETS_TOOLS)
 	$(BIN_TO_C_HEADER) $< \
 	$(subst -,_,init-$(basename $(notdir $<))-16bin-32) 32 > $@
 
-$(DIR_BUILD)/nets/%-16bin-64.h: $(DIR_BUILD)/nets/%.16bin $(NETS_TOOLS)
+$(DIR_BUILD_NETS)/%-16bin-64.h: $(DIR_BUILD_NETS)/%.16bin $(NETS_TOOLS)
 	$(BIN_TO_C_HEADER) $< \
 	$(subst -,_,init-$(basename $(notdir $<))-16bin-64) 64 > $@
 
-$(DIR_BUILD)/nets/%-32bin-32.h: $(DIR_BUILD)/nets/%.32bin $(NETS_TOOLS)
+$(DIR_BUILD_NETS)/%-32bin-32.h: $(DIR_BUILD_NETS)/%.32bin $(NETS_TOOLS)
 	$(BIN_TO_C_HEADER) $< \
 	$(subst -,_,init-$(basename $(notdir $<))-32bin-32) 32 > $@
 
-$(DIR_BUILD)/nets/%-32bin-64.h: $(DIR_BUILD)/nets/%.32bin $(NETS_TOOLS)
+$(DIR_BUILD_NETS)/%-32bin-64.h: $(DIR_BUILD_NETS)/%.32bin $(NETS_TOOLS)
 	$(BIN_TO_C_HEADER) $< \
 	$(subst -,_,init-$(basename $(notdir $<))-32bin-64) 64 > $@
 
-$(DIR_BUILD)/nets/%-64bin-32.h: $(DIR_BUILD)/nets/%.64bin $(NETS_TOOLS)
+$(DIR_BUILD_NETS)/%-64bin-32.h: $(DIR_BUILD_NETS)/%.64bin $(NETS_TOOLS)
 	$(BIN_TO_C_HEADER) $< \
 	$(subst -,_,init-$(basename $(notdir $<))-64bin-32) 32 > $@
 
-$(DIR_BUILD)/nets/%-64bin-64.h: $(DIR_BUILD)/nets/%.64bin $(NETS_TOOLS)
+$(DIR_BUILD_NETS)/%-64bin-64.h: $(DIR_BUILD_NETS)/%.64bin $(NETS_TOOLS)
 	$(BIN_TO_C_HEADER) $< \
 	$(subst -,_,init-$(basename $(notdir $<))-64bin-64) 64 > $@
 
-$(DIR_BUILD)/nets/%-128bin-32.h: $(DIR_BUILD)/nets/%.128bin $(NETS_TOOLS)
+$(DIR_BUILD_NETS)/%-128bin-32.h: $(DIR_BUILD_NETS)/%.128bin $(NETS_TOOLS)
 	$(BIN_TO_C_HEADER) $< \
 	$(subst -,_,init-$(basename $(notdir $<))-128bin-32) 32 > $@
 
-$(DIR_BUILD)/nets/%-128bin-64.h: $(DIR_BUILD)/nets/%.128bin $(NETS_TOOLS)
+$(DIR_BUILD_NETS)/%-128bin-64.h: $(DIR_BUILD_NETS)/%.128bin $(NETS_TOOLS)
 	$(BIN_TO_C_HEADER) $< \
 	$(subst -,_,init-$(basename $(notdir $<))-128bin-64) 64 > $@
 
 #--------- Fixed point training files
-$(DIR_BUILD)/nets/%-fixed.train: %.train $(DIR_BUILD)/nets/%-fixed.net $(NETS_TOOLS)
-	$(FANN_TRAIN_TO_FIXED) $< $@ `grep decimal_point $(word 2,$^) | sed 's/^.\+=//'`
 
-$(DIR_BUILD)/nets/%_train.h: %.train $(NETS_TOOLS)
+$(DIR_BUILD_NETS)/%_train.h: %.train $(NETS_TOOLS)
 	@ if [[ -e $(DIR_MAIN_RES)/$(notdir $(basename $<)-float.net) ]]; \
 	then $(TRAIN_TO_C_HEADER) \
 	$(basename $<)-float.net $< $(basename $(notdir $<)) > $@;\
-	else $(TRAIN_TO_C_HEADER) $(DIR_BUILD)/nets/$(notdir \
+	else $(TRAIN_TO_C_HEADER) $(DIR_BUILD_NETS)/$(notdir \
 	$(basename $<)-float.net) $< $(basename $(notdir $<)) > $@; \
 	fi
 
-$(DIR_BUILD)/nets:
+$(DIR_BUILD_NETS):
 	mkdir -p $@
 
 $(DIR_BUILD)/fann-rv:
