@@ -8,7 +8,7 @@ EMULATOR=$(DIR_EMULATOR)/emulator-Top-XFilesDanaCPPConfig
 
 default: $(addprefix $(DIR_TESTS)/,$(TESTS))
 
-$(DIR_EMULATOR)/emulator-Top-%:
+$(DIR_EMULATOR)/emulator-Top-%: go-for-it
 	@ (cd ../../emulator && $(MAKE) CONFIG=$* \
 	ROCKETCHIP_ADDONS=xfiles-dana)
 
