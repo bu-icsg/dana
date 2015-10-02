@@ -18,7 +18,7 @@ export PATH=$PATH:$RISCV/bin
 echo PATH is $PATH
 git submodule update --init --recursive riscv-tools
 cd riscv-tools
-../xfiles-dana/tests/common/max-processors.sh | \
+../xfiles-dana/usr/bin/max-processors.sh | \
     xargs -IX sh -c "sed -i 's/JOBS=\([0-9]\+\)/JOBS=X/' build.common"
 cd riscv-pk
 git checkout .
