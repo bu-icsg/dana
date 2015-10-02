@@ -1,45 +1,42 @@
 #!/usr/bin/bash -xe
 
-# Script to handle a Jenkins build
+# Script to handle regression testing of xfiles-dana. This script is
+# intended to work in concert with `rocket-chip-setup.sh` which deals
+# with grabbing all the submodules of the current rocket-chip master
+# and building the RISC-V toolchain. The directory structure will look
+# like:
+#
+#   /home/jenkins/
+#            |--> jobs/
+#                 |--> rocket-chip/workspace/
+#                 |                     |--> riscv/
+#                 |                     |--> rocket-chip/
+#                 |                                 |--> xfiles-dana
+#                 |--> xfiles-dana/workspace/
+#                                       |--> [EMPTY]
+#
+# The workspace of this build is _technically_ in
+# xfiles-dana/workspace, but all the actual work will be done in the
+# workspace of the rocket-chip build, rocket-chip/workspace. Hence, we
+# need to deal with everything being relative to that directory. This
+# script, however, will be called _after_ a Jenkins moves us to the
+# rocket-chip/workspace/xfiles-dana directory.
 
-# Directory of things pulled in from the rocket-chip Jenkins build
-# relative to the xfiles-dana workspace directory
-# DIR_ROCKET_CHIP=../../rocket-chip/workspace/rocket-chip
+# Define a relative path to the RISC-V Toolchain
 DIR_RISCV=../../riscv
-# DIR_XFILES=$DIR_ROCKET_CHIP/xfiles-dana
 
-# Jump up one level and get a copy of rocket chip HEAD
-# cd ../
-# git init .
-# if [[ -z `git remote | grep upstream` ]]; then
-#     git remote add upstream https://github.com/ucb-bar/rocket-chip
-# fi
-# git pull upstream master
-
-# Build the RISC-V tools from scratch
-# mkdir -p ../riscv
+# Setup the RISCV environment variable and add its binary directory to
+# the path.
 export RISCV=`readlink -f $DIR_RISCV`
 echo RISCV ENV VAR is $RISCV
 export PATH=$PATH:$RISCV/bin
 echo PATH is $PATH
-# git submodule update --init --recursive riscv-tools
-# cd riscv-tools
-# ../xfiles-dana/usr/bin/max-processors.sh | \
-#     xargs -IX sh -c "sed -i 's/JOBS=\([0-9]\+\)/JOBS=X/' build.common"
-# cd riscv-pk
-# git checkout .
-# git apply ../../xfiles-dana/patches/riscv-pk-xfiles-syscalls.patch
-# cd ..
-# ./build.sh;
-# cd riscv-pk
-# git apply -R ../../xfiles-dana/patches/riscv-pk-xfiles-syscalls.patch
-# cd ../..
-# git submodule update --init
-# git submodule status --recursive
 
-# Now jump into xfiles-dana and run the regression tests
-# cd $DIR_XFILES
-# git submodule update --init
+# Jenkins will recursively update xfiles-dana submodules, so we
+# shouldn't have to do any setup there. Just create the symlinks
+# inside rocket-chip (assuming they don't already exist), run the
+# normal `make rv` target to see if anything related to generating NNs
+# or libraries is broken, and then run the regression tests.
 ./install-symlinks
 make rv
 cd tests
