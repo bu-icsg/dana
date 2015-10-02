@@ -66,4 +66,4 @@ all: $(RUNS)
 	xargs -IX \
 	sh -c "$(TOOL_HIT_MAX_EPOCHS) X $(MAX_CONVERGE_EPOCHS) $(TEST_NAME)-$@"
 
-JUNK += *.net *.*bin *.train
+JUNK += *.net *.*bin *.train *.mse *.converge
