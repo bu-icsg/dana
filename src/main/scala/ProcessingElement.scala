@@ -64,7 +64,6 @@ class ProcessingElement extends DanaModule {
   val errorOut = Reg(SInt(width = elementWidth)) //ek
   val mse = Reg(UInt(width = elementWidth))
   //val updated_weight = Vec.fill(elementsPerBlock){Reg(SInt(INPUT, elementWidth))}
-  val derivativeSigmoidSymmetric = Wire(SInt(width = elementWidth))
 
 
 
@@ -112,9 +111,6 @@ class ProcessingElement extends DanaModule {
   // Default values
   acc := acc
   derivative := derivative
-  derivativeSigmoidSymmetric := applySteepness(
-    (SInt(1) << decimal) - ((dataOut * dataOut) >> decimal)(elementWidth-1,0),
-    io.req.bits.steepness)
   io.req.ready := Bool(false)
   io.resp.valid := Bool(false)
   io.resp.bits.state := state
@@ -151,15 +147,13 @@ class ProcessingElement extends DanaModule {
     is (PE_states('e_PE_WAIT_FOR_INFO)) {
       //state := Mux(io.req.valid, PE_states('e_PE_REQUEST_INPUTS_AND_WEIGHTS), state)
       when (io.req.valid && (io.req.bits.stateLearn === e_TTABLE_STATE_FEEDFORWARD ||
-        io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_FEEDFORWARD)) {
+        io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_FEEDFORWARD ||
+        ((io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_WEIGHT_UPDATE) &&
+          (io.req.bits.tType === e_TTYPE_BATCH)))) {
         state := PE_states('e_PE_REQUEST_INPUTS_AND_WEIGHTS)
       } .elsewhen (io.req.valid &&
         (io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_ERROR_BACKPROP)) {
         state := PE_states('e_PE_REQUEST_OUTPUTS_ERROR_BACKPROP)
-      } .elsewhen (io.req.valid &&
-        (io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_WEIGHT_UPDATE) &&
-        (io.req.bits.tType === e_TTYPE_BATCH)) {
-          state := PE_states('e_PE_REQUEST_INPUTS_AND_WEIGHTS)
       } .elsewhen (io.req.valid &&
         (io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_WEIGHT_UPDATE ||
           io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_UPDATE_SLOPE)) {
@@ -173,8 +167,8 @@ class ProcessingElement extends DanaModule {
       io.resp.valid := Bool(true)
       // If hasBias is false, then this is the first time we're in this
       // state and we need to load the bias into the accumulator
+      hasBias := Bool(true)
       when (hasBias === Bool(false)) {
-        hasBias := Bool(true)
         acc := io.req.bits.bias
       }
     }
@@ -226,41 +220,40 @@ class ProcessingElement extends DanaModule {
       state := Mux((io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_ERROR_BACKPROP),
         PE_states('e_PE_COMPUTE_DELTA), PE_states('e_PE_REQUEST_EXPECTED_OUTPUT))
 
-      switch (io.req.bits.activationFunction) {
-        // [TODO] negative shifts, probably broken!
-        is(e_FANN_LINEAR) {
-          // [TODO] This linear activation function is broken
-          DSP(SInt(1), SInt(1), decimal + steepness)
-          derivative := dsp.d
-          // derivative := SInt(1) >> (decimal + steepness)
-          printf("[INFO] PE: derivative linear: 0x%x\n", dsp.d)
-        }
-        is(e_FANN_SIGMOID) {
-          DSP(dataOut, (SInt(1) << decimal) - dataOut,
-            decimal + steepness - UInt(1))
-          derivative := dsp.d
-          // derivative := (dataOut * ((SInt(1) << decimal) - dataOut)) >>
-          //   (decimal + steepness - UInt(1))
-          printf("[INFO] PE: derivative sigmoid: 0x%x\n", dsp.d)
-        }
-        is(e_FANN_SIGMOID_STEPWISE) {
-          DSP(dataOut, (SInt(1) << decimal) - dataOut,
-            decimal + steepness - UInt(1))
-          derivative := dsp.d
-          // derivative := (dataOut * ((SInt(1) << decimal) - dataOut)) >>
-          //   (decimal + steepness - UInt(1))
-          printf("[INFO] PE: derivative sigmoid: 0x%x\n", dsp.d)
-        }
-        is(e_FANN_SIGMOID_SYMMETRIC) {
-          // [TODO] shift by steepness possibly broken if "steepness" is negative
-          derivative := derivativeSigmoidSymmetric
+      val af = io.req.bits.activationFunction
+      when (af === e_FANN_LINEAR) {
+        // [TODO] This linear activation function is broken
+        DSP(SInt(1), SInt(1), decimal + steepness)
+        derivative := dsp.d
+        // derivative := SInt(1) >> (decimal + steepness)
+        printf("[INFO] PE: derivative linear: 0x%x\n", dsp.d)
+      } .elsewhen (af === e_FANN_SIGMOID || af === e_FANN_SIGMOID_STEPWISE) {
+        DSP(dataOut, (SInt(1) << decimal) - dataOut,
+          decimal + steepness - UInt(1))
+        derivative := dsp.d
+        // derivative := (dataOut * ((SInt(1) << decimal) - dataOut)) >>
+        //   (decimal + steepness - UInt(1))
+        printf("[INFO] PE: derivative sigmoid: 0x%x\n", dsp.d)
+      } .elsewhen (af === e_FANN_SIGMOID_SYMMETRIC ||
+        af === e_FANN_SIGMOID_SYMMETRIC_STEPWISE) {
+        val steepness = io.req.bits.steepness
+        DSP(dataOut, dataOut, decimal)
+        when (steepness < UInt(steepnessOffset)) {
+          derivative := ((SInt(1) << decimal) - dsp.d) >>
+            (UInt(steepnessOffset) - steepness)
           printf("[INFO] PE: derivative sigmoid symmetric: 0x%x\n",
-            derivativeSigmoidSymmetric)
-        }
-        is(e_FANN_SIGMOID_SYMMETRIC_STEPWISE) {
-          derivative := derivativeSigmoidSymmetric
+            ((SInt(1) << decimal) - dsp.d) >>
+              (UInt(steepnessOffset) - steepness))
+        } .elsewhen (steepness === UInt(steepnessOffset)) {
+          derivative := (SInt(1) << decimal) - dsp.d
           printf("[INFO] PE: derivative sigmoid symmetric: 0x%x\n",
-            derivativeSigmoidSymmetric)
+            (SInt(1) << decimal) - dsp.d)
+        } .otherwise {
+          derivative := ((SInt(1) << decimal) - dsp.d) <<
+            (steepness - UInt(steepnessOffset))
+          printf("[INFO] PE: derivative sigmoid symmetric: 0x%x\n",
+            ((SInt(1) << decimal) - dsp.d) <<
+              (steepness - UInt(steepnessOffset)))
         }
       }
     }
