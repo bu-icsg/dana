@@ -314,7 +314,7 @@ int main (int argc, char * argv[]) {
         bits_failing +=
           fabs((double)(outputs[i] - data->output[item][i]) / multiplier) >
           bit_fail_limit;
-        if (flag_mse) {
+        if (flag_mse || mse_fail_limit != -1) {
           error = (double)(outputs[i] - data->output[item][i]) / multiplier;
           mse += error * error;
         }
@@ -329,9 +329,10 @@ int main (int argc, char * argv[]) {
 
     if (flag_verbose)
       printf("%5d\n\n", epoch);
-    if (flag_mse  && (epoch % mse_reporting_period == 0)) {
+    if (flag_mse || mse_fail_limit != -1) {
       mse /= batch_items * num_output;
-      printf("[STAT] epoch %d id %d bp %d mse %8.8f\n", epoch, id, binary_point, mse);
+      if (flag_mse && (epoch % mse_reporting_period == 0))
+        printf("[STAT] epoch %d id %d bp %d mse %8.8f\n", epoch, id, binary_point, mse);
     }
     if (bits_failing == 0 || mse < mse_fail_limit)
       goto finish;
