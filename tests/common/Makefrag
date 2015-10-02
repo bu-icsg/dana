@@ -39,6 +39,7 @@ default: all
 
 # Common utilities
 TOOL_COMPARE = ../../common/compare.sh
+TOOL_HIT_MAX_EPOCHS = ../../common/hit-max-epochs.sh
 
 JUNK = *.emulator *.rv
 
