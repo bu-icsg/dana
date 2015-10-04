@@ -34,6 +34,7 @@ static char * usage_message =
   "  -r, --learning-rate        set the learning rate (default 0.7)\n"
   "  -t, --train-file           the fixed point FANN training file to use\n"
   "  -v, --verbose              turn on per-item inputs/output printfs\n"
+  "  -x, --incremental          run incremental updates instead of batch updates\n"
   "  -y, --weight-decay-lambda  set the weight decay parameter, lambda (default 0)\n"
   "\n"
   "Flags -n, -t, and -b are required.\n"
@@ -90,7 +91,7 @@ int main (int argc, char * argv[]) {
   int exit_code = 0, max_epochs = 10000, bits_failing = -1, id = 0,
     batch_items = -1;
   int flag_cycles = 0, flag_last = 0, flag_mse = 0, flag_performance = 0,
-    flag_ant_info = 0;
+    flag_ant_info = 0, flag_incremental = 0;
   asid_type asid = 0;
   nnid_type nnid = 0;
 #ifdef VERBOSE_DEFAULT
@@ -127,10 +128,11 @@ int main (int argc, char * argv[]) {
       {"performance-mode", no_argument,       0, 'p'},
       {"train-file",       required_argument, 0, 't'},
       {"verbose",          no_argument,       0, 'v'},
+      {"incremental",      no_argument,       0, 'x'},
       {"weight-decay-lamba,",required_argument,0,'y'}
     };
     int option_index = 0;
-    c = getopt_long (argc, argv, "ab:cd:e:f:g:hi:j:k:lm::n:pr:t:vy:",
+    c = getopt_long (argc, argv, "ab:cd:e:f:g:hi:j:k:lm::n:pr:t:vxy:",
                      long_options, &option_index);
     if (c == -1)
       break;
@@ -192,6 +194,9 @@ int main (int argc, char * argv[]) {
       break;
     case 'v':
       flag_verbose = 1;
+      break;
+    case 'x':
+      flag_incremental = 1;
       break;
     case 'y':
       weight_decay_lambda = atof(optarg);
@@ -271,10 +276,16 @@ int main (int argc, char * argv[]) {
   // for a hard number of epochs. This mode is intended to be used
   // with the '-c' option to get an accurate number of connection
   // updates per cycle.
-  if (flag_performance) goto xfiles_performance;
-  else goto xfiles_verbose;
+  switch((flag_performance << 1) | flag_incremental) {
+  case 0: goto xfiles_batch_verbose;
+  case 1: goto xfiles_incremental_verbose;
+  case 2: goto xfiles_batch_performance;
+  case 3: goto xfiles_incremental_performance;
+  }
+  if (flag_performance) goto xfiles_batch_performance;
+  else goto xfiles_batch_verbose;
 
- xfiles_verbose:
+ xfiles_batch_verbose:
   cycles = read_csr(0xc00);
   for (epoch = 0; epoch < max_epochs; epoch++) {
     // Run one training epoch
@@ -338,18 +349,99 @@ int main (int argc, char * argv[]) {
   }
   goto finish;
 
- xfiles_performance:
+ xfiles_batch_performance:
   cycles = read_csr(0xc00);
   for (epoch = 0; epoch < max_epochs; epoch++) {
     // Run one training epoch
     tid = new_write_request(nnid, 2, 0);
     write_register(tid, xfiles_reg_batch_items, batch_items);
     write_register(tid, xfiles_reg_learning_rate, learn_rate);
-    write_register(tid, xfiles_reg_weight_decay_lambda, 0);
+    write_register(tid, xfiles_reg_weight_decay_lambda, weight_decay);
 
     for (item = 0; item < batch_items; item++) {
       // Write the output and input data
       write_data_train_incremental(tid, data->input[item], data->output[item],
+                                   num_input, num_output);
+
+      // Blocking read
+      read_data_spinlock(tid, outputs, num_output);
+    }
+  }
+  goto finish;
+
+ xfiles_incremental_verbose:
+  cycles = read_csr(0xc00);
+  for (epoch = 0; epoch < max_epochs; epoch++) {
+    for (item = 0; item < batch_items; item++) {
+      // Run one training epoch
+      tid = new_write_request(nnid, 1, 0);
+      write_register(tid, xfiles_reg_learning_rate, learn_rate);
+      write_register(tid, xfiles_reg_weight_decay_lambda, weight_decay);
+      // Write the output and input data
+      write_data_train_incremental(tid, (element_type *) data->input[item],
+                                   (element_type *) data->output[item],
+                                   num_input, num_output);
+
+      // Blocking read
+      read_data_spinlock(tid, outputs, num_output);
+    }
+
+    // Check the outputs
+    bits_failing = 0;
+    for (item = 0; item < batch_items; item++) {
+      tid = new_write_request(nnid, 0, 0);
+      write_data(tid, (element_type *) data->input[item], num_input);
+      read_data_spinlock(tid, outputs, num_output);
+
+      if (flag_verbose) {
+        printf("[INFO] ");
+        for (i = 0; i < num_input; i++) {
+          printf("%8.5f ", ((double)data->input[item][i]) / multiplier);
+        }
+      }
+
+      for (i = 0; i < num_output; i++) {
+        if (flag_verbose)
+          printf("%8.5f ", ((double)outputs[i])/multiplier);
+        bits_failing +=
+          fabs((double)(outputs[i] - data->output[item][i]) / multiplier) >
+          bit_fail_limit;
+        if (flag_mse || mse_fail_limit != -1) {
+          error = (double)(outputs[i] - data->output[item][i]) / multiplier;
+          mse += error * error;
+        }
+      }
+
+      if (flag_verbose) {
+        if (item < batch_items - 1)
+          printf("\n");
+      }
+    }
+
+
+    if (flag_verbose)
+      printf("%5d\n\n", epoch);
+    if (flag_mse || mse_fail_limit != -1) {
+      mse /= batch_items * num_output;
+      if (flag_mse && (epoch % mse_reporting_period == 0))
+        printf("[STAT] epoch %d id %d bp %d mse %8.8f\n", epoch, id, binary_point, mse);
+    }
+    if (bits_failing == 0 || mse < mse_fail_limit)
+      goto finish;
+  }
+  goto finish;
+
+ xfiles_incremental_performance:
+  cycles = read_csr(0xc00);
+  for (epoch = 0; epoch < max_epochs; epoch++) {
+    for (item = 0; item < batch_items; item++) {
+      // Run one training epoch
+      tid = new_write_request(nnid, 1, 0);
+      write_register(tid, xfiles_reg_learning_rate, learn_rate);
+      write_register(tid, xfiles_reg_weight_decay_lambda, weight_decay);
+      // Write the output and input data
+      write_data_train_incremental(tid, (element_type *) data->input[item],
+                                   (element_type *) data->output[item],
                                    num_input, num_output);
 
       // Blocking read
