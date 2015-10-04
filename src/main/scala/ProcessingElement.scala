@@ -331,15 +331,17 @@ class ProcessingElement extends DanaModule {
       // This is the "last" writeback for a group, so we turn on the
       // `incWriteCount` flag to tell the Register File to increment its write
       // count
-      when((io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_ERROR_BACKPROP)){
-        state := Mux(io.req.valid,Mux(io.req.bits.tType === e_TTYPE_BATCH &&
-          io.req.bits.inFirst,
-          PE_states('e_PE_REQUEST_INPUTS_AND_WEIGHTS),
-          PE_states('e_PE_ERROR_BACKPROP_REQUEST_WEIGHTS)), state)
-      }.otherwise {
-        state := Mux(io.req.valid, Mux(io.req.bits.inLast &&
-          io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_FEEDFORWARD,
-          PE_states('e_PE_ERROR_BACKPROP_REQUEST_WEIGHTS), PE_states('e_PE_DONE)), state)
+      when (io.req.valid) {
+        when((io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_ERROR_BACKPROP)){
+          state := Mux(io.req.bits.tType === e_TTYPE_BATCH &&
+            io.req.bits.inFirst,
+            PE_states('e_PE_REQUEST_INPUTS_AND_WEIGHTS),
+            PE_states('e_PE_ERROR_BACKPROP_REQUEST_WEIGHTS))
+        }.otherwise {
+          state := Mux(io.req.bits.inLast &&
+            io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_FEEDFORWARD,
+            PE_states('e_PE_ERROR_BACKPROP_REQUEST_WEIGHTS), PE_states('e_PE_DONE))
+        }
       }
       io.resp.bits.incWriteCount := Bool(true)
       // io.resp.bits.incWriteCount := Mux((io.req.bits.tType === e_TTYPE_BATCH),
@@ -418,8 +420,6 @@ class ProcessingElement extends DanaModule {
       when (index === (io.req.bits.numWeights - UInt(1)) ||
         blockIndex === UInt(elementsPerBlock - 1)) {
         state := PE_states('e_PE_SLOPE_WB)
-      } .otherwise {
-        state := state
       }
       DSP(delta, io.req.bits.iBlock(blockIndex), decimal)
       weightWB(blockIndex) := dsp.d
@@ -456,8 +456,6 @@ class ProcessingElement extends DanaModule {
       when (index === (io.req.bits.numWeights - UInt(1)) ||
         blockIndex === UInt(elementsPerBlock - 1)) {
         state := PE_states('e_PE_WEIGHT_UPDATE_WRITE_BACK)
-      } .otherwise {
-        state := state
       }
       val delta = (Mux(io.req.bits.inFirst, errorOut, io.req.bits.learnReg) *
         io.req.bits.learningRate) >> decimal
