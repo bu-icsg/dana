@@ -127,7 +127,6 @@ int main (int argc, char * argv[]) {
       {"performance-mode", no_argument,       0, 'p'},
       {"train-file",       required_argument, 0, 't'},
       {"verbose",          no_argument,       0, 'v'},
-      {"muti-run",         required_argument, 0, 'x'},
       {"weight-decay-lamba,",required_argument,0,'y'}
     };
     int option_index = 0;
