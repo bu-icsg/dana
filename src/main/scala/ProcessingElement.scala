@@ -211,9 +211,9 @@ class ProcessingElement extends DanaModule {
       af.io.req.valid := Bool(true)
       af.io.req.bits.in := acc
       af.io.req.bits.afType := e_AF_DO_ACTIVATION_FUNCTION
-      state := Mux(af.io.resp.valid, Mux(io.req.bits.inLast &&
-        io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_FEEDFORWARD,
-        PE_states('e_PE_COMPUTE_DERIVATIVE), PE_states('e_PE_DONE)), state)
+      when (af.io.resp.valid) {
+        state := PE_states('e_PE_DONE)
+      }
       dataOut := Mux(af.io.resp.valid, af.io.resp.bits.out, dataOut)
     }
     is (PE_states('e_PE_COMPUTE_DERIVATIVE)){
@@ -327,7 +327,7 @@ class ProcessingElement extends DanaModule {
       // the register file.
       index := UInt(0)
     }
-    is(PE_states('e_PE_DELTA_WRITE_BACK)){
+    is (PE_states('e_PE_DELTA_WRITE_BACK)){
       // This is the "last" writeback for a group, so we turn on the
       // `incWriteCount` flag to tell the Register File to increment its write
       // count
@@ -340,7 +340,8 @@ class ProcessingElement extends DanaModule {
         }.otherwise {
           state := Mux(io.req.bits.inLast &&
             io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_FEEDFORWARD,
-            PE_states('e_PE_ERROR_BACKPROP_REQUEST_WEIGHTS), PE_states('e_PE_DONE))
+            PE_states('e_PE_ERROR_BACKPROP_REQUEST_WEIGHTS),
+            PE_states('e_PE_UNALLOCATED))
         }
       }
       io.resp.bits.incWriteCount := Bool(true)
@@ -381,8 +382,7 @@ class ProcessingElement extends DanaModule {
       io.resp.bits.incWriteCount := index === io.req.bits.numWeights
       when (io.req.valid) {
         when (index === io.req.bits.numWeights) {
-          state := Mux((io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_ERROR_BACKPROP),
-            PE_states('e_PE_UNALLOCATED),PE_states('e_PE_DONE))
+          state := PE_states('e_PE_UNALLOCATED)
         } .otherwise {
           state := PE_states('e_PE_ERROR_BACKPROP_REQUEST_WEIGHTS)
         }
@@ -410,7 +410,14 @@ class ProcessingElement extends DanaModule {
       state := Mux(io.req.valid, PE_states('e_PE_COMPUTE_DERIVATIVE), state)
     }
     is (PE_states('e_PE_DONE)) {
-      state := Mux(io.req.valid, PE_states('e_PE_UNALLOCATED), state)
+      when (io.req.valid) {
+        when (io.req.bits.inLast &&
+          io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_FEEDFORWARD) {
+          state := PE_states('e_PE_COMPUTE_DERIVATIVE)
+        } .otherwise {
+          state := PE_states('e_PE_UNALLOCATED)
+        }
+      }
       io.resp.bits.incWriteCount := Bool(true)
       io.resp.valid := Bool(true)
     }
