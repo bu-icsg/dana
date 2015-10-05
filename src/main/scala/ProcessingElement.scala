@@ -97,14 +97,12 @@ class ProcessingElement extends DanaModule {
     val c = Wire(UInt(width = elementWidth))
     val d = Wire(SInt(width = elementWidth))
   }
-
   def DSP(a: SInt, b: SInt, c: UInt) {
     dsp.a := a
     dsp.b := b
     dsp.c := c
   }
   DSP(SInt(0), SInt(0), UInt(0))
-
   dsp.d := ((dsp.a * dsp.b) >> dsp.c)(elementWidth - 1, 0)
 
   // Default values

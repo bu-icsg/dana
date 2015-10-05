@@ -167,6 +167,22 @@ class ActivationFunction extends DanaModule {
   decimal := UInt(decimalPointOffset,
     width = decimalPointWidth + log2Up(decimalPointOffset)) + io.req.bits.decimal
 
+  // DSP Unit
+  val dsp = new Bundle {
+    // [TODO] These internal wires **may** be completely wrong.
+    // Constructors are generally forbidden inside of Bundle!
+    val a = Wire(SInt(width = elementWidth))
+    val b = Wire(SInt(width = elementWidth))
+    val c = Wire(UInt(width = elementWidth))
+    val d = Wire(SInt(width = elementWidth))
+  }
+  def DSP(a: SInt, b: SInt, c: UInt) {
+    dsp.a := a
+    dsp.b := b
+    dsp.c := c
+  }
+  dsp.d := ((dsp.a * dsp.b) >> dsp.c)(elementWidth - 1, 0)
+
   // All activation functions currently take two cycles, so the output
   // valid signal is delayed by two cycles.
   val ioVal_d0 = Reg(next = io.req.valid)
@@ -251,7 +267,7 @@ class ActivationFunction extends DanaModule {
   // Atanh error function
   val atanhOffsetX = Wire(SInt(width = elementWidth))
   val atanhOffsetY = Wire(SInt(width = elementWidth))
-  val atanhSlope = Wire(UInt(width = elementWidth))
+  val atanhSlope = Wire(SInt(width = elementWidth))
   when (dataIn < atanh_x0) {
     atanhOffsetX := SInt(0)
     atanhOffsetY := negSeventeen
@@ -285,7 +301,8 @@ class ActivationFunction extends DanaModule {
   // [TODO] You can probably remove this---by default `out` gets a
   // garbage value (a very big integer) which should be visibile in
   // the output
-  out := ((slopeSym*(inD0-offsetX) >> decimal) + offsetSymY)
+  DSP(slopeSym, inD0-offsetX, decimal)
+  out := dsp.d + offsetSymY
   inD0 := applySteepness(dataIn, io.req.bits.steepness)
   // FANN_LINEAR
   switch (io.req.bits.afType) {
@@ -307,10 +324,12 @@ class ActivationFunction extends DanaModule {
             out := one }
         } // FANN_SIGMOID and STEPWISE
         is (e_FANN_SIGMOID) {
-          out := ((slopeSig*(inD0-offsetX) >> decimal) + offsetSigY)
+          DSP(slopeSig, inD0-offsetX, decimal)
+          out := dsp.d + offsetSigY
         }
         is (e_FANN_SIGMOID_STEPWISE) {
-          out := ((slopeSig*(inD0-offsetX) >> decimal) + offsetSigY)
+          DSP(slopeSig, inD0-offsetX, decimal)
+          out := dsp.d + offsetSigY
         }
       }
     }
@@ -320,7 +339,8 @@ class ActivationFunction extends DanaModule {
           out := dataIn
         }
         is (e_FANN_ERRORFUNC_TANH) {
-          out := ((atanhSlope*(dataIn-atanhOffsetX) >> decimal) + atanhOffsetY)
+          DSP(atanhSlope, dataIn-atanhOffsetX, decimal)
+          out := dsp.d + atanhOffsetY
         }
       }
     }
