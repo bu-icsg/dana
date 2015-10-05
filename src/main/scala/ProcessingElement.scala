@@ -217,11 +217,19 @@ class ProcessingElement extends DanaModule {
 
       val af = io.req.bits.activationFunction
       when (af === e_FANN_LINEAR) {
-        // [TODO] This linear activation function is broken
-        DSP(SInt(1), SInt(1), decimal + steepness)
-        derivative := dsp.d
-        // derivative := SInt(1) >> (decimal + steepness)
-        printf("[INFO] PE: derivative linear: 0x%x\n", dsp.d)
+        printf("[WARN] Linear activation function untested\n")
+        when (steepness < UInt(steepnessOffset)) {
+          derivative := one >> (UInt(steepnessOffset) - steepness)
+          printf("[INFO] PE: derivative linear: 0x%x\n",
+            one >> (UInt(steepnessOffset) - steepness))
+        } .elsewhen (steepness === UInt(steepnessOffset)) {
+          derivative := one
+          printf("[INFO] PE: derivative linear: 0x%x\n", one)
+        } .otherwise {
+          derivative := one << (steepness - UInt(steepnessOffset))
+          printf("[INFO] PE: derivative linear: 0x%x\n",
+            one << (steepness - UInt(steepnessOffset)))
+        }
       } .elsewhen (af === e_FANN_SIGMOID || af === e_FANN_SIGMOID_STEPWISE) {
         DSP(dataOut, one - dataOut, decimal + steepness - UInt(1))
         derivative := dsp.d
