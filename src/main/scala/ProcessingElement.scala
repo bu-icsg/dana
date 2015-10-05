@@ -66,9 +66,6 @@ class ProcessingElement extends DanaModule {
   val reqSent = Reg(Bool())
   //val updated_weight = Vec.fill(elementsPerBlock){Reg(SInt(INPUT, elementWidth))}
 
-  // Constants
-  val one = SInt(1) << decimal
-
   // [TODO] fragile on PE stateu enum (Common.scala)
   val state = Reg(UInt(), init = PE_states('e_PE_UNALLOCATED))
 
@@ -78,6 +75,7 @@ class ProcessingElement extends DanaModule {
   val steepness = UInt(steepnessOffset) - io.req.bits.steepness
   val decimal = UInt(decimalPointOffset, width = decimalPointWidth + 1) +
     io.req.bits.decimalPoint
+  val one = SInt(1) << decimal
 
   def applySteepness(x: SInt, steepness: UInt): SInt = {
     val tmp = Wire(SInt())
