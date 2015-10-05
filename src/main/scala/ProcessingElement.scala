@@ -63,9 +63,8 @@ class ProcessingElement extends DanaModule {
   val derivative = Reg(SInt(width = elementWidth)) //delta
   val errorOut = Reg(SInt(width = elementWidth)) //ek
   val mse = Reg(UInt(width = elementWidth))
+  val reqSent = Reg(Bool())
   //val updated_weight = Vec.fill(elementsPerBlock){Reg(SInt(INPUT, elementWidth))}
-
-
 
   // [TODO] fragile on PE stateu enum (Common.scala)
   val state = Reg(UInt(), init = PE_states('e_PE_UNALLOCATED))
@@ -110,6 +109,7 @@ class ProcessingElement extends DanaModule {
 
   // Default values
   acc := acc
+  reqSent := reqSent
   derivative := derivative
   io.req.ready := Bool(false)
   io.resp.valid := Bool(false)
@@ -137,55 +137,52 @@ class ProcessingElement extends DanaModule {
       io.req.ready := Bool(true)
       hasBias := Bool(false)
       index := UInt(0)
+      reqSent := Bool(false)
     }
     is (PE_states('e_PE_GET_INFO)) {
       dataOut := UInt(0)
-      state := Mux(io.req.valid, PE_states('e_PE_WAIT_FOR_INFO), state)
-      io.resp.valid := Bool(true)
       index := UInt(0)
-    }
-    is (PE_states('e_PE_WAIT_FOR_INFO)) {
-      //state := Mux(io.req.valid, PE_states('e_PE_REQUEST_INPUTS_AND_WEIGHTS), state)
-      when (io.req.valid && (io.req.bits.stateLearn === e_TTABLE_STATE_FEEDFORWARD ||
-        io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_FEEDFORWARD ||
-        ((io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_WEIGHT_UPDATE) &&
-          (io.req.bits.tType === e_TTYPE_BATCH)))) {
-        state := PE_states('e_PE_REQUEST_INPUTS_AND_WEIGHTS)
-      } .elsewhen (io.req.valid &&
-        (io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_ERROR_BACKPROP)) {
-        state := PE_states('e_PE_REQUEST_OUTPUTS_ERROR_BACKPROP)
-      } .elsewhen (io.req.valid &&
-        (io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_WEIGHT_UPDATE ||
-          io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_UPDATE_SLOPE)) {
-        state := PE_states('e_PE_WEIGHT_UPDATE_REQUEST_DELTA)
-      } .otherwise{
-        state := state
+      when (!reqSent) {
+        io.resp.valid := Bool(true)
+        reqSent := io.req.valid
+      } .elsewhen (io.req.valid) {
+        reqSent := Bool(false)
+        when ((io.req.bits.stateLearn === e_TTABLE_STATE_FEEDFORWARD ||
+          io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_FEEDFORWARD ||
+          ((io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_WEIGHT_UPDATE) &&
+            (io.req.bits.tType === e_TTYPE_BATCH)))) {
+          state := PE_states('e_PE_REQUEST_INPUTS_AND_WEIGHTS)
+        } .elsewhen ((io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_ERROR_BACKPROP)) {
+          state := PE_states('e_PE_REQUEST_OUTPUTS_ERROR_BACKPROP)
+        } .elsewhen ((io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_WEIGHT_UPDATE ||
+            io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_UPDATE_SLOPE)) {
+          state := PE_states('e_PE_WEIGHT_UPDATE_REQUEST_DELTA)
+        }
       }
     }
     is (PE_states('e_PE_REQUEST_INPUTS_AND_WEIGHTS)) {
-      state := Mux(io.req.valid, PE_states('e_PE_WAIT_FOR_INPUTS_AND_WEIGHTS), state)
-      io.resp.valid := Bool(true)
       // If hasBias is false, then this is the first time we're in this
       // state and we need to load the bias into the accumulator
       hasBias := Bool(true)
       when (hasBias === Bool(false)) {
         acc := io.req.bits.bias
       }
-    }
-    is (PE_states('e_PE_WAIT_FOR_INPUTS_AND_WEIGHTS)) {
-      when(io.req.valid){
+
+      when (!reqSent) {
+        io.resp.valid := Bool(true)
+        reqSent := io.req.valid
+      } .elsewhen (io.req.valid) {
+        reqSent := Bool(false)
         when(io.req.bits.tType === e_TTYPE_BATCH &&
           (io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_ERROR_BACKPROP ||
-          io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_UPDATE_SLOPE)){
+            io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_UPDATE_SLOPE)){
           state := PE_states('e_PE_RUN_UPDATE_SLOPE)
-        }.elsewhen(io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_WEIGHT_UPDATE ||
-        (io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_ERROR_BACKPROP)){
+        } .elsewhen(io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_WEIGHT_UPDATE ||
+          (io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_ERROR_BACKPROP)){
           state := PE_states('e_PE_RUN_WEIGHT_UPDATE)
-        }.otherwise{
+        } .otherwise{
           state := PE_states('e_PE_RUN)
         }
-      }.otherwise{
-        state := state
       }
     }
     is (PE_states('e_PE_RUN)) {
@@ -258,11 +255,13 @@ class ProcessingElement extends DanaModule {
       }
     }
     is (PE_states('e_PE_REQUEST_EXPECTED_OUTPUT)) {
-      state := Mux(io.req.valid, PE_states('e_PE_WAIT_FOR_EXPECTED_OUTPUT), state)
-      io.resp.valid := Bool(true)
-    }
-    is (PE_states('e_PE_WAIT_FOR_EXPECTED_OUTPUT)) {
-      state := Mux(io.req.valid, PE_states('e_PE_COMPUTE_ERROR), state)
+      when (!reqSent) {
+        io.resp.valid := Bool(true)
+        reqSent := io.req.valid
+      } .elsewhen (io.req.valid) {
+        reqSent := Bool(false)
+        state := PE_states('e_PE_COMPUTE_ERROR)
+      }
     }
     is (PE_states('e_PE_COMPUTE_ERROR)) {
       val error = io.req.bits.learnReg - dataOut
@@ -350,14 +349,13 @@ class ProcessingElement extends DanaModule {
       io.resp.valid := Bool(true)
     }
     is (PE_states('e_PE_ERROR_BACKPROP_REQUEST_WEIGHTS)) {
-      // index := UInt(0)
-      state := Mux(io.req.valid, PE_states('e_PE_ERROR_BACKPROP_WAIT_FOR_WEIGHTS),
-        state)
-      io.resp.valid := Bool(true)
-    }
-    is (PE_states('e_PE_ERROR_BACKPROP_WAIT_FOR_WEIGHTS)) {
-      state := Mux(io.req.valid,
-        PE_states('e_PE_ERROR_BACKPROP_DELTA_WEIGHT_MUL), state)
+      when (!reqSent) {
+        io.resp.valid := Bool(true)
+        reqSent := io.req.valid
+      } .elsewhen (io.req.valid) {
+        reqSent := Bool(false)
+        state := PE_states('e_PE_ERROR_BACKPROP_DELTA_WEIGHT_MUL)
+      }
     }
     is (PE_states('e_PE_ERROR_BACKPROP_DELTA_WEIGHT_MUL)) {
       val blockIndex = index(log2Up(elementsPerBlock) - 1, 0)
@@ -391,23 +389,24 @@ class ProcessingElement extends DanaModule {
       io.resp.valid := Bool(true)
     }
     is (PE_states('e_PE_REQUEST_OUTPUTS_ERROR_BACKPROP)) {
-      state := Mux(io.req.valid,
-        PE_states('e_PE_WAIT_FOR_OUTPUTS_ERROR_BACKPROP), state)
-      io.resp.valid := Bool(true)
-    }
-    is (PE_states('e_PE_WAIT_FOR_OUTPUTS_ERROR_BACKPROP)) {
-      state := Mux(io.req.valid,
-        PE_states('e_PE_REQUEST_DELTA_WEIGHT_PRODUCT_ERROR_BACKPROP), state)
+      when (!reqSent) {
+        io.resp.valid := Bool(true)
+        reqSent := io.req.valid
+      } .elsewhen (io.req.valid) {
+        reqSent := Bool(false)
+        state := PE_states('e_PE_REQUEST_DELTA_WEIGHT_PRODUCT_ERROR_BACKPROP)
+      }
     }
     is (PE_states('e_PE_REQUEST_DELTA_WEIGHT_PRODUCT_ERROR_BACKPROP)) {
       dataOut := io.req.bits.learnReg
-      state := Mux(io.req.valid,
-        PE_states('e_PE_WAIT_FOR_DELTA_WEIGHT_PRODUCT_ERROR_BACKPROP), state)
-      io.resp.valid := Bool(true)
-    }
-    is (PE_states('e_PE_WAIT_FOR_DELTA_WEIGHT_PRODUCT_ERROR_BACKPROP))
-    {
-      state := Mux(io.req.valid, PE_states('e_PE_COMPUTE_DERIVATIVE), state)
+
+      when (!reqSent) {
+        io.resp.valid := Bool(true)
+        reqSent := io.req.valid
+      } .elsewhen (io.req.valid) {
+        reqSent := Bool(false)
+        state := PE_states('e_PE_COMPUTE_DERIVATIVE)
+      }
     }
     is (PE_states('e_PE_DONE)) {
       when (io.req.valid) {
@@ -451,13 +450,14 @@ class ProcessingElement extends DanaModule {
       io.resp.valid := Bool(true)
     }
     is (PE_states('e_PE_WEIGHT_UPDATE_REQUEST_DELTA)){
-      state := Mux(io.req.valid, PE_states('e_PE_WEIGHT_UPDATE_WAIT_FOR_DELTA), state)
-      io.resp.valid := Bool(true)
+      when (!reqSent) {
+        io.resp.valid := Bool(true)
+        reqSent := io.req.valid
+      } .elsewhen (io.req.valid) {
+        reqSent := Bool(false)
+        state := PE_states('e_PE_REQUEST_INPUTS_AND_WEIGHTS)
+      }
     }
-    is (PE_states('e_PE_WEIGHT_UPDATE_WAIT_FOR_DELTA)){
-      state := Mux(io.req.valid, PE_states('e_PE_REQUEST_INPUTS_AND_WEIGHTS), state)
-    }
-
     is (PE_states('e_PE_RUN_WEIGHT_UPDATE)){
       val blockIndex = index(log2Up(elementsPerBlock) - 1, 0)
       when (index === (io.req.bits.numWeights - UInt(1)) ||
@@ -501,11 +501,13 @@ class ProcessingElement extends DanaModule {
       io.resp.valid := Bool(true)
     }
     is (PE_states('e_PE_WEIGHT_UPDATE_REQUEST_BIAS)) {
-      state := Mux(io.req.valid, PE_states('e_PE_WEIGHT_UPDATE_WAIT_FOR_BIAS), state)
-      io.resp.valid := Bool(true)
-    }
-    is (PE_states('e_PE_WEIGHT_UPDATE_WAIT_FOR_BIAS)) {
-      state := Mux(io.req.valid, PE_states('e_PE_WEIGHT_UPDATE_WAIT_FOR_BIAS_d0), state)
+      when (!reqSent) {
+        io.resp.valid := Bool(true)
+        reqSent := io.req.valid
+      } .elsewhen (io.req.valid) {
+        reqSent := Bool(false)
+        state := PE_states('e_PE_WEIGHT_UPDATE_WAIT_FOR_BIAS_d0)
+      }
     }
     is (PE_states('e_PE_WEIGHT_UPDATE_WAIT_FOR_BIAS_d0)) {
       state := PE_states('e_PE_WEIGHT_UPDATE_WRITE_BIAS)
