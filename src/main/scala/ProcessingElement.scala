@@ -66,6 +66,9 @@ class ProcessingElement extends DanaModule {
   val reqSent = Reg(Bool())
   //val updated_weight = Vec.fill(elementsPerBlock){Reg(SInt(INPUT, elementWidth))}
 
+  // Constants
+  val one = SInt(1) << decimal
+
   // [TODO] fragile on PE stateu enum (Common.scala)
   val state = Reg(UInt(), init = PE_states('e_PE_UNALLOCATED))
 
@@ -185,13 +188,10 @@ class ProcessingElement extends DanaModule {
     }
     is (PE_states('e_PE_RUN)) {
       val blockIndex = index(log2Up(elementsPerBlock) - 1, 0)
-      // [TOOD] This logic is broken for some reason
       when (index === (io.req.bits.numWeights - UInt(1))) {
         state := PE_states('e_PE_ACTIVATION_FUNCTION)
       } .elsewhen (blockIndex === UInt(elementsPerBlock - 1)) {
         state := PE_states('e_PE_REQUEST_INPUTS_AND_WEIGHTS)
-      } .otherwise {
-        state := state
       }
       DSP(io.req.bits.iBlock(blockIndex), io.req.bits.wBlock(blockIndex), decimal)
       acc := acc + dsp.d
@@ -223,10 +223,9 @@ class ProcessingElement extends DanaModule {
         // derivative := SInt(1) >> (decimal + steepness)
         printf("[INFO] PE: derivative linear: 0x%x\n", dsp.d)
       } .elsewhen (af === e_FANN_SIGMOID || af === e_FANN_SIGMOID_STEPWISE) {
-        DSP(dataOut, (SInt(1) << decimal) - dataOut,
-          decimal + steepness - UInt(1))
+        DSP(dataOut, one - dataOut, decimal + steepness - UInt(1))
         derivative := dsp.d
-        // derivative := (dataOut * ((SInt(1) << decimal) - dataOut)) >>
+        // derivative := (dataOut * (one - dataOut)) >>
         //   (decimal + steepness - UInt(1))
         printf("[INFO] PE: derivative sigmoid: 0x%x\n", dsp.d)
       } .elsewhen (af === e_FANN_SIGMOID_SYMMETRIC ||
@@ -234,21 +233,17 @@ class ProcessingElement extends DanaModule {
         val steepness = io.req.bits.steepness
         DSP(dataOut, dataOut, decimal)
         when (steepness < UInt(steepnessOffset)) {
-          derivative := ((SInt(1) << decimal) - dsp.d) >>
-            (UInt(steepnessOffset) - steepness)
+          derivative := (one - dsp.d) >> (UInt(steepnessOffset) - steepness)
           printf("[INFO] PE: derivative sigmoid symmetric: 0x%x\n",
-            ((SInt(1) << decimal) - dsp.d) >>
-              (UInt(steepnessOffset) - steepness))
+            (one - dsp.d) >> (UInt(steepnessOffset) - steepness))
         } .elsewhen (steepness === UInt(steepnessOffset)) {
-          derivative := (SInt(1) << decimal) - dsp.d
+          derivative := one - dsp.d
           printf("[INFO] PE: derivative sigmoid symmetric: 0x%x\n",
-            (SInt(1) << decimal) - dsp.d)
+            one - dsp.d)
         } .otherwise {
-          derivative := ((SInt(1) << decimal) - dsp.d) <<
-            (steepness - UInt(steepnessOffset))
+          derivative := (one - dsp.d) << (steepness - UInt(steepnessOffset))
           printf("[INFO] PE: derivative sigmoid symmetric: 0x%x\n",
-            ((SInt(1) << decimal) - dsp.d) <<
-              (steepness - UInt(steepnessOffset)))
+            (one - dsp.d) << (steepness - UInt(steepnessOffset)))
         }
       }
     }
@@ -287,9 +282,9 @@ class ProcessingElement extends DanaModule {
       af.io.req.valid := Bool(true)
       af.io.req.bits.in := errorOut
       af.io.req.bits.afType := e_AF_DO_ERROR_FUNCTION
-      state := Mux(af.io.resp.valid, PE_states('e_PE_COMPUTE_DELTA), state)
       errorOut := Mux(af.io.resp.valid, af.io.resp.bits.out, errorOut)
       when (af.io.resp.valid) {
+        state := PE_states('e_PE_COMPUTE_DELTA)
         printf("[INFO] PE: errFn(0x%x) = 0x%x\n", errorOut, af.io.resp.bits.out)
       }
     }
@@ -297,6 +292,7 @@ class ProcessingElement extends DanaModule {
       // Reset the index in preparation for doing the deltas in the
       // previous layer
       val der = Mux(derivative === SInt(0), SInt(1), derivative)
+      index := UInt(0)
 
       switch(io.req.bits.stateLearn){
         is(e_TTABLE_STATE_LEARN_FEEDFORWARD){
@@ -319,10 +315,6 @@ class ProcessingElement extends DanaModule {
           }
         }
       }
-      // [TODO] Check if this is in the first layer and we're doing
-      // error backprop. If we aren't, then write back the delta to
-      // the register file.
-      index := UInt(0)
     }
     is (PE_states('e_PE_DELTA_WRITE_BACK)){
       // This is the "last" writeback for a group, so we turn on the
@@ -342,8 +334,6 @@ class ProcessingElement extends DanaModule {
         }
       }
       io.resp.bits.incWriteCount := Bool(true)
-      // io.resp.bits.incWriteCount := Mux((io.req.bits.tType === e_TTYPE_BATCH),
-      //   Bool(false),Bool(true))
       io.resp.valid := Bool(true)
     }
     is (PE_states('e_PE_ERROR_BACKPROP_REQUEST_WEIGHTS)) {
@@ -437,14 +427,14 @@ class ProcessingElement extends DanaModule {
       val nextState = Mux(index === io.req.bits.numWeights,
         PE_states('e_PE_SLOPE_BIAS_WB),
         PE_states('e_PE_REQUEST_INPUTS_AND_WEIGHTS))
-      state := Mux(io.req.valid, nextState, state)
+      when (io.req.valid) { state := nextState }
       io.resp.valid := Bool(true)
       // Setup the bias to be written back
       printf("[INFO] PE: bias wb: 0x%x\n", delta)
       dataOut := delta
     }
     is (PE_states('e_PE_SLOPE_BIAS_WB)) {
-      state := Mux(io.req.valid, PE_states('e_PE_UNALLOCATED), state)
+      when (io.req.valid) { state := PE_states('e_PE_UNALLOCATED) }
       io.resp.valid := Bool(true)
     }
     is (PE_states('e_PE_WEIGHT_UPDATE_REQUEST_DELTA)){
@@ -495,7 +485,7 @@ class ProcessingElement extends DanaModule {
           PE_states('e_PE_WEIGHT_UPDATE_REQUEST_BIAS),
           PE_states('e_PE_WEIGHT_UPDATE_WRITE_BIAS)),
         PE_states('e_PE_REQUEST_INPUTS_AND_WEIGHTS))
-      state := Mux(io.req.valid, nextState, state)
+      when (io.req.valid) { state := nextState }
       io.resp.valid := Bool(true)
     }
     is (PE_states('e_PE_WEIGHT_UPDATE_REQUEST_BIAS)) {
@@ -514,7 +504,7 @@ class ProcessingElement extends DanaModule {
       dataOut := dsp.d
     }
     is (PE_states('e_PE_WEIGHT_UPDATE_WRITE_BIAS)) {
-      state := Mux(io.req.valid, PE_states('e_PE_UNALLOCATED), state)
+      when (io.req.valid) { state := PE_states('e_PE_UNALLOCATED) }
       io.resp.valid := Bool(true)
     }
   }
