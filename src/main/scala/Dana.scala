@@ -1,5 +1,7 @@
 package dana
 
+// Grab junctions for the ParameterizedBundle class
+import junctions._
 import Chisel._
 
 case object ElementWidth extends Field[Int]
@@ -22,52 +24,53 @@ case object RegisterFileNumElements extends Field[Int]
 case object PreloadCache extends Field[Boolean]
 case object XLen extends Field[Int]
 
-abstract trait DanaParameters extends UsesParameters {
+trait DanaParameters extends UsesParameters {
+  implicit val p: Parameters
   def divUp (dividend: Int, divisor: Int): Int = {
     (dividend + divisor - 1) / divisor}
-  val elementWidth = params(ElementWidth)
-  val elementsPerBlock = params(ElementsPerBlock)
-  val tidWidth = params(TidWidth)
-  val asidWidth = params(AsidWidth)
-  val preloadCache = params(PreloadCache)
+  val elementWidth = p(ElementWidth)
+  val elementsPerBlock = p(ElementsPerBlock)
+  val tidWidth = p(TidWidth)
+  val asidWidth = p(AsidWidth)
+  val preloadCache = p(PreloadCache)
   // Activation Function width increases will break:
   //   * ProcessingElementTable logic for indexing into cache data
-  val activationFunctionWidth = params(ActivationFunctionWidth)
-  val nnidWidth = params(NnidWidth)
-  val decimalPointOffset = params(DecimalPointOffset)
-  val decimalPointWidth = params(DecimalPointWidth)
+  val activationFunctionWidth = p(ActivationFunctionWidth)
+  val nnidWidth = p(NnidWidth)
+  val decimalPointOffset = p(DecimalPointOffset)
+  val decimalPointWidth = p(DecimalPointWidth)
   // Steepness width increases will break:
   //   * ProcessingElementTable logic for indexing into cache data
-  val steepnessWidth = params(SteepnessWidth)
-  val steepnessOffset = params(SteepnessOffset)
-  val errorFunctionWidth = params(ErrorFunctionWidth)
-  val feedbackWidth = params(FeedbackWidth)
+  val steepnessWidth = p(SteepnessWidth)
+  val steepnessOffset = p(SteepnessOffset)
+  val errorFunctionWidth = p(ErrorFunctionWidth)
+  val feedbackWidth = p(FeedbackWidth)
 
   // Processing Element Table
-  val peTableNumEntries = params(PeTableNumEntries)
+  val peTableNumEntries = p(PeTableNumEntries)
   // Transaction Table
-  val transactionTableNumEntries = params(TransactionTableNumEntries)
+  val transactionTableNumEntries = p(TransactionTableNumEntries)
   // Configuration Cache
-  val cacheNumEntries = params(CacheNumEntries)
-  val cacheDataSize = params(CacheDataSize)
+  val cacheNumEntries = p(CacheNumEntries)
+  val cacheDataSize = p(CacheDataSize)
   // Register File
-  val regFileNumElements = params(RegisterFileNumElements)
+  val regFileNumElements = p(RegisterFileNumElements)
 
   // Derived parameters
   val regFileNumBlocks =
-    divUp(params(RegisterFileNumElements), params(ElementsPerBlock))
+    divUp(p(RegisterFileNumElements), p(ElementsPerBlock))
   val cacheNumBlocks =
-    divUp(divUp((params(CacheDataSize) * 8), params(ElementWidth)),
-      params(ElementsPerBlock))
+    divUp(divUp((p(CacheDataSize) * 8), p(ElementWidth)),
+      p(ElementsPerBlock))
   // [TODO] This ioIdxWidth looks wrong?
-  val ioIdxWidth = log2Up(params(RegisterFileNumElements) * params(ElementWidth))
-  val bitsPerBlock = params(ElementsPerBlock) * params(ElementWidth)
+  val ioIdxWidth = log2Up(p(RegisterFileNumElements) * p(ElementWidth))
+  val bitsPerBlock = p(ElementsPerBlock) * p(ElementWidth)
 }
 
 // An abstract base class for anything associated with DANA (and the
 // X-FILES framework?). This defines all shared DANA parameters.
-abstract class DanaModule extends Module with DanaParameters
-    with XFilesParameters {
+abstract class DanaModule(implicit val p: Parameters) extends Module
+    with DanaParameters {
   // Transaction Table State Entries. nnsim-hdl equivalent:
   //   controL_types::field_enum
   val (e_TTABLE_VALID ::       // 0
@@ -206,10 +209,10 @@ abstract class DanaModule extends Module with DanaParameters
 // Base class for all Bundle classes used in DANA. This sets all the
 // parameters that should be shared. All parameters defined here
 // should be the same as in DanaModule.
-abstract class DanaBundle extends Bundle with DanaParameters
-    with XFilesParameters
+abstract class DanaBundle(implicit val p: Parameters) extends ParameterizedBundle()(p)
+    with DanaParameters
 
-class Dana extends DanaModule {
+class Dana(implicit p: Parameters) extends DanaModule {
   val io = (new XFilesDanaInterface).flip
 
   // Module instantiation

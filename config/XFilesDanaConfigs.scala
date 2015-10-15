@@ -10,7 +10,9 @@ import Implicits._
 class XFilesDanaConfig extends ChiselConfig (
   topDefinitions = { (pname,site,here) =>
     pname match {
-      case BuildRoCC => Some(() => (Module(new XFilesDana, { case CoreName => "XFilesDana" })))
+      case BuildRoCC => Some((p: Parameters) =>
+        Module(new XFilesDana()(p.alterPartial({ case CoreName => "XFilesDana" }))))
+      case CacheName => "L1D"
       case RoCCMaxTaggedMemXacts => 1
     }}
 )

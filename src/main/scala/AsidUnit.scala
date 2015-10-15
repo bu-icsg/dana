@@ -4,19 +4,25 @@ import Chisel._
 
 import rocket._
 
-class ANTWRequest extends XFilesBundle {
+class ANTWRequest(implicit p: Parameters) extends XFilesBundle()(p) {
   val antp = UInt(width = params(XLen))
   val size = UInt(width = params(XLen))
 }
 
-class AsidUnitANTWInterface extends XFilesBundle {
+class AsidUnitANTWInterface(implicit p: Parameters) extends XFilesBundle()(p) {
   val req = Decoupled(new ANTWRequest)
 }
 
-class AsidUnit extends DanaModule with XFilesParameters {
+class asid(implicit p: Parameters) extends XFilesBundle()(p) {
+  val valid = Bool()
+  val asid = UInt(width = asidWidth)
+  val tid = UInt(width = tidWidth)
+}
+
+class AsidUnit(implicit p: Parameters) extends DanaModule()(p) with XFilesParameters {
   val io = new XFilesBundle {
     val core = new XFilesBundle {
-      val cmd = Valid(new RoCCCommand).flip
+      val cmd = Valid(new RoCCCommand()(p)).flip
       val s = Bool(INPUT)
     }
     val antw = new AsidUnitANTWInterface
@@ -24,11 +30,7 @@ class AsidUnit extends DanaModule with XFilesParameters {
     val tid = UInt(OUTPUT, width = tidWidth)
   }
 
-  val asidReg = Reg(new XFilesBundle {
-    val valid = Bool()
-    val asid = UInt(width = asidWidth)
-    val tid = UInt(width = tidWidth)
-  })
+  val asidReg = Reg(new asid)
 
   val updateAsid = io.core.s && io.core.cmd.bits.inst.funct === UInt(0)
   val updateANTP = io.core.s && io.core.cmd.bits.inst.funct === UInt(1)

@@ -8,7 +8,7 @@ import Chisel._
 //   * I don't think that the location bit is used at all. Remove this
 //     if it isn't
 
-class CacheState extends DanaBundle {
+class CacheState(implicit p: Parameters) extends DanaBundle()(p) {
   // nnsim-hdl equivalent:
   //   cache_types::cache_config_entry_struct
   val valid = Bool()
@@ -21,21 +21,22 @@ class CacheState extends DanaBundle {
   val inUseCount = UInt(width = log2Up(transactionTableNumEntries) + 1)
 }
 
-class CacheMemReq extends DanaBundle {
+class CacheMemReq(implicit p: Parameters) extends DanaBundle()(p)
+  with XFilesParameters {
   val asid = UInt(width = asidWidth)
   val nnid = UInt(width = nnidWidth)
   val cacheIndex = UInt(width = log2Up(cacheNumEntries))
   val coreIndex = UInt(width = log2Up(numCores))
 }
 
-class CacheMemResp extends DanaBundle {
+class CacheMemResp(implicit p: Parameters) extends DanaBundle()(p) {
   val done = Bool()
   val data = UInt(width = elementsPerBlock * elementWidth)
   val cacheIndex = UInt(width = log2Up(cacheNumEntries))
   val addr = UInt(width = log2Up(cacheNumBlocks))
 }
 
-class CacheMemInterface extends DanaBundle {
+class CacheMemInterface(implicit p: Parameters) extends DanaBundle()(p) {
   // Outbound request. nnsim-hdl equivalent:
   //   cache_types::cache2mem_struct
   val req = Decoupled(new CacheMemReq)
@@ -44,7 +45,7 @@ class CacheMemInterface extends DanaBundle {
   val resp = Decoupled(new CacheMemResp).flip
 }
 
-class CacheInterface extends Bundle {
+class CacheInterface(implicit p: Parameters) extends Bundle {
   // The cache is connected to memory (technically via the arbiter
   // when this gets added), the control unit, and to the processing
   // elements
@@ -54,7 +55,7 @@ class CacheInterface extends Bundle {
 }
 
 
-class CompressedNeuron extends DanaBundle {
+class CompressedNeuron(implicit p: Parameters) extends DanaBundle()(p) {
   val weightPtr = UInt(width = 16)
   val numWeights = UInt(width = 8)
   val activationFunction = Wire(UInt(width = activationFunctionWidth))
@@ -69,7 +70,7 @@ class CompressedNeuron extends DanaBundle {
   }
 }
 
-class Cache extends DanaModule {
+class Cache(implicit p: Parameters) extends DanaModule()(p) {
   val io = new CacheInterface
 
   // Create the table of cache entries

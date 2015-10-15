@@ -7,33 +7,36 @@ import rocket._
 case object NumCores extends Field[Int]
 case object AntwRobEntries extends Field[Int]
 
-abstract trait XFilesParameters extends UsesParameters {
-  val numCores = params(NumCores)
-  val antwRobEntries = params(AntwRobEntries)
+abstract trait XFilesParameters extends UsesParameters with DanaParameters {
+  implicit val p: Parameters
+  val numCores = p(NumCores)
+  val antwRobEntries = p(AntwRobEntries)
 }
 
-abstract class XFilesModule extends DanaModule with XFilesParameters
-abstract class XFilesBundle extends DanaBundle with XFilesParameters
+abstract class XFilesModule(implicit p: Parameters) extends DanaModule()(p)
+    with XFilesParameters
+abstract class XFilesBundle(implicit p: Parameters) extends DanaBundle()(p)
+    with XFilesParameters
 
-class XFilesDanaInterface extends XFilesBundle {
+class XFilesDanaInterface(implicit p: Parameters) extends XFilesBundle()(p) {
   val control = new TTableControlInterface
   // val peTable = (new PETransactionTableInterface).flip
   val regFile = new TTableRegisterFileInterface
   val cache = (new CacheMemInterface).flip
 }
 
-class XFilesInterface extends XFilesBundle {
+class XFilesInterface(implicit p: Parameters) extends XFilesBundle()(p) {
   val core = Vec.fill(numCores){ new RoCCInterface }
   val dana = new XFilesDanaInterface
 }
 
-class XFilesArbiter extends XFilesModule {
+class XFilesArbiter(implicit p: Parameters) extends XFilesModule()(p) {
   val io = new XFilesInterface
 
   // Module instatiation
   val tTable = Module(new TransactionTable)
   val antw = Module(new AsidNnidTableWalker)
-  val asidRegs = Vec.fill(numCores){ Module(new AsidUnit).io }
+  val asidRegs = Vec.fill(numCores){ Module(new AsidUnit()(p)).io }
   val coreQueue = Vec.fill(numCores){ Module(new Queue(new RoCCCommand, 4)).io }
 
   // Default values

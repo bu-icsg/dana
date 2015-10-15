@@ -3,19 +3,19 @@ package dana
 import Chisel._
 import scala.math._
 
-class RegisterFileInterface extends DanaBundle {
+class RegisterFileInterface(implicit p: Parameters) extends DanaBundle()(p) {
   val pe = new (PERegisterFileInterface).flip
   val control = new (ControlRegisterFileInterface).flip
   val tTable = new (TTableRegisterFileInterface).flip
 }
 
-class RegisterFileState extends DanaBundle {
+class RegisterFileState(implicit p: Parameters) extends DanaBundle()(p) {
   val valid = Bool()
   val totalWrites = UInt(width = 16) // [TODO] fragile
   val countWrites = UInt(width = 16) // [TODO] fragile
 }
 
-class RegisterFile extends DanaModule {
+class RegisterFile(implicit p: Parameters) extends DanaModule()(p) {
   val io = new RegisterFileInterface
 
   // One SRAMElement for each Transaction Table entry

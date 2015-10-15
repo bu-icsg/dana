@@ -2,10 +2,7 @@ package dana
 
 import Chisel._
 
-abstract trait ControlParameters extends DanaParameters {
-}
-
-class ControlCacheInterfaceResp extends DanaBundle with ControlParameters {
+class ControlCacheInterfaceResp(implicit p: Parameters) extends DanaBundle()(p) {
   val fetch = Bool()
   val tableIndex = UInt(width = log2Up(transactionTableNumEntries))
   val tableMask = UInt(width = transactionTableNumEntries)
@@ -18,7 +15,8 @@ class ControlCacheInterfaceResp extends DanaBundle with ControlParameters {
   val totalWritesMul = UInt(width = 2)
 }
 
-class ControlCacheInterfaceReq extends DanaBundle with ControlParameters {
+class ControlCacheInterfaceReq(implicit p: Parameters) extends DanaBundle()(p)
+  with XFilesParameters {
   val request = UInt(width = log2Up(3)) // [TODO] fragile on Constants.scala
   val asid = UInt(width = asidWidth)
   val nnid = UInt(width = nnidWidth)
@@ -29,7 +27,7 @@ class ControlCacheInterfaceReq extends DanaBundle with ControlParameters {
   val totalWritesMul = UInt(width = 2)
 }
 
-class ControlCacheInterface extends DanaBundle with ControlParameters {
+class ControlCacheInterface(implicit p: Parameters) extends DanaBundle()(p) {
   // Outbound request. nnsim-hdl equivalent:
   //   cache_types::ctl2storage_struct
   val req = Decoupled(new ControlCacheInterfaceReq)
@@ -38,66 +36,71 @@ class ControlCacheInterface extends DanaBundle with ControlParameters {
   val resp = Decoupled(new ControlCacheInterfaceResp).flip
 }
 
-class ControlPETableInterface extends DanaBundle with ControlParameters {
+class ControlPETableInterfaceReq(implicit p: Parameters) extends DanaBundle()(p) {
+  // The PE Index shouldn't be needed if the PE Table is allocating PEs
+  // val peIndex = UInt(width = log2Up(peTableNumEntries))
+  val cacheIndex = UInt(width = log2Up(cacheNumEntries))
+  // new_state -- this should be unnecessary as all we need to do is
+  // give the PE a kick, which should be accomplished with the
+  // decoupled valid signal
+  val tIdx = UInt(width = log2Up(transactionTableNumEntries))
+  // [TODO] Change ioIdxWidth to regFileNumElements?
+  val inAddr = UInt(width = ioIdxWidth)
+  val outAddr = UInt(width = ioIdxWidth)
+  val learnAddr = UInt(width = ioIdxWidth)
+  val deltaAddr = UInt(width = ioIdxWidth)
+  val dwAddr = UInt(width = ioIdxWidth)
+  val slopeAddr = UInt(width = ioIdxWidth)
+  val biasAddr = UInt(width = ioIdxWidth)
+  val location = UInt(width = 1)
+  val neuronPointer = UInt(width = 12) // [TODO] fragile
+  val decimalPoint = UInt(width = decimalPointWidth)
+  val errorFunction = UInt(width = log2Up(2)) // [TODO] fragile
+  val stateLearn = UInt(width = log2Up(7)) // [TODO] fragile
+  val inLast = Bool()
+  val resetWB = Bool()
+  val inFirst = Bool()
+  val batchFirst = Bool()
+  val learningRate = UInt(width = 16) // [TODO] fragile
+  val lambda = UInt(width = 16) // [TODO] fragile
+  val numWeightBlocks = UInt(width = 16) // [TODO] fragile
+  val tType = UInt(width = log2Up(3)) // [TODO] fragile
+  val globalWtptr = UInt(width = 16) // [TODO] fragile
+}
+
+class ControlPETableInterface(implicit p: Parameters) extends DanaBundle()(p) {
   // Outbound request. nnsim-hdl equivalent:
   //   control_types::ctl2pe_table_struct
-  val req = Decoupled(new DanaBundle {
-    // The PE Index shouldn't be needed if the PE Table is allocating PEs
-    // val peIndex = UInt(width = log2Up(peTableNumEntries))
-    val cacheIndex = UInt(width = log2Up(cacheNumEntries))
-    // new_state -- this should be unnecessary as all we need to do is
-    // give the PE a kick, which should be accomplished with the
-    // decoupled valid signal
-    val tIdx = UInt(width = log2Up(transactionTableNumEntries))
-    // [TODO] Change ioIdxWidth to regFileNumElements?
-    val inAddr = UInt(width = ioIdxWidth)
-    val outAddr = UInt(width = ioIdxWidth)
-    val learnAddr = UInt(width = ioIdxWidth)
-    val deltaAddr = UInt(width = ioIdxWidth)
-    val dwAddr = UInt(width = ioIdxWidth)
-    val slopeAddr = UInt(width = ioIdxWidth)
-    val biasAddr = UInt(width = ioIdxWidth)
-    val location = UInt(width = 1)
-    val neuronPointer = UInt(width = 12) // [TODO] fragile
-    val decimalPoint = UInt(width = decimalPointWidth)
-    val errorFunction = UInt(width = log2Up(2)) // [TODO] fragile
-    val stateLearn = UInt(width = log2Up(7)) // [TODO] fragile
-    val inLast = Bool()
-    val resetWB = Bool()
-    val inFirst = Bool()
-    val batchFirst = Bool()
-    val learningRate = UInt(width = 16) // [TODO] fragile
-    val lambda = UInt(width = 16) // [TODO] fragile
-    val numWeightBlocks = UInt(width = 16) // [TODO] fragile
-    val tType = UInt(width = log2Up(3)) // [TODO] fragile
-    val globalWtptr = UInt(width = 16) // [TODO] fragile
-
-  })
+  val req = Decoupled(new ControlPETableInterfaceReq)
   // No response is necessary as the Control module needs to know is
   // if the PE Table has a free entry. This is communicated by means
   // of the Decoupled `ready` signal.
 }
 
-class ControlRegisterFileInterface extends DanaBundle with ControlParameters {
-  // Outbound request/inbound response. No nnsim-hdl equivalent.
-  val req = Decoupled(new DanaBundle {
-    val tIdx = UInt(width = transactionTableNumEntries)
-    val totalWrites = UInt(width = 16) // [TODO] fragile
-    val location = UInt(width = 1) // [TODO] fragile
-  })
-  val resp = Decoupled(new DanaBundle {
-    val tIdx = UInt(width = transactionTableNumEntries)
-  }).flip
+class ControlRegisterFileInterfaceReq(implicit p: Parameters) extends DanaBundle()(p) {
+  val tIdx = UInt(width = transactionTableNumEntries)
+  val totalWrites = UInt(width = 16) // [TODO] fragile
+  val location = UInt(width = 1) // [TODO] fragile
 }
 
-class ControlInterface extends DanaBundle {
+class ControlRegisterFileInterfaceResp(implicit p: Parameters) extends DanaBundle()(p) {
+  val tIdx = UInt(width = transactionTableNumEntries)
+}
+
+class ControlRegisterFileInterface(implicit p: Parameters) extends DanaBundle()(p) {
+  // Outbound request/inbound response. No nnsim-hdl equivalent.
+  val req = Decoupled(new ControlRegisterFileInterfaceReq)
+  val resp = Decoupled(new ControlRegisterFileInterfaceResp).flip
+}
+
+class ControlInterface(implicit p: Parameters) extends DanaBundle()(p) {
   val tTable = (new TTableControlInterface).flip
   val cache = new ControlCacheInterface
   val peTable = new ControlPETableInterface
   val regFile = new ControlRegisterFileInterface
 }
 
-class Control extends DanaModule {
+class Control(implicit p: Parameters) extends DanaModule()(p) {
   val io = new ControlInterface
 
   // IO Driver Functions

@@ -3,33 +3,37 @@ package dana
 import Chisel._
 
 import rocket._
-import uncore.constants.MemoryOpConstants._
+import uncore._
+import Util._
 
-class AsidNnidTableWalkerInterface extends XFilesBundle {
+class AsidNnidTableWalkerInterface(implicit p: Parameters) extends XFilesBundle()(p) {
   val asidUnit = Vec.fill(numCores){ (new AsidUnitANTWInterface).flip }
   val cache = (new CacheMemInterface).flip
-  val mem = Vec.fill(numCores){ new HellaCacheIO }
+  val mem = Vec.fill(numCores){
+    new HellaCacheIO()(p.alterPartial({ case CacheName => "L1D" }))
+  }
 }
 
-class ConfigRobEntry extends XFilesBundle {
+class ConfigRobEntry(implicit p: Parameters) extends XFilesBundle()(p) {
   val valid = UInt(width = bitsPerBlock / params(XLen))
   val cacheAddr = UInt(width = log2Up(cacheDataSize * 8 / bitsPerBlock))
   val data = Vec.fill(bitsPerBlock / params(XLen)){UInt(width = params(XLen))}
 }
 
-class HellaCacheReqWithCore extends XFilesBundle {
-  val req = new HellaCacheReq
+class HellaCacheReqWithCore(implicit p: Parameters) extends XFilesBundle()(p) {
+  val req = new HellaCacheReq()(p)
   val core = UInt(width = log2Up(numCores))
 }
 
-class AsidNnidTableWalker extends XFilesModule {
-  val io = new AsidNnidTableWalkerInterface
+class antp(implicit p: Parameters) extends XFilesBundle()(p) {
+  val valid = Bool()
+  val antp = UInt(width = p(XLen))
+  val size = UInt(width = p(XLen))
+}
 
-  val antpReg = Reg(new XFilesBundle {
-    val valid = Bool()
-    val antp = UInt(width = params(XLen))
-    val size = UInt(width = params(XLen))
-  })
+class AsidNnidTableWalker(implicit p: Parameters) extends XFilesModule()(p) {
+  val io = new AsidNnidTableWalkerInterface
+  val antpReg = Reg(new antp)
 
   val (s_IDLE ::           // 0
     s_CHECK_NNID_WAIT ::   // 1
@@ -43,11 +47,11 @@ class AsidNnidTableWalker extends XFilesModule {
   val state = Reg(UInt(), init = s_IDLE)
 
   // State used to read a configuration
-  val configSize = Reg(UInt(width = log2Up(cacheDataSize * 8 / params(XLen))))
-  val configReqCount = Reg(UInt(width = log2Up(cacheDataSize * 8 / params(XLen))))
-  val configRespCount = Reg(UInt(width = log2Up(cacheDataSize * 8 / params(XLen))))
-  val configPtr = Reg(UInt(width = params(XLen)))
-  val configBufSize = bitsPerBlock / params(XLen)
+  val configSize = Reg(UInt(width = log2Up(cacheDataSize * 8 / p(XLen))))
+  val configReqCount = Reg(UInt(width = log2Up(cacheDataSize * 8 / p(XLen))))
+  val configRespCount = Reg(UInt(width = log2Up(cacheDataSize * 8 / p(XLen))))
+  val configPtr = Reg(UInt(width = p(XLen)))
+  val configBufSize = bitsPerBlock / p(XLen)
   val configWb = Reg(Bool())
   val configWbCount = Reg(UInt(width = log2Up(cacheDataSize * 8 / bitsPerBlock)))
 
@@ -57,7 +61,7 @@ class AsidNnidTableWalker extends XFilesModule {
   // Queue requests from the cache
   // [TODO] Add parameters for these cache depths
   val cacheReqQueue = Module(new Queue(new CacheMemReq, 2))
-  val memReqQueue = Module(new Queue(new HellaCacheReqWithCore, 4))
+  val memReqQueue = Module(new Queue(new HellaCacheReqWithCore()(p), 4))
   val cacheReqCurrent = Reg(new CacheMemReq)
 
   // Default values
@@ -106,7 +110,7 @@ class AsidNnidTableWalker extends XFilesModule {
   def memRead(core: UInt, addr: UInt) {
     memReqQueue.io.enq.valid := Bool(true)
     memReqQueue.io.enq.bits.req.addr := addr
-    memReqQueue.io.enq.bits.req.tag := addr(params(CoreDCacheReqTagBits) - 1, 0)
+    memReqQueue.io.enq.bits.req.tag := addr(p(CoreDCacheReqTagBits) - 1, 0)
     memReqQueue.io.enq.bits.req.cmd := M_XRD
     memReqQueue.io.enq.bits.req.typ := MT_D
     memReqQueue.io.enq.bits.core := core
@@ -122,7 +126,7 @@ class AsidNnidTableWalker extends XFilesModule {
     // Compute the response index in terms of a logical index into
     // the array that we're reading
     val respIdx = (io.mem(indexResp).resp.bits.addr - configPtr) >>
-    UInt(log2Up(params(XLen)/8))
+    UInt(log2Up(p(XLen)/8))
     // Based on this response index, compute the slot and offset
     // in the Config ROB buffer
     val configRobSlot = respIdx(log2Up(antwRobEntries) +
@@ -189,13 +193,13 @@ class AsidNnidTableWalker extends XFilesModule {
     io.mem(core).req.valid := Bool(true)
     io.mem(core).req.bits.addr := memReqQueue.io.deq.bits.req.addr
     io.mem(core).req.bits.tag :=
-      memReqQueue.io.deq.bits.req.addr(params(CoreDCacheReqTagBits) - 1, 0)
+      memReqQueue.io.deq.bits.req.addr(p(CoreDCacheReqTagBits) - 1, 0)
     io.mem(core).req.bits.cmd := memReqQueue.io.deq.bits.req.cmd
     io.mem(core).req.bits.typ := memReqQueue.io.deq.bits.req.typ
     printf("[INFO] ANTW: Mem read req core/addr/tag(%x,%x) 0x%x/0x%x/0x%x\n",
-      UInt(params(CoreDCacheReqTagBits) - 1), UInt(0),
+      UInt(p(CoreDCacheReqTagBits) - 1), UInt(0),
       UInt(core), memReqQueue.io.deq.bits.req.addr,
-      memReqQueue.io.deq.bits.req.addr(params(CoreDCacheReqTagBits) - 1, 0))
+      memReqQueue.io.deq.bits.req.addr(p(CoreDCacheReqTagBits) - 1, 0))
   }
 
   // [TODO] Need a small controller that determines what to do next.
@@ -222,7 +226,7 @@ class AsidNnidTableWalker extends XFilesModule {
           cacheReqQueue.io.deq.bits.coreIndex, cacheReqQueue.io.deq.bits.asid,
           cacheReqQueue.io.deq.bits.nnid, cacheReqQueue.io.deq.bits.cacheIndex)
         // printf("[INFO] ANTW: New request addr/tag 0x%x/0x%x\n",
-        //   reqAddr, reqAddr(params(CoreDCacheReqTagBits) - 1, 0))
+        //   reqAddr, reqAddr(p(CoreDCacheReqTagBits) - 1, 0))
         memRead(cacheReqQueue.io.deq.bits.coreIndex, reqAddr)
         state := s_CHECK_NNID_WAIT
       }
@@ -277,7 +281,7 @@ class AsidNnidTableWalker extends XFilesModule {
       // Whenever the cache can accept a new request, send one
       when (memReqQueue.io.enq.ready) {
         configReqCount := configReqCount + UInt(1)
-        val reqAddr = configPtr + configReqCount * UInt(params(XLen) / 8)
+        val reqAddr = configPtr + configReqCount * UInt(p(XLen) / 8)
         memRead(io.cache.req.bits.coreIndex, reqAddr)
         when (configReqCount === configSize - UInt(1)) {
           state := s_READ_CONFIG_WAIT

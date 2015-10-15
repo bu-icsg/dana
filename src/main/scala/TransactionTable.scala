@@ -4,7 +4,7 @@ import Chisel._
 
 import rocket._
 
-class TransactionState extends XFilesBundle {
+class TransactionState(implicit p: Parameters) extends XFilesBundle()(p) {
   val valid = Bool()
   val reserved = Bool()
   val cacheValid = Bool()
@@ -65,7 +65,7 @@ class TransactionState extends XFilesBundle {
   val indexElement = UInt(width = log2Up(regFileNumElements))
 }
 
-class ControlReq extends XFilesBundle {
+class ControlReq(implicit p: Parameters) extends XFilesBundle()(p) {
   // Bools
   val cacheValid = Bool()
   val waiting = Bool()
@@ -103,7 +103,7 @@ class ControlReq extends XFilesBundle {
   val regFileLocationBit = UInt(width = 1) // [TODO] fragile on definition above
 }
 
-class ControlResp extends XFilesBundle {
+class ControlResp(implicit p: Parameters) extends XFilesBundle()(p) {
   val readyCache = Bool()
   val readyPeTable = Bool()
   val cacheValid = Bool()
@@ -116,7 +116,7 @@ class ControlResp extends XFilesBundle {
   val layerValidIndex = UInt(width = log2Up(transactionTableNumEntries))
 }
 
-class XFilesArbiterRespPipe extends XFilesBundle {
+class XFilesArbiterRespPipe(implicit p: Parameters) extends XFilesBundle()(p) {
   val respType = UInt(width = log2Up(3)) // [TODO] Fragile on Dana enum
   val tid = UInt(width = tidWidth)
   val tidIdx = UInt(width = log2Up(transactionTableNumEntries))
@@ -126,30 +126,30 @@ class XFilesArbiterRespPipe extends XFilesBundle {
   val status = UInt(width = elementWidth)
 }
 
-class TTableControlInterface extends XFilesBundle {
+class TTableControlInterface(implicit p: Parameters) extends Bundle {
   val req = Decoupled(new ControlReq)
   val resp = Decoupled(new ControlResp).flip
 }
 
-class TTableRegisterFileReq extends XFilesBundle {
+class TTableRegisterFileReq(implicit p: Parameters) extends XFilesBundle()(p) {
   val reqType = UInt(width = log2Up(2)) // [TODO] Frgaile on Dana enum
   val tidIdx = UInt(width = log2Up(transactionTableNumEntries))
   val addr = UInt(width = log2Up(regFileNumElements))
   val data = UInt(width = elementWidth)
 }
 
-class TTableRegisterFileResp extends XFilesBundle {
+class TTableRegisterFileResp(implicit p: Parameters) extends XFilesBundle()(p) {
   val data = UInt(width = elementWidth)
 }
 
-class TTableRegisterFileInterface extends XFilesBundle {
+class TTableRegisterFileInterface(implicit p: Parameters) extends XFilesBundle()(p) {
   val req = Valid(new TTableRegisterFileReq)
   val resp = Valid(new TTableRegisterFileResp).flip
 }
 
-class TransactionTableInterface extends XFilesBundle {
+class TransactionTableInterface(implicit p: Parameters) extends XFilesBundle()(p) {
   val arbiter = new XFilesBundle {
-    val rocc = new RoCCInterface
+    val rocc = new RoCCInterface()(p)
     val coreIdx = UInt(INPUT, width = log2Up(numCores))
     val indexOut = UInt(OUTPUT, width = log2Up(numCores))
   }
@@ -157,9 +157,9 @@ class TransactionTableInterface extends XFilesBundle {
   val regFile = new TTableRegisterFileInterface
 }
 
-class TransactionTable extends XFilesModule {
+class TransactionTable(implicit p: Parameters) extends XFilesModule()(p) {
   // Communication with the X-FILES arbiter
-  val io = new TransactionTableInterface
+  val io = new TransactionTableInterface()(p)
 
   // IO alises
   val cmd = new XFilesBundle {

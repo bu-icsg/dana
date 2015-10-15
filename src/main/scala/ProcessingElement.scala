@@ -2,7 +2,7 @@ package dana
 
 import Chisel._
 
-class ProcessingElementReq extends DanaBundle {
+class ProcessingElementReq(implicit p: Parameters) extends DanaBundle()(p) {
   // I'm excluding, potentially temporarily:
   //   * state
   //   * pe_selected
@@ -27,7 +27,7 @@ class ProcessingElementReq extends DanaBundle {
   val tType = UInt(INPUT, width = log2Up(3))
 }
 
-class ProcessingElementResp extends DanaBundle {
+class ProcessingElementResp(implicit p: Parameters) extends DanaBundle()(p) {
   // Not included:
   //   * next_state
   //   * invalidate_inputs
@@ -40,7 +40,7 @@ class ProcessingElementResp extends DanaBundle {
   // val uwBlock = Vec.fill(elementsPerBlock){SInt(elementWidth)}
 }
 
-class ProcessingElementInterface extends DanaBundle {
+class ProcessingElementInterface(implicit p: Parameters) extends DanaBundle()(p) {
   // The Processing Element Interface consists of three main
   // components: requests from the PE Table (really kicks to do
   // something), responses to the PE Table, and semi-static data which
@@ -49,7 +49,7 @@ class ProcessingElementInterface extends DanaBundle {
   val resp = Decoupled(new ProcessingElementResp)
 }
 
-class ProcessingElement extends DanaModule {
+class ProcessingElement(implicit p: Parameters) extends DanaModule()(p) {
   // Interface to the PE Table
   val io = new ProcessingElementInterface
 

@@ -4,11 +4,7 @@ import Chisel._
 
 import rocket._
 
-class CoreXFilesInterface extends DanaBundle with XFilesParameters {
-  val arbiter = Vec.fill(numCores){ new RoCCInterface }
-}
-
-class XFilesArbiterReq extends DanaBundle {
+class XFilesArbiterReq(implicit p: Parameters) extends DanaBundle()(p) {
   val tid = UInt(width = tidWidth)
   val readOrWrite = Bool()
   val countFeedback = UInt(width = feedbackWidth)
@@ -17,20 +13,20 @@ class XFilesArbiterReq extends DanaBundle {
   val data = UInt(width = elementWidth)
 }
 
-class XFilesArbiterResp extends DanaBundle {
+class XFilesArbiterResp(implicit p: Parameters) extends DanaBundle()(p) {
   val tid = UInt(width = tidWidth)
   val data = UInt(width = elementWidth)
 }
 
-class XFilesArbiterInterface extends DanaBundle {
+class XFilesArbiterInterface(implicit p: Parameters) extends DanaBundle()(p) {
   val req = Decoupled(new XFilesArbiterReq)
   val resp = Decoupled(new XFilesArbiterResp).flip
 }
 
-class XFilesDana extends RoCC with XFilesParameters {
+class XFilesDana(implicit p: Parameters) extends RoCC()(p) {
   // val io = new CoreXFilesInterface
 
-  val xFilesArbiter = Module(new XFilesArbiter)
+  val xFilesArbiter = Module(new XFilesArbiter()(p))
   val dana = Module(new Dana)
 
   // io.arbiter <> xFilesArbiter.io.core

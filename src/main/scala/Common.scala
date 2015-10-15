@@ -7,16 +7,16 @@ object Testbench {
     val cliArgs = args.slice(1, args.length)
     val res =
       args(0) match {
-        case "ProcessingElement" =>
-          chiselMainTest(cliArgs, () => Module(new ProcessingElement)) {
-            c => new ProcessingElementTests(c, false)}
-        case "ActivationFunction" =>
-          chiselMain.run(cliArgs, () => new ActivationFunction)
-          // chiselMainTest(cliArgs, () => Module(new ActivationFunction)){
-          //   c => new ActivationFunctionTests(c, false)}
-        case "TransactionTable" =>
-          chiselMainTest(cliArgs, () => Module(new TransactionTable)){
-            c => new TransactionTableTests(c, false)}
+        // case "ProcessingElement" =>
+        //   chiselMainTest(cliArgs, () => Module(new ProcessingElement)) {
+        //     c => new ProcessingElementTests(c, false)}
+        // case "ActivationFunction" =>
+        //   chiselMain.run(cliArgs, () => new ActivationFunction)
+        //   // chiselMainTest(cliArgs, () => Module(new ActivationFunction)){
+        //   //   c => new ActivationFunctionTests(c, false)}
+        // case "TransactionTable" =>
+        //   chiselMainTest(cliArgs, () => Module(new TransactionTable)){
+        //     c => new TransactionTableTests(c, false)}
         case "SRAM" =>
           chiselMainTest(cliArgs, () => Module(new SRAM(
             numReadPorts = 0,
@@ -32,8 +32,8 @@ object Testbench {
             numPorts = 1,
             sramDepth = 8))){
             c => new SRAMElementTests(c, false)}
-        case "XFilesDana" =>
-          chiselMain.run(cliArgs, () => new XFilesDana)
+        // case "XFilesDana" =>
+        //   chiselMain.run(cliArgs, () => new XFilesDana)
       }
   }
 }
