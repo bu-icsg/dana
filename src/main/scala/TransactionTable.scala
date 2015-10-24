@@ -158,8 +158,7 @@ class TransactionTableInterface(implicit p: Parameters) extends XFilesBundle()(p
   val regFile = new TTableRegisterFileInterface
 }
 
-class TransactionTable(implicit p: Parameters) extends XFilesModule()(p)
-    with DanaParameters{
+class TransactionTable(implicit p: Parameters) extends XFilesModule()(p) {
   // Communication with the X-FILES arbiter
   val io = new TransactionTableInterface()(p)
 

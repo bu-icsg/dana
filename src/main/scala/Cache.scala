@@ -22,8 +22,7 @@ class CacheState(implicit p: Parameters) extends DanaBundle()(p) {
   val inUseCount = UInt(width = log2Up(transactionTableNumEntries) + 1)
 }
 
-class CacheMemReq(implicit p: Parameters) extends DanaBundle()(p)
-  with XFilesParameters {
+class CacheMemReq(implicit p: Parameters) extends XFilesBundle()(p) {
   val asid = UInt(width = asidWidth)
   val nnid = UInt(width = nnidWidth)
   val cacheIndex = UInt(width = log2Up(cacheNumEntries))
@@ -445,7 +444,7 @@ class Cache(implicit p: Parameters) extends DanaModule()(p) {
 
   // Reset
   when (reset) {for (i <- 0 until cacheNumEntries) {
-    table(i).valid := Bool(false) }
+    table(i).valid := Bool(false) }}
 
   // Assertions
 

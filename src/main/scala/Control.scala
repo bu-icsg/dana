@@ -16,8 +16,7 @@ class ControlCacheInterfaceResp(implicit p: Parameters) extends DanaBundle()(p) 
   val totalWritesMul = UInt(width = 2)
 }
 
-class ControlCacheInterfaceReq(implicit p: Parameters) extends DanaBundle()(p)
-  with XFilesParameters {
+class ControlCacheInterfaceReq(implicit p: Parameters) extends XFilesBundle()(p) {
   val request = UInt(width = log2Up(3)) // [TODO] fragile on Constants.scala
   val asid = UInt(width = asidWidth)
   val nnid = UInt(width = nnidWidth)
