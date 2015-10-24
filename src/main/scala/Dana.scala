@@ -23,14 +23,12 @@ case object TransactionTableNumEntries extends Field[Int]
 case object CacheNumEntries extends Field[Int]
 case object CacheDataSize extends Field[Int]
 case object RegisterFileNumElements extends Field[Int]
-case object PreloadCache extends Field[Boolean]
 
 trait DanaParameters extends HasCoreParameters {
   val elementWidth = p(ElementWidth)
   val elementsPerBlock = p(ElementsPerBlock)
   val tidWidth = p(TidWidth)
   val asidWidth = p(AsidWidth)
-  val preloadCache = p(PreloadCache)
   // Activation Function width increases will break:
   //   * ProcessingElementTable logic for indexing into cache data
   val activationFunctionWidth = p(ActivationFunctionWidth)

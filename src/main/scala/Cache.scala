@@ -76,15 +76,6 @@ class Cache(implicit p: Parameters) extends DanaModule()(p) {
 
   // Create the table of cache entries
   val table = Reg(Vec.fill(cacheNumEntries){new CacheState})
-  // val mem = Vec((0 until cacheNumEntries).map(i => Module(new SRAM(
-  //   dataWidth = elementWidth * elementsPerBlock,
-  //   numReadPorts = 0,
-  //   numWritePorts = 0,
-  //   numReadWritePorts = 2,
-  //   sramDepth = cacheNumBlocks, // [TODO] I think this is the correct parameter
-  //   initSwitch = if (preloadCache) i else -1,
-  //   elementsPerBlock = elementsPerBlock
-  // )).io))
 
   val mem = Vec((0 until cacheNumEntries).map(i => Module(new SRAMBlockIncrement(
     dataWidth = bitsPerBlock,
@@ -453,20 +444,8 @@ class Cache(implicit p: Parameters) extends DanaModule()(p) {
   }
 
   // Reset
-  if (preloadCache) {
-    when (reset) {for (i <- 0 until cacheNumEntries) {
-      table(i).valid := Bool(true)
-      table(i).notifyFlag := Bool(false)
-      table(i).fetch := Bool(false)
-      table(i).notifyIndex := UInt(0)
-      table(i).notifyMask := UInt(0)
-      table(i).nnid := UInt(i)
-      table(i).inUseCount := UInt(0)
-    }}}
-    else {
-    when (reset) {for (i <- 0 until cacheNumEntries) {
-      table(i).valid := Bool(false)
-    }}}
+  when (reset) {for (i <- 0 until cacheNumEntries) {
+    table(i).valid := Bool(false) }
 
   // Assertions
 

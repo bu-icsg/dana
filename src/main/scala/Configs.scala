@@ -34,8 +34,6 @@ class DefaultXFilesDanaConfig extends Config (
       case CacheDataSize => 32 * 1024
       // Register File
       case RegisterFileNumElements => Dump(Knob("REGISTER_FILE_NUM_ELEMENTS"))
-      // Cache Preload
-      case PreloadCache => false
     }},
   // [TODO] Add constraints
   // topConstraints = List(
@@ -52,13 +50,4 @@ class DefaultXFilesDanaConfig extends Config (
   }
 )
 
-// The Verilog config needs to define cache preloading
-class PreloadCacheConfig extends Config (
-  (pname,site,here) => pname match {
-    case PreloadCache => true
-  }
-)
-
-// class DefaultXFilesDanaFPGAConfig extends ChiselConfig(new PreloadCacheConfig ++
-//   new DefaultXFilesDanaConfig)
 class DefaultXFilesDanaFPGAConfig extends Config(new DefaultXFilesDanaConfig)
