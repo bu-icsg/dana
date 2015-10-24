@@ -1,13 +1,13 @@
 package dana
 
 import Chisel._
+import cde.{Parameters, Config, Dump, Knob}
 
-class DefaultXFilesDanaConfig extends ChiselConfig (
+class DefaultXFilesDanaConfig extends Config (
   topDefinitions = { (pname,site,here) =>
     pname match {
       // Core parameters
       case NumCores => Dump(Knob("NUM_CORES"))
-      case XLen => 64
       // ANTW Parameters
       case AntwRobEntries => 16
       // Field widths
@@ -53,7 +53,7 @@ class DefaultXFilesDanaConfig extends ChiselConfig (
 )
 
 // The Verilog config needs to define cache preloading
-class PreloadCacheConfig extends ChiselConfig (
+class PreloadCacheConfig extends Config (
   (pname,site,here) => pname match {
     case PreloadCache => true
   }
@@ -61,4 +61,4 @@ class PreloadCacheConfig extends ChiselConfig (
 
 // class DefaultXFilesDanaFPGAConfig extends ChiselConfig(new PreloadCacheConfig ++
 //   new DefaultXFilesDanaConfig)
-class DefaultXFilesDanaFPGAConfig extends ChiselConfig(new DefaultXFilesDanaConfig)
+class DefaultXFilesDanaFPGAConfig extends Config(new DefaultXFilesDanaConfig)

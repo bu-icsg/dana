@@ -3,6 +3,7 @@ package dana
 import Chisel._
 
 import rocket._
+import cde.{Parameters, Field}
 
 class TransactionState(implicit p: Parameters) extends XFilesBundle()(p) {
   val valid = Bool()
@@ -149,7 +150,7 @@ class TTableRegisterFileInterface(implicit p: Parameters) extends XFilesBundle()
 
 class TransactionTableInterface(implicit p: Parameters) extends XFilesBundle()(p) {
   val arbiter = new XFilesBundle {
-    val rocc = new RoCCInterface()(p)
+    val rocc = new RoCCInterface
     val coreIdx = UInt(INPUT, width = log2Up(numCores))
     val indexOut = UInt(OUTPUT, width = log2Up(numCores))
   }
@@ -157,7 +158,8 @@ class TransactionTableInterface(implicit p: Parameters) extends XFilesBundle()(p
   val regFile = new TTableRegisterFileInterface
 }
 
-class TransactionTable(implicit p: Parameters) extends XFilesModule()(p) {
+class TransactionTable(implicit p: Parameters) extends XFilesModule()(p)
+    with DanaParameters{
   // Communication with the X-FILES arbiter
   val io = new TransactionTableInterface()(p)
 
@@ -181,8 +183,19 @@ class TransactionTable(implicit p: Parameters) extends XFilesModule()(p) {
     val regValue = io.arbiter.rocc.cmd.bits.rs2(31,0)
   }
 
+  // val table_next = Vec.fill(transactionTableNumEntries){new TransactionState}
+  // val table = Reg(next = table_next);
+
   // Vector of all the table entries
+  // val table = Vec(transactionTableNumEntries, Reg(new TransactionState) )
+  val tmp = Reg(new TransactionState)
+
+
   val table = Vec.fill(transactionTableNumEntries){Reg(new TransactionState)}
+  // val table = Reg(Vec(transactionTableNumEntries, new TransactionState()(p)))
+  // val table = Reg(Vec(transactionTableNumEntries, new TransactionState))
+  // val table = Reg(Vec(transactionTableNumEntries, new TransactionState()(p)))
+  // val table = Vec.fill(transactionTableNumEntries){ Reg(new TransactionState) }
 
   // An entry is free if it is not valid and not reserved
   def isFree(x: TransactionState): Bool = { !x.valid && !x.reserved }
@@ -386,7 +399,7 @@ class TransactionTable(implicit p: Parameters) extends XFilesModule()(p) {
         // training input/output item.
         when ((table(derefTidIndex).readIdx ===
           table(derefTidIndex).nodesInCurrentLayer - UInt(1)) &&
-          (table(derefTidIndex).stateLearn != e_TTABLE_STATE_LOAD_OUTPUTS)) {
+          (table(derefTidIndex).stateLearn =/= e_TTABLE_STATE_LOAD_OUTPUTS)) {
           table(derefTidIndex).valid := Bool(false)
           table(derefTidIndex).reserved := Bool(false)
           printf("[INFO] TTable: All outputs read, evicting ASID/TID 0x%x/0x%x\n",
@@ -505,14 +518,14 @@ class TransactionTable(implicit p: Parameters) extends XFilesModule()(p) {
               UInt(0, width=log2Up(elementsPerBlock))
           val niclLSBs = // Nodes in previous layer LSBs
             nicl(log2Up(elementsPerBlock)-1, 0)
-          val round = Mux(niclLSBs != UInt(0), UInt(elementsPerBlock), UInt(0))
+          val round = Mux(niclLSBs =/= UInt(0), UInt(elementsPerBlock), UInt(0))
           val niclOffset = niclMSBs + round
 
           val niplMSBs =
             table(tIdx).nodesInCurrentLayer(15, log2Up(elementsPerBlock)) ##
               UInt(0, width=log2Up(elementsPerBlock))
           val niplLSBs = table(tIdx).nodesInCurrentLayer(log2Up(elementsPerBlock-1),0)
-          val niplOffset = niplMSBs + Mux(niclLSBs != UInt(0),
+          val niplOffset = niplMSBs + Mux(niclLSBs =/= UInt(0),
             UInt(elementsPerBlock), UInt(0))
           switch(table(tIdx).stateLearn) {
             is(e_TTABLE_STATE_FEEDFORWARD){
@@ -718,7 +731,7 @@ class TransactionTable(implicit p: Parameters) extends XFilesModule()(p) {
       Reg(next = !entryArbiter.io.out.valid) &&
       ((readyCache && (table(i).decInUse || !table(i).cacheValid ||
         table(i).needsLayerInfo)) ||
-       (readyPeTable && (table(i).currentNode != table(i).numNodes)))
+       (readyPeTable && (table(i).currentNode =/= table(i).numNodes)))
     // The other data connections are just aliases to the contents of
     // the specific table entry
     entryArbiter.io.in(i).bits.cacheValid := table(i).cacheValid

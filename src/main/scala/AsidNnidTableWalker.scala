@@ -5,6 +5,7 @@ import Chisel._
 import rocket._
 import uncore._
 import Util._
+import cde.{Parameters, Field}
 
 class AsidNnidTableWalkerInterface(implicit p: Parameters) extends XFilesBundle()(p) {
   val asidUnit = Vec.fill(numCores){ (new AsidUnitANTWInterface).flip }
@@ -15,9 +16,9 @@ class AsidNnidTableWalkerInterface(implicit p: Parameters) extends XFilesBundle(
 }
 
 class ConfigRobEntry(implicit p: Parameters) extends XFilesBundle()(p) {
-  val valid = UInt(width = bitsPerBlock / params(XLen))
+  val valid = UInt(width = bitsPerBlock / xLen)
   val cacheAddr = UInt(width = log2Up(cacheDataSize * 8 / bitsPerBlock))
-  val data = Vec.fill(bitsPerBlock / params(XLen)){UInt(width = params(XLen))}
+  val data = Vec.fill(bitsPerBlock / xLen){UInt(width = xLen)}
 }
 
 class HellaCacheReqWithCore(implicit p: Parameters) extends XFilesBundle()(p) {
@@ -27,8 +28,8 @@ class HellaCacheReqWithCore(implicit p: Parameters) extends XFilesBundle()(p) {
 
 class antp(implicit p: Parameters) extends XFilesBundle()(p) {
   val valid = Bool()
-  val antp = UInt(width = p(XLen))
-  val size = UInt(width = p(XLen))
+  val antp = UInt(width = xLen)
+  val size = UInt(width = xLen)
 }
 
 class AsidNnidTableWalker(implicit p: Parameters) extends XFilesModule()(p) {
@@ -47,11 +48,11 @@ class AsidNnidTableWalker(implicit p: Parameters) extends XFilesModule()(p) {
   val state = Reg(UInt(), init = s_IDLE)
 
   // State used to read a configuration
-  val configSize = Reg(UInt(width = log2Up(cacheDataSize * 8 / p(XLen))))
-  val configReqCount = Reg(UInt(width = log2Up(cacheDataSize * 8 / p(XLen))))
-  val configRespCount = Reg(UInt(width = log2Up(cacheDataSize * 8 / p(XLen))))
-  val configPtr = Reg(UInt(width = p(XLen)))
-  val configBufSize = bitsPerBlock / p(XLen)
+  val configSize = Reg(UInt(width = log2Up(cacheDataSize * 8 / xLen)))
+  val configReqCount = Reg(UInt(width = log2Up(cacheDataSize * 8 / xLen)))
+  val configRespCount = Reg(UInt(width = log2Up(cacheDataSize * 8 / xLen)))
+  val configPtr = Reg(UInt(width = xLen))
+  val configBufSize = bitsPerBlock / xLen
   val configWb = Reg(Bool())
   val configWbCount = Reg(UInt(width = log2Up(cacheDataSize * 8 / bitsPerBlock)))
 
@@ -110,7 +111,7 @@ class AsidNnidTableWalker(implicit p: Parameters) extends XFilesModule()(p) {
   def memRead(core: UInt, addr: UInt) {
     memReqQueue.io.enq.valid := Bool(true)
     memReqQueue.io.enq.bits.req.addr := addr
-    memReqQueue.io.enq.bits.req.tag := addr(p(CoreDCacheReqTagBits) - 1, 0)
+    memReqQueue.io.enq.bits.req.tag := addr(coreDCacheReqTagBits - 1, 0)
     memReqQueue.io.enq.bits.req.cmd := M_XRD
     memReqQueue.io.enq.bits.req.typ := MT_D
     memReqQueue.io.enq.bits.core := core
@@ -126,7 +127,7 @@ class AsidNnidTableWalker(implicit p: Parameters) extends XFilesModule()(p) {
     // Compute the response index in terms of a logical index into
     // the array that we're reading
     val respIdx = (io.mem(indexResp).resp.bits.addr - configPtr) >>
-    UInt(log2Up(p(XLen)/8))
+    UInt(log2Up(xLen/8))
     // Based on this response index, compute the slot and offset
     // in the Config ROB buffer
     val configRobSlot = respIdx(log2Up(antwRobEntries) +
@@ -193,13 +194,13 @@ class AsidNnidTableWalker(implicit p: Parameters) extends XFilesModule()(p) {
     io.mem(core).req.valid := Bool(true)
     io.mem(core).req.bits.addr := memReqQueue.io.deq.bits.req.addr
     io.mem(core).req.bits.tag :=
-      memReqQueue.io.deq.bits.req.addr(p(CoreDCacheReqTagBits) - 1, 0)
+      memReqQueue.io.deq.bits.req.addr(coreDCacheReqTagBits - 1, 0)
     io.mem(core).req.bits.cmd := memReqQueue.io.deq.bits.req.cmd
     io.mem(core).req.bits.typ := memReqQueue.io.deq.bits.req.typ
     printf("[INFO] ANTW: Mem read req core/addr/tag(%x,%x) 0x%x/0x%x/0x%x\n",
-      UInt(p(CoreDCacheReqTagBits) - 1), UInt(0),
+      UInt(coreDCacheReqTagBits - 1), UInt(0),
       UInt(core), memReqQueue.io.deq.bits.req.addr,
-      memReqQueue.io.deq.bits.req.addr(p(CoreDCacheReqTagBits) - 1, 0))
+      memReqQueue.io.deq.bits.req.addr(coreDCacheReqTagBits - 1, 0))
   }
 
   // [TODO] Need a small controller that determines what to do next.
@@ -226,7 +227,7 @@ class AsidNnidTableWalker(implicit p: Parameters) extends XFilesModule()(p) {
           cacheReqQueue.io.deq.bits.coreIndex, cacheReqQueue.io.deq.bits.asid,
           cacheReqQueue.io.deq.bits.nnid, cacheReqQueue.io.deq.bits.cacheIndex)
         // printf("[INFO] ANTW: New request addr/tag 0x%x/0x%x\n",
-        //   reqAddr, reqAddr(p(CoreDCacheReqTagBits) - 1, 0))
+        //   reqAddr, reqAddr(coreDCacheReqTagBits - 1, 0))
         memRead(cacheReqQueue.io.deq.bits.coreIndex, reqAddr)
         state := s_CHECK_NNID_WAIT
       }
@@ -281,7 +282,7 @@ class AsidNnidTableWalker(implicit p: Parameters) extends XFilesModule()(p) {
       // Whenever the cache can accept a new request, send one
       when (memReqQueue.io.enq.ready) {
         configReqCount := configReqCount + UInt(1)
-        val reqAddr = configPtr + configReqCount * UInt(p(XLen) / 8)
+        val reqAddr = configPtr + configReqCount * UInt(xLen / 8)
         memRead(io.cache.req.bits.coreIndex, reqAddr)
         when (configReqCount === configSize - UInt(1)) {
           state := s_READ_CONFIG_WAIT

@@ -3,6 +3,7 @@ package dana
 import Chisel._
 
 import rocket._
+import cde.{Parameters, Field}
 
 class XFilesArbiterReq(implicit p: Parameters) extends DanaBundle()(p) {
   val tid = UInt(width = tidWidth)
@@ -50,8 +51,9 @@ class XFilesDana(implicit p: Parameters) extends RoCC()(p) {
   io.imem.acquire.valid := Bool(false)
   io.imem.grant.ready := Bool(true)
 
-  io.dmem.acquire.valid := Bool(false)
-  io.dmem.grant.ready := Bool(true)
+  for (i <- 0 until p(RoccNMemChannels)) {
+    io.dmem(i).acquire.valid := Bool(false)
+    io.dmem(i).grant.ready := Bool(true)}
 
   io.iptw.req.valid := Bool(false)
   io.dptw.req.valid := Bool(false)

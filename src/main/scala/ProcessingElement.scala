@@ -1,6 +1,7 @@
 package dana
 
 import Chisel._
+import cde.{Parameters, Field}
 
 class ProcessingElementReq(implicit p: Parameters) extends DanaBundle()(p) {
   // I'm excluding, potentially temporarily:

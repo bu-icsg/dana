@@ -2,6 +2,7 @@ package dana
 
 import Chisel._
 import scala.math._
+import cde.{Parameters, Field}
 
 class RegisterFileInterface(implicit p: Parameters) extends DanaBundle()(p) {
   val pe = new (PERegisterFileInterface).flip
@@ -185,7 +186,7 @@ class RegisterFile(implicit p: Parameters) extends DanaModule()(p) {
     state(io.control.req.bits.tIdx << UInt(1) |
       io.control.req.bits.location).valid &&
     (state(io.control.req.bits.tIdx << UInt(1) |
-      io.control.req.bits.location).countWrites !=
+      io.control.req.bits.location).countWrites =/=
       state(io.control.req.bits.tIdx << UInt(1) |
         io.control.req.bits.location).totalWrites)),
     "RegFile totalWrites being changed when valid && (countWrites != totalWrites)")

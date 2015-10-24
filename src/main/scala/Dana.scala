@@ -2,7 +2,9 @@ package dana
 
 // Grab junctions for the ParameterizedBundle class
 import junctions._
+import rocket._
 import Chisel._
+import cde.{Parameters, Field}
 
 case object ElementWidth extends Field[Int]
 case object ElementsPerBlock extends Field[Int]
@@ -22,12 +24,8 @@ case object CacheNumEntries extends Field[Int]
 case object CacheDataSize extends Field[Int]
 case object RegisterFileNumElements extends Field[Int]
 case object PreloadCache extends Field[Boolean]
-case object XLen extends Field[Int]
 
-trait DanaParameters extends UsesParameters {
-  implicit val p: Parameters
-  def divUp (dividend: Int, divisor: Int): Int = {
-    (dividend + divisor - 1) / divisor}
+trait DanaParameters extends HasCoreParameters {
   val elementWidth = p(ElementWidth)
   val elementsPerBlock = p(ElementsPerBlock)
   val tidWidth = p(TidWidth)
@@ -65,6 +63,9 @@ trait DanaParameters extends UsesParameters {
   // [TODO] This ioIdxWidth looks wrong?
   val ioIdxWidth = log2Up(p(RegisterFileNumElements) * p(ElementWidth))
   val bitsPerBlock = p(ElementsPerBlock) * p(ElementWidth)
+
+  def divUp (dividend: Int, divisor: Int): Int = {
+    (dividend + divisor - 1) / divisor}
 }
 
 // An abstract base class for anything associated with DANA (and the
@@ -209,7 +210,8 @@ abstract class DanaModule(implicit val p: Parameters) extends Module
 // Base class for all Bundle classes used in DANA. This sets all the
 // parameters that should be shared. All parameters defined here
 // should be the same as in DanaModule.
-abstract class DanaBundle(implicit val p: Parameters) extends ParameterizedBundle()(p)
+abstract class DanaBundle(implicit val p: Parameters)
+    extends junctions.ParameterizedBundle()(p)
     with DanaParameters
 
 class Dana(implicit p: Parameters) extends DanaModule {

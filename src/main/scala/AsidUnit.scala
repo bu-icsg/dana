@@ -3,10 +3,11 @@ package dana
 import Chisel._
 
 import rocket._
+import cde.{Parameters, Field}
 
 class ANTWRequest(implicit p: Parameters) extends XFilesBundle()(p) {
-  val antp = UInt(width = params(XLen))
-  val size = UInt(width = params(XLen))
+  val antp = UInt(width = xLen)
+  val size = UInt(width = xLen)
 }
 
 class AsidUnitANTWInterface(implicit p: Parameters) extends XFilesBundle()(p) {

@@ -2,13 +2,15 @@ package dana
 
 import Chisel._
 
+import junctions._
+import uncore._
 import rocket._
+import cde.{Parameters, Field}
 
 case object NumCores extends Field[Int]
 case object AntwRobEntries extends Field[Int]
 
-abstract trait XFilesParameters extends UsesParameters with DanaParameters {
-  implicit val p: Parameters
+abstract trait XFilesParameters extends DanaParameters {
   val numCores = p(NumCores)
   val antwRobEntries = p(AntwRobEntries)
 }
@@ -25,8 +27,8 @@ class XFilesDanaInterface(implicit p: Parameters) extends XFilesBundle()(p) {
   val cache = (new CacheMemInterface).flip
 }
 
-class XFilesInterface(implicit p: Parameters) extends XFilesBundle()(p) {
-  val core = Vec.fill(numCores){ new RoCCInterface }
+class XFilesInterface(implicit p: Parameters) extends Bundle {
+  val core = Vec(p(NumCores), new RoCCInterface)
   val dana = new XFilesDanaInterface
 }
 
@@ -41,12 +43,25 @@ class XFilesArbiter(implicit p: Parameters) extends XFilesModule()(p) {
 
   // Default values
   for (i <- 0 until numCores) {
-    io.core(i).resp.valid := Bool(false)
-    io.core(i).resp.bits.rd := UInt(0)
-    io.core(i).resp.bits.data := UInt(0)
     io.core(i).interrupt := Bool(false)
+    io.core(i).resp.valid := tTable.io.arbiter.rocc.resp.valid &&
+      tTable.io.arbiter.indexOut === UInt(i)
+    // When we see a valid response from the Transaction Table, we let
+    // it through. [TODO] This needs to include the assignment of output
+    // values to the correct core.
+    when (tTable.io.arbiter.rocc.resp.valid &&
+      tTable.io.arbiter.indexOut === UInt(i)) {
+      io.core(i).resp.bits := tTable.io.arbiter.rocc.resp.bits
+    } .otherwise {
+      io.core(i).resp.bits.rd := UInt(0)
+      io.core(i).resp.bits.data := UInt(0)
+    }
   }
   tTable.io.arbiter.rocc.resp.ready := Bool(true)
+  // when (tTable.io.arbiter.rocc.resp.valid) {
+  //   io.core(tTable.io.arbiter.indexOut).resp.valid := tTable.io.arbiter.rocc.resp.valid
+  //   io.core(tTable.io.arbiter.indexOut).resp.bits := tTable.io.arbiter.rocc.resp.bits
+  // }
 
   // Non-supervisory requests from cores are fed into a round robin
   // arbiter.
@@ -95,14 +110,6 @@ class XFilesArbiter(implicit p: Parameters) extends XFilesModule()(p) {
     asidRegs(i).core.s := io.core(i).s
     // [TODO] Attach the ASID Units to the ANTW
     asidRegs(i).antw <> antw.io.asidUnit(i)
-  }
-
-  // When we see a valid response from the Transaction Table, we let
-  // it through. [TODO] This needs to include the assignment of output
-  // values to the correct core.
-  when (tTable.io.arbiter.rocc.resp.valid) {
-    io.core(tTable.io.arbiter.indexOut).resp.valid := tTable.io.arbiter.rocc.resp.valid
-    io.core(tTable.io.arbiter.indexOut).resp.bits := tTable.io.arbiter.rocc.resp.bits
   }
 
   // Interface connections
