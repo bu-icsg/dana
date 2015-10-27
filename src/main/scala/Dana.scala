@@ -23,6 +23,7 @@ case object TransactionTableNumEntries extends Field[Int]
 case object CacheNumEntries extends Field[Int]
 case object CacheDataSize extends Field[Int]
 case object RegisterFileNumElements extends Field[Int]
+case object LearningEnabled extends Field[Boolean]
 
 trait DanaParameters extends HasCoreParameters {
   val elementWidth = p(ElementWidth)
@@ -61,6 +62,7 @@ trait DanaParameters extends HasCoreParameters {
   // [TODO] This ioIdxWidth looks wrong?
   val ioIdxWidth = log2Up(p(RegisterFileNumElements) * p(ElementWidth))
   val bitsPerBlock = p(ElementsPerBlock) * p(ElementWidth)
+  val learningEnabled = p(LearningEnabled)
 
   def divUp (dividend: Int, divisor: Int): Int = {
     (dividend + divisor - 1) / divisor}

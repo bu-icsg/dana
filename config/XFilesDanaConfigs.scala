@@ -18,8 +18,17 @@ class XFilesDanaConfig extends Config (
     }}
 )
 
+class XFilesDanaNoLearningConfig extends Config (
+  topDefinitions = { (pname,site,here) =>
+    pname match {
+      case LearningEnabled => false }}
+)
+
 class XFilesDanaCPPConfig extends Config(new XFilesDanaConfig ++
   new DefaultXFilesDanaFPGAConfig ++ new DefaultCPPConfig)
+
+class XFilesDanaNoLearningCPPConfig extends Config(new XFilesDanaNoLearningConfig ++
+  new XFilesDanaConfig ++ new DefaultXFilesDanaFPGAConfig ++ new DefaultCPPConfig)
 
 class XFilesDanaFPGAConfig extends Config(new XFilesDanaConfig ++
   new DefaultXFilesDanaFPGAConfig ++ new DefaultFPGAConfig)

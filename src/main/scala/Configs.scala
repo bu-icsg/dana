@@ -34,6 +34,8 @@ class DefaultXFilesDanaConfig extends Config (
       case CacheDataSize => 32 * 1024
       // Register File
       case RegisterFileNumElements => Dump(Knob("REGISTER_FILE_NUM_ELEMENTS"))
+      // Enables support for in-hardware learning
+      case LearningEnabled => true
     }},
   // [TODO] Add constraints
   // topConstraints = List(

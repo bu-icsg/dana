@@ -1055,6 +1055,13 @@ class TransactionTable(implicit p: Parameters) extends XFilesModule()(p) {
       table(i).stateLearn === e_TTABLE_STATE_ERROR),
       "TTable Transaction is in error state"))
 
+  // If learning is disabled we should never see a learning request
+  if (!learningEnabled) {
+    assert(!(io.arbiter.rocc.cmd.valid &&
+      (cmd.transactionType === e_TTYPE_INCREMENTAL ||
+        cmd.transactionType === e_TTYPE_BATCH)),
+      "Built X-Files does not support learning") }
+
   // Inbound read requests should only hit a done entry. [TODO] I'm
   // currently generating e_NOT_DONE responses when this happens.
   // Assertion is getting turned off, consequently.

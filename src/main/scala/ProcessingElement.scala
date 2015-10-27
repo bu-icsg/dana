@@ -14,18 +14,21 @@ class ProcessingElementReq(implicit p: Parameters) extends DanaBundle()(p) {
   val decimalPoint = UInt(INPUT, decimalPointWidth)
   val steepness = UInt(INPUT, steepnessWidth)
   val activationFunction = UInt(INPUT, activationFunctionWidth)
-  val errorFunction = UInt(INPUT, width = log2Up(2)) // [TODO] fragile
-  val learningRate = UInt(INPUT, width = 16) // [TODO] fragile
-  val lambda = SInt(INPUT, width = 16) // [TODO] fragile
-  val bias = SInt(INPUT, elementWidth)
   val iBlock = Vec.fill(elementsPerBlock){SInt(INPUT, elementWidth)}
   val wBlock = Vec.fill(elementsPerBlock){SInt(INPUT, elementWidth)}
-  val learnReg = SInt(INPUT, elementWidth)
-  val stateLearn = UInt(INPUT, width = log2Up(8)) // [TODO] fragile
-  val inLast = Bool(INPUT)
-  val inFirst = Bool(INPUT)
-  val dw_in = SInt(INPUT, elementWidth)
-  val tType = UInt(INPUT, width = log2Up(3))
+  val bias = SInt(INPUT, elementWidth)
+
+  // if (learningEnabled) {
+    val errorFunction = UInt(INPUT, width = log2Up(2)) // [TODO] fragile
+    val learningRate = UInt(INPUT, width = 16) // [TODO] fragile
+    val lambda = SInt(INPUT, width = 16) // [TODO] fragile
+    val learnReg = SInt(INPUT, elementWidth)
+    val stateLearn = UInt(INPUT, width = log2Up(8)) // [TODO] fragile
+    val inLast = Bool(INPUT)
+    val inFirst = Bool(INPUT)
+    val dw_in = SInt(INPUT, elementWidth)
+    val tType = UInt(INPUT, width = log2Up(3))
+  // }
 }
 
 class ProcessingElementResp(implicit p: Parameters) extends DanaBundle()(p) {
