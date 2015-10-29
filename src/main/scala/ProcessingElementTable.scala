@@ -123,7 +123,7 @@ class ProcessingElementTable(implicit p: Parameters) extends DanaModule()(p) {
   // parameters should not be touched.
   val table = Vec.fill(peTableNumEntries){Reg(new ProcessingElementState)}
   // Create the processing elements
-  val pe = Vec.fill(peTableNumEntries){Module (new ProcessingElement()).io}
+  val pe = Vec.fill(peTableNumEntries){Module (new ProcessingElementLearn()).io}
   // Register File Block Writeback Table -- This table keeps track of
   // the highest index delta--weight _block_ that has been written.
   // This is needed to know when a a block is the first to be written
@@ -433,7 +433,7 @@ class ProcessingElementTable(implicit p: Parameters) extends DanaModule()(p) {
   }
 
   // Round robin arbitration of PE Table entries
-  val peArbiter = Module(new RRArbiter(new ProcessingElementResp,
+  val peArbiter = Module(new RRArbiter(new ProcessingElementRespLearn,
     peTableNumEntries))
   // Wire up the arbiter
   for (i <- 0 until peTableNumEntries) {

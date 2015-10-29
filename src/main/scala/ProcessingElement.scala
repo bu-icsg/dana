@@ -17,18 +17,19 @@ class ProcessingElementReq(implicit p: Parameters) extends DanaBundle()(p) {
   val iBlock = Vec.fill(elementsPerBlock){SInt(INPUT, elementWidth)}
   val wBlock = Vec.fill(elementsPerBlock){SInt(INPUT, elementWidth)}
   val bias = SInt(INPUT, elementWidth)
+}
 
-  // if (learningEnabled) {
-    val errorFunction = UInt(INPUT, width = log2Up(2)) // [TODO] fragile
-    val learningRate = UInt(INPUT, width = 16) // [TODO] fragile
-    val lambda = SInt(INPUT, width = 16) // [TODO] fragile
-    val learnReg = SInt(INPUT, elementWidth)
-    val stateLearn = UInt(INPUT, width = log2Up(8)) // [TODO] fragile
-    val inLast = Bool(INPUT)
-    val inFirst = Bool(INPUT)
-    val dw_in = SInt(INPUT, elementWidth)
-    val tType = UInt(INPUT, width = log2Up(3))
-  // }
+class ProcessingElementReqLearn(implicit p: Parameters)
+    extends ProcessingElementReq()(p) {
+  val errorFunction = UInt(INPUT, width = log2Up(2)) // [TODO] fragile
+  val learningRate = UInt(INPUT, width = 16) // [TODO] fragile
+  val lambda = SInt(INPUT, width = 16) // [TODO] fragile
+  val learnReg = SInt(INPUT, elementWidth)
+  val stateLearn = UInt(INPUT, width = log2Up(8)) // [TODO] fragile
+  val inLast = Bool(INPUT)
+  val inFirst = Bool(INPUT)
+  val dw_in = SInt(INPUT, elementWidth)
+  val tType = UInt(INPUT, width = log2Up(3))
 }
 
 class ProcessingElementResp(implicit p: Parameters) extends DanaBundle()(p) {
@@ -36,12 +37,16 @@ class ProcessingElementResp(implicit p: Parameters) extends DanaBundle()(p) {
   //   * next_state
   //   * invalidate_inputs
   val data = SInt(width = elementWidth)
-  val dataBlock = Vec.fill(elementsPerBlock){SInt(width = elementWidth)}
   val state = UInt() // [TODO] fragile on PE state enum
   val index = UInt()
-  val error = SInt(width = elementWidth)
   val incWriteCount = Bool()
   // val uwBlock = Vec.fill(elementsPerBlock){SInt(elementWidth)}
+}
+
+class ProcessingElementRespLearn(implicit p: Parameters)
+    extends ProcessingElementResp()(p) {
+  val dataBlock = Vec.fill(elementsPerBlock){SInt(width = elementWidth)}
+  val error = SInt(width = elementWidth)
 }
 
 class ProcessingElementInterface(implicit p: Parameters) extends DanaBundle()(p) {
@@ -53,20 +58,22 @@ class ProcessingElementInterface(implicit p: Parameters) extends DanaBundle()(p)
   val resp = Decoupled(new ProcessingElementResp)
 }
 
+class ProcessingElementInterfaceLearn(implicit p: Parameters)
+    extends ProcessingElementInterface()(p) {
+  override val req = Decoupled(new ProcessingElementReqLearn).flip
+  override val resp = Decoupled(new ProcessingElementRespLearn)
+}
+
 class ProcessingElement(implicit p: Parameters) extends DanaModule()(p) {
   // Interface to the PE Table
-  val io = new ProcessingElementInterface
+  lazy val io = new ProcessingElementInterface
 
   // Activation Function module
-  val af = Module(new ActivationFunctionLearn)
+  lazy val af = Module(new ActivationFunction)
 
   val index = Reg(UInt(width = 8)) // [TODO] fragile, should match numWeights
   val acc = Reg(SInt(width = elementWidth))
-  val weightWB = Reg(Vec.fill(elementsPerBlock){SInt(width=elementWidth)})
   val dataOut = Reg(SInt(width = elementWidth))
-  val derivative = Reg(SInt(width = elementWidth)) //delta
-  val errorOut = Reg(SInt(width = elementWidth)) //ek
-  val mse = Reg(UInt(width = elementWidth))
   val reqSent = Reg(Bool())
   //val updated_weight = Vec.fill(elementsPerBlock){Reg(SInt(INPUT, elementWidth))}
 
@@ -113,14 +120,11 @@ class ProcessingElement(implicit p: Parameters) extends DanaModule()(p) {
   // Default values
   acc := acc
   reqSent := reqSent
-  derivative := derivative
   io.req.ready := Bool(false)
   io.resp.valid := Bool(false)
   io.resp.bits.state := state
   io.resp.bits.index := io.req.bits.index
   io.resp.bits.data := dataOut
-  io.resp.bits.dataBlock := weightWB
-  io.resp.bits.error := errorOut
   io.resp.bits.incWriteCount := Bool(false)
   // io.resp.bits.uwBlock := updated_weight
   index := index
@@ -129,11 +133,97 @@ class ProcessingElement(implicit p: Parameters) extends DanaModule()(p) {
   af.io.req.bits.in := UInt(0)
   af.io.req.bits.decimal := io.req.bits.decimalPoint
   af.io.req.bits.steepness := io.req.bits.steepness
-  af.io.req.bits.afType := e_AF_DO_ACTIVATION_FUNCTION
   af.io.req.bits.activationFunction := io.req.bits.activationFunction
-  af.io.req.bits.errorFunction := io.req.bits.errorFunction
 
   // State-driven logic
+  switch (state) {
+    is (PE_states('e_PE_UNALLOCATED)) {
+      state := Mux(io.req.valid, PE_states('e_PE_GET_INFO), state)
+      io.req.ready := Bool(true)
+      hasBias := Bool(false)
+      index := UInt(0)
+      reqSent := Bool(false)
+    }
+    is (PE_states('e_PE_GET_INFO)) {
+      dataOut := UInt(0)
+      index := UInt(0)
+      when (!reqSent) {
+        io.resp.valid := Bool(true)
+        reqSent := io.req.valid
+      } .elsewhen (io.req.valid) {
+        reqSent := Bool(false)
+        state := PE_states('e_PE_REQUEST_INPUTS_AND_WEIGHTS)
+      }
+    }
+    is (PE_states('e_PE_REQUEST_INPUTS_AND_WEIGHTS)) {
+      // If hasBias is false, then this is the first time we're in this
+      // state and we need to load the bias into the accumulator
+      hasBias := Bool(true)
+      when (hasBias === Bool(false)) {
+        acc := io.req.bits.bias
+      }
+
+      when (!reqSent) {
+        io.resp.valid := Bool(true)
+        reqSent := io.req.valid
+      } .elsewhen (io.req.valid) {
+        reqSent := Bool(false)
+        state := PE_states('e_PE_RUN)
+      }
+    }
+    is (PE_states('e_PE_RUN)) {
+      val blockIndex = index(log2Up(elementsPerBlock) - 1, 0)
+      when (index === (io.req.bits.numWeights - UInt(1))) {
+        state := PE_states('e_PE_ACTIVATION_FUNCTION)
+      } .elsewhen (blockIndex === UInt(elementsPerBlock - 1)) {
+        state := PE_states('e_PE_REQUEST_INPUTS_AND_WEIGHTS)
+      }
+      DSP(io.req.bits.iBlock(blockIndex), io.req.bits.wBlock(blockIndex), decimal)
+      acc := acc + dsp.d
+      // acc := acc + ((io.req.bits.iBlock(blockIndex) * io.req.bits.wBlock(blockIndex)) >>
+      //   decimal)(elementWidth-1,0)
+      index := index + UInt(1)
+      printf("[INFO] PE: run 0x%x + (0x%x * 0x%x) >> 0x%x = 0x%x\n",
+        acc, io.req.bits.iBlock(blockIndex), io.req.bits.wBlock(blockIndex),
+        decimal, acc + dsp.d)
+    }
+    is (PE_states('e_PE_ACTIVATION_FUNCTION)) {
+      af.io.req.valid := Bool(true)
+      af.io.req.bits.in := acc
+      when (af.io.resp.valid) {
+        state := PE_states('e_PE_DONE)
+      }
+      dataOut := Mux(af.io.resp.valid, af.io.resp.bits.out, dataOut)
+    }
+    is (PE_states('e_PE_DONE)) {
+      when (io.req.valid) {
+        state := PE_states('e_PE_UNALLOCATED)
+      }
+      io.resp.bits.incWriteCount := Bool(true)
+      io.resp.valid := Bool(true)
+    }
+  }
+
+  assert (!(state === PE_states('e_PE_ERROR)), "[ERROR] PE is in error state\n")
+}
+
+class ProcessingElementLearn(implicit p: Parameters)
+    extends ProcessingElement()(p) {
+  override lazy val io = new ProcessingElementInterfaceLearn
+  override lazy val af = Module(new ActivationFunctionLearn)
+
+  val weightWB = Reg(Vec.fill(elementsPerBlock){SInt(width=elementWidth)})
+  val derivative = Reg(SInt(width = elementWidth)) //delta
+  val errorOut = Reg(SInt(width = elementWidth)) //ek
+  val mse = Reg(UInt(width = elementWidth))
+
+  // Defaults
+  derivative := derivative
+  io.resp.bits.dataBlock := weightWB
+  io.resp.bits.error := errorOut
+  af.io.req.bits.afType := e_AF_DO_ACTIVATION_FUNCTION
+  af.io.req.bits.errorFunction := io.req.bits.errorFunction
+
   switch (state) {
     is (PE_states('e_PE_UNALLOCATED)) {
       state := Mux(io.req.valid, PE_states('e_PE_GET_INFO), state)
@@ -212,6 +302,18 @@ class ProcessingElement(implicit p: Parameters) extends DanaModule()(p) {
         state := PE_states('e_PE_DONE)
       }
       dataOut := Mux(af.io.resp.valid, af.io.resp.bits.out, dataOut)
+    }
+    is (PE_states('e_PE_DONE)) {
+      when (io.req.valid) {
+        when (io.req.bits.inLast &&
+          io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_FEEDFORWARD) {
+          state := PE_states('e_PE_COMPUTE_DERIVATIVE)
+        } .otherwise {
+          state := PE_states('e_PE_UNALLOCATED)
+        }
+      }
+      io.resp.bits.incWriteCount := Bool(true)
+      io.resp.valid := Bool(true)
     }
     is (PE_states('e_PE_COMPUTE_DERIVATIVE)){
       state := Mux((io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_ERROR_BACKPROP),
@@ -406,18 +508,6 @@ class ProcessingElement(implicit p: Parameters) extends DanaModule()(p) {
         state := PE_states('e_PE_COMPUTE_DERIVATIVE)
       }
     }
-    is (PE_states('e_PE_DONE)) {
-      when (io.req.valid) {
-        when (io.req.bits.inLast &&
-          io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_FEEDFORWARD) {
-          state := PE_states('e_PE_COMPUTE_DERIVATIVE)
-        } .otherwise {
-          state := PE_states('e_PE_UNALLOCATED)
-        }
-      }
-      io.resp.bits.incWriteCount := Bool(true)
-      io.resp.valid := Bool(true)
-    }
     is(PE_states('e_PE_RUN_UPDATE_SLOPE)){
       val delta = Mux(io.req.bits.inFirst, errorOut, io.req.bits.learnReg)
       val blockIndex = index(log2Up(elementsPerBlock) - 1, 0)
@@ -518,8 +608,6 @@ class ProcessingElement(implicit p: Parameters) extends DanaModule()(p) {
       io.resp.valid := Bool(true)
     }
   }
-
-  assert (!(state === PE_states('e_PE_ERROR)), "[ERROR] PE is in error state\n")
 }
 
 // [TODO] This whole testbench is broken due to the integration with
