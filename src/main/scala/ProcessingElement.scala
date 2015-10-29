@@ -58,7 +58,7 @@ class ProcessingElement(implicit p: Parameters) extends DanaModule()(p) {
   val io = new ProcessingElementInterface
 
   // Activation Function module
-  val af = Module(new ActivationFunction)
+  val af = Module(new ActivationFunctionLearn)
 
   val index = Reg(UInt(width = 8)) // [TODO] fragile, should match numWeights
   val acc = Reg(SInt(width = elementWidth))
