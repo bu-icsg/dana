@@ -196,8 +196,8 @@ vpath %.train $(DIR_MAIN_RES) # This is missing *.train.X, e.g., *.train.100
 vpath %.train $(DIR_FANN)/datasets
 vpath %bin $(DIR_BUILD_NETS)
 
-.PHONY: all clean cpp debug dot fann libraries mrproper nets run run-verilog \
-	tools vcd vcd-verilog verilog
+.PHONY: all clean cpp debug doc dot fann libraries mrproper nets run \
+	run-verilog tools vcd vcd-verilog verilog
 
 default: all
 
@@ -371,6 +371,13 @@ $(DIR_BUILD)/fann-rv:
 	mkdir -p $@
 
 $(DIR_BUILD)/fann:
+	mkdir -p $@
+
+#--------- Generate ScalaDoc documentation
+doc:
+	scaladoc src/main/scala/*.scala -d $(DIR_BUILD)/doc
+
+$(DIR_BUILD)/doc:
 	mkdir -p $@
 
 #------------------- Populate a dummy cache (shouldn't be needed!)
