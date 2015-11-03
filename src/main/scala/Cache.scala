@@ -395,23 +395,6 @@ class Cache(implicit p: Parameters) extends DanaModule()(p) {
         peRespPipe(0).bits.indexIntoData :=
           io.pe.req.bits.cacheAddr(2 + log2Up(elementsPerBlock) - 1, 2)
       }
-      is (e_CACHE_WEIGHT_ONLY) {
-        printf("[INFO] Cache: PE 0x%x req for weight @ addr 0x%x\n",
-          io.pe.req.bits.peIndex, io.pe.req.bits.cacheAddr)
-        peRespPipe(0).valid := Bool(true)
-        peRespPipe(0).bits.peIndex := io.pe.req.bits.peIndex
-        peRespPipe(0).bits.field := io.pe.req.bits.field
-        peRespPipe(0).bits.indexIntoData :=
-          io.pe.req.bits.cacheAddr(2 + log2Up(elementsPerBlock) - 1, 2)
-      }
-      is (e_CACHE_WEIGHT_WB) {
-        printf("[INFO] Cache: PE 0x%x req to inc weight @addr 0x%x\n",
-          io.pe.req.bits.peIndex, io.pe.req.bits.cacheAddr)
-        printf("[INFO]        block: 0x%x\n", io.pe.req.bits.data)
-        mem(io.pe.req.bits.cacheIndex).we(0) := Bool(true)
-        mem(io.pe.req.bits.cacheIndex).inc(0) := Bool(true)
-        mem(io.pe.req.bits.cacheIndex).din(0) := io.pe.req.bits.data
-      }
     }
   }
 
@@ -486,4 +469,27 @@ class Cache(implicit p: Parameters) extends DanaModule()(p) {
 class CacheLearn(implicit p: Parameters)
     extends Cache()(p) {
   override lazy val io = new CacheInterfaceLearn
+
+  when (io.pe.req.valid) {
+    switch (io.pe.req.bits.field) {
+      is (e_CACHE_WEIGHT_ONLY) {
+        printf("[INFO] Cache: PE 0x%x req for weight @ addr 0x%x\n",
+          io.pe.req.bits.peIndex, io.pe.req.bits.cacheAddr)
+        peRespPipe(0).valid := Bool(true)
+        peRespPipe(0).bits.peIndex := io.pe.req.bits.peIndex
+        peRespPipe(0).bits.field := io.pe.req.bits.field
+        peRespPipe(0).bits.indexIntoData :=
+          io.pe.req.bits.cacheAddr(2 + log2Up(elementsPerBlock) - 1, 2)
+      }
+      is (e_CACHE_WEIGHT_WB) {
+        printf("[INFO] Cache: PE 0x%x req to inc weight @addr 0x%x\n",
+          io.pe.req.bits.peIndex, io.pe.req.bits.cacheAddr)
+        printf("[INFO]        block: 0x%x\n", io.pe.req.bits.data)
+        mem(io.pe.req.bits.cacheIndex).we(0) := Bool(true)
+        mem(io.pe.req.bits.cacheIndex).inc(0) := Bool(true)
+        mem(io.pe.req.bits.cacheIndex).din(0) := io.pe.req.bits.data
+      }
+    }
+  }
+
 }
