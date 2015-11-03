@@ -51,9 +51,13 @@ class CacheInterface(implicit p: Parameters) extends Bundle {
   // elements
   val mem = new CacheMemInterface
   val control = (new ControlCacheInterface).flip
-  val pe = (new PECacheInterface).flip
+  lazy val pe = (new PECacheInterface).flip
 }
 
+class CacheInterfaceLearn(implicit p: Parameters)
+    extends CacheInterface()(p) {
+  override lazy val pe = (new PECacheInterfaceLearn).flip
+}
 
 class CompressedNeuron(implicit p: Parameters) extends DanaBundle()(p) {
   val weightPtr = UInt(width = 16)
@@ -71,7 +75,7 @@ class CompressedNeuron(implicit p: Parameters) extends DanaBundle()(p) {
 }
 
 class Cache(implicit p: Parameters) extends DanaModule()(p) {
-  val io = new CacheInterface
+  lazy val io = new CacheInterface
 
   // Create the table of cache entries
   val table = Reg(Vec.fill(cacheNumEntries){new CacheState})
@@ -477,4 +481,9 @@ class Cache(implicit p: Parameters) extends DanaModule()(p) {
     !foundNnid &&
     (!hasFree && !hasUnused)),
   "Cache missed on ASID/NNID req, but has no free/unused entries")
+}
+
+class CacheLearn(implicit p: Parameters)
+    extends Cache()(p) {
+  override lazy val io = new CacheInterfaceLearn
 }

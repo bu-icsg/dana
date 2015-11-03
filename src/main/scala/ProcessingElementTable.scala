@@ -24,6 +24,9 @@ class PECacheInterface(implicit p: Parameters) extends DanaBundle()(p) {
   val resp = Decoupled(new PECacheInterfaceResp).flip
 }
 
+class PECacheInterfaceLearn(implicit p: Parameters)
+    extends PECacheInterface()(p)
+
 class PERegisterFileReq(implicit p: Parameters) extends DanaBundle()(p) {
   // The register index should go down to the element level
   val isWrite = Bool()
