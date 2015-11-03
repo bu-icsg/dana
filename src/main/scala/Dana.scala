@@ -221,7 +221,7 @@ class Dana(implicit p: Parameters) extends DanaModule {
   // val tTable = Module(new TransactionTable)
   val control = Module(new Control)
   val cache = Module(new Cache)
-  val peTable = Module(new ProcessingElementTable)
+  val peTable = Module(new ProcessingElementTableLearn)
   val regFile = Module(new RegisterFile)
 
   // Wire everything up. Ordering shouldn't matter here.
