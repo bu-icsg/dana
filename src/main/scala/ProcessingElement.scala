@@ -4,12 +4,7 @@ import Chisel._
 import cde.{Parameters, Field}
 
 class ProcessingElementReq(implicit p: Parameters) extends DanaBundle()(p) {
-  // I'm excluding, potentially temporarily:
-  //   * state
-  //   * pe_selected
-  //   * is_first
-  //   * reg_file_ready
-  val numWeights = UInt(INPUT, width = 8) // [TODO] fragile
+  val numWeights = UInt(INPUT, width = 8)            // [TODO] fragile
   val index = UInt(INPUT)
   val decimalPoint = UInt(INPUT, decimalPointWidth)
   val steepness = UInt(INPUT, steepnessWidth)
@@ -22,10 +17,10 @@ class ProcessingElementReq(implicit p: Parameters) extends DanaBundle()(p) {
 class ProcessingElementReqLearn(implicit p: Parameters)
     extends ProcessingElementReq()(p) {
   val errorFunction = UInt(INPUT, width = log2Up(2)) // [TODO] fragile
-  val learningRate = UInt(INPUT, width = 16) // [TODO] fragile
-  val lambda = SInt(INPUT, width = 16) // [TODO] fragile
+  val learningRate = UInt(INPUT, width = 16)         // [TODO] fragile
+  val lambda = SInt(INPUT, width = 16)               // [TODO] fragile
   val learnReg = SInt(INPUT, elementWidth)
-  val stateLearn = UInt(INPUT, width = log2Up(8)) // [TODO] fragile
+  val stateLearn = UInt(INPUT, width = log2Up(8))    // [TODO] fragile
   val inLast = Bool(INPUT)
   val inFirst = Bool(INPUT)
   val dw_in = SInt(INPUT, elementWidth)
@@ -33,14 +28,10 @@ class ProcessingElementReqLearn(implicit p: Parameters)
 }
 
 class ProcessingElementResp(implicit p: Parameters) extends DanaBundle()(p) {
-  // Not included:
-  //   * next_state
-  //   * invalidate_inputs
   val data = SInt(width = elementWidth)
-  val state = UInt() // [TODO] fragile on PE state enum
+  val state = UInt()
   val index = UInt()
   val incWriteCount = Bool()
-  // val uwBlock = Vec.fill(elementsPerBlock){SInt(elementWidth)}
 }
 
 class ProcessingElementRespLearn(implicit p: Parameters)
@@ -75,7 +66,6 @@ class ProcessingElement(implicit p: Parameters) extends DanaModule()(p) {
   val acc = Reg(SInt(width = elementWidth))
   val dataOut = Reg(SInt(width = elementWidth))
   val reqSent = Reg(Bool())
-  //val updated_weight = Vec.fill(elementsPerBlock){Reg(SInt(INPUT, elementWidth))}
 
   // [TODO] fragile on PE stateu enum (Common.scala)
   val state = Reg(UInt(), init = PE_states('e_PE_UNALLOCATED))
@@ -126,7 +116,6 @@ class ProcessingElement(implicit p: Parameters) extends DanaModule()(p) {
   io.resp.bits.index := io.req.bits.index
   io.resp.bits.data := dataOut
   io.resp.bits.incWriteCount := Bool(false)
-  // io.resp.bits.uwBlock := updated_weight
   index := index
   // Activation function unit default values
   af.io.req.valid := Bool(false)
@@ -180,8 +169,6 @@ class ProcessingElement(implicit p: Parameters) extends DanaModule()(p) {
       }
       DSP(io.req.bits.iBlock(blockIndex), io.req.bits.wBlock(blockIndex), decimal)
       acc := acc + dsp.d
-      // acc := acc + ((io.req.bits.iBlock(blockIndex) * io.req.bits.wBlock(blockIndex)) >>
-      //   decimal)(elementWidth-1,0)
       index := index + UInt(1)
       printf("[INFO] PE: run 0x%x + (0x%x * 0x%x) >> 0x%x = 0x%x\n",
         acc, io.req.bits.iBlock(blockIndex), io.req.bits.wBlock(blockIndex),
@@ -287,7 +274,8 @@ class ProcessingElementLearn(implicit p: Parameters)
       }
       DSP(io.req.bits.iBlock(blockIndex), io.req.bits.wBlock(blockIndex), decimal)
       acc := acc + dsp.d
-      // acc := acc + ((io.req.bits.iBlock(blockIndex) * io.req.bits.wBlock(blockIndex)) >>
+      // acc := acc + ((io.req.bits.iBlock(blockIndex) *
+      //        io.req.bits.wBlock(blockIndex)) >>
       //   decimal)(elementWidth-1,0)
       index := index + UInt(1)
       printf("[INFO] PE: run 0x%x + (0x%x * 0x%x) >> 0x%x = 0x%x\n",
@@ -467,7 +455,6 @@ class ProcessingElementLearn(implicit p: Parameters)
       }
       DSP(errorOut, io.req.bits.wBlock(blockIndex), decimal)
       weightWB(blockIndex) := dsp.d
-
       // weightWB(blockIndex) := (errorOut * io.req.bits.wBlock(blockIndex)) >>
       //   decimal
       printf("[INFO] PE: d*weight (0x%x * 0x%x) >> 0x%x = 0x%x\n",
@@ -599,7 +586,6 @@ class ProcessingElementLearn(implicit p: Parameters)
     }
     is (PE_states('e_PE_WEIGHT_UPDATE_WAIT_FOR_BIAS_d0)) {
       state := PE_states('e_PE_WEIGHT_UPDATE_WRITE_BIAS)
-      // [TODO] Need to divide the learning rate by the number of training items
       DSP(io.req.bits.dw_in, io.req.bits.learningRate.toSInt, decimal)
       dataOut := dsp.d
     }
