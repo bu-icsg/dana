@@ -13,23 +13,20 @@ import Chisel._
 //   2: block write accumulating element-wise with old block
 
 class SRAMElementIncrementInterface (
-  val dataWidth: Int,
-  val sramDepth: Int,
-  val numPorts: Int,
+  override val dataWidth: Int,
+  override val sramDepth: Int,
+  override val numPorts: Int,
   val elementWidth: Int
-) extends Bundle {
+) extends SRAMVariantInterface(dataWidth, sramDepth, numPorts) {
   override def cloneType = new SRAMElementIncrementInterface(
     dataWidth = dataWidth,
     sramDepth = sramDepth,
     numPorts = numPorts,
     elementWidth = elementWidth).asInstanceOf[this.type]
-  val we = Vec.fill(numPorts){ Bool(OUTPUT) }
   val wType = Vec.fill(numPorts){ UInt(OUTPUT, width = log2Up(3)) }
   val dinElement = Vec.fill(numPorts){ UInt(OUTPUT, width = elementWidth)}
-  val dinBlock = Vec.fill(numPorts){ UInt(OUTPUT, width = dataWidth)}
-  val addr = Vec.fill(numPorts){ UInt(OUTPUT,
+  override val addr = Vec.fill(numPorts){ UInt(OUTPUT,
     width = log2Up(sramDepth) + log2Up(dataWidth / elementWidth))}
-  val dout = Vec.fill(numPorts){ UInt(INPUT, width = dataWidth)}
 }
 
 class WritePendingIncrementBundle (
@@ -139,7 +136,7 @@ class SRAMElementIncrement (
           when (addr(i).addrHi === writePending(i).addrHi &&
             io.we(i) && io.wType(i) === UInt(1)) {
             (0 until elementsPerBlock).map(j =>
-              tmp(i)(j) := io.dinBlock(i)(elementWidth*(j+1) - 1,
+              tmp(i)(j) := io.din(i)(elementWidth*(j+1) - 1,
                 elementWidth * j))
             forwarding(i) := Bool(true)
           } .otherwise {
@@ -153,7 +150,7 @@ class SRAMElementIncrement (
           when (addr(i).addrHi === writePending(i).addrHi &&
             io.we(i) && io.wType(i) === UInt(2)) {
             (0 until elementsPerBlock).map(j =>
-              tmp(i)(j) := io.dinBlock(i)(elementWidth*(j+1) - 1,
+              tmp(i)(j) := io.din(i)(elementWidth*(j+1) - 1,
                 elementWidth * j) +
                 writePending(i).dataBlock(elementWidth*(j+1) - 1,
                   elementWidth * j) +
@@ -183,7 +180,7 @@ class SRAMElementIncrement (
       writePending(i).valid := Bool(true)
       writePending(i).wType := io.wType(i)
       writePending(i).dataElement := io.dinElement(i)
-      writePending(i).dataBlock := io.dinBlock(i)
+      writePending(i).dataBlock := io.din(i)
       writePending(i).addrHi := addr(i).addrHi
       writePending(i).addrLo := addr(i).addrLo
     }

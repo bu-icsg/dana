@@ -86,6 +86,17 @@ class Cache(implicit p: Parameters) extends DanaModule()(p) {
     numPorts = 1,
     elementWidth = elementWidth)).io))
 
+  // val mem = if (learningEnabled)
+  //   Vec((0 until cacheNumEntries).map(i => Module(new SRAMBlockIncrement(
+  //     dataWidth = bitsPerBlock,
+  //     sramDepth = cacheNumBlocks,
+  //     numPorts = 1,
+  //     elementWidth = elementWidth)).io)) else
+  //     Vec((0 until cacheNumEntries).map(i => Module(new SRAMDualPort(
+  //       dataWidth = elementWidth * elementsPerBlock,
+  //       sramDepth = cacheNumBlocks // [TODO] I think this is the correct parameter
+  //     )).io))
+
   // The Transaction Table Queue needs to be big enough to hold one
   // inbound request from every entry in the Transaction Table
   val tTableReqQueue = Module(new Queue(new ControlCacheInterfaceReq,
@@ -191,14 +202,12 @@ class Cache(implicit p: Parameters) extends DanaModule()(p) {
 
   // Default values for the memory input wires
   for (i <- 0 until cacheNumEntries) {
-    for (j <- 0 until mem(i).numPorts) {
-      mem(i).din(j) := UInt(0)
-      mem(i).addr(j) := UInt(0)
-      // mem(i).addr(j) := cacheRead(i)
-      mem(i).we(j) := Bool(false)
-      mem(i).inc(j) := Bool(false)
-      // cacheRead(j) := UInt(0)
-    }
+    mem(i).din(0) := UInt(0)
+    mem(i).addr(0) := UInt(0)
+    // mem(i).addr(0) := cacheRead(i)
+    mem(i).we(0) := Bool(false)
+    mem(i).inc(0) := Bool(false)
+    // cacheRead(0) := UInt(0)
   }
 
   // The cache can see requests from three locations:

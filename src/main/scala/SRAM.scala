@@ -86,6 +86,56 @@ class SRAM (
   }
 }
 
+class SRAMSinglePortInterface(
+  val dataWidth: Int,
+  val sramDepth: Int
+) extends Bundle {
+  override def cloneType = new SRAMDualPortInterface(
+    dataWidth = dataWidth,
+    sramDepth = sramDepth).asInstanceOf[this.type]
+  val we = Bool(OUTPUT)
+  val din = UInt(OUTPUT, width = dataWidth)
+  val addr = UInt(OUTPUT, width = log2Up(sramDepth))
+  val dout = UInt(INPUT, width = dataWidth)
+}
+
+class SRAMDualPortInterface(
+  val dataWidth: Int,
+  val sramDepth: Int
+) extends Bundle {
+  override def cloneType = new SRAMDualPortInterface(
+    dataWidth = dataWidth,
+    sramDepth = sramDepth).asInstanceOf[this.type]
+  val we = Vec(2, Bool(OUTPUT))
+  val din = Vec(2, UInt(OUTPUT, width = dataWidth))
+  val addr = Vec(2, UInt(OUTPUT, width = log2Up(sramDepth)))
+  val dout = Vec(2, UInt(INPUT, width = dataWidth))
+}
+
+class SRAMDualPort(
+  val dataWidth: Int,
+  val sramDepth: Int
+) extends Module {
+  val io = new SRAMDualPortInterface(
+    dataWidth = dataWidth,
+    sramDepth = sramDepth).flip
+  val sram = Module(new SRAM(
+    dataWidth = dataWidth,
+    numReadPorts = 0,
+    numWritePorts = 0,
+    numReadWritePorts = 2,
+    initSwitch = -1,
+    elementsPerBlock = -1,
+    sramDepth = sramDepth)).io
+
+  for (i <- 0 until 2) {
+    sram.we(i) := io.we(i)
+    sram.din(i) := io.din(i)
+    sram.addr(i) := io.addr(i)
+    io.dout(i) := sram.dout(i)
+  }
+}
+
 class SRAMTests(uut: SRAM, isTrace: Boolean = true)
     extends Tester(uut, isTrace) {
   // Generate a local copy of the memory in a vector

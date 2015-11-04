@@ -13,21 +13,17 @@ import Chisel._
 //   2: block write accumulating element-wise with old block
 
 class SRAMBlockIncrementInterface (
-  val dataWidth: Int,
-  val sramDepth: Int,
-  val numPorts: Int,
+  override val dataWidth: Int,
+  override val sramDepth: Int,
+  override val numPorts: Int,
   val elementWidth: Int
-) extends Bundle {
+) extends SRAMVariantInterface(dataWidth, sramDepth, numPorts) {
   override def cloneType = new SRAMBlockIncrementInterface(
     dataWidth = dataWidth,
     sramDepth = sramDepth,
     numPorts = numPorts,
     elementWidth = elementWidth).asInstanceOf[this.type]
-  val we = Vec.fill(numPorts){ Bool(OUTPUT) }
-  val inc = Vec.fill(numPorts){ Bool(OUTPUT) }
-  val din = Vec.fill(numPorts){ UInt(OUTPUT, width = dataWidth)}
-  val addr = Vec.fill(numPorts){ UInt(OUTPUT, width = log2Up(sramDepth))}
-  val dout = Vec.fill(numPorts){ UInt(INPUT, width = dataWidth)}
+  val inc = Vec.fill(numPorts){ Bool(OUTPUT)}
 }
 
 class WritePendingBlockIncrementBundle (
@@ -53,8 +49,8 @@ class WritePendingBlockIncrementBundle (
 class SRAMBlockIncrement (
   val dataWidth: Int = 32,
   val sramDepth: Int = 64,
-  val numPorts: Int = 1,
-  val elementWidth: Int = 32
+  val elementWidth: Int = 8,
+  val numPorts: Int = 1
 ) extends Module {
   val io = new SRAMBlockIncrementInterface(
     dataWidth = dataWidth,

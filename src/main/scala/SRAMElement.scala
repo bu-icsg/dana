@@ -8,21 +8,19 @@ import Chisel._
 //   via pushback on the asynchronous inteface or with an assertion.
 
 class SRAMElementInterface (
-  val dataWidth: Int,
-  val sramDepth: Int,
-  val numPorts: Int,
+  override val dataWidth: Int,
+  override val sramDepth: Int,
+  override val numPorts: Int,
   val elementWidth: Int
-) extends Bundle {
+) extends SRAMVariantInterface(dataWidth, sramDepth, numPorts) {
   override def cloneType = new SRAMElementInterface(
     dataWidth = dataWidth,
     sramDepth = sramDepth,
     numPorts = numPorts,
     elementWidth = elementWidth).asInstanceOf[this.type]
-  val we = Vec.fill(numPorts){ Bool(OUTPUT) }
-  val din = Vec.fill(numPorts){ UInt(OUTPUT, width = elementWidth)}
-  val addr = Vec.fill(numPorts){ UInt(OUTPUT,
+  override val din = Vec.fill(numPorts){ UInt(OUTPUT, width = elementWidth)}
+  override val addr = Vec.fill(numPorts){ UInt(OUTPUT,
     width = log2Up(sramDepth) + log2Up(dataWidth / elementWidth))}
-  val dout = Vec.fill(numPorts){ UInt(INPUT, width = dataWidth)}
 }
 
 class WritePendingBundle (

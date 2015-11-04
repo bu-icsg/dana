@@ -39,7 +39,7 @@ class RegisterFile(implicit p: Parameters) extends DanaModule()(p) {
       mem(transaction).we(port) := Bool(false)
       mem(transaction).wType(port) := UInt(0)
       mem(transaction).dinElement(port) := UInt(0)
-      mem(transaction).dinBlock(port) := UInt(0)
+      mem(transaction).din(port) := UInt(0)
       mem(transaction).addr(port) := UInt(0)
     }
   }
@@ -68,13 +68,13 @@ class RegisterFile(implicit p: Parameters) extends DanaModule()(p) {
         }
         is (e_PE_WRITE_BLOCK_NEW) {
           mem(tIdx).wType(0) := UInt(1)
-          mem(tIdx).dinBlock(0) := io.pe.req.bits.dataBlock
+          mem(tIdx).din(0) := io.pe.req.bits.dataBlock
           printf("[INFO] RegFile: PE write block new tIdx/Addr/Data 0x%x/0x%x/0x%x\n",
             tIdx, io.pe.req.bits.addr, io.pe.req.bits.dataBlock)
         }
         is (e_PE_WRITE_BLOCK_ACC) {
           mem(tIdx).wType(0) := UInt(2)
-          mem(tIdx).dinBlock(0) := io.pe.req.bits.dataBlock
+          mem(tIdx).din(0) := io.pe.req.bits.dataBlock
           printf("[INFO] RegFile: PE write block inc tIdx/Addr/Data 0x%x/0x%x/0x%x\n",
             tIdx, io.pe.req.bits.addr, io.pe.req.bits.dataBlock)
         }
