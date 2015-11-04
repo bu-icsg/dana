@@ -5,6 +5,8 @@ import cde.{Parameters, Config, Dump, Knob}
 
 class DefaultXFilesDanaConfig extends Config (
   topDefinitions = { (pname,site,here) =>
+    def divUp (dividend: Int, divisor: Int): Int = {
+      (dividend + divisor - 1) / divisor}
     pname match {
       // Core parameters
       case NumCores => Dump(Knob("NUM_CORES"))
@@ -36,6 +38,9 @@ class DefaultXFilesDanaConfig extends Config (
       case RegisterFileNumElements => Dump(Knob("REGISTER_FILE_NUM_ELEMENTS"))
       // Enables support for in-hardware learning
       case LearningEnabled => true
+      case BitsPerBlock => site(ElementsPerBlock) * site(ElementWidth)
+      case RegFileNumBlocks => divUp(site(RegisterFileNumElements),
+        site(ElementsPerBlock))
     }},
   // [TODO] Add constraints
   // topConstraints = List(

@@ -24,6 +24,8 @@ case object CacheNumEntries extends Field[Int]
 case object CacheDataSize extends Field[Int]
 case object RegisterFileNumElements extends Field[Int]
 case object LearningEnabled extends Field[Boolean]
+case object BitsPerBlock extends Field[Int]
+case object RegFileNumBlocks extends Field[Int]
 
 trait DanaParameters extends HasCoreParameters {
   val elementWidth = p(ElementWidth)

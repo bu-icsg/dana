@@ -16,17 +16,30 @@ class RegisterFileState(implicit p: Parameters) extends DanaBundle()(p) {
   val countWrites = UInt(width = 16) // [TODO] fragile
 }
 
-class RegisterFile(implicit p: Parameters) extends DanaModule()(p) {
+abstract class RegisterFileBase[SramIf <: SRAMVariantInterface](
+  genSram: => Vec[SramIf])(implicit p: Parameters)
+    extends DanaModule()(p) {
+  val mem = genSram
+}
+
+class RegisterFile(implicit p: Parameters)
+    extends RegisterFileBase(Vec(p(TransactionTableNumEntries),
+      Module(new SRAMElementIncrement(
+        dataWidth = p(BitsPerBlock),
+        sramDepth = pow(2, log2Up(p(RegFileNumBlocks))).toInt *
+          p(TransactionTableNumEntries) * 2,
+        numPorts = 1,
+        elementWidth = p(ElementWidth))).io))(p) {
   val io = new RegisterFileInterface
 
   // One SRAMElement for each Transaction Table entry
-  val mem = Vec.fill(transactionTableNumEntries){
-    Module( new SRAMElementIncrement(
-      dataWidth = bitsPerBlock,
-      sramDepth = pow(2, log2Up(regFileNumBlocks)).toInt *
-        transactionTableNumEntries * 2,
-      numPorts = 1,
-      elementWidth = elementWidth)).io}
+  // val mem = Vec.fill(transactionTableNumEntries){
+  //   Module( new SRAMElementIncrement(
+  //     dataWidth = bitsPerBlock,
+  //     sramDepth = pow(2, log2Up(regFileNumBlocks)).toInt *
+  //       transactionTableNumEntries * 2,
+  //     numPorts = 1,
+  //     elementWidth = elementWidth)).io}
   val state = Vec.fill(transactionTableNumEntries * 2){Reg(new RegisterFileState)}
   val stateToggle = Reg(Vec.fill(transactionTableNumEntries){UInt(width=1)})
   val tTableRespValid = Reg(Bool())
@@ -191,3 +204,6 @@ class RegisterFile(implicit p: Parameters) extends DanaModule()(p) {
         io.control.req.bits.location).totalWrites)),
     "RegFile totalWrites being changed when valid && (countWrites != totalWrites)")
 }
+
+// class RegisterFileLearn(implicit p: Parameters)
+//     extends RegisterFileBase()(p)

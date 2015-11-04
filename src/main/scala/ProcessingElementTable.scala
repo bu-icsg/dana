@@ -347,7 +347,8 @@ class ProcessingElementTable(implicit p: Parameters)
     extends ProcessingElementTableBase[ProcessingElementState,
       ProcessingElementResp, ProcessingElementInterface,
       Vec[ProcessingElementInterface]](new ProcessingElementState,
-        new ProcessingElementResp, Vec(1, Module(new ProcessingElement).io))(p) {
+        new ProcessingElementResp,
+        Vec(p(PeTableNumEntries), Module(new ProcessingElement).io))(p) {
   when (io.regFile.resp.valid) {
     val peIndex = io.regFile.resp.bits.peIndex
     switch (io.regFile.resp.bits.reqType) {
@@ -373,7 +374,7 @@ class ProcessingElementTableLearn(implicit p: Parameters)
       ProcessingElementRespLearn, ProcessingElementInterfaceLearn,
       Vec[ProcessingElementInterfaceLearn]](new ProcessingElementStateLearn,
         new ProcessingElementRespLearn,
-        Vec(1, Module(new ProcessingElementLearn).io))(p) {
+        Vec(p(PeTableNumEntries), Module(new ProcessingElementLearn).io))(p) {
   override lazy val io = new PETableInterfaceLearn
 
   // Register File Block Writeback Table -- This table keeps track of
