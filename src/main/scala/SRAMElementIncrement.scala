@@ -52,33 +52,18 @@ class WritePendingIncrementBundle (
 // operation, each write port needs an associated read port.
 // Consequently, this only has RW ports.
 class SRAMElementIncrement (
-  val dataWidth: Int = 32,
-  val sramDepth: Int = 64,
-  val elementWidth: Int = 8,
-  val numPorts: Int = 1
-) extends Module {
-  val io = new SRAMElementIncrementInterface(
+  override val dataWidth: Int = 32,
+  override val sramDepth: Int = 64,
+  override val numPorts: Int = 1,
+  val elementWidth: Int = 8
+) extends SRAMVariant {
+  override lazy val io = new SRAMElementIncrementInterface(
     dataWidth = dataWidth,
     sramDepth = sramDepth,
     numPorts = numPorts,
     elementWidth = elementWidth
   ).flip
-  val sram = Module(new SRAM(
-    dataWidth = dataWidth,
-    sramDepth = sramDepth,
-    numReadPorts = numPorts,
-    numWritePorts = numPorts,
-    numReadWritePorts = 0
-  ))
 
-  // Set the name of the verilog backend
-  if (numPorts == 1)
-    sram.setName("sram_r" + numPorts + "_w" + numPorts + "_rw" + 0);
-  else
-    sram.setName("UNDEFINED_SRAM_BACKEND_FOR_NUM_PORTS_" + numPorts);
-
-  def divUp (dividend: Int, divisor: Int): Int = {
-    (dividend + divisor - 1) / divisor}
   val elementsPerBlock = divUp(dataWidth, elementWidth)
 
   val addr = Vec.fill(numPorts){ new Bundle{
