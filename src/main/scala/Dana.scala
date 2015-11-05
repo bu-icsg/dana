@@ -223,8 +223,10 @@ class Dana(implicit p: Parameters) extends DanaModule {
 
   // Module instantiation
   // val tTable = Module(new TransactionTable)
-  val control = Module(new Control)
-  val cache = if (learningEnabled) Module(new CacheLearn) else Module(new Cache)
+  val control = if (learningEnabled) Module(new ControlLearn) else
+    Module(new Control)
+  val cache = if (learningEnabled) Module(new CacheLearn) else
+    Module(new Cache)
   val peTable = if (learningEnabled) Module(new ProcessingElementTableLearn) else
     Module(new ProcessingElementTable)
   val regFile = if (learningEnabled) Module(new RegisterFileLearn) else

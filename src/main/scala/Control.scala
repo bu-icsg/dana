@@ -55,6 +55,10 @@ class ControlPETableInterfaceReq(implicit p: Parameters) extends DanaBundle()(p)
   val location = UInt(width = 1)
   val neuronPointer = UInt(width = 12) // [TODO] fragile
   val decimalPoint = UInt(width = decimalPointWidth)
+}
+
+class ControlPETableInterfaceReqLearn(implicit p: Parameters)
+    extends ControlPETableInterfaceReq()(p) {
   val errorFunction = UInt(width = log2Up(2)) // [TODO] fragile
   val stateLearn = UInt(width = log2Up(7)) // [TODO] fragile
   val inLast = Bool()
@@ -71,10 +75,15 @@ class ControlPETableInterfaceReq(implicit p: Parameters) extends DanaBundle()(p)
 class ControlPETableInterface(implicit p: Parameters) extends DanaBundle()(p) {
   // Outbound request. nnsim-hdl equivalent:
   //   control_types::ctl2pe_table_struct
-  val req = Decoupled(new ControlPETableInterfaceReq)
+  lazy val req = Decoupled(new ControlPETableInterfaceReqLearn)
   // No response is necessary as the Control module needs to know is
   // if the PE Table has a free entry. This is communicated by means
   // of the Decoupled `ready` signal.
+}
+
+class ControlPETableInterfaceLearn(implicit p: Parameters)
+    extends ControlPETableInterface()(p) {
+  override lazy val req = Decoupled(new ControlPETableInterfaceReqLearn)
 }
 
 class ControlRegisterFileInterfaceReq(implicit p: Parameters) extends DanaBundle()(p) {
@@ -96,13 +105,17 @@ class ControlRegisterFileInterface(implicit p: Parameters) extends DanaBundle()(
 class ControlInterface(implicit p: Parameters) extends DanaBundle()(p) {
   val tTable = (new TTableControlInterface).flip
   val cache = new ControlCacheInterface
-  val peTable = new ControlPETableInterface
+  lazy val peTable = new ControlPETableInterface
   val regFile = new ControlRegisterFileInterface
 }
 
-class Control(implicit p: Parameters) extends DanaModule()(p) {
-  val io = new ControlInterface
+class ControlInterfaceLearn(implicit p: Parameters)
+    extends ControlInterface()(p) {
+  override lazy val peTable = new ControlPETableInterfaceLearn
+}
 
+class ControlBase(implicit p: Parameters) extends DanaModule()(p) {
+  lazy val io = new ControlInterface
   // IO Driver Functions
   def reqCache(valid: Bool, request: UInt, asid: UInt, nnid: UInt,
     tableIndex: UInt, coreIdx: UInt, layer: UInt, location: UInt,
@@ -117,37 +130,56 @@ class Control(implicit p: Parameters) extends DanaModule()(p) {
     io.cache.req.bits.location := location
     io.cache.req.bits.totalWritesMul := totalWritesMul
   }
-  def reqPETable(valid: Bool, cacheIndex: UInt, tIdx: UInt,  inAddr: UInt,
-    outAddr: UInt, learnAddr: UInt, deltaAddr: UInt, dwAddr: UInt, slopeAddr: UInt,
-    biasAddr: UInt, neuronPointer: UInt, decimalPoint: UInt, errorFunction: UInt,
-    location: UInt, stateLearn: UInt, transactionType: UInt,
-    inLast: UInt, resetWB: Bool, inFirst: Bool,
-    learningRate: UInt, lambda: UInt, numWeightBlocks: UInt, globalWtptr: UInt,
-    batchFirst: Bool) {
+  def reqPETable(valid: Bool,
+    cacheIndex: UInt,
+    tIdx: UInt,
+    inAddr: UInt,
+    outAddr: UInt,
+    neuronPointer: UInt,
+    decimalPoint: UInt,
+    location: UInt,
+    // learning-specific
+    resetWB: Bool,
+    inFirst: Bool,
+    inLast: Bool,
+    batchFirst: Bool,
+    learnAddr: UInt,
+    deltaAddr: UInt,
+    dwAddr: UInt,
+    slopeAddr: UInt,
+    biasAddr: UInt,
+    errorFunction: UInt,
+    stateLearn: UInt,
+    learningRate: UInt,
+    lambda: UInt,
+    numWeightBlocks: UInt,
+    transactionType: UInt,
+    globalWtptr: UInt) {
     io.peTable.req.valid := valid
     io.peTable.req.bits.cacheIndex := cacheIndex
     io.peTable.req.bits.tIdx := tIdx
     io.peTable.req.bits.inAddr := inAddr
     io.peTable.req.bits.outAddr := outAddr
+    io.peTable.req.bits.neuronPointer := neuronPointer
+    io.peTable.req.bits.decimalPoint := decimalPoint
+    io.peTable.req.bits.location := location
+    // learning-specific
+    io.peTable.req.bits.resetWB := resetWB
+    io.peTable.req.bits.inFirst := inFirst
+    io.peTable.req.bits.inLast := inLast
+    io.peTable.req.bits.batchFirst := batchFirst
     io.peTable.req.bits.learnAddr := learnAddr
     io.peTable.req.bits.deltaAddr := deltaAddr
     io.peTable.req.bits.dwAddr := dwAddr
     io.peTable.req.bits.slopeAddr := slopeAddr
     io.peTable.req.bits.biasAddr := biasAddr
-    io.peTable.req.bits.neuronPointer := neuronPointer
-    io.peTable.req.bits.decimalPoint := decimalPoint
     io.peTable.req.bits.errorFunction := errorFunction
-    io.peTable.req.bits.location := location
     io.peTable.req.bits.stateLearn := stateLearn
-    io.peTable.req.bits.tType := transactionType
-    io.peTable.req.bits.inLast := inLast
-    io.peTable.req.bits.resetWB := resetWB
-    io.peTable.req.bits.inFirst := inFirst
     io.peTable.req.bits.learningRate := learningRate
     io.peTable.req.bits.lambda := lambda
     io.peTable.req.bits.numWeightBlocks := numWeightBlocks
+    io.peTable.req.bits.tType := transactionType
     io.peTable.req.bits.globalWtptr := globalWtptr
-    io.peTable.req.bits.batchFirst := batchFirst
   }
 
   // io.tTable defaults
@@ -171,10 +203,11 @@ class Control(implicit p: Parameters) extends DanaModule()(p) {
   reqCache(Bool(false), UInt(0), UInt(0), UInt(0), UInt(0), UInt(0), UInt(0),
     UInt(0), UInt(0))
   // io.petable defaults
-  reqPETable(Bool(false), UInt(0), UInt(0), UInt(0), UInt(0), UInt(0), UInt(0),
-    UInt(0), UInt(0),
-    UInt(0), UInt(0), UInt(0), UInt(0), UInt(0), UInt(0), UInt(0), UInt(0), Bool(false),
-    Bool(false), UInt(0), UInt(0), UInt(0), UInt(0), Bool(false))
+  reqPETable(Bool(false),
+    UInt(0), UInt(0), UInt(0), UInt(0), UInt(0), UInt(0), UInt(0),
+    Bool(false), Bool(false), Bool(false), Bool(false),
+    UInt(0), UInt(0), UInt(0), UInt(0), UInt(0), UInt(0), UInt(0), UInt(0),
+    UInt(0), UInt(0), UInt(0), UInt(0))
   // io.regFile defaults
   io.regFile.req.valid := Bool(false)
   io.regFile.req.bits.tIdx := UInt(0)
@@ -263,88 +296,84 @@ class Control(implicit p: Parameters) extends DanaModule()(p) {
       .elsewhen (io.tTable.req.bits.cacheValid && !io.tTable.req.bits.needsLayerInfo &&
       io.peTable.req.ready) {
       // Go ahead and allocate an entry in the Processing Element
-      reqPETable(Bool(true), // valid
+      reqPETable(valid = Bool(true),
         // The specific cache entry where the NN configuration for
         // this PE is located
-        io.tTable.req.bits.cacheIndex, // cacheIndex
+        cacheIndex = io.tTable.req.bits.cacheIndex,
         // Table Index, no ASID/TID are used
-        io.tTable.req.bits.tableIndex,
+        tIdx = io.tTable.req.bits.tableIndex,
         // The input address is contained in the TTable request
-        Mux((io.tTable.req.bits.stateLearn === e_TTABLE_STATE_LEARN_ERROR_BACKPROP) ||
+        inAddr =
+          Mux((io.tTable.req.bits.stateLearn === e_TTABLE_STATE_LEARN_ERROR_BACKPROP) ||
           (io.tTable.req.bits.stateLearn === e_TTABLE_STATE_LEARN_WEIGHT_UPDATE),
           io.tTable.req.bits.regFileAddrIn + io.tTable.req.bits.currentNodeInLayer,
           io.tTable.req.bits.regFileAddrIn),
         // The output address is a base output (specified by the
         // TTable request) plus an offset (which neuron this is)
-        io.tTable.req.bits.regFileAddrOut+io.tTable.req.bits.currentNodeInLayer,
-        // The learn address could mean many things, but is generally
-        // used to pass an _additional_ register file address used for
-        // learning
-        io.tTable.req.bits.currentNodeInLayer,
-        //Error address in LEARN_FEEDFORWARD state means the address used to save
-        //the calculated error values
-        io.tTable.req.bits.regFileAddrDelta+io.tTable.req.bits.currentNodeInLayer,
-        // The DW address is where the delta--weight products will be
-        // written (and accumulated by the Register File)
-        io.tTable.req.bits.regFileAddrDW,
-
-        io.tTable.req.bits.regFileAddrSlope,
-
-        // Give the PE information about where in the Register File to
-        // write its updated slope
-        io.tTable.req.bits.regFileAddrBias + io.tTable.req.bits.currentNodeInLayer,
-
-        // Mux((io.tTable.req.bits.stateLearn === e_TTABLE_STATE_LEARN_ERROR_BACKPROP) &&
-        //   io.tTable.req.bits.inFirst,
-        //   io.tTable.req.bits.regFileAddrDW + io.tTable.req.bits.currentNodeInLayer,
-        //   io.tTable.req.bits.regFileAddrDW),
+        outAddr = io.tTable.req.bits.regFileAddrOut +
+          io.tTable.req.bits.currentNodeInLayer,
         // The neuron pointer is going to be the base pointer that
         // lives in the Transaction Table plus an offset based on the
         // current node that we're processing. The shift by 3 is to
         // convert a neuron number into a memory address. This is
         // fragile on the neuron size of 64 bits.
-        io.tTable.req.bits.neuronPointer + // neuronPointer
+        neuronPointer = io.tTable.req.bits.neuronPointer + // neuronPointer
           (io.tTable.req.bits.currentNodeInLayer << UInt(3)),
         // Pass along the decimal point
-        io.tTable.req.bits.decimalPoint, // decimalPoint
-        // Pass along the error function
-        io.tTable.req.bits.errorFunction,
+        decimalPoint = io.tTable.req.bits.decimalPoint, // decimalPoint
         // Communicate the "location" which eventually the Register
         // File will use to determine which of two locations is the
         // "writeCount" for the current layer vs. the next layer
         // io.tTable.req.bits.currentLayer(0),
-        io.tTable.req.bits.regFileLocationBit,
+        location = io.tTable.req.bits.regFileLocationBit,
 
-        // Pass along the state (TTable "stateLearn") to the PE Table
-        // so that the PE can handle this differently based on the
-        // type of opeartion the PE needs to perform
-        io.tTable.req.bits.stateLearn,
-        // Pass along the transactiontype (TTable "transactionType") to the PE Table
-        // so that the PE can handle this differently based on the
-        // type of opeartion the PE needs to perform
-        io.tTable.req.bits.transactionType,
-        // The state is also moderated by the "inLast" bit so this is
-        // also passed along
-        io.tTable.req.bits.inLast,
         // The condition under which the Register File Block WB Table
         // should be reset
-        io.tTable.req.bits.inLast &&
+        resetWB = io.tTable.req.bits.inLast &&
           (io.tTable.req.bits.currentNodeInLayer === UInt(0)) &&
           io.tTable.req.bits.stateLearn === e_TTABLE_STATE_LEARN_FEEDFORWARD,
         //inFirst bit is passed along for to check for the corner case in weight
         //update state
-        io.tTable.req.bits.inFirst,
-        // Learning rate
-        io.tTable.req.bits.learningRate,
-        // Weight decay lambda
-        io.tTable.req.bits.lambda,
-        //Total number of weight blocks
-        io.tTable.req.bits.numWeightBlocks,
-        //global weight pointer
-        io.tTable.req.bits.globalWtptr,
-
+        inFirst = io.tTable.req.bits.inFirst,
+        // The state is also moderated by the "inLast" bit so this is
+        // also passed along
+        inLast = io.tTable.req.bits.inLast,
         // If we're in the first item of a batch make it known
-        io.tTable.req.bits.batchFirst
+        batchFirst = io.tTable.req.bits.batchFirst,
+        // The learn address could mean many things, but is generally
+        // used to pass an _additional_ register file address used for
+        // learning
+        learnAddr = io.tTable.req.bits.currentNodeInLayer,
+        //Error address in LEARN_FEEDFORWARD state means the address used to save
+        //the calculated error values
+        deltaAddr = io.tTable.req.bits.regFileAddrDelta +
+          io.tTable.req.bits.currentNodeInLayer,
+        // The DW address is where the delta--weight products will be
+        // written (and accumulated by the Register File)
+        dwAddr = io.tTable.req.bits.regFileAddrDW,
+        slopeAddr = io.tTable.req.bits.regFileAddrSlope,
+        // Give the PE information about where in the Register File to
+        // write its updated slope
+        biasAddr = io.tTable.req.bits.regFileAddrBias +
+          io.tTable.req.bits.currentNodeInLayer,
+        // Pass along the error function
+        errorFunction = io.tTable.req.bits.errorFunction,
+        // Pass along the state (TTable "stateLearn") to the PE Table
+        // so that the PE can handle this differently based on the
+        // type of opeartion the PE needs to perform
+        stateLearn = io.tTable.req.bits.stateLearn,
+        // Learning rate
+        learningRate = io.tTable.req.bits.learningRate,
+        // Weight decay lambda
+        lambda = io.tTable.req.bits.lambda,
+        //Total number of weight blocks
+        numWeightBlocks = io.tTable.req.bits.numWeightBlocks,
+        // Pass along the transactiontype (TTable "transactionType") to the PE Table
+        // so that the PE can handle this differently based on the
+        // type of opeartion the PE needs to perform
+        transactionType = io.tTable.req.bits.transactionType,
+        //global weight pointer
+        globalWtptr = io.tTable.req.bits.globalWtptr
       )
     }
   }
@@ -360,4 +389,13 @@ class Control(implicit p: Parameters) extends DanaModule()(p) {
   }
 
   // Assertions
+}
+
+class Control(implicit p: Parameters)
+    extends ControlBase()(p)
+
+class ControlLearn(implicit p: Parameters)
+    extends ControlBase()(p) {
+  override lazy val io = new ControlInterfaceLearn
+
 }
