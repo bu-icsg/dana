@@ -34,21 +34,35 @@ class PERegisterFileReq(implicit p: Parameters) extends DanaBundle()(p) {
   val peIndex = UInt(width = log2Up(peTableNumEntries))
   val tIdx = UInt(width = log2Up(transactionTableNumEntries))
   val data = UInt(width = elementWidth)
-  val dataBlock = UInt(width = bitsPerBlock)
   val location = UInt(width = 1)
-  val reqType = UInt(width = log2Up(10)) // [TODO] Fragile on Dana.scala
   val incWriteCount = Bool()
+}
+
+class PERegisterFileReqLearn(implicit p: Parameters)
+    extends PERegisterFileReq()(p) {
+  val dataBlock = UInt(width = bitsPerBlock)
+  val reqType = UInt(width = log2Up(10)) // [TODO] Fragile on Dana.scala
 }
 
 class PERegisterFileResp(implicit p: Parameters) extends DanaBundle()(p) {
   val peIndex = UInt(width = log2Up(peTableNumEntries))
   val data = UInt(width = bitsPerBlock)
+}
+
+class PERegisterFileRespLearn(implicit p: Parameters)
+    extends PERegisterFileResp()(p) {
   val reqType = UInt(width = log2Up(5)) // [TODO] Fragile on Dana.scala
 }
 
 class PERegisterFileInterface(implicit p: Parameters) extends DanaBundle()(p) {
-  val req = Decoupled(new PERegisterFileReq)
-  val resp = Decoupled(new PERegisterFileResp).flip
+  lazy val req = Decoupled(new PERegisterFileReq)
+  lazy val resp = Decoupled(new PERegisterFileResp).flip
+}
+
+class PERegisterFileInterfaceLearn(implicit p: Parameters)
+    extends PERegisterFileInterface()(p) {
+  override lazy val req = Decoupled(new PERegisterFileReqLearn)
+  override lazy val resp = Decoupled(new PERegisterFileRespLearn).flip
 }
 
 class PETransactionTableInterfaceResp(implicit p: Parameters) extends DanaBundle()(p) {
@@ -59,11 +73,13 @@ class PETransactionTableInterfaceResp(implicit p: Parameters) extends DanaBundle
 class PETableInterface(implicit p: Parameters) extends DanaBundle()(p) {
   val control = (new ControlPETableInterface).flip
   val cache = new PECacheInterface
-  val regFile = new PERegisterFileInterface
+  lazy val regFile = new PERegisterFileInterface
 }
 
 class PETableInterfaceLearn(implicit p: Parameters)
-    extends PETableInterface()(p)
+    extends PETableInterface()(p) {
+  override lazy val regFile = new PERegisterFileInterfaceLearn
+}
 
 class ProcessingElementState(implicit p: Parameters) extends DanaBundle()(p) {
   val infoValid = Bool()
@@ -147,25 +163,29 @@ class ProcessingElementTableBase[PeStateType <: ProcessingElementState,
     }
   }
 
-  def regFileReadRequest(addr: UInt, peIndex:UInt, tIdx: UInt, location:UInt, reqType: UInt){
+  def regFileReadReq(addr: UInt, peIndex:UInt, tIdx: UInt, location:UInt) {
     io.regFile.req.valid := Bool(true)
     io.regFile.req.bits.isWrite := Bool(false)
     io.regFile.req.bits.addr := addr
     io.regFile.req.bits.peIndex := peIndex
     io.regFile.req.bits.tIdx := tIdx
     io.regFile.req.bits.location := location
-    io.regFile.req.bits.reqType := reqType
   }
-  def regFileWriteReq(incWC: Bool, reqType: UInt, addr: UInt, tIdx: UInt,
-    data: SInt, location: UInt){
+
+  def regFileWriteReqBase(incWC: Bool, reqType: UInt, addr: UInt, tIdx: UInt,
+    data: SInt, location: UInt) {
     io.regFile.req.valid := Bool(true)
     io.regFile.req.bits.isWrite := Bool(true)
     io.regFile.req.bits.incWriteCount := incWC
-    io.regFile.req.bits.reqType := reqType
     io.regFile.req.bits.addr := addr
     io.regFile.req.bits.tIdx := tIdx
     io.regFile.req.bits.data := data
     io.regFile.req.bits.location := location
+  }
+
+  def regFileWriteReq(incWC: Bool, reqType: UInt, addr: UInt, tIdx: UInt,
+    data: SInt, location: UInt) {
+    regFileWriteReqBase(incWC, reqType, addr, tIdx, data, location)
   }
 
   def isFree(x: ProcessingElementInterface): Bool = { x.req.ready }
@@ -195,9 +215,7 @@ class ProcessingElementTableBase[PeStateType <: ProcessingElementState,
   io.regFile.req.bits.peIndex := UInt(0)
   io.regFile.req.bits.tIdx := UInt(0)
   io.regFile.req.bits.data := UInt(0)
-  io.regFile.req.bits.dataBlock := UInt(0)
   io.regFile.req.bits.location := UInt(0)
-  io.regFile.req.bits.reqType := UInt(0)
   io.regFile.req.bits.incWriteCount := Bool(false)
   io.regFile.resp.ready := Bool(true) // [TOOD] placeholder
 
@@ -304,12 +322,11 @@ class ProcessingElementTableBase[PeStateType <: ProcessingElementState,
         // All requests are now routed through the Register File (the
         // intermediate storage area for all computation)
         val peIdx = peArbiter.io.out.bits.index
-        regFileReadRequest(
+        regFileReadReq(
           table(peIdx).inAddr,
           peIdx,
           table(peIdx).tIdx,
-          table(peIdx).location,
-          e_PE_REQ_INPUT)
+          table(peIdx).location)
 
         // Send a request to the cache for weights
         io.cache.req.valid := Bool(true)
@@ -351,21 +368,17 @@ class ProcessingElementTable(implicit p: Parameters)
         Vec(p(PeTableNumEntries), Module(new ProcessingElement).io))(p) {
   when (io.regFile.resp.valid) {
     val peIndex = io.regFile.resp.bits.peIndex
-    switch (io.regFile.resp.bits.reqType) {
-      is (e_PE_REQ_INPUT) {
-        table(peIndex).inBlock := io.regFile.resp.bits.data
-        table(peIndex).inAddr := table(peIndex).inAddr + UInt(elementsPerBlock)
-        when (table(peIndex).weightValid) {
-          pe(peIndex).req.valid := Bool(true)
-          table(peIndex).weightValid := Bool(false)
-          table(peIndex).inValid := Bool(false)
-        } .otherwise {
-          table(peIndex).inValid := Bool(true)
-        }
-        printf("[INFO] PETable: Valid RegFile input resp PE/data 0x%x/0x%x\n",
-          peIndex, io.regFile.resp.bits.data)
-      }
+    table(peIndex).inBlock := io.regFile.resp.bits.data
+    table(peIndex).inAddr := table(peIndex).inAddr + UInt(elementsPerBlock)
+    when (table(peIndex).weightValid) {
+      pe(peIndex).req.valid := Bool(true)
+      table(peIndex).weightValid := Bool(false)
+      table(peIndex).inValid := Bool(false)
+    } .otherwise {
+      table(peIndex).inValid := Bool(true)
     }
+    printf("[INFO] PETable: Valid RegFile input resp PE/data 0x%x/0x%x\n",
+      peIndex, io.regFile.resp.bits.data)
   }
 }
 
@@ -376,6 +389,21 @@ class ProcessingElementTableLearn(implicit p: Parameters)
         new ProcessingElementRespLearn,
         Vec(p(PeTableNumEntries), Module(new ProcessingElementLearn).io))(p) {
   override lazy val io = new PETableInterfaceLearn
+
+  def regFileReadReq(addr: UInt, peIndex:UInt, tIdx: UInt,
+    location:UInt, reqType: UInt) {
+    regFileReadReq(addr, peIndex, tIdx, location) // From PE Table Base
+    io.regFile.req.bits.reqType := reqType
+  }
+
+  override def regFileWriteReq(incWC: Bool, reqType: UInt, addr: UInt, tIdx: UInt,
+    data: SInt, location: UInt) {
+    regFileWriteReqBase(incWC, reqType, addr, tIdx, data, location)
+    io.regFile.req.bits.reqType := reqType
+  }
+
+  io.regFile.req.bits.reqType := UInt(0)
+  io.regFile.req.bits.dataBlock := UInt(0)
 
   // Register File Block Writeback Table -- This table keeps track of
   // the highest index delta--weight _block_ that has been written.
@@ -561,7 +589,7 @@ class ProcessingElementTableLearn(implicit p: Parameters)
         // intermediate storage area for all computation)
         val peIdx = peArbiter.io.out.bits.index
         when (table(peIdx).stateLearn === e_TTABLE_STATE_LEARN_ERROR_BACKPROP) {
-          regFileReadRequest(
+          regFileReadReq(
             table(peIdx).dwAddr,
             peIdx,
             table(peIdx).tIdx,
@@ -569,7 +597,7 @@ class ProcessingElementTableLearn(implicit p: Parameters)
             e_PE_REQ_INPUT)
             table(peIdx).slopeAddr := table(peIdx).slopeAddr + UInt(elementsPerBlock)
         } .elsewhen (table(peIdx).stateLearn === e_TTABLE_STATE_LEARN_UPDATE_SLOPE) {
-          regFileReadRequest(
+          regFileReadReq(
             table(peIdx).dwAddr,
             peIdx,
             table(peIdx).tIdx,
@@ -578,7 +606,7 @@ class ProcessingElementTableLearn(implicit p: Parameters)
           table(peIdx).slopeAddr := table(peIdx).slopeAddr + UInt(elementsPerBlock)
         } .elsewhen (table(peIdx).stateLearn === e_TTABLE_STATE_LEARN_WEIGHT_UPDATE) {
           when (table(peIdx).tType === e_TTYPE_BATCH) {
-            regFileReadRequest(
+            regFileReadReq(
               table(peIdx).slopeAddr + table(peIdx).weightoffset,
               peIdx,
               table(peIdx).tIdx,
@@ -586,7 +614,7 @@ class ProcessingElementTableLearn(implicit p: Parameters)
               e_PE_REQ_INPUT)
             table(peIdx).slopeAddr := table(peIdx).slopeAddr + UInt(elementsPerBlock)
           } .otherwise {
-            regFileReadRequest(
+            regFileReadReq(
               table(peIdx).dwAddr,
               peIdx,
               table(peIdx).tIdx,
@@ -594,7 +622,7 @@ class ProcessingElementTableLearn(implicit p: Parameters)
               e_PE_REQ_INPUT)
           }
         } .otherwise {
-          regFileReadRequest(
+          regFileReadReq(
             table(peIdx).inAddr,
             peIdx,
             table(peIdx).tIdx,
@@ -612,7 +640,7 @@ class ProcessingElementTableLearn(implicit p: Parameters)
         pe(peIdx).req.valid := Bool(true)
       }
       is (PE_states('e_PE_REQUEST_EXPECTED_OUTPUT)) {
-        regFileReadRequest(
+        regFileReadReq(
           table(peArbiter.io.out.bits.index).learnAddr,
           peArbiter.io.out.bits.index,
           table(peArbiter.io.out.bits.index).tIdx,
@@ -681,7 +709,7 @@ class ProcessingElementTableLearn(implicit p: Parameters)
         pe(peIdx).req.valid := Bool(true)
       }
       is(PE_states('e_PE_REQUEST_OUTPUTS_ERROR_BACKPROP)){
-        regFileReadRequest(
+        regFileReadReq(
           table(peArbiter.io.out.bits.index).inAddr,
           peArbiter.io.out.bits.index,
           table(peArbiter.io.out.bits.index).tIdx,
@@ -691,7 +719,7 @@ class ProcessingElementTableLearn(implicit p: Parameters)
         pe(peArbiter.io.out.bits.index).req.valid := Bool(true)
       }
       is(PE_states('e_PE_REQUEST_DELTA_WEIGHT_PRODUCT_ERROR_BACKPROP)){
-        regFileReadRequest(
+        regFileReadReq(
           table(peArbiter.io.out.bits.index).outAddr,
           peArbiter.io.out.bits.index,
           table(peArbiter.io.out.bits.index).tIdx,
@@ -701,7 +729,7 @@ class ProcessingElementTableLearn(implicit p: Parameters)
         pe(peArbiter.io.out.bits.index).req.valid := Bool(true)
       }
       is (PE_states('e_PE_WEIGHT_UPDATE_REQUEST_DELTA)) {
-        regFileReadRequest(
+        regFileReadReq(
           table(peArbiter.io.out.bits.index).deltaAddr,
           peArbiter.io.out.bits.index,
           table(peArbiter.io.out.bits.index).tIdx,

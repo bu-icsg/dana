@@ -18,7 +18,7 @@ class SRAMElementInterface (
     sramDepth = sramDepth,
     numPorts = numPorts,
     elementWidth = elementWidth).asInstanceOf[this.type]
-  override val din = Vec.fill(numPorts){ UInt(OUTPUT, width = elementWidth)}
+  val dinElement = Vec.fill(numPorts){ UInt(OUTPUT, width = elementWidth)}
   override val addr = Vec.fill(numPorts){ UInt(OUTPUT,
     width = log2Up(sramDepth) + log2Up(dataWidth / elementWidth))}
 }
@@ -96,7 +96,7 @@ class SRAMElement (
         } .elsewhen(addr(i).addrHi === writePending(i).addrHi &&
             io.we(i) &&
             UInt(j) === addr(i).addrLo) {
-          tmp(i)(j) := io.din(i)
+          tmp(i)(j) := io.dinElement(i)
           forwarding(i) := Bool(true)
         } .otherwise {
           tmp(i)(j) := sram.io.doutR(i).toBits()((j+1) * elementWidth - 1,
@@ -112,7 +112,7 @@ class SRAMElement (
     writePending(i).valid := Bool(false)
     when ((io.we(i)) && (forwarding(i) === Bool(false))) {
       writePending(i).valid := Bool(true)
-      writePending(i).data := io.din(i)
+      writePending(i).data := io.dinElement(i)
       writePending(i).addrHi := addr(i).addrHi
       writePending(i).addrLo := addr(i).addrLo
     }
@@ -141,7 +141,7 @@ class SRAMElementTests(uut: SRAMElement, isTrace: Boolean = true)
     for (j <- 0 until (uut.divUp(uut.dataWidth, uut.elementWidth))) {
       poke(uut.io.we(0), 1)
       poke(uut.io.addr(0), ((i << log2Up(uut.divUp(uut.dataWidth, uut.elementWidth))) + j))
-      poke(uut.io.din(0), extractElement(copy(i), j))
+      poke(uut.io.dinElement(0), extractElement(copy(i), j))
       step(1)
       poke(uut.io.we(0), 0)
       step(1)
@@ -168,7 +168,7 @@ class SRAMElementTests(uut: SRAMElement, isTrace: Boolean = true)
     for (j <- 0 until (uut.divUp(uut.dataWidth, uut.elementWidth))) {
       poke(uut.io.we(0), 1)
       poke(uut.io.addr(0), ((i << log2Up(uut.divUp(uut.dataWidth, uut.elementWidth))) + j))
-      poke(uut.io.din(0), extractElement(copy(i), j))
+      poke(uut.io.dinElement(0), extractElement(copy(i), j))
       step(1)
     }
   }
@@ -194,7 +194,7 @@ class SRAMElementTests(uut: SRAMElement, isTrace: Boolean = true)
     for (j <- 0 until (uut.divUp(uut.dataWidth, uut.elementWidth))) {
       poke(uut.io.we(0), 1)
       poke(uut.io.addr(0), ((i << log2Up(uut.divUp(uut.dataWidth, uut.elementWidth))) + j))
-      poke(uut.io.din(0), extractElement(copy(i), j))
+      poke(uut.io.dinElement(0), extractElement(copy(i), j))
       step(1)
       if (rnd.nextInt(2) == 1) {
         poke(uut.io.we(0), 0)

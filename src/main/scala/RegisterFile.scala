@@ -5,9 +5,14 @@ import scala.math._
 import cde.{Parameters, Field}
 
 class RegisterFileInterface(implicit p: Parameters) extends DanaBundle()(p) {
-  val pe = new (PERegisterFileInterface).flip
-  val control = new (ControlRegisterFileInterface).flip
-  val tTable = new (TTableRegisterFileInterface).flip
+  lazy val pe = (new PERegisterFileInterface).flip
+  val control = (new ControlRegisterFileInterface).flip
+  val tTable = (new TTableRegisterFileInterface).flip
+}
+
+class RegisterFileInterfaceLearn(implicit p: Parameters)
+    extends RegisterFileInterface()(p) {
+  override lazy val pe = (new PERegisterFileInterfaceLearn).flip
 }
 
 class RegisterFileState(implicit p: Parameters) extends DanaBundle()(p) {
@@ -16,30 +21,12 @@ class RegisterFileState(implicit p: Parameters) extends DanaBundle()(p) {
   val countWrites = UInt(width = 16) // [TODO] fragile
 }
 
-abstract class RegisterFileBase[SramIf <: SRAMVariantInterface](
+abstract class RegisterFileBase[SramIf <: SRAMElementInterface](
   genSram: => Vec[SramIf])(implicit p: Parameters)
     extends DanaModule()(p) {
+  lazy val io = new RegisterFileInterface
   val mem = genSram
-}
 
-class RegisterFile(implicit p: Parameters)
-    extends RegisterFileBase(Vec(p(TransactionTableNumEntries),
-      Module(new SRAMElementIncrement(
-        dataWidth = p(BitsPerBlock),
-        sramDepth = pow(2, log2Up(p(RegFileNumBlocks))).toInt *
-          p(TransactionTableNumEntries) * 2,
-        numPorts = 1,
-        elementWidth = p(ElementWidth))).io))(p) {
-  val io = new RegisterFileInterface
-
-  // One SRAMElement for each Transaction Table entry
-  // val mem = Vec.fill(transactionTableNumEntries){
-  //   Module( new SRAMElementIncrement(
-  //     dataWidth = bitsPerBlock,
-  //     sramDepth = pow(2, log2Up(regFileNumBlocks)).toInt *
-  //       transactionTableNumEntries * 2,
-  //     numPorts = 1,
-  //     elementWidth = elementWidth)).io}
   val state = Vec.fill(transactionTableNumEntries * 2){Reg(new RegisterFileState)}
   val stateToggle = Reg(Vec.fill(transactionTableNumEntries){UInt(width=1)})
   val tTableRespValid = Reg(Bool())
@@ -50,9 +37,8 @@ class RegisterFile(implicit p: Parameters)
   for (transaction <- 0 until transactionTableNumEntries) {
     for (port <- 0 until mem(transaction).numPorts) {
       mem(transaction).we(port) := Bool(false)
-      mem(transaction).wType(port) := UInt(0)
-      mem(transaction).dinElement(port) := UInt(0)
       mem(transaction).din(port) := UInt(0)
+      mem(transaction).dinElement(port) := UInt(0)
       mem(transaction).addr(port) := UInt(0)
     }
   }
@@ -71,33 +57,10 @@ class RegisterFile(implicit p: Parameters)
     val sIdx = io.pe.req.bits.tIdx ## io.pe.req.bits.location
     when (io.pe.req.bits.isWrite) { // This is a Write
       mem(tIdx).we(0) := Bool(true)
-      switch (io.pe.req.bits.reqType) {
-        mem(tIdx).addr(0) := io.pe.req.bits.addr
-        is (e_PE_WRITE_ELEMENT) {
-          mem(tIdx).wType(0) := UInt(0)
-          mem(tIdx).dinElement(0) := io.pe.req.bits.data
-          printf("[INFO] RegFile: PE write element tIdx/Addr/Data 0x%x/0x%x/0x%x\n",
-            tIdx, io.pe.req.bits.addr, io.pe.req.bits.data)
-        }
-        is (e_PE_WRITE_BLOCK_NEW) {
-          mem(tIdx).wType(0) := UInt(1)
-          mem(tIdx).din(0) := io.pe.req.bits.dataBlock
-          printf("[INFO] RegFile: PE write block new tIdx/Addr/Data 0x%x/0x%x/0x%x\n",
-            tIdx, io.pe.req.bits.addr, io.pe.req.bits.dataBlock)
-        }
-        is (e_PE_WRITE_BLOCK_ACC) {
-          mem(tIdx).wType(0) := UInt(2)
-          mem(tIdx).din(0) := io.pe.req.bits.dataBlock
-          printf("[INFO] RegFile: PE write block inc tIdx/Addr/Data 0x%x/0x%x/0x%x\n",
-            tIdx, io.pe.req.bits.addr, io.pe.req.bits.dataBlock)
-        }
-        // Kludge to kill the write _if_ we're just incrementing the
-        // write count
-        is (e_PE_INCREMENT_WRITE_COUNT) {
-          printf("[INFO] RegFile: PE increment write count\n")
-          mem(tIdx).we(0) := Bool(false)
-        }
-      }
+      mem(tIdx).addr(0) := io.pe.req.bits.addr
+      mem(tIdx).dinElement(0) := io.pe.req.bits.data
+      printf("[INFO] RegFile: PE write element tIdx/Addr/Data 0x%x/0x%x/0x%x\n",
+        tIdx, io.pe.req.bits.addr, io.pe.req.bits.data)
       // Increment the write count and generate a response to the
       // control module if this puts us at the write count
       when (io.pe.req.bits.incWriteCount) {
@@ -111,7 +74,6 @@ class RegisterFile(implicit p: Parameters)
       }
     } .otherwise {                  // This is a read
       mem(tIdx).we(0) := Bool(false)
-      mem(tIdx).wType(0) := UInt(0)
       mem(tIdx).addr(0) := io.pe.req.bits.addr
       printf("[INFO] RegFile: PE read tIdx/Addr 0x%x/0x%x\n", tIdx,
         io.pe.req.bits.addr)
@@ -138,7 +100,6 @@ class RegisterFile(implicit p: Parameters)
         printf("[INFO] RegFile: Saw TTable write idx/Addr/Data 0x%x/0x%x/0x%x\n",
           tIdx, io.tTable.req.bits.addr, io.tTable.req.bits.data)
         mem(tIdx).we(0) := Bool(true)
-        mem(tIdx).wType(0) := UInt(0)
         mem(tIdx).dinElement(0) := io.tTable.req.bits.data
         mem(tIdx).addr(0) := io.tTable.req.bits.addr
       }
@@ -152,14 +113,12 @@ class RegisterFile(implicit p: Parameters)
   }
 
   val readReqValid_d0 = Reg(next = io.pe.req.valid && !io.pe.req.bits.isWrite)
-  val readReqType_d0 = Reg(next = io.pe.req.bits.reqType)
   val peIndex_d0 = Reg(next = io.pe.req.bits.peIndex)
   val tIndex_d0 = Reg(next = io.pe.req.bits.tIdx)
 
   io.pe.resp.valid := readReqValid_d0
   io.pe.resp.bits.peIndex := peIndex_d0
   io.pe.resp.bits.data := mem(tIndex_d0).dout(0)
-  io.pe.resp.bits.reqType := readReqType_d0
   when (io.pe.resp.valid) {
     printf("[INFO] RegFile: PE resp PE/Data 0x%x/0x%x\n",
       io.pe.resp.bits.peIndex, io.pe.resp.bits.data);
@@ -205,5 +164,66 @@ class RegisterFile(implicit p: Parameters)
     "RegFile totalWrites being changed when valid && (countWrites != totalWrites)")
 }
 
-// class RegisterFileLearn(implicit p: Parameters)
-//     extends RegisterFileBase()(p)
+class RegisterFile(implicit p: Parameters)
+    extends RegisterFileBase(Vec(p(TransactionTableNumEntries),
+      Module(new SRAMElement(
+        dataWidth = p(BitsPerBlock),
+        sramDepth = pow(2, log2Up(p(RegFileNumBlocks))).toInt *
+          p(TransactionTableNumEntries) * 2,
+        numPorts = 1,
+        elementWidth = p(ElementWidth))).io))(p)
+
+class RegisterFileLearn(implicit p: Parameters)
+    extends RegisterFileBase(Vec(p(TransactionTableNumEntries),
+      Module(new SRAMElementIncrement(
+        dataWidth = p(BitsPerBlock),
+        sramDepth = pow(2, log2Up(p(RegFileNumBlocks))).toInt *
+          p(TransactionTableNumEntries) * 2,
+        numPorts = 1,
+        elementWidth = p(ElementWidth))).io))(p) {
+  override lazy val io = new RegisterFileInterfaceLearn
+
+  val readReqType_d0 = Reg(next = io.pe.req.bits.reqType)
+  io.pe.resp.bits.reqType := readReqType_d0
+
+  for (transaction <- 0 until transactionTableNumEntries) {
+    for (port <- 0 until mem(transaction).numPorts) {
+      mem(transaction).wType(port) := UInt(0)
+    }
+  }
+
+  when (io.pe.req.valid) {
+    // Take action based on whether this is a write or a read
+    val tIdx = io.pe.req.bits.tIdx
+    val sIdx = io.pe.req.bits.tIdx ## io.pe.req.bits.location
+    when (io.pe.req.bits.isWrite) { // This is a Write
+      switch (io.pe.req.bits.reqType) {
+        mem(tIdx).addr(0) := io.pe.req.bits.addr
+        is (e_PE_WRITE_ELEMENT) {
+          mem(tIdx).wType(0) := UInt(0)
+          mem(tIdx).dinElement(0) := io.pe.req.bits.data
+          printf("[INFO] RegFile: PE write element tIdx/Addr/Data 0x%x/0x%x/0x%x\n",
+            tIdx, io.pe.req.bits.addr, io.pe.req.bits.data)
+        }
+        is (e_PE_WRITE_BLOCK_NEW) {
+          mem(tIdx).wType(0) := UInt(1)
+          mem(tIdx).din(0) := io.pe.req.bits.dataBlock
+          printf("[INFO] RegFile: PE write block new tIdx/Addr/Data 0x%x/0x%x/0x%x\n",
+            tIdx, io.pe.req.bits.addr, io.pe.req.bits.dataBlock)
+        }
+        is (e_PE_WRITE_BLOCK_ACC) {
+          mem(tIdx).wType(0) := UInt(2)
+          mem(tIdx).din(0) := io.pe.req.bits.dataBlock
+          printf("[INFO] RegFile: PE write block inc tIdx/Addr/Data 0x%x/0x%x/0x%x\n",
+            tIdx, io.pe.req.bits.addr, io.pe.req.bits.dataBlock)
+        }
+        // Kludge to kill the write _if_ we're just incrementing the
+        // write count
+        is (e_PE_INCREMENT_WRITE_COUNT) {
+          printf("[INFO] RegFile: PE increment write count\n")
+          mem(tIdx).we(0) := Bool(false)
+        }
+      }
+    }
+  }
+}

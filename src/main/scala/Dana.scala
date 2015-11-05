@@ -225,7 +225,8 @@ class Dana(implicit p: Parameters) extends DanaModule {
   val cache = if (learningEnabled) Module(new CacheLearn) else Module(new Cache)
   val peTable = if (learningEnabled) Module(new ProcessingElementTableLearn) else
     Module(new ProcessingElementTable)
-  val regFile = Module(new RegisterFile)
+  val regFile = if (learningEnabled) Module(new RegisterFileLearn) else
+    Module(new RegisterFile)
 
   // Wire everything up. Ordering shouldn't matter here.
   // io.arbiter <> tTable.io.arbiter

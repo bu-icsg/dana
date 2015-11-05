@@ -16,17 +16,14 @@ class SRAMElementIncrementInterface (
   override val dataWidth: Int,
   override val sramDepth: Int,
   override val numPorts: Int,
-  val elementWidth: Int
-) extends SRAMVariantInterface(dataWidth, sramDepth, numPorts) {
+  override val elementWidth: Int
+) extends SRAMElementInterface(dataWidth, sramDepth, numPorts, elementWidth) {
   override def cloneType = new SRAMElementIncrementInterface(
     dataWidth = dataWidth,
     sramDepth = sramDepth,
     numPorts = numPorts,
     elementWidth = elementWidth).asInstanceOf[this.type]
   val wType = Vec.fill(numPorts){ UInt(OUTPUT, width = log2Up(3)) }
-  val dinElement = Vec.fill(numPorts){ UInt(OUTPUT, width = elementWidth)}
-  override val addr = Vec.fill(numPorts){ UInt(OUTPUT,
-    width = log2Up(sramDepth) + log2Up(dataWidth / elementWidth))}
 }
 
 class WritePendingIncrementBundle (
