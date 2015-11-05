@@ -272,8 +272,7 @@ class CacheBase[SramIfType <: SRAMVariantInterface](
         // occupies one block, so we need to pull the block address
         // out of the layer number.
         mem(derefNnid).addr(0) := UInt(1) + // Offset from info region
-          layer(layer.getWidth-1,
-            log2Up(elementsPerBlock))
+          layer(layer.getWidth-1, log2Up(elementsPerBlock))
       }
       is (e_CACHE_DECREMENT_IN_USE_COUNT) {
           table(derefNnid).inUseCount := table(derefNnid).inUseCount - UInt(1)
