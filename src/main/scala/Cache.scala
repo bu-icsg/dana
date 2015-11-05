@@ -10,8 +10,6 @@ import cde.{Parameters, Field}
 //     if it isn't
 
 class CacheState(implicit p: Parameters) extends DanaBundle()(p) {
-  // nnsim-hdl equivalent:
-  //   cache_types::cache_config_entry_struct
   val valid = Bool()
   val notifyFlag = Bool()
   val fetch = Bool()
@@ -37,11 +35,7 @@ class CacheMemResp(implicit p: Parameters) extends DanaBundle()(p) {
 }
 
 class CacheMemInterface(implicit p: Parameters) extends DanaBundle()(p) {
-  // Outbound request. nnsim-hdl equivalent:
-  //   cache_types::cache2mem_struct
   val req = Decoupled(new CacheMemReq)
-  // Response from memory. nnsim-hdl equivalent:
-  //   cache_types::mem2cache_struct
   val resp = Decoupled(new CacheMemResp).flip
 }
 
@@ -132,9 +126,8 @@ class CacheBase[SramIfType <: SRAMVariantInterface](
   hasNotify := table.exists(isDoneFetching)
   idxNotify := table.indexWhere(isDoneFetching)
 
-  // Helper functions for setting the table
+  // This initializes a new cache entry
   def tableInit(index: UInt) {
-    // This initializes a new cache entry
     table(index).valid := Bool(true)
     table(index).asid := tTableReqQueue.deq.bits.asid
     table(index).nnid := tTableReqQueue.deq.bits.nnid
@@ -281,9 +274,6 @@ class CacheBase[SramIfType <: SRAMVariantInterface](
         mem(derefNnid).addr(0) := UInt(1) + // Offset from info region
           layer(layer.getWidth-1,
             log2Up(elementsPerBlock))
-        // cacheRead(derefNnid) := UInt(1) + // Offset from info region
-        //   layer(layer.getWidth-1,
-        //     log2Up(elementsPerBlock))
       }
       is (e_CACHE_DECREMENT_IN_USE_COUNT) {
           table(derefNnid).inUseCount := table(derefNnid).inUseCount - UInt(1)
@@ -296,7 +286,7 @@ class CacheBase[SramIfType <: SRAMVariantInterface](
     controlRespPipe(0).bits.tableMask := table(idxNotify).notifyMask
     controlRespPipe(0).bits.cacheIndex := idxNotify
     controlRespPipe(0).bits.field := e_CACHE_INFO
-    // [TODO] The location bit should isn't used? Remove this?
+    // [TODO] The location bit isn't used? Remove this?
     controlRespPipe(0).bits.location := UInt(0)
     // Now that this is away, we can deassert some table bits
     table(idxNotify).fetch := Bool(false)
