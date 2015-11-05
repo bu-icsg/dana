@@ -74,28 +74,14 @@ class CompressedNeuron(implicit p: Parameters) extends DanaBundle()(p) {
   }
 }
 
-class Cache(implicit p: Parameters) extends DanaModule()(p) {
+class CacheBase[SramIfType <: SRAMVariantInterface](
+  genSram: => Vec[SramIfType])(implicit p: Parameters) extends DanaModule()(p) {
+  val mem = genSram
+
   lazy val io = new CacheInterface
 
   // Create the table of cache entries
   val table = Reg(Vec.fill(cacheNumEntries){new CacheState})
-
-  val mem = Vec((0 until cacheNumEntries).map(i => Module(new SRAMBlockIncrement(
-    dataWidth = bitsPerBlock,
-    sramDepth = cacheNumBlocks,
-    numPorts = 1,
-    elementWidth = elementWidth)).io))
-
-  // val mem = if (learningEnabled)
-  //   Vec((0 until cacheNumEntries).map(i => Module(new SRAMBlockIncrement(
-  //     dataWidth = bitsPerBlock,
-  //     sramDepth = cacheNumBlocks,
-  //     numPorts = 1,
-  //     elementWidth = elementWidth)).io)) else
-  //     Vec((0 until cacheNumEntries).map(i => Module(new SRAMDualPort(
-  //       dataWidth = elementWidth * elementsPerBlock,
-  //       sramDepth = cacheNumBlocks // [TODO] I think this is the correct parameter
-  //     )).io))
 
   // The Transaction Table Queue needs to be big enough to hold one
   // inbound request from every entry in the Transaction Table
@@ -204,10 +190,7 @@ class Cache(implicit p: Parameters) extends DanaModule()(p) {
   for (i <- 0 until cacheNumEntries) {
     mem(i).din(0) := UInt(0)
     mem(i).addr(0) := UInt(0)
-    // mem(i).addr(0) := cacheRead(i)
     mem(i).we(0) := Bool(false)
-    mem(i).inc(0) := Bool(false)
-    // cacheRead(0) := UInt(0)
   }
 
   // The cache can see requests from three locations:
@@ -384,8 +367,9 @@ class Cache(implicit p: Parameters) extends DanaModule()(p) {
     // that it's being passed correctly.
     mem(io.pe.req.bits.cacheIndex).addr(0) :=
       io.pe.req.bits.cacheAddr >> (UInt(2 + log2Up(elementsPerBlock)))
-      printf("[INFO] cache: block address from byte address 0x%x/0x%x\n", io.pe.req.bits.cacheAddr,
-        io.pe.req.bits.cacheAddr >> (UInt(2 + log2Up(elementsPerBlock))) )
+    printf("[INFO] cache: block address from byte address 0x%x/0x%x\n",
+      io.pe.req.bits.cacheAddr,
+      io.pe.req.bits.cacheAddr >> (UInt(2 + log2Up(elementsPerBlock))) )
     // Fill the first stage of the PE pipeline
     switch (io.pe.req.bits.field) {
       is (e_CACHE_NEURON) {
@@ -475,9 +459,25 @@ class Cache(implicit p: Parameters) extends DanaModule()(p) {
   "Cache missed on ASID/NNID req, but has no free/unused entries")
 }
 
+class Cache(implicit p: Parameters)
+    extends CacheBase(Vec(p(CacheNumEntries),
+      Module(new SRAMVariant(
+        dataWidth = p(BitsPerBlock),
+        sramDepth = p(CacheNumBlocks),
+        numPorts = 1)).io))(p)
+
 class CacheLearn(implicit p: Parameters)
-    extends Cache()(p) {
+    extends CacheBase(Vec(p(CacheNumEntries),
+      Module(new SRAMBlockIncrement(
+        dataWidth = p(BitsPerBlock),
+        sramDepth = p(CacheNumBlocks),
+        numPorts = 1,
+        elementWidth = p(ElementWidth))).io))(p) {
   override lazy val io = new CacheInterfaceLearn
+
+  for (i <- 0 until cacheNumEntries) {
+    mem(i).inc(0) := Bool(false)
+  }
 
   when (io.pe.req.valid) {
     switch (io.pe.req.bits.field) {
@@ -500,5 +500,4 @@ class CacheLearn(implicit p: Parameters)
       }
     }
   }
-
 }

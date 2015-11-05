@@ -41,6 +41,8 @@ class DefaultXFilesDanaConfig extends Config (
       case BitsPerBlock => site(ElementsPerBlock) * site(ElementWidth)
       case RegFileNumBlocks => divUp(site(RegisterFileNumElements),
         site(ElementsPerBlock))
+      case CacheNumBlocks => divUp(divUp((site(CacheDataSize) * 8),
+        site(ElementWidth)), site(ElementsPerBlock))
     }},
   // [TODO] Add constraints
   // topConstraints = List(
