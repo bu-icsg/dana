@@ -72,12 +72,13 @@ class PETransactionTableInterfaceResp(implicit p: Parameters) extends DanaBundle
 
 class PETableInterface(implicit p: Parameters) extends DanaBundle()(p) {
   val control = (new ControlPETableInterface).flip
-  val cache = new PECacheInterface
+  lazy val cache = new PECacheInterface
   lazy val regFile = new PERegisterFileInterface
 }
 
 class PETableInterfaceLearn(implicit p: Parameters)
     extends PETableInterface()(p) {
+  override lazy val cache = new PECacheInterfaceLearn
   override lazy val regFile = new PERegisterFileInterfaceLearn
 }
 
