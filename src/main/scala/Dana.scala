@@ -58,11 +58,8 @@ trait DanaParameters extends HasCoreParameters {
   val regFileNumElements = p(RegisterFileNumElements)
 
   // Derived parameters
-  val regFileNumBlocks =
-    divUp(p(RegisterFileNumElements), p(ElementsPerBlock))
-  val cacheNumBlocks =
-    divUp(divUp((p(CacheDataSize) * 8), p(ElementWidth)),
-      p(ElementsPerBlock))
+  val regFileNumBlocks = p(RegFileNumBlocks)
+  val cacheNumBlocks = p(CacheNumBlocks)
   // [TODO] This ioIdxWidth looks wrong?
   val ioIdxWidth = log2Up(p(RegisterFileNumElements) * p(ElementWidth))
   val bitsPerBlock = p(BitsPerBlock)
