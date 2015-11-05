@@ -27,6 +27,7 @@ case object LearningEnabled extends Field[Boolean]
 case object BitsPerBlock extends Field[Int]
 case object RegFileNumBlocks extends Field[Int]
 case object CacheNumBlocks extends Field[Int]
+case object NNConfigNeuronWidth extends Field[Int]
 
 trait DanaParameters extends HasCoreParameters {
   val elementWidth = p(ElementWidth)
@@ -64,8 +65,11 @@ trait DanaParameters extends HasCoreParameters {
       p(ElementsPerBlock))
   // [TODO] This ioIdxWidth looks wrong?
   val ioIdxWidth = log2Up(p(RegisterFileNumElements) * p(ElementWidth))
-  val bitsPerBlock = p(ElementsPerBlock) * p(ElementWidth)
+  val bitsPerBlock = p(BitsPerBlock)
   val learningEnabled = p(LearningEnabled)
+
+  // Related to the neural network configuration format
+  val nnConfigNeuronWidth = p(NNConfigNeuronWidth)
 
   def divUp (dividend: Int, divisor: Int): Int = {
     (dividend + divisor - 1) / divisor}

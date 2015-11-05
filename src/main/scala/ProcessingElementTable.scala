@@ -7,7 +7,7 @@ class PECacheInterfaceResp(implicit p: Parameters) extends DanaBundle()(p) {
   val field = UInt(width = log2Up(6)) // [TODO] fragile on Dana.scala enum
   val data = UInt(width = bitsPerBlock)
   val peIndex = UInt(width = log2Up(peTableNumEntries))
-  val indexIntoData = UInt(width = elementsPerBlock) // [TODO] too big width?
+  val neuronIndex = UInt(width = log2Up(nnConfigNeuronWidth / bitsPerBlock))
 }
 
 class PECacheInterfaceReq(implicit p: Parameters) extends DanaBundle()(p) {
@@ -246,9 +246,9 @@ class ProcessingElementTableBase[PeStateType <: ProcessingElementState,
 
   // Inbound requests from the cache. I setup some helper nodes here
   // that interpret the data coming from the cache.
-  val cacheRespVec = Wire(Vec.fill(bitsPerBlock / 64){new CompressedNeuron})
-  val indexIntoData = Wire(UInt())
-  indexIntoData := UInt(0)
+  val cacheRespVec = Wire(Vec(bitsPerBlock/nnConfigNeuronWidth,
+    new CompressedNeuron))
+  val neuronIndex = io.cache.resp.bits.neuronIndex
   (0 until cacheRespVec.length).map(i =>
     cacheRespVec(i).populate(io.cache.resp.bits.data((i+1) *
       cacheRespVec(i).getWidth - 1,
@@ -260,13 +260,12 @@ class ProcessingElementTableBase[PeStateType <: ProcessingElementState,
       is (e_CACHE_NEURON) {
         // [TODO] Fragile on increases to widthActivationFunction or
         // widthSteepness.
-        indexIntoData := io.cache.resp.bits.indexIntoData
-        table(peIndex).weightPtr := cacheRespVec(indexIntoData).weightPtr
-        table(peIndex).numWeights := cacheRespVec(indexIntoData).numWeights
+        table(peIndex).weightPtr := cacheRespVec(neuronIndex).weightPtr
+        table(peIndex).numWeights := cacheRespVec(neuronIndex).numWeights
         table(peIndex).activationFunction :=
-          cacheRespVec(indexIntoData).activationFunction
-        table(peIndex).steepness := cacheRespVec(indexIntoData).steepness
-        table(peIndex).bias := cacheRespVec(indexIntoData).bias
+          cacheRespVec(neuronIndex).activationFunction
+        table(peIndex).steepness := cacheRespVec(neuronIndex).steepness
+        table(peIndex).bias := cacheRespVec(neuronIndex).bias
         pe(peIndex).req.valid := Bool(true)
       }
       is (e_CACHE_WEIGHT) {
@@ -469,11 +468,11 @@ class ProcessingElementTableLearn(implicit p: Parameters)
     val peIndex = io.cache.resp.bits.peIndex
     switch (io.cache.resp.bits.field) {
       is (e_CACHE_NEURON) {
-        table(peIndex).weightPtrSaved := cacheRespVec(indexIntoData).weightPtr
+        table(peIndex).weightPtrSaved := cacheRespVec(neuronIndex).weightPtr
         table(peIndex).weightoffset:=
-          (cacheRespVec(indexIntoData).weightPtr - table(peIndex).globalWtptr) >>
+          (cacheRespVec(neuronIndex).weightPtr - table(peIndex).globalWtptr) >>
           (UInt(log2Up(elementWidth / 8))) // [TODO] possibly fragile
-        table(peIndex).numWeightsSaved := cacheRespVec(indexIntoData).numWeights
+        table(peIndex).numWeightsSaved := cacheRespVec(neuronIndex).numWeights
       }
       is (e_CACHE_WEIGHT_ONLY) {
         table(peIndex).weightPtr :=

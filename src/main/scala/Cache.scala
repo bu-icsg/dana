@@ -177,7 +177,7 @@ class CacheBase[SramIfType <: SRAMVariantInterface](
   peRespPipe(0).bits.field := UInt(0)
   peRespPipe(0).bits.data := UInt(0)
   peRespPipe(0).bits.peIndex := UInt(0)
-  peRespPipe(0).bits.indexIntoData := UInt(0)
+  peRespPipe(0).bits.neuronIndex := UInt(0)
 
   // [TODO] This shouldn't always be true
   io.pe.req.ready := Bool(true)
@@ -376,7 +376,7 @@ class CacheBase[SramIfType <: SRAMVariantInterface](
         peRespPipe(0).valid := Bool(true)
         peRespPipe(0).bits.peIndex := io.pe.req.bits.peIndex
         peRespPipe(0).bits.field := io.pe.req.bits.field
-        peRespPipe(0).bits.indexIntoData :=
+        peRespPipe(0).bits.neuronIndex :=
           io.pe.req.bits.cacheAddr(2 + log2Up(elementsPerBlock) - 1, 3)
       }
       is (e_CACHE_WEIGHT) {
@@ -385,8 +385,6 @@ class CacheBase[SramIfType <: SRAMVariantInterface](
         peRespPipe(0).valid := Bool(true)
         peRespPipe(0).bits.peIndex := io.pe.req.bits.peIndex
         peRespPipe(0).bits.field := io.pe.req.bits.field
-        peRespPipe(0).bits.indexIntoData :=
-          io.pe.req.bits.cacheAddr(2 + log2Up(elementsPerBlock) - 1, 2)
       }
     }
   }
@@ -487,7 +485,7 @@ class CacheLearn(implicit p: Parameters)
         peRespPipe(0).valid := Bool(true)
         peRespPipe(0).bits.peIndex := io.pe.req.bits.peIndex
         peRespPipe(0).bits.field := io.pe.req.bits.field
-        peRespPipe(0).bits.indexIntoData :=
+        peRespPipe(0).bits.neuronIndex :=
           io.pe.req.bits.cacheAddr(2 + log2Up(elementsPerBlock) - 1, 2)
       }
       is (e_CACHE_WEIGHT_WB) {

@@ -43,6 +43,7 @@ class DefaultXFilesDanaConfig extends Config (
         site(ElementsPerBlock))
       case CacheNumBlocks => divUp(divUp((site(CacheDataSize) * 8),
         site(ElementWidth)), site(ElementsPerBlock))
+      case NNConfigNeuronWidth => 64
     }},
   // [TODO] Add constraints
   // topConstraints = List(
