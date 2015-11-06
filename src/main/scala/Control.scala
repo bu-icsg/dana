@@ -10,7 +10,6 @@ class ControlCacheInterfaceResp(implicit p: Parameters) extends DanaBundle()(p) 
   val cacheIndex = UInt(width = log2Up(cacheNumEntries))
   val data = Vec.fill(6){UInt(width = 16)} // [TODO] possibly fragile
   val decimalPoint = UInt(INPUT, decimalPointWidth)
-  val globalWtptr = UInt(INPUT, 16) //[TODO] possibly fragile
   val field = UInt(width = log2Up(7)) // [TODO] fragile on Constants.scala
   val location = UInt(width = 1)
 }
@@ -18,6 +17,7 @@ class ControlCacheInterfaceResp(implicit p: Parameters) extends DanaBundle()(p) 
 class ControlCacheInterfaceRespLearn(implicit p: Parameters)
     extends ControlCacheInterfaceResp()(p) {
   val totalWritesMul = UInt(width = 2)
+  val globalWtptr = UInt(INPUT, 16) //[TODO] possibly fragile
 }
 
 class ControlCacheInterfaceReq(implicit p: Parameters) extends XFilesBundle()(p) {
@@ -201,7 +201,6 @@ class ControlBase(implicit p: Parameters) extends DanaModule()(p) {
         io.tTable.resp.bits.data(4) := io.cache.resp.bits.data(4)
         io.tTable.resp.bits.data(5) := io.cache.resp.bits.data(5)
         io.tTable.resp.bits.decimalPoint := io.cache.resp.bits.decimalPoint
-        io.tTable.resp.bits.globalWtptr := io.cache.resp.bits.globalWtptr
       }
       is (e_CACHE_LAYER) {
         io.tTable.resp.bits.field := e_TTABLE_LAYER // [TODO] may be wrong
@@ -352,6 +351,9 @@ class ControlLearn(implicit p: Parameters)
 
   when (io.cache.resp.valid) {
     switch (io.cache.resp.bits.field) {
+      is (e_CACHE_INFO) {
+        io.tTable.resp.bits.globalWtptr := io.cache.resp.bits.globalWtptr
+      }
       is (e_CACHE_LAYER) {
         io.regFile.req.bits.totalWrites := io.cache.resp.bits.totalWritesMul *
           io.cache.resp.bits.data(0)

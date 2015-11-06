@@ -158,7 +158,6 @@ class CacheBase[SramIfType <: SRAMVariantInterface,
   io.control.resp.bits.cacheIndex := UInt(0)
   io.control.resp.bits.data := Vec.fill(6){UInt(0)}
   io.control.resp.bits.decimalPoint := UInt(0)
-  io.control.resp.bits.globalWtptr := UInt(0)
   io.control.resp.bits.field := UInt(0)
 
   controlRespPipe(0).valid := Bool(false)
@@ -168,7 +167,6 @@ class CacheBase[SramIfType <: SRAMVariantInterface,
   controlRespPipe(0).bits.cacheIndex := UInt(0)
   controlRespPipe(0).bits.data := Vec.fill(6){UInt(0)}
   controlRespPipe(0).bits.decimalPoint := UInt(0)
-  controlRespPipe(0).bits.globalWtptr := UInt(0)
   controlRespPipe(0).bits.field := UInt(0)
   controlRespPipe(0).bits.location := UInt(0)
 
@@ -296,33 +294,32 @@ class CacheBase[SramIfType <: SRAMVariantInterface,
     table(idxNotify).notifyFlag := Bool(false)
   }
 
+  val compressedInfo = new Bundle{
+    val decimalPoint = mem(controlRespPipe(0).bits.cacheIndex).dout(0)(
+      decimalPointWidth - 1, 0)
+    val errorFunction = mem(controlRespPipe(0).bits.cacheIndex).dout(0)(
+      decimalPointWidth + errorFunctionWidth - 1, decimalPointWidth)
+    val unused_0 = mem(controlRespPipe(0).bits.cacheIndex).dout(0)(
+      16 - 1, decimalPointWidth + errorFunctionWidth)
+    val totalWeightBlocks = mem(controlRespPipe(0).bits.cacheIndex).dout(0)(
+      32 - 1, 16)
+    val totalNeurons = mem(controlRespPipe(0).bits.cacheIndex).dout(0)(
+      48 - 1, 32)
+    val totalLayers = mem(controlRespPipe(0).bits.cacheIndex).dout(0)(
+      64 - 1, 48)
+    val firstLayerPointer = mem(controlRespPipe(0).bits.cacheIndex).dout(0)(
+      80 - 1, 64)
+    val weightsPointer = mem(controlRespPipe(0).bits.cacheIndex).dout(0)(
+      96 - 1, 80)
+    val learningRate = mem(controlRespPipe(0).bits.cacheIndex).dout(0)(
+      112 - 1, 96)
+    val lambda = mem(controlRespPipe(0).bits.cacheIndex).dout(0)(
+      128 - 1, 112)
+  }
+
   // Pipeline second stage (SRAM read)
   switch (controlRespPipe(0).bits.field) {
     is (e_CACHE_INFO) {
-      val compressedInfo = new Bundle{
-        val decimalPoint = mem(controlRespPipe(0).bits.cacheIndex).dout(0)(
-          decimalPointWidth - 1, 0)
-        val errorFunction = mem(controlRespPipe(0).bits.cacheIndex).dout(0)(
-          decimalPointWidth + errorFunctionWidth - 1, decimalPointWidth)
-        val unused_0 = mem(controlRespPipe(0).bits.cacheIndex).dout(0)(
-          16 - 1, decimalPointWidth + errorFunctionWidth)
-        val totalWeightBlocks = mem(controlRespPipe(0).bits.cacheIndex).dout(0)(
-          32 - 1, 16)
-        val totalNeurons = mem(controlRespPipe(0).bits.cacheIndex).dout(0)(
-          48 - 1, 32)
-        val totalLayers = mem(controlRespPipe(0).bits.cacheIndex).dout(0)(
-          64 - 1, 48)
-        val firstLayerPointer = mem(controlRespPipe(0).bits.cacheIndex).dout(0)(
-          80 - 1, 64)
-        val weightsPointer = mem(controlRespPipe(0).bits.cacheIndex).dout(0)(
-          96 - 1, 80)
-        val learningRate = mem(controlRespPipe(0).bits.cacheIndex).dout(0)(
-          112 - 1, 96)
-        val lambda = mem(controlRespPipe(0).bits.cacheIndex).dout(0)(
-          128 - 1, 112)
-      }
-      //global Weight pointer
-      controlRespPipe(1).bits.globalWtptr := compressedInfo.weightsPointer
       // Decimal Point
       controlRespPipe(1).bits.decimalPoint := compressedInfo.decimalPoint
       // Layers
@@ -474,7 +471,10 @@ class CacheLearn(implicit p: Parameters)
     mem(i).inc(0) := Bool(false)
   }
 
+  io.control.resp.bits.globalWtptr := UInt(0)
+
   controlRespPipe(0).bits.totalWritesMul := UInt(0)
+  controlRespPipe(0).bits.globalWtptr := UInt(0)
 
   when (tTableReqQueue.deq.valid && !io.pe.req.valid) {
     val request = tTableReqQueue.deq.bits.request
@@ -483,6 +483,13 @@ class CacheLearn(implicit p: Parameters)
       is (e_CACHE_LAYER_INFO) {
         controlRespPipe(0).bits.totalWritesMul := totalWritesMul
       }
+    }
+  }
+
+  switch (controlRespPipe(0).bits.field) {
+    is (e_CACHE_INFO) {
+      //global Weight pointer
+      controlRespPipe(1).bits.globalWtptr := compressedInfo.weightsPointer
     }
   }
 
