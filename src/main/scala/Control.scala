@@ -13,11 +13,11 @@ class ControlCacheInterfaceResp(implicit p: Parameters) extends DanaBundle()(p) 
   val globalWtptr = UInt(INPUT, 16) //[TODO] possibly fragile
   val field = UInt(width = log2Up(7)) // [TODO] fragile on Constants.scala
   val location = UInt(width = 1)
-  val totalWritesMul = UInt(width = 2)
 }
 
 class ControlCacheInterfaceRespLearn(implicit p: Parameters)
     extends ControlCacheInterfaceResp()(p) {
+  val totalWritesMul = UInt(width = 2)
 }
 
 class ControlCacheInterfaceReq(implicit p: Parameters) extends XFilesBundle()(p) {
@@ -28,11 +28,11 @@ class ControlCacheInterfaceReq(implicit p: Parameters) extends XFilesBundle()(p)
   val layer = UInt(width = 16) // [TODO] fragile
   val location = UInt(width = 1) // [TODO] fragile
   val coreIdx = UInt(width = log2Up(numCores))
-  val totalWritesMul = UInt(width = 2)
 }
 
 class ControlCacheInterfaceReqLearn(implicit p: Parameters)
     extends ControlCacheInterfaceReq()(p) {
+  val totalWritesMul = UInt(width = 2)
 }
 
 class ControlCacheInterface(implicit p: Parameters) extends DanaBundle()(p) {
@@ -133,8 +133,7 @@ class ControlBase(implicit p: Parameters) extends DanaModule()(p) {
   lazy val io = new ControlInterface
   // IO Driver Functions
   def reqCache(valid: Bool, request: UInt, asid: UInt, nnid: UInt,
-    tableIndex: UInt, coreIdx: UInt, layer: UInt, location: UInt,
-    totalWritesMul: UInt) {
+    tableIndex: UInt, coreIdx: UInt, layer: UInt, location: UInt) {
     io.cache.req.valid := valid
     io.cache.req.bits.request := request
     io.cache.req.bits.asid := asid
@@ -143,7 +142,6 @@ class ControlBase(implicit p: Parameters) extends DanaModule()(p) {
     io.cache.req.bits.coreIdx := coreIdx
     io.cache.req.bits.layer := layer
     io.cache.req.bits.location := location
-    io.cache.req.bits.totalWritesMul := totalWritesMul
   }
   def reqPETable(valid: Bool, cacheIndex: UInt, tIdx: UInt, inAddr: UInt,
     outAddr: UInt, neuronPointer: UInt, decimalPoint: UInt, location: UInt) {
@@ -176,7 +174,7 @@ class ControlBase(implicit p: Parameters) extends DanaModule()(p) {
   // io.cache defaults
   io.cache.resp.ready := Bool(true) // [TODO] not correct
   reqCache(Bool(false), UInt(0), UInt(0), UInt(0), UInt(0), UInt(0), UInt(0),
-    UInt(0), UInt(0))
+    UInt(0))
   // io.petable defaults
   reqPETable(Bool(false),
     UInt(0), UInt(0), UInt(0), UInt(0), UInt(0), UInt(0), UInt(0))
@@ -217,8 +215,7 @@ class ControlBase(implicit p: Parameters) extends DanaModule()(p) {
         io.regFile.req.bits.tIdx := io.cache.resp.bits.tableIndex
         // [TODO] This won't work as the tTable data is no longer
         // valid when the cache response comes back.
-        io.regFile.req.bits.totalWrites := io.cache.resp.bits.totalWritesMul *
-          io.cache.resp.bits.data(0)
+        io.regFile.req.bits.totalWrites := io.cache.resp.bits.data(0)
         // This is the output location. This needs to match the
         // convention used for the Processing Elements
         io.regFile.req.bits.location := io.cache.resp.bits.location
@@ -240,29 +237,22 @@ class ControlBase(implicit p: Parameters) extends DanaModule()(p) {
         tableIndex = io.tTable.req.bits.tableIndex,
         coreIdx = io.tTable.req.bits.coreIdx,
         layer = UInt(0),
-        location = UInt(0),
-        totalWritesMul = UInt(0))
+        location = UInt(0))
     }
       .elsewhen (io.tTable.req.bits.cacheValid && io.tTable.req.bits.needsLayerInfo) {
       // Send a request to the storage module
-      val totalWritesMul = Mux(io.tTable.req.bits.inLastEarly &&
-        (io.tTable.req.bits.stateLearn === e_TTABLE_STATE_LEARN_FEEDFORWARD),
-        UInt(3), Mux(!io.tTable.req.bits.inFirst &&
-          (io.tTable.req.bits.stateLearn === e_TTABLE_STATE_LEARN_ERROR_BACKPROP),
-          UInt(2), UInt(1)))
       // val inLastLearn = (io.tTable.req.bits.inLastEarly) &&
       //   (io.tTable.req.bits.stateLearn === e_TTABLE_STATE_LEARN_FEEDFORWARD)
-      printf("[INFO] Control: TTable layer req inFirst/inLastEarly/state/totalWritesMul 0x%x/0x%x/0x%x/0x%x\n",
+      printf("[INFO] Control: TTable layer req inFirst/inLastEarly/state 0x%x/0x%x/0x%x\n",
         io.tTable.req.bits.inFirst,
-        io.tTable.req.bits.inLastEarly, io.tTable.req.bits.stateLearn, totalWritesMul)
+        io.tTable.req.bits.inLastEarly, io.tTable.req.bits.stateLearn)
       reqCache(valid = Bool(true), request = e_CACHE_LAYER_INFO,
         asid = io.tTable.req.bits.asid,
         nnid = io.tTable.req.bits.nnid,
         tableIndex = io.tTable.req.bits.tableIndex,
         coreIdx = io.tTable.req.bits.coreIdx,
         layer = io.tTable.req.bits.currentLayer,
-        location = io.tTable.req.bits.regFileLocationBit,
-        totalWritesMul = totalWritesMul)
+        location = io.tTable.req.bits.regFileLocationBit)
     }
     // If this entry is done, then its cache entry needs to be invalidated
       .elsewhen (io.tTable.req.bits.isDone) {
@@ -274,8 +264,7 @@ class ControlBase(implicit p: Parameters) extends DanaModule()(p) {
         tableIndex = UInt(0),
         coreIdx = UInt(0),
         layer = UInt(0),
-        location = UInt(0),
-        totalWritesMul = UInt(0))
+        location = UInt(0))
     }
       .elsewhen (io.tTable.req.bits.cacheValid && !io.tTable.req.bits.needsLayerInfo &&
       io.peTable.req.ready) {
@@ -314,6 +303,15 @@ class ControlLearn(implicit p: Parameters)
     extends ControlBase()(p) {
   override lazy val io = new ControlInterfaceLearn
 
+  def reqCache(valid: Bool, request: UInt, asid: UInt, nnid: UInt,
+    tableIndex: UInt, coreIdx: UInt, layer: UInt, location: UInt,
+    totalWritesMul: UInt) {
+    reqCache(valid = valid, request = request, asid = asid, nnid = nnid,
+      tableIndex = tableIndex, coreIdx = coreIdx, layer = layer,
+      location = location)
+    io.cache.req.bits.totalWritesMul := totalWritesMul
+  }
+
   def reqPETable(valid: Bool, cacheIndex: UInt, tIdx: UInt, inAddr: UInt,
     outAddr: UInt, neuronPointer: UInt, decimalPoint: UInt, location: UInt,
     // learning-specific
@@ -344,11 +342,22 @@ class ControlLearn(implicit p: Parameters)
     io.peTable.req.bits.globalWtptr := globalWtptr
   }
 
+  reqCache(Bool(false), UInt(0), UInt(0), UInt(0), UInt(0), UInt(0), UInt(0),
+    UInt(0), UInt(0))
   reqPETable(Bool(false),
     UInt(0), UInt(0), UInt(0), UInt(0), UInt(0), UInt(0), UInt(0),
     Bool(false), Bool(false), Bool(false), Bool(false),
     UInt(0), UInt(0), UInt(0), UInt(0), UInt(0), UInt(0), UInt(0), UInt(0),
     UInt(0), UInt(0), UInt(0), UInt(0))
+
+  when (io.cache.resp.valid) {
+    switch (io.cache.resp.bits.field) {
+      is (e_CACHE_LAYER) {
+        io.regFile.req.bits.totalWrites := io.cache.resp.bits.totalWritesMul *
+          io.cache.resp.bits.data(0)
+      }
+    }
+  }
 
   when (io.tTable.req.valid) {
     when (!io.tTable.req.bits.cacheValid && !io.tTable.req.bits.waiting) {

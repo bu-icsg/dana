@@ -44,12 +44,13 @@ class CacheInterface(implicit p: Parameters) extends Bundle {
   // when this gets added), the control unit, and to the processing
   // elements
   val mem = new CacheMemInterface
-  val control = (new ControlCacheInterface).flip
+  lazy val control = (new ControlCacheInterface).flip
   lazy val pe = (new PECacheInterface).flip
 }
 
 class CacheInterfaceLearn(implicit p: Parameters)
     extends CacheInterface()(p) {
+  override lazy val control = (new ControlCacheInterfaceLearn).flip
   override lazy val pe = (new PECacheInterfaceLearn).flip
 }
 
@@ -170,7 +171,6 @@ class CacheBase[SramIfType <: SRAMVariantInterface,
   controlRespPipe(0).bits.globalWtptr := UInt(0)
   controlRespPipe(0).bits.field := UInt(0)
   controlRespPipe(0).bits.location := UInt(0)
-  controlRespPipe(0).bits.totalWritesMul := UInt(0)
 
   peRespPipe(0).valid := Bool(false)
   peRespPipe(0).bits.field := UInt(0)
@@ -213,7 +213,6 @@ class CacheBase[SramIfType <: SRAMVariantInterface,
     val layer = tTableReqQueue.deq.bits.layer
     val location = tTableReqQueue.deq.bits.location
     val coreIdx = tTableReqQueue.deq.bits.coreIdx
-    val totalWritesMul = tTableReqQueue.deq.bits.totalWritesMul
     switch (request) {
       is (e_CACHE_LOAD) {
         when (!foundNnid) {
@@ -272,7 +271,6 @@ class CacheBase[SramIfType <: SRAMVariantInterface,
         controlRespPipe(0).bits.data(0) := layer(log2Up(elementsPerBlock)-1,0)
         controlRespPipe(0).bits.location := location
         controlRespPipe(0).bits.cacheIndex := derefNnid
-        controlRespPipe(0).bits.totalWritesMul := totalWritesMul
 
         // Read the layer information from the correct block. A layer
         // occupies one block, so we need to pull the block address
@@ -474,6 +472,18 @@ class CacheLearn(implicit p: Parameters)
 
   for (i <- 0 until cacheNumEntries) {
     mem(i).inc(0) := Bool(false)
+  }
+
+  controlRespPipe(0).bits.totalWritesMul := UInt(0)
+
+  when (tTableReqQueue.deq.valid && !io.pe.req.valid) {
+    val request = tTableReqQueue.deq.bits.request
+    val totalWritesMul = tTableReqQueue.deq.bits.totalWritesMul
+    switch (request) {
+      is (e_CACHE_LAYER_INFO) {
+        controlRespPipe(0).bits.totalWritesMul := totalWritesMul
+      }
+    }
   }
 
   when (io.pe.req.valid) {
