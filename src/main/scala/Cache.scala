@@ -68,8 +68,14 @@ class CompressedNeuron(implicit p: Parameters) extends DanaBundle()(p) {
   }
 }
 
-class CacheBase[SramIfType <: SRAMVariantInterface](
-  genSram: => Vec[SramIfType])(implicit p: Parameters) extends DanaModule()(p) {
+class CacheBase[SramIfType <: SRAMVariantInterface,
+  ControlCacheIfReqType <: ControlCacheInterfaceReq,
+  ControlCacheIfRespType <: ControlCacheInterfaceResp,
+  PECacheIfRespType <: PECacheInterfaceResp](
+  genSram: => Vec[SramIfType], genControlReq: => ControlCacheIfReqType,
+    genControlResp: => ControlCacheIfRespType,
+    genPEResp: => PECacheIfRespType)(implicit p: Parameters)
+    extends DanaModule()(p) {
   val mem = genSram
 
   lazy val io = new CacheInterface
@@ -79,7 +85,7 @@ class CacheBase[SramIfType <: SRAMVariantInterface](
 
   // The Transaction Table Queue needs to be big enough to hold one
   // inbound request from every entry in the Transaction Table
-  val tTableReqQueue = Module(new Queue(new ControlCacheInterfaceReq,
+  val tTableReqQueue = Module(new Queue(genControlReq,
     transactionTableNumEntries)).io
   // tTableReqQueue <> io.control.req
   tTableReqQueue.enq.valid := io.control.req.valid
@@ -91,9 +97,9 @@ class CacheBase[SramIfType <: SRAMVariantInterface](
   // of the individual cache SRAMs so we construct a pipeline that
   // builds up the responses.
   val controlRespPipe =
-    Vec.fill(2){Reg(Valid(new ControlCacheInterfaceResp))}
+    Vec.fill(2){Reg(Valid(genControlResp))}
   val peRespPipe =
-    Vec.fill(2){Reg(Valid(new PECacheInterfaceResp))}
+    Vec.fill(2){Reg(Valid(genPEResp))}
   val cacheRead = Reg(Vec.fill(cacheNumEntries){
     (UInt(width=log2Up(cacheNumBlocks)))})
   // We also need to store the cache index of an inbound request by a
@@ -451,7 +457,9 @@ class Cache(implicit p: Parameters)
       Module(new SRAMVariant(
         dataWidth = p(BitsPerBlock),
         sramDepth = p(CacheNumBlocks),
-        numPorts = 1)).io))(p)
+        numPorts = 1)).io),
+      new ControlCacheInterfaceReq, new ControlCacheInterfaceResp,
+      new PECacheInterfaceResp)(p)
 
 class CacheLearn(implicit p: Parameters)
     extends CacheBase(Vec(p(CacheNumEntries),
@@ -459,7 +467,9 @@ class CacheLearn(implicit p: Parameters)
         dataWidth = p(BitsPerBlock),
         sramDepth = p(CacheNumBlocks),
         numPorts = 1,
-        elementWidth = p(ElementWidth))).io))(p) {
+        elementWidth = p(ElementWidth))).io),
+      new ControlCacheInterfaceReqLearn, new ControlCacheInterfaceRespLearn,
+      new PECacheInterfaceResp)(p) {
   override lazy val io = new CacheInterfaceLearn
 
   for (i <- 0 until cacheNumEntries) {
