@@ -61,11 +61,6 @@ class ControlPETableInterfaceReq(implicit p: Parameters) extends DanaBundle()(p)
   // [TODO] Change ioIdxWidth to regFileNumElements?
   val inAddr = UInt(width = ioIdxWidth)
   val outAddr = UInt(width = ioIdxWidth)
-  val learnAddr = UInt(width = ioIdxWidth)
-  val deltaAddr = UInt(width = ioIdxWidth)
-  val dwAddr = UInt(width = ioIdxWidth)
-  val slopeAddr = UInt(width = ioIdxWidth)
-  val biasAddr = UInt(width = ioIdxWidth)
   val location = UInt(width = 1)
   val neuronPointer = UInt(width = 12) // [TODO] fragile
   val decimalPoint = UInt(width = decimalPointWidth)
@@ -73,6 +68,11 @@ class ControlPETableInterfaceReq(implicit p: Parameters) extends DanaBundle()(p)
 
 class ControlPETableInterfaceReqLearn(implicit p: Parameters)
     extends ControlPETableInterfaceReq()(p) {
+  val learnAddr = UInt(width = ioIdxWidth)
+  val deltaAddr = UInt(width = ioIdxWidth)
+  val dwAddr = UInt(width = ioIdxWidth)
+  val slopeAddr = UInt(width = ioIdxWidth)
+  val biasAddr = UInt(width = ioIdxWidth)
   val errorFunction = UInt(width = log2Up(2)) // [TODO] fragile
   val stateLearn = UInt(width = log2Up(7)) // [TODO] fragile
   val inLast = Bool()
@@ -87,8 +87,6 @@ class ControlPETableInterfaceReqLearn(implicit p: Parameters)
 }
 
 class ControlPETableInterface(implicit p: Parameters) extends DanaBundle()(p) {
-  // Outbound request. nnsim-hdl equivalent:
-  //   control_types::ctl2pe_table_struct
   lazy val req = Decoupled(new ControlPETableInterfaceReqLearn)
   // No response is necessary as the Control module needs to know is
   // if the PE Table has a free entry. This is communicated by means
@@ -103,7 +101,7 @@ class ControlPETableInterfaceLearn(implicit p: Parameters)
 class ControlRegisterFileInterfaceReq(implicit p: Parameters) extends DanaBundle()(p) {
   val tIdx = UInt(width = transactionTableNumEntries)
   val totalWrites = UInt(width = 16) // [TODO] fragile
-  val location = UInt(width = 1) // [TODO] fragile
+  val location = UInt(width = 1)     // [TODO] fragile
 }
 
 class ControlRegisterFileInterfaceResp(implicit p: Parameters) extends DanaBundle()(p) {
@@ -322,7 +320,6 @@ class ControlLearn(implicit p: Parameters)
     reqPETable(valid = valid, cacheIndex = cacheIndex, tIdx = tIdx,
       inAddr = inAddr, outAddr = outAddr, neuronPointer = neuronPointer,
       decimalPoint = decimalPoint, location = location)
-    // learning-specific
     io.peTable.req.bits.resetWB := resetWB
     io.peTable.req.bits.inFirst := inFirst
     io.peTable.req.bits.inLast := inLast
