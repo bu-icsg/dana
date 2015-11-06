@@ -234,9 +234,14 @@ class ControlBase(implicit p: Parameters) extends DanaModule()(p) {
     // respond
     when (!io.tTable.req.bits.cacheValid && !io.tTable.req.bits.waiting) {
       // Send a request to the cache
-      reqCache(Bool(true), e_CACHE_LOAD, io.tTable.req.bits.asid,
-        io.tTable.req.bits.nnid, io.tTable.req.bits.tableIndex,
-        io.tTable.req.bits.coreIdx, UInt(0), UInt(0), Bool(false))
+      reqCache(valid = Bool(true), request = e_CACHE_LOAD,
+        asid = io.tTable.req.bits.asid,
+        nnid = io.tTable.req.bits.nnid,
+        tableIndex = io.tTable.req.bits.tableIndex,
+        coreIdx = io.tTable.req.bits.coreIdx,
+        layer = UInt(0),
+        location = UInt(0),
+        totalWritesMul = UInt(0))
     }
       .elsewhen (io.tTable.req.bits.cacheValid && io.tTable.req.bits.needsLayerInfo) {
       // Send a request to the storage module
@@ -250,20 +255,27 @@ class ControlBase(implicit p: Parameters) extends DanaModule()(p) {
       printf("[INFO] Control: TTable layer req inFirst/inLastEarly/state/totalWritesMul 0x%x/0x%x/0x%x/0x%x\n",
         io.tTable.req.bits.inFirst,
         io.tTable.req.bits.inLastEarly, io.tTable.req.bits.stateLearn, totalWritesMul)
-      reqCache(Bool(true), e_CACHE_LAYER_INFO, io.tTable.req.bits.asid,
-        io.tTable.req.bits.nnid, io.tTable.req.bits.tableIndex,
-        io.tTable.req.bits.coreIdx, io.tTable.req.bits.currentLayer,
-        // io.tTable.req.bits.currentLayer(0),
-        io.tTable.req.bits.regFileLocationBit,
-        totalWritesMul)
+      reqCache(valid = Bool(true), request = e_CACHE_LAYER_INFO,
+        asid = io.tTable.req.bits.asid,
+        nnid = io.tTable.req.bits.nnid,
+        tableIndex = io.tTable.req.bits.tableIndex,
+        coreIdx = io.tTable.req.bits.coreIdx,
+        layer = io.tTable.req.bits.currentLayer,
+        location = io.tTable.req.bits.regFileLocationBit,
+        totalWritesMul = totalWritesMul)
     }
     // If this entry is done, then its cache entry needs to be invalidated
       .elsewhen (io.tTable.req.bits.isDone) {
       // [TODO] This passes no information about the core index which
       // _may_ be needed to close out any final cache updates.
-      reqCache(Bool(true), e_CACHE_DECREMENT_IN_USE_COUNT,
-        io.tTable.req.bits.asid, io.tTable.req.bits.nnid,
-        UInt(0), UInt(0), UInt(0), UInt(0), Bool(false))
+      reqCache(valid = Bool(true), request = e_CACHE_DECREMENT_IN_USE_COUNT,
+        asid = io.tTable.req.bits.asid,
+        nnid = io.tTable.req.bits.nnid,
+        tableIndex = UInt(0),
+        coreIdx = UInt(0),
+        layer = UInt(0),
+        location = UInt(0),
+        totalWritesMul = UInt(0))
     }
       .elsewhen (io.tTable.req.bits.cacheValid && !io.tTable.req.bits.needsLayerInfo &&
       io.peTable.req.ready) {
@@ -360,9 +372,13 @@ class ControlLearn(implicit p: Parameters)
   when (io.tTable.req.valid) {
     when (!io.tTable.req.bits.cacheValid && !io.tTable.req.bits.waiting) {
       // Send a request to the cache
-      reqCache(Bool(true), e_CACHE_LOAD, io.tTable.req.bits.asid,
-        io.tTable.req.bits.nnid, io.tTable.req.bits.tableIndex,
-        io.tTable.req.bits.coreIdx, UInt(0), UInt(0), Bool(false))
+      reqCache(valid = Bool(true), request = e_CACHE_LOAD,
+        asid = io.tTable.req.bits.asid,
+        nnid = io.tTable.req.bits.nnid,
+        tableIndex = io.tTable.req.bits.tableIndex,
+        coreIdx = io.tTable.req.bits.coreIdx,
+        layer = UInt(0), location = UInt(0),
+        totalWritesMul = UInt(0))
     }
       .elsewhen (io.tTable.req.bits.cacheValid && io.tTable.req.bits.needsLayerInfo) {
       // Send a request to the storage module
@@ -376,20 +392,23 @@ class ControlLearn(implicit p: Parameters)
       printf("[INFO] Control: TTable layer req inFirst/inLastEarly/state/totalWritesMul 0x%x/0x%x/0x%x/0x%x\n",
         io.tTable.req.bits.inFirst,
         io.tTable.req.bits.inLastEarly, io.tTable.req.bits.stateLearn, totalWritesMul)
-      reqCache(Bool(true), e_CACHE_LAYER_INFO, io.tTable.req.bits.asid,
-        io.tTable.req.bits.nnid, io.tTable.req.bits.tableIndex,
-        io.tTable.req.bits.coreIdx, io.tTable.req.bits.currentLayer,
-        // io.tTable.req.bits.currentLayer(0),
-        io.tTable.req.bits.regFileLocationBit,
-        totalWritesMul)
+      reqCache(valid = Bool(true), request = e_CACHE_LAYER_INFO,
+        asid = io.tTable.req.bits.asid,
+        nnid = io.tTable.req.bits.nnid,
+        tableIndex = io.tTable.req.bits.tableIndex,
+        coreIdx = io.tTable.req.bits.coreIdx,
+        layer = io.tTable.req.bits.currentLayer,
+        location = io.tTable.req.bits.regFileLocationBit,
+        totalWritesMul = totalWritesMul)
     }
     // If this entry is done, then its cache entry needs to be invalidated
       .elsewhen (io.tTable.req.bits.isDone) {
       // [TODO] This passes no information about the core index which
       // _may_ be needed to close out any final cache updates.
-      reqCache(Bool(true), e_CACHE_DECREMENT_IN_USE_COUNT,
-        io.tTable.req.bits.asid, io.tTable.req.bits.nnid,
-        UInt(0), UInt(0), UInt(0), UInt(0), Bool(false))
+      reqCache(valid = Bool(true), request = e_CACHE_DECREMENT_IN_USE_COUNT,
+        asid = io.tTable.req.bits.asid, nnid = io.tTable.req.bits.nnid,
+        tableIndex = UInt(0), coreIdx = UInt(0), layer = UInt(0),
+        location = UInt(0), totalWritesMul = Bool(false))
     }
       .elsewhen (io.tTable.req.bits.cacheValid && !io.tTable.req.bits.needsLayerInfo &&
       io.peTable.req.ready) {
