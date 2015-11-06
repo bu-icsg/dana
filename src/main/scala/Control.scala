@@ -281,40 +281,21 @@ class ControlBase(implicit p: Parameters) extends DanaModule()(p) {
       io.peTable.req.ready) {
       // Go ahead and allocate an entry in the Processing Element
       reqPETable(valid = Bool(true),
-        // The specific cache entry where the NN configuration for
-        // this PE is located
         cacheIndex = io.tTable.req.bits.cacheIndex,
-        // Table Index, no ASID/TID are used
         tIdx = io.tTable.req.bits.tableIndex,
-        // The input address is contained in the TTable request
         inAddr =
           Mux((io.tTable.req.bits.stateLearn === e_TTABLE_STATE_LEARN_ERROR_BACKPROP) ||
           (io.tTable.req.bits.stateLearn === e_TTABLE_STATE_LEARN_WEIGHT_UPDATE),
           io.tTable.req.bits.regFileAddrIn + io.tTable.req.bits.currentNodeInLayer,
           io.tTable.req.bits.regFileAddrIn),
-        // The output address is a base output (specified by the
-        // TTable request) plus an offset (which neuron this is)
         outAddr = io.tTable.req.bits.regFileAddrOut +
           io.tTable.req.bits.currentNodeInLayer,
-        // The neuron pointer is going to be the base pointer that
-        // lives in the Transaction Table plus an offset based on the
-        // current node that we're processing. The shift by 3 is to
-        // convert a neuron number into a memory address. This is
-        // fragile on the neuron size of 64 bits.
-        neuronPointer = io.tTable.req.bits.neuronPointer + // neuronPointer
+        neuronPointer = io.tTable.req.bits.neuronPointer +
           (io.tTable.req.bits.currentNodeInLayer << UInt(3)),
-        // Pass along the decimal point
-        decimalPoint = io.tTable.req.bits.decimalPoint, // decimalPoint
-        // Communicate the "location" which eventually the Register
-        // File will use to determine which of two locations is the
-        // "writeCount" for the current layer vs. the next layer
-        // io.tTable.req.bits.currentLayer(0),
+        decimalPoint = io.tTable.req.bits.decimalPoint,
         location = io.tTable.req.bits.regFileLocationBit)
     }
   }
-  // Responses from the Register File specific to layer updates. These
-  // use different lines than TTable responses in the above block so
-  // that these won't cause aliasing conflicts.
   when (io.regFile.resp.valid) {
     // The register file for the next layer is 100% ready so we make
     // the specific Transaction Table entry stop waiting
@@ -379,8 +360,8 @@ class ControlLearn(implicit p: Parameters)
         coreIdx = io.tTable.req.bits.coreIdx,
         layer = UInt(0), location = UInt(0),
         totalWritesMul = UInt(0))
-    }
-      .elsewhen (io.tTable.req.bits.cacheValid && io.tTable.req.bits.needsLayerInfo) {
+    } .elsewhen (io.tTable.req.bits.cacheValid &&
+      io.tTable.req.bits.needsLayerInfo) {
       // Send a request to the storage module
       val totalWritesMul = Mux(io.tTable.req.bits.inLastEarly &&
         (io.tTable.req.bits.stateLearn === e_TTABLE_STATE_LEARN_FEEDFORWARD),
@@ -400,96 +381,49 @@ class ControlLearn(implicit p: Parameters)
         layer = io.tTable.req.bits.currentLayer,
         location = io.tTable.req.bits.regFileLocationBit,
         totalWritesMul = totalWritesMul)
-    }
-    // If this entry is done, then its cache entry needs to be invalidated
-      .elsewhen (io.tTable.req.bits.isDone) {
+    } .elsewhen (io.tTable.req.bits.isDone) {
       // [TODO] This passes no information about the core index which
       // _may_ be needed to close out any final cache updates.
       reqCache(valid = Bool(true), request = e_CACHE_DECREMENT_IN_USE_COUNT,
         asid = io.tTable.req.bits.asid, nnid = io.tTable.req.bits.nnid,
         tableIndex = UInt(0), coreIdx = UInt(0), layer = UInt(0),
         location = UInt(0), totalWritesMul = Bool(false))
-    }
-      .elsewhen (io.tTable.req.bits.cacheValid && !io.tTable.req.bits.needsLayerInfo &&
-      io.peTable.req.ready) {
+    } .elsewhen (io.tTable.req.bits.cacheValid &&
+      !io.tTable.req.bits.needsLayerInfo && io.peTable.req.ready) {
       // Go ahead and allocate an entry in the Processing Element
       reqPETable(valid = Bool(true),
-        // The specific cache entry where the NN configuration for
-        // this PE is located
         cacheIndex = io.tTable.req.bits.cacheIndex,
-        // Table Index, no ASID/TID are used
         tIdx = io.tTable.req.bits.tableIndex,
-        // The input address is contained in the TTable request
         inAddr =
           Mux((io.tTable.req.bits.stateLearn === e_TTABLE_STATE_LEARN_ERROR_BACKPROP) ||
           (io.tTable.req.bits.stateLearn === e_TTABLE_STATE_LEARN_WEIGHT_UPDATE),
           io.tTable.req.bits.regFileAddrIn + io.tTable.req.bits.currentNodeInLayer,
           io.tTable.req.bits.regFileAddrIn),
-        // The output address is a base output (specified by the
-        // TTable request) plus an offset (which neuron this is)
         outAddr = io.tTable.req.bits.regFileAddrOut +
           io.tTable.req.bits.currentNodeInLayer,
-        // The neuron pointer is going to be the base pointer that
-        // lives in the Transaction Table plus an offset based on the
-        // current node that we're processing. The shift by 3 is to
-        // convert a neuron number into a memory address. This is
-        // fragile on the neuron size of 64 bits.
-        neuronPointer = io.tTable.req.bits.neuronPointer + // neuronPointer
+        neuronPointer = io.tTable.req.bits.neuronPointer +
           (io.tTable.req.bits.currentNodeInLayer << UInt(3)),
-        // Pass along the decimal point
-        decimalPoint = io.tTable.req.bits.decimalPoint, // decimalPoint
-        // Communicate the "location" which eventually the Register
-        // File will use to determine which of two locations is the
-        // "writeCount" for the current layer vs. the next layer
-        // io.tTable.req.bits.currentLayer(0),
+        decimalPoint = io.tTable.req.bits.decimalPoint,
         location = io.tTable.req.bits.regFileLocationBit,
-
-        // The condition under which the Register File Block WB Table
-        // should be reset
         resetWB = io.tTable.req.bits.inLast &&
           (io.tTable.req.bits.currentNodeInLayer === UInt(0)) &&
           io.tTable.req.bits.stateLearn === e_TTABLE_STATE_LEARN_FEEDFORWARD,
-        //inFirst bit is passed along for to check for the corner case in weight
-        //update state
         inFirst = io.tTable.req.bits.inFirst,
-        // The state is also moderated by the "inLast" bit so this is
-        // also passed along
         inLast = io.tTable.req.bits.inLast,
-        // If we're in the first item of a batch make it known
         batchFirst = io.tTable.req.bits.batchFirst,
-        // The learn address could mean many things, but is generally
-        // used to pass an _additional_ register file address used for
-        // learning
         learnAddr = io.tTable.req.bits.currentNodeInLayer,
-        //Error address in LEARN_FEEDFORWARD state means the address used to save
-        //the calculated error values
         deltaAddr = io.tTable.req.bits.regFileAddrDelta +
           io.tTable.req.bits.currentNodeInLayer,
-        // The DW address is where the delta--weight products will be
-        // written (and accumulated by the Register File)
         dwAddr = io.tTable.req.bits.regFileAddrDW,
         slopeAddr = io.tTable.req.bits.regFileAddrSlope,
-        // Give the PE information about where in the Register File to
-        // write its updated slope
         biasAddr = io.tTable.req.bits.regFileAddrBias +
           io.tTable.req.bits.currentNodeInLayer,
-        // Pass along the error function
         errorFunction = io.tTable.req.bits.errorFunction,
-        // Pass along the state (TTable "stateLearn") to the PE Table
-        // so that the PE can handle this differently based on the
-        // type of opeartion the PE needs to perform
         stateLearn = io.tTable.req.bits.stateLearn,
-        // Learning rate
         learningRate = io.tTable.req.bits.learningRate,
-        // Weight decay lambda
         lambda = io.tTable.req.bits.lambda,
-        //Total number of weight blocks
         numWeightBlocks = io.tTable.req.bits.numWeightBlocks,
-        // Pass along the transactiontype (TTable "transactionType") to the PE Table
-        // so that the PE can handle this differently based on the
-        // type of opeartion the PE needs to perform
         transactionType = io.tTable.req.bits.transactionType,
-        //global weight pointer
         globalWtptr = io.tTable.req.bits.globalWtptr
       )
     }
