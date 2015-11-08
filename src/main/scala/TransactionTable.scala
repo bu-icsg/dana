@@ -6,6 +6,7 @@ import rocket._
 import cde.{Parameters, Field}
 
 class TransactionState(implicit p: Parameters) extends XFilesBundle()(p) {
+  //-------- Base class
   val valid = Bool()
   val reserved = Bool()
   val cacheValid = Bool()
@@ -14,26 +15,17 @@ class TransactionState(implicit p: Parameters) extends XFilesBundle()(p) {
   val done = Bool()
   val decInUse = Bool()
   val request = Bool()
-  val inFirst = Bool()
   // There are two "in the last layer" bits. The first, "inLast",
   // asserts when all PEs in the previous layer are done. The latter,
   // "inLastEarly", asserts as soon as all PEs in the previous layer
   // have been assigned.
   val inLast = Bool()
-  val inLastEarly = Bool()
-  val transactionType = UInt(width = log2Up(3)) // [TODO] fragile
-  val stateLearn = UInt(width = log2Up(7)) // [TODO] fragile
-  // output_layer should be unused according to types.vh
+  val inFirst = Bool()
   val cacheIndex = UInt(width = log2Up(cacheNumEntries))
   val asid = UInt(width = asidWidth)
   val tid = UInt(width = tidWidth)
-  val nnid = UInt(width = nnidWidth) // formerly nn_hash
+  val nnid = UInt(width = nnidWidth)
   val decimalPoint = UInt(width = decimalPointWidth)
-  val globalWtptr = UInt(width = 16) //[TODO] fragile
-  val errorFunction = UInt(width = log2Up(2)) // [TODO] fragile
-  val learningRate = UInt(width = 16) // [TODO] fragile
-  val lambda = UInt(width = 16) // [TODO] fragile
-  val numWeightBlocks = UInt(width = 16) // [TODO] fragile
   val numLayers = UInt(width = 16) // [TODO] fragile
   val numNodes = UInt(width = 16) // [TODO] fragile
   val currentNode = UInt(width = 16) // [TODO] fragile
@@ -41,11 +33,24 @@ class TransactionState(implicit p: Parameters) extends XFilesBundle()(p) {
   val currentLayer = UInt(width = 16) // [TODO] fragile
   val nodesInCurrentLayer = UInt(width = 16) // [TODO] fragile
   val neuronPointer = UInt(width = 11) // [TODO] fragile
+  val regFileLocationBit = UInt(width = 1)
+  val regFileAddrIn = UInt(width = log2Up(regFileNumElements))
+  val regFileAddrOut = UInt(width = log2Up(regFileNumElements))
+  val readIdx = UInt(width = log2Up(regFileNumElements))
+  val coreIdx = UInt(width = log2Up(numCores))
+  val indexElement = UInt(width = log2Up(regFileNumElements))
+  //-------- Learning additions
+  val inLastEarly = Bool()
+  val transactionType = UInt(width = log2Up(3)) // [TODO] fragile
+  val stateLearn = UInt(width = log2Up(7)) // [TODO] fragile
+  val globalWtptr = UInt(width = 16) //[TODO] fragile
+  val errorFunction = UInt(width = log2Up(2)) // [TODO] fragile
+  val learningRate = UInt(width = 16) // [TODO] fragile
+  val lambda = UInt(width = 16) // [TODO] fragile
+  val numWeightBlocks = UInt(width = 16) // [TODO] fragile
   val countFeedback = UInt(width = feedbackWidth)
-  val countPeWrites = UInt(width = 16) // [TODO] fragile
   val numTrainOutputs = UInt(width = 16) // [TODO] fragile
   val mse = UInt(width = elementWidth)
-  val regFileLocationBit = UInt(width = 1)
   // Batch training information
   val numBatchItems = UInt(width = 16) // [TODO] fragile
   val curBatchItem = UInt(width = 16) // [TODO] fragile
@@ -54,16 +59,11 @@ class TransactionState(implicit p: Parameters) extends XFilesBundle()(p) {
   // We need to keep track of where inputs and outputs should be
   // written to in the Register File.
   val regFileAddrInFixed = UInt(width = log2Up(regFileNumElements))
-  val regFileAddrIn = UInt(width = log2Up(regFileNumElements))
-  val regFileAddrOut = UInt(width = log2Up(regFileNumElements))
   val regFileAddrOutFixed = UInt(width = log2Up(regFileNumElements))
   val regFileAddrDelta = UInt(width = log2Up(regFileNumElements))
   val regFileAddrDW = UInt(width = log2Up(regFileNumElements))
   val regFileAddrSlope = UInt(width = log2Up(regFileNumElements))
-  val readIdx = UInt(width = log2Up(regFileNumElements))
-  val coreIdx = UInt(width = log2Up(numCores))
   // Additional crap which may be redundant
-  val indexElement = UInt(width = log2Up(regFileNumElements))
 }
 
 class TransactionStateLearn(implicit p: Parameters)
@@ -359,7 +359,6 @@ class TransactionTableBase(implicit p: Parameters) extends XFilesModule()(p) {
           table(derefTidIndex).valid := Bool(true)
           table(derefTidIndex).currentNode := UInt(0)
           table(derefTidIndex).readIdx := UInt(0)
-          table(derefTidIndex).countPeWrites := UInt(0)
           table(derefTidIndex).inFirst := Bool(true)
           table(derefTidIndex).inLast := Bool(false)
           table(derefTidIndex).inLastEarly := Bool(false)
