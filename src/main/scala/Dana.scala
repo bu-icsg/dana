@@ -219,7 +219,8 @@ abstract class DanaBundle(implicit val p: Parameters)
     with DanaParameters
 
 class Dana(implicit p: Parameters) extends DanaModule {
-  val io = (new XFilesDanaInterface).flip
+  val io = if (learningEnabled) (new XFilesDanaInterfaceLearn).flip else
+    (new XFilesDanaInterface).flip
 
   // Module instantiation
   // val tTable = Module(new TransactionTable)

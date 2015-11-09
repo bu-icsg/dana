@@ -151,15 +151,6 @@ class CacheBase[SramIfType <: SRAMVariantInterface,
   io.mem.req.bits.cacheIndex := UInt(0)
   io.mem.req.bits.coreIndex := UInt(0)
 
-  io.control.resp.valid := Bool(false)
-  io.control.resp.bits.fetch := Bool(false)
-  io.control.resp.bits.tableIndex := UInt(0)
-  io.control.resp.bits.tableMask := UInt(0)
-  io.control.resp.bits.cacheIndex := UInt(0)
-  io.control.resp.bits.data := Vec.fill(6){UInt(0)}
-  io.control.resp.bits.decimalPoint := UInt(0)
-  io.control.resp.bits.field := UInt(0)
-
   controlRespPipe(0).valid := Bool(false)
   controlRespPipe(0).bits.fetch := Bool(false)
   controlRespPipe(0).bits.tableIndex := UInt(0)
@@ -470,8 +461,6 @@ class CacheLearn(implicit p: Parameters)
   for (i <- 0 until cacheNumEntries) {
     mem(i).inc(0) := Bool(false)
   }
-
-  io.control.resp.bits.globalWtptr := UInt(0)
 
   controlRespPipe(0).bits.totalWritesMul := UInt(0)
   controlRespPipe(0).bits.globalWtptr := UInt(0)

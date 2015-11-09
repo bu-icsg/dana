@@ -123,7 +123,7 @@ class ControlInterface(implicit p: Parameters) extends DanaBundle()(p) {
 
 class ControlInterfaceLearn(implicit p: Parameters)
     extends ControlInterface()(p) {
-  override lazy val tTable = (new TTableControlInterface).flip
+  override lazy val tTable = (new TTableControlInterfaceLearn).flip
   override lazy val cache = new ControlCacheInterfaceLearn
   override lazy val peTable = new ControlPETableInterfaceLearn
 }
@@ -167,7 +167,6 @@ class ControlBase(implicit p: Parameters) extends DanaModule()(p) {
   io.tTable.resp.bits.field := UInt(0)
   io.tTable.resp.bits.data := Vec.fill(6){UInt(0)}
   io.tTable.resp.bits.decimalPoint := UInt(0)
-  io.tTable.resp.bits.globalWtptr := UInt(0)
   io.tTable.resp.bits.layerValid := Bool(false)
   io.tTable.resp.bits.layerValidIndex := UInt(0)
   // io.cache defaults
@@ -333,6 +332,8 @@ class ControlLearn(implicit p: Parameters)
     io.peTable.req.bits.tType := transactionType
     io.peTable.req.bits.globalWtptr := globalWtptr
   }
+
+  io.tTable.resp.bits.globalWtptr := UInt(0)
 
   reqCache(Bool(false), UInt(0), UInt(0), UInt(0), UInt(0), UInt(0), UInt(0),
     UInt(0), UInt(0))

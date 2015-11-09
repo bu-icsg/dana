@@ -43,7 +43,6 @@ class TransactionState(implicit p: Parameters) extends XFilesBundle()(p) {
   val inLastEarly = Bool()
   val transactionType = UInt(width = log2Up(3)) // [TODO] fragile
   val stateLearn = UInt(width = log2Up(7)) // [TODO] fragile
-  val globalWtptr = UInt(width = 16) //[TODO] fragile
   val errorFunction = UInt(width = log2Up(2)) // [TODO] fragile
   val learningRate = UInt(width = 16) // [TODO] fragile
   val lambda = UInt(width = 16) // [TODO] fragile
@@ -66,7 +65,9 @@ class TransactionState(implicit p: Parameters) extends XFilesBundle()(p) {
 }
 
 class TransactionStateLearn(implicit p: Parameters)
-    extends TransactionState()(p)
+    extends TransactionState()(p) {
+  val globalWtptr = UInt(width = 16) //[TODO] fragile
+}
 
 class ControlReq(implicit p: Parameters) extends XFilesBundle()(p) {
   // Bools
@@ -96,7 +97,6 @@ class ControlReq(implicit p: Parameters) extends XFilesBundle()(p) {
   val errorFunction = UInt(width = log2Up(2)) // [TODO] fragile
   val learningRate = UInt(width = 16) // [TODO] fragile
   val lambda = UInt(width = 16) // [TODO] fragile
-  val globalWtptr = UInt(width = 16) // [TODO] fragile
   val numWeightBlocks = UInt(width = 16) // [TODO] fragile
   val regFileAddrDelta = UInt(width = log2Up(regFileNumElements))
   val regFileAddrDW = UInt(width = log2Up(regFileNumElements))
@@ -107,7 +107,9 @@ class ControlReq(implicit p: Parameters) extends XFilesBundle()(p) {
   val batchFirst = Bool()
 }
 
-class ControlReqLearn(implicit p: Parameters) extends ControlReq()(p)
+class ControlReqLearn(implicit p: Parameters) extends ControlReq()(p) {
+  val globalWtptr = UInt(width = 16) // [TODO] fragile
+}
 
 class ControlResp(implicit p: Parameters) extends XFilesBundle()(p) {
   val readyCache = Bool()
@@ -120,10 +122,11 @@ class ControlResp(implicit p: Parameters) extends XFilesBundle()(p) {
   val layerValid = Bool()
   val layerValidIndex = UInt(width = log2Up(transactionTableNumEntries))
   //-------- Learning additions
-  val globalWtptr = UInt(width = 16) //[TODO] fragile
 }
 
-class ControlRespLearn(implicit p: Parameters) extends ControlResp()(p)
+class ControlRespLearn(implicit p: Parameters) extends ControlResp()(p) {
+  val globalWtptr = UInt(width = 16) //[TODO] fragile
+}
 
 class XFilesArbiterRespPipe(implicit p: Parameters) extends XFilesBundle()(p) {
   val respType = UInt(width = log2Up(3)) // [TODO] Fragile on Dana enum
@@ -177,7 +180,10 @@ class TransactionTableInterfaceLearn(implicit p: Parameters)
   override lazy val control = new TTableControlInterfaceLearn
 }
 
-class TransactionTableBase(implicit p: Parameters) extends XFilesModule()(p) {
+class TransactionTableBase[StateType <: TransactionState,
+  ControlReqType <: ControlReq](
+  genStateVec: => Vec[StateType], genControlReq: => ControlReqType)(
+  implicit p: Parameters) extends XFilesModule()(p) {
   // Communication with the X-FILES arbiter
   lazy val io = new TransactionTableInterface()(p)
 
@@ -201,7 +207,7 @@ class TransactionTableBase(implicit p: Parameters) extends XFilesModule()(p) {
     val regValue = io.arbiter.rocc.cmd.bits.rs2(31,0)
   }
 
-  val table = Vec.fill(transactionTableNumEntries){Reg(new TransactionState)}
+  val table = Reg(genStateVec)
   // val table = Reg(Vec(transactionTableNumEntries, new TransactionState()(p)))
   // val table = Reg(Vec(transactionTableNumEntries, new TransactionState))
   // val table = Reg(Vec(transactionTableNumEntries, new TransactionState()(p)))
@@ -465,7 +471,6 @@ class TransactionTableBase(implicit p: Parameters) extends XFilesModule()(p) {
           // table(tIdx).learningRate := io.control.resp.bits.data(3)
           // table(tIdx).lambda := io.control.resp.bits.data(4)
           table(tIdx).numWeightBlocks := io.control.resp.bits.data(5)
-          table(tIdx).globalWtptr := io.control.resp.bits.globalWtptr
           // Once we know the cache is valid, this entry is no longer waiting
           table(tIdx).waiting := Bool(false)
           printf("[INFO] TTable: Updating global info from Cache...\n")
@@ -485,8 +490,6 @@ class TransactionTableBase(implicit p: Parameters) extends XFilesModule()(p) {
             io.control.resp.bits.data(4))
           printf("[INFO]   Totalweightblocks :      0x%x\n",
             io.control.resp.bits.data(5))
-          printf("[INFO]   Global Weight Pointer :  0x%x\n",
-            io.control.resp.bits.globalWtptr)
         }
         is(e_TTABLE_LAYER) {
           table(tIdx).needsLayerInfo := Bool(false)
@@ -727,7 +730,7 @@ class TransactionTableBase(implicit p: Parameters) extends XFilesModule()(p) {
   val readyPeTable = Reg(next = io.control.resp.bits.readyPeTable)
   // Round Robin Arbitration of Transaction Table entries. One of
   // these is passed out over an interface to DANA's control module.
-  val entryArbiter = Module(new RRArbiter( new ControlReq,
+  val entryArbiter = Module(new RRArbiter(genControlReq,
     transactionTableNumEntries))
   // All of these need to be wired up manually as the internal
   // connections aren't IO
@@ -768,7 +771,6 @@ class TransactionTableBase(implicit p: Parameters) extends XFilesModule()(p) {
     entryArbiter.io.in(i).bits.errorFunction := table(i).errorFunction
     entryArbiter.io.in(i).bits.learningRate := table(i).learningRate
     entryArbiter.io.in(i).bits.lambda := table(i).lambda
-    entryArbiter.io.in(i).bits.globalWtptr := table(i).globalWtptr
     entryArbiter.io.in(i).bits.numWeightBlocks := table(i).numWeightBlocks
     entryArbiter.io.in(i).bits.regFileAddrIn := table(i).regFileAddrIn
     entryArbiter.io.in(i).bits.regFileAddrOut := table(i).regFileAddrOut
@@ -1081,11 +1083,35 @@ class TransactionTableBase(implicit p: Parameters) extends XFilesModule()(p) {
 }
 
 class TransactionTable(implicit p: Parameters)
-    extends TransactionTableBase()(p)
+    extends TransactionTableBase[TransactionState, ControlReq](
+  Vec(p(TransactionTableNumEntries), new TransactionState),
+    new ControlReq)(p)
 
 class TransactionTableLearn(implicit p: Parameters)
-    extends TransactionTableBase()(p) {
+    extends TransactionTableBase[TransactionStateLearn, ControlReqLearn](
+  Vec(p(TransactionTableNumEntries), new TransactionStateLearn),
+    new ControlReqLearn)(p) {
   override lazy val io = new TransactionTableInterfaceLearn()(p)
+
+  // Update the table when we get a request from DANA
+  when (io.control.resp.valid) {
+    val tIdx = io.control.resp.bits.tableIndex
+    // table(tIdx).waiting := Bool(true)
+    when (io.control.resp.bits.cacheValid) {
+      switch(io.control.resp.bits.field) {
+        is(e_TTABLE_CACHE_VALID) {
+          table(tIdx).globalWtptr := io.control.resp.bits.globalWtptr
+          printf("[INFO]   Global Weight Pointer :  0x%x\n",
+            io.control.resp.bits.globalWtptr)
+        }
+      }
+    }
+  }
+
+  for (i <- 0 until transactionTableNumEntries) {
+    entryArbiter.io.in(i).bits.globalWtptr := table(i).globalWtptr
+  }
+
 }
 
 class TransactionTableTests(uut: TransactionTable, isTrace: Boolean = true)

@@ -21,19 +21,30 @@ abstract class XFilesBundle(implicit p: Parameters) extends DanaBundle()(p)
     with XFilesParameters
 
 class XFilesDanaInterface(implicit p: Parameters) extends XFilesBundle()(p) {
-  val control = new TTableControlInterface
+  lazy val control = new TTableControlInterface
   // val peTable = (new PETransactionTableInterface).flip
   val regFile = new TTableRegisterFileInterface
   val cache = (new CacheMemInterface).flip
 }
 
+class XFilesDanaInterfaceLearn(implicit p: Parameters)
+    extends XFilesDanaInterface()(p) {
+  override lazy val control = new TTableControlInterfaceLearn
+}
+
 class XFilesInterface(implicit p: Parameters) extends Bundle {
   val core = Vec(p(NumCores), new RoCCInterface)
-  val dana = new XFilesDanaInterface
+  lazy val dana = new XFilesDanaInterface
+}
+
+class XFilesInterfaceLearn(implicit p: Parameters)
+    extends XFilesInterface()(p) {
+  override lazy val dana = new XFilesDanaInterfaceLearn
 }
 
 class XFilesArbiter(implicit p: Parameters) extends XFilesModule()(p) {
-  val io = new XFilesInterface
+  val io = if (learningEnabled) new XFilesInterfaceLearn else
+    new XFilesInterface
 
   // Module instatiation
   val tTable = if (learningEnabled) Module(new TransactionTableLearn) else
