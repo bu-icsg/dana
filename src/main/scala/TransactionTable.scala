@@ -207,14 +207,10 @@ class TransactionTableBase[StateType <: TransactionState,
   }
 
   val table = Reg(genStateVec)
-  // val table = Reg(Vec(transactionTableNumEntries, new TransactionState()(p)))
-  // val table = Reg(Vec(transactionTableNumEntries, new TransactionState))
-  // val table = Reg(Vec(transactionTableNumEntries, new TransactionState()(p)))
-  // val table = Vec.fill(transactionTableNumEntries){ Reg(new TransactionState) }
 
   // An entry is free if it is not valid and not reserved
-  def isFree(x: TransactionState): Bool = { !x.valid && !x.reserved }
-  def derefTid(x: TransactionState, asid: UInt, tid: UInt): Bool = {
+  def isFree(x: StateType): Bool = { !x.valid && !x.reserved }
+  def derefTid(x: StateType, asid: UInt, tid: UInt): Bool = {
     (x.asid === asid) && (x.tid === tid) && (x.valid || x.reserved) }
 
   // Determine if there exits a free entry in the table and the index
