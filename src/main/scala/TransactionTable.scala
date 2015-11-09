@@ -275,21 +275,6 @@ class TransactionTableBase[StateType <: TransactionState,
     when (cmd.readOrWrite) { // Write == True
       when (cmd.isNew) {
         when (cmd.isLast) {
-          // This is a register write
-          switch(cmd.regId) {
-            is (e_TTABLE_WRITE_REG_BATCH_ITEMS) {
-              table(derefTidIndex).numBatchItems := cmd.regValue
-              printf("[INFO] TTable setting TID 0x%x numBatchItems to 0x%x\n",
-                cmd.tid, cmd.regValue)}
-            is (e_TTABLE_WRITE_REG_LEARNING_RATE) {
-              table(derefTidIndex).learningRate := cmd.regValue
-              printf("[INFO] TTable setting TID 0x%x learningRate to 0x%x\n",
-                cmd.tid, cmd.regValue)}
-            is (e_TTABLE_WRITE_REG_WEIGHT_DECAY_LAMBDA) {
-              table(derefTidIndex).lambda := cmd.regValue
-              printf("[INFO] TTable setting TID 0x%x lambda to 0x%x\n",
-                cmd.tid, cmd.regValue)}
-          }
           printf("[INFO] X-Files saw reg write TID/Reg/Value 0x%x/0x%x/0x%x\n",
             cmd.tid, cmd.regId, cmd.regValue)
         } .otherwise {
@@ -299,14 +284,6 @@ class TransactionTableBase[StateType <: TransactionState,
           table(nextFree).cacheValid := Bool(false)
           table(nextFree).waiting := Bool(false)
           table(nextFree).needsLayerInfo := Bool(true)
-          table(nextFree).transactionType := cmd.transactionType
-          when (cmd.transactionType === e_TTYPE_INCREMENTAL ||
-            cmd.transactionType === e_TTYPE_BATCH) {
-            table(nextFree).numTrainOutputs := cmd.numTrainOutputs
-            table(nextFree).stateLearn := e_TTABLE_STATE_LOAD_OUTPUTS
-          } .otherwise {
-            table(nextFree).stateLearn := e_TTABLE_STATE_FEEDFORWARD
-          }
           table(nextFree).asid := cmd.asid
           table(nextFree).tid := cmd.tid
           table(nextFree).nnid := cmd.nnid
@@ -317,11 +294,7 @@ class TransactionTableBase[StateType <: TransactionState,
           table(nextFree).decInUse := Bool(false)
           table(nextFree).indexElement := UInt(0)
           table(nextFree).coreIdx := cmd.coreIdx
-          table(nextFree).regFileAddrInFixed := UInt(0)
           table(nextFree).regFileAddrOut := UInt(0)
-          // [TODO] Temporary value for number of batch items
-          table(nextFree).numBatchItems := UInt(1)
-          table(nextFree).curBatchItem := UInt(0)
 
           arbiterRespPipe.valid := Bool(true)
           // Initiate a response that will containt the TID
@@ -330,8 +303,12 @@ class TransactionTableBase[StateType <: TransactionState,
           arbiterRespPipe.bits.tidIdx := derefTidIndex
           arbiterRespPipe.bits.coreIdx := cmd.coreIdx
           arbiterRespPipe.bits.rd := cmd.rd
-          printf("[INFO] X-Files saw new write request for NNID/TType 0x%x/0x%x\n",
-            cmd.nnid, cmd.transactionType)
+          printf("[INFO] X-Files saw new write request for NNID 0x%x/\n",
+            cmd.nnid)
+
+          // Temporary stuff to purge
+          table(nextFree).transactionType := cmd.transactionType
+          table(nextFree).stateLearn := e_TTABLE_STATE_FEEDFORWARD
         }
       }
         .elsewhen(cmd.isLast) {
@@ -346,31 +323,17 @@ class TransactionTableBase[StateType <: TransactionState,
           log2Up(regFileNumElements)-1,log2Up(elementsPerBlock)) ##
           UInt(0, width=log2Up(elementsPerBlock))) + UInt(elementsPerBlock)
         table(derefTidIndex).indexElement := nextIndexBlock
-        when (table(derefTidIndex).stateLearn === e_TTABLE_STATE_LOAD_OUTPUTS) {
-          table(derefTidIndex).stateLearn := e_TTABLE_STATE_LEARN_FEEDFORWARD
-          table(derefTidIndex).regFileAddrInFixed := nextIndexBlock
-          table(derefTidIndex).regFileAddrOut := nextIndexBlock
-          printf("[INFO] TTable: LAST E[output] write TID/data 0x%x/0x%x\n",
-            cmd.tid, cmd.data);
-        } .otherwise {
           table(derefTidIndex).valid := Bool(true)
           table(derefTidIndex).currentNode := UInt(0)
           table(derefTidIndex).readIdx := UInt(0)
           table(derefTidIndex).inFirst := Bool(true)
           table(derefTidIndex).inLast := Bool(false)
-          table(derefTidIndex).inLastEarly := Bool(false)
-          table(derefTidIndex).regFileAddrIn := UInt(0)
-          table(derefTidIndex).regFileAddrDelta := UInt(0)
-          table(derefTidIndex).regFileAddrDW := UInt(0)
-          table(derefTidIndex).regFileAddrSlope := UInt(0)
           table(derefTidIndex).needsLayerInfo := Bool(true)
-          table(derefTidIndex).offsetBias := UInt(0)
           table(derefTidIndex).done := Bool(false)
           table(derefTidIndex).waiting := Bool(false)
           table(derefTidIndex).regFileLocationBit := UInt(0)
           printf("[INFO] TTable: LAST input write TID/data 0x%x/0x%x\n",
             cmd.tid, cmd.data);
-        }
       }
         // This is an input packet
         .otherwise {
@@ -407,16 +370,6 @@ class TransactionTableBase[StateType <: TransactionState,
         // Check to see if all outputs have been read and we're not in
         // some batch training state where we expect to see a new set
         // training input/output item.
-        when ((table(derefTidIndex).readIdx ===
-          table(derefTidIndex).nodesInCurrentLayer - UInt(1)) &&
-          (table(derefTidIndex).stateLearn =/= e_TTABLE_STATE_LOAD_OUTPUTS)) {
-          table(derefTidIndex).valid := Bool(false)
-          table(derefTidIndex).reserved := Bool(false)
-          printf("[INFO] TTable: All outputs read, evicting ASID/TID 0x%x/0x%x\n",
-            table(derefTidIndex).asid, table(derefTidIndex).tid)
-          printf("[INFO]         State is: 0x%x\n",
-            table(derefTidIndex).stateLearn)
-        }
         table(derefTidIndex).readIdx := table(derefTidIndex).readIdx + UInt(1)
         printf("[INFO] X-Files saw read request on TID %x\n",
           cmd.tid);
@@ -1077,13 +1030,111 @@ class TransactionTableBase[StateType <: TransactionState,
 class TransactionTable(implicit p: Parameters)
     extends TransactionTableBase[TransactionState, ControlReq](
   Vec(p(TransactionTableNumEntries), new TransactionState),
-    new ControlReq)(p)
+      new ControlReq)(p) {
+  when (io.arbiter.rocc.cmd.valid) {
+    when (cmd.readOrWrite) {
+      when (cmd.isNew) {
+        when (cmd.isLast) {
+        } .otherwise {
+        }
+      } .elsewhen(cmd.isLast) {
+      } .otherwise {
+      }
+    } .otherwise {
+      when (table(derefTidIndex).done) {
+        when ((table(derefTidIndex).readIdx ===
+          table(derefTidIndex).nodesInCurrentLayer - UInt(1))) {
+          table(derefTidIndex).valid := Bool(false)
+          table(derefTidIndex).reserved := Bool(false)
+          printf("[INFO] TTable: All outputs read, evicting ASID/TID 0x%x/0x%x\n",
+            table(derefTidIndex).asid, table(derefTidIndex).tid)
+          printf("[INFO]         State is: 0x%x\n",
+            table(derefTidIndex).stateLearn)
+        }
+      } .otherwise {
+      }
+    }
+  }
+
+}
 
 class TransactionTableLearn(implicit p: Parameters)
     extends TransactionTableBase[TransactionStateLearn, ControlReqLearn](
   Vec(p(TransactionTableNumEntries), new TransactionStateLearn),
     new ControlReqLearn)(p) {
   override lazy val io = new TransactionTableInterfaceLearn()(p)
+
+  when (io.arbiter.rocc.cmd.valid) {
+    when (cmd.readOrWrite) {
+      when (cmd.isNew) {
+        when (cmd.isLast) {
+          // This is a register write
+          switch(cmd.regId) {
+            is (e_TTABLE_WRITE_REG_BATCH_ITEMS) {
+              table(derefTidIndex).numBatchItems := cmd.regValue
+              printf("[INFO] TTable setting TID 0x%x numBatchItems to 0x%x\n",
+                cmd.tid, cmd.regValue)}
+            is (e_TTABLE_WRITE_REG_LEARNING_RATE) {
+              table(derefTidIndex).learningRate := cmd.regValue
+              printf("[INFO] TTable setting TID 0x%x learningRate to 0x%x\n",
+                cmd.tid, cmd.regValue)}
+            is (e_TTABLE_WRITE_REG_WEIGHT_DECAY_LAMBDA) {
+              table(derefTidIndex).lambda := cmd.regValue
+              printf("[INFO] TTable setting TID 0x%x lambda to 0x%x\n",
+                cmd.tid, cmd.regValue)}
+          }
+        } .otherwise {
+          table(nextFree).transactionType := cmd.transactionType
+          when (cmd.transactionType === e_TTYPE_INCREMENTAL ||
+            cmd.transactionType === e_TTYPE_BATCH) {
+            table(nextFree).numTrainOutputs := cmd.numTrainOutputs
+            table(nextFree).stateLearn := e_TTABLE_STATE_LOAD_OUTPUTS
+          } .otherwise {
+            table(nextFree).stateLearn := e_TTABLE_STATE_FEEDFORWARD
+          }
+          table(nextFree).regFileAddrInFixed := UInt(0)
+          // [TODO] Temporary value for number of batch items
+          table(nextFree).numBatchItems := UInt(1)
+          table(nextFree).curBatchItem := UInt(0)
+          printf("[INFO] X-Files saw new write request for NNID/TType 0x%x/0x%x\n",
+            cmd.nnid, cmd.transactionType)
+        }
+      } .elsewhen(cmd.isLast) {
+        val nextIndexBlock = (table(derefTidIndex).indexElement(
+          log2Up(regFileNumElements)-1,log2Up(elementsPerBlock)) ##
+          UInt(0, width=log2Up(elementsPerBlock))) + UInt(elementsPerBlock)
+        when (table(derefTidIndex).stateLearn === e_TTABLE_STATE_LOAD_OUTPUTS) {
+          table(derefTidIndex).stateLearn := e_TTABLE_STATE_LEARN_FEEDFORWARD
+          table(derefTidIndex).regFileAddrInFixed := nextIndexBlock
+          table(derefTidIndex).regFileAddrOut := nextIndexBlock
+          printf("[INFO] TTable: LAST E[output] write TID/data 0x%x/0x%x\n",
+            cmd.tid, cmd.data);
+          table(derefTidIndex).valid := Bool(false)
+        }
+        table(derefTidIndex).inLastEarly := Bool(false)
+        table(derefTidIndex).regFileAddrIn := UInt(0)
+        table(derefTidIndex).regFileAddrDelta := UInt(0)
+        table(derefTidIndex).regFileAddrDW := UInt(0)
+        table(derefTidIndex).regFileAddrSlope := UInt(0)
+        table(derefTidIndex).offsetBias := UInt(0)
+      } .otherwise {
+      }
+    } .otherwise {
+      when (table(derefTidIndex).done) {
+        when ((table(derefTidIndex).readIdx ===
+          table(derefTidIndex).nodesInCurrentLayer - UInt(1)) &&
+          (table(derefTidIndex).stateLearn =/= e_TTABLE_STATE_LOAD_OUTPUTS)) {
+          table(derefTidIndex).valid := Bool(false)
+          table(derefTidIndex).reserved := Bool(false)
+          printf("[INFO] TTable: All outputs read, evicting ASID/TID 0x%x/0x%x\n",
+            table(derefTidIndex).asid, table(derefTidIndex).tid)
+          printf("[INFO]         State is: 0x%x\n",
+            table(derefTidIndex).stateLearn)
+        }
+      } .otherwise {
+      }
+    }
+  }
 
   // Update the table when we get a request from DANA
   when (io.control.resp.valid) {
