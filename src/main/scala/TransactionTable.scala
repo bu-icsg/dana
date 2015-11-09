@@ -201,14 +201,6 @@ class TransactionTableBase(implicit p: Parameters) extends XFilesModule()(p) {
     val regValue = io.arbiter.rocc.cmd.bits.rs2(31,0)
   }
 
-  // val table_next = Vec.fill(transactionTableNumEntries){new TransactionState}
-  // val table = Reg(next = table_next);
-
-  // Vector of all the table entries
-  // val table = Vec(transactionTableNumEntries, Reg(new TransactionState) )
-  val tmp = Reg(new TransactionState)
-
-
   val table = Vec.fill(transactionTableNumEntries){Reg(new TransactionState)}
   // val table = Reg(Vec(transactionTableNumEntries, new TransactionState()(p)))
   // val table = Reg(Vec(transactionTableNumEntries, new TransactionState))
