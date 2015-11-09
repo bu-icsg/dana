@@ -121,7 +121,6 @@ class ControlResp(implicit p: Parameters) extends XFilesBundle()(p) {
   val decimalPoint = UInt(width = decimalPointWidth)
   val layerValid = Bool()
   val layerValidIndex = UInt(width = log2Up(transactionTableNumEntries))
-  //-------- Learning additions
 }
 
 class ControlRespLearn(implicit p: Parameters) extends ControlResp()(p) {
@@ -946,9 +945,6 @@ class TransactionTableBase[StateType <: TransactionState,
           table(tIdx).inLastEarly :=
           table(tIdx).currentLayer === (table(tIdx).numLayers - UInt(2))
         }
-        // } .otherwise {
-
-        // }
       }
     }
   }
