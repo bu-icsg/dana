@@ -115,7 +115,7 @@ class ControlRegisterFileInterface(implicit p: Parameters) extends DanaBundle()(
 }
 
 class ControlInterface(implicit p: Parameters) extends DanaBundle()(p) {
-  val tTable = (new TTableControlInterface).flip
+  lazy val tTable = (new TTableControlInterface).flip
   lazy val cache = new ControlCacheInterface
   lazy val peTable = new ControlPETableInterface
   val regFile = new ControlRegisterFileInterface
@@ -123,6 +123,7 @@ class ControlInterface(implicit p: Parameters) extends DanaBundle()(p) {
 
 class ControlInterfaceLearn(implicit p: Parameters)
     extends ControlInterface()(p) {
+  override lazy val tTable = (new TTableControlInterface).flip
   override lazy val cache = new ControlCacheInterfaceLearn
   override lazy val peTable = new ControlPETableInterfaceLearn
 }
@@ -240,9 +241,8 @@ class ControlBase(implicit p: Parameters) extends DanaModule()(p) {
       // Send a request to the storage module
       // val inLastLearn = (io.tTable.req.bits.inLastEarly) &&
       //   (io.tTable.req.bits.stateLearn === e_TTABLE_STATE_LEARN_FEEDFORWARD)
-      printf("[INFO] Control: TTable layer req inFirst/inLastEarly/state 0x%x/0x%x/0x%x\n",
-        io.tTable.req.bits.inFirst,
-        io.tTable.req.bits.inLastEarly, io.tTable.req.bits.stateLearn)
+      printf("[INFO] Control: TTable layer req inFirst 0x%x\n",
+        io.tTable.req.bits.inFirst)
       reqCache(valid = Bool(true), request = e_CACHE_LAYER_INFO,
         asid = io.tTable.req.bits.asid,
         nnid = io.tTable.req.bits.nnid,
@@ -269,11 +269,7 @@ class ControlBase(implicit p: Parameters) extends DanaModule()(p) {
       reqPETable(valid = Bool(true),
         cacheIndex = io.tTable.req.bits.cacheIndex,
         tIdx = io.tTable.req.bits.tableIndex,
-        inAddr =
-          Mux((io.tTable.req.bits.stateLearn === e_TTABLE_STATE_LEARN_ERROR_BACKPROP) ||
-          (io.tTable.req.bits.stateLearn === e_TTABLE_STATE_LEARN_WEIGHT_UPDATE),
-          io.tTable.req.bits.regFileAddrIn + io.tTable.req.bits.currentNodeInLayer,
-          io.tTable.req.bits.regFileAddrIn),
+        inAddr = io.tTable.req.bits.regFileAddrIn,
         outAddr = io.tTable.req.bits.regFileAddrOut +
           io.tTable.req.bits.currentNodeInLayer,
         neuronPointer = io.tTable.req.bits.neuronPointer +
