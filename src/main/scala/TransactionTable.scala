@@ -63,7 +63,6 @@ class TransactionState(implicit p: Parameters) extends XFilesBundle()(p) {
   val regFileAddrDelta = UInt(width = log2Up(regFileNumElements))
   val regFileAddrDW = UInt(width = log2Up(regFileNumElements))
   val regFileAddrSlope = UInt(width = log2Up(regFileNumElements))
-  // Additional crap which may be redundant
 }
 
 class TransactionStateLearn(implicit p: Parameters)
@@ -78,7 +77,6 @@ class ControlReq(implicit p: Parameters) extends XFilesBundle()(p) {
   val request = Bool()
   val inFirst = Bool()
   val inLast = Bool()
-  val inLastEarly = Bool()
   // Global info
   val tableIndex = UInt(width = log2Up(transactionTableNumEntries))
   val cacheIndex = UInt(width = log2Up(cacheNumEntries))
@@ -90,13 +88,16 @@ class ControlReq(implicit p: Parameters) extends XFilesBundle()(p) {
   val currentLayer = UInt(width = 16) // [TODO] fragile
   val neuronPointer = UInt(width = 11) // [TODO] fragile
   val decimalPoint = UInt(width = decimalPointWidth)
+  val regFileAddrIn = UInt(width = log2Up(regFileNumElements))
+  val regFileAddrOut = UInt(width = log2Up(regFileNumElements))
+  val regFileLocationBit = UInt(width = 1) // [TODO] fragile on definition above
+  //-------- Learning additions
+  val inLastEarly = Bool()
   val errorFunction = UInt(width = log2Up(2)) // [TODO] fragile
   val learningRate = UInt(width = 16) // [TODO] fragile
   val lambda = UInt(width = 16) // [TODO] fragile
   val globalWtptr = UInt(width = 16) // [TODO] fragile
   val numWeightBlocks = UInt(width = 16) // [TODO] fragile
-  val regFileAddrIn = UInt(width = log2Up(regFileNumElements))
-  val regFileAddrOut = UInt(width = log2Up(regFileNumElements))
   val regFileAddrDelta = UInt(width = log2Up(regFileNumElements))
   val regFileAddrDW = UInt(width = log2Up(regFileNumElements))
   val regFileAddrSlope = UInt(width = log2Up(regFileNumElements))
@@ -104,7 +105,6 @@ class ControlReq(implicit p: Parameters) extends XFilesBundle()(p) {
   val stateLearn = UInt(width = log2Up(5)) // [TODO] fragile
   val transactionType = UInt(width = log2Up(3)) // [TODO] fragile
   val batchFirst = Bool()
-  val regFileLocationBit = UInt(width = 1) // [TODO] fragile on definition above
 }
 
 class ControlReqLearn(implicit p: Parameters) extends ControlReq()(p)
@@ -117,9 +117,10 @@ class ControlResp(implicit p: Parameters) extends XFilesBundle()(p) {
   val field = UInt(width = 4) // [TODO] fragile on Constants.scala
   val data = Vec.fill(6){UInt(width = 16)} // [TODO] fragile
   val decimalPoint = UInt(width = decimalPointWidth)
-  val globalWtptr = UInt(width = 16) //[TODO] fragile
   val layerValid = Bool()
   val layerValidIndex = UInt(width = log2Up(transactionTableNumEntries))
+  //-------- Learning additions
+  val globalWtptr = UInt(width = 16) //[TODO] fragile
 }
 
 class ControlRespLearn(implicit p: Parameters) extends ControlResp()(p)
@@ -140,7 +141,10 @@ class TTableControlInterface(implicit p: Parameters) extends Bundle {
 }
 
 class TTableControlInterfaceLearn(implicit p: Parameters)
-    extends TTableControlInterface()(p)
+    extends TTableControlInterface()(p) {
+  override lazy val req = Decoupled(new ControlReqLearn)
+  override lazy val resp = Decoupled(new ControlRespLearn).flip
+}
 
 class TTableRegisterFileReq(implicit p: Parameters) extends XFilesBundle()(p) {
   val reqType = UInt(width = log2Up(2)) // [TODO] Frgaile on Dana enum

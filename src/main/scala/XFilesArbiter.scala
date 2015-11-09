@@ -36,7 +36,8 @@ class XFilesArbiter(implicit p: Parameters) extends XFilesModule()(p) {
   val io = new XFilesInterface
 
   // Module instatiation
-  val tTable = Module(new TransactionTable)
+  val tTable = if (learningEnabled) Module(new TransactionTableLearn) else
+    Module(new TransactionTable)
   val antw = Module(new AsidNnidTableWalker)
   val asidRegs = Vec.fill(numCores){ Module(new AsidUnit()(p)).io }
   val coreQueue = Vec.fill(numCores){ Module(new Queue(new RoCCCommand, 4)).io }
