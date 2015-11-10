@@ -406,19 +406,12 @@ class TransactionTableBase[StateType <: TransactionState,
         is(e_TTABLE_CACHE_VALID) {
           table(tIdx).cacheValid := Bool(true)
           table(tIdx).numLayers := io.control.resp.bits.data(0)
-          when (table(tIdx).transactionType === e_TTYPE_BATCH) {
-            table(tIdx).numNodes := io.control.resp.bits.data(1) * UInt(2)
-          } .otherwise {
-            table(tIdx).numNodes := io.control.resp.bits.data(1)
-          }
+          table(tIdx).numNodes := io.control.resp.bits.data(1)
           table(tIdx).cacheIndex := io.control.resp.bits.data(2)(
             log2Up(cacheNumEntries) + errorFunctionWidth - 1, errorFunctionWidth)
           table(tIdx).decimalPoint := io.control.resp.bits.decimalPoint
-          table(tIdx).errorFunction := io.control.resp.bits.data(2)(
-            errorFunctionWidth - 1, 0)
           // table(tIdx).learningRate := io.control.resp.bits.data(3)
           // table(tIdx).lambda := io.control.resp.bits.data(4)
-          table(tIdx).numWeightBlocks := io.control.resp.bits.data(5)
           // Once we know the cache is valid, this entry is no longer waiting
           table(tIdx).waiting := Bool(false)
           printf("[INFO] TTable: Updating global info from Cache...\n")
@@ -429,45 +422,12 @@ class TransactionTableBase[StateType <: TransactionState,
           printf("[INFO]   cache index:             0x%x\n",
             io.control.resp.bits.data(2)(
             log2Up(cacheNumEntries) + errorFunctionWidth - 1, errorFunctionWidth))
-          printf("[INFO]   error function:          0x%x\n",
-            io.control.resp.bits.data(2)(
-              errorFunctionWidth - 1, 0))
-          printf("[INFO]   learning rate:           0x%x (NOT SET)\n",
-            io.control.resp.bits.data(3))
-          printf("[INFO]   lambda:                  0x%x (NOT SET)\n",
-            io.control.resp.bits.data(4))
-          printf("[INFO]   Totalweightblocks :      0x%x\n",
-            io.control.resp.bits.data(5))
         }
         is(e_TTABLE_LAYER) {
           table(tIdx).needsLayerInfo := Bool(false)
           table(tIdx).currentNodeInLayer := UInt(0)
           table(tIdx).nodesInCurrentLayer := io.control.resp.bits.data(0)
           table(tIdx).neuronPointer := io.control.resp.bits.data(2)
-          // Update the inFirst and inLast Bools. The currentLayer
-          // should have already been updated when the request went out.
-          // table(tIdx).numLayers - UInt(1)
-          // [TODO] Disabling inFirst/inLast here. This will cause inLast to
-          // assert as soon as the layer data comes back. However,
-          // this causes problems with using inLast to check when
-          // we're in the last layer and PE data comes back valid.
-          // table(tIdx).inFirst := table(tIdx).currentLayer === UInt(0)
-          // table(tIdx).inLast :=
-          //   table(tIdx).currentLayer === table(tIdx).numLayers - UInt(1)
-          // If this is a transition into a layer which is not the first
-          // layer, then the Transaction Table requests need to block
-          // until the Register File has all valid data. [TODO] This is
-          // a sub-optimal design choice as PEs should be allowed to
-          // start before the Register File has _all_ of its valid data,
-          // but I'm leaving this the way it is due to the lack of a
-          // non-trivial path to add this functionality.
-          when ((table(tIdx).currentLayer === UInt(0)) &&
-            (table(tIdx).stateLearn === e_TTABLE_STATE_LEARN_FEEDFORWARD ||
-              table(tIdx).stateLearn === e_TTABLE_STATE_FEEDFORWARD)) {
-            table(tIdx).waiting := Bool(false)
-          }
-          // table(tIdx).waiting := !((table(tIdx).currentLayer === UInt(0)) &&
-          //   table(tIdx).stateLearn === e_TTABLE_STATE_LEARN_FEEDFORWARD)
           // Once we have layer information, we can update the
           // previous and current layer addresses. These are adjusted
           // to be on block boundaries, so there's an optional round
@@ -487,119 +447,6 @@ class TransactionTableBase[StateType <: TransactionState,
           val niplLSBs = table(tIdx).nodesInCurrentLayer(log2Up(elementsPerBlock-1),0)
           val niplOffset = niplMSBs + Mux(niclLSBs =/= UInt(0),
             UInt(elementsPerBlock), UInt(0))
-          switch(table(tIdx).stateLearn) {
-            is(e_TTABLE_STATE_FEEDFORWARD){
-              table(tIdx).regFileAddrIn := table(tIdx).regFileAddrOut
-              table(tIdx).regFileAddrOut := table(tIdx).regFileAddrOut + niclMSBs + round
-              table(tIdx).regFileAddrOutFixed :=
-                table(tIdx).regFileAddrOut + niclMSBs + round
-            }
-            is(e_TTABLE_STATE_LEARN_FEEDFORWARD){
-              table(tIdx).regFileAddrIn := table(tIdx).regFileAddrOut
-              // If we're in the last layer, this is a little special
-              when(table(tIdx).currentLayer === table(tIdx).numLayers - UInt(1)){
-                table(tIdx).regFileAddrDelta := table(tIdx).regFileAddrOut + UInt(2) *
-                (niclMSBs + round)
-                table(tIdx).regFileAddrDW := table(tIdx).regFileAddrOut + UInt(3) *
-                (niclMSBs + round)
-              } .otherwise{
-                // [TODO] I'm not 100% sure that this is the right way to
-                // go about this.
-                table(tIdx).regFileAddrDelta := table(tIdx).regFileAddrOut
-              }
-              table(tIdx).regFileAddrOut := table(tIdx).regFileAddrOut + niclMSBs +
-                round
-              table(tIdx).regFileAddrOutFixed :=
-                table(tIdx).regFileAddrOut + niclMSBs + round
-
-              // Update the number of total nodes in the network
-              when (table(tIdx).currentLayer === UInt(0)) { // In first layer
-                table(tIdx).numNodes := table(tIdx).numNodes +
-                  io.control.resp.bits.data(0)
-              } .elsewhen (table(tIdx).inLastEarly) {        // in the last layer
-                table(tIdx).numNodes := table(tIdx).numNodes +
-                  io.control.resp.bits.data(0)
-              } .otherwise {                                // not first or last
-                table(tIdx).numNodes := table(tIdx).numNodes +
-                  io.control.resp.bits.data(0) * UInt(2)
-              }
-
-              // Update the Bias Offset
-              table(tIdx).offsetBias := table(tIdx).offsetBias + niclOffset
-            }
-            is(e_TTABLE_STATE_LEARN_ERROR_BACKPROP){
-              table(tIdx).regFileAddrOut := table(tIdx).regFileAddrDW
-              table(tIdx).regFileAddrDelta := table(tIdx).regFileAddrDW +
-                niclOffset
-              table(tIdx).regFileAddrDW := table(tIdx).regFileAddrDW +
-                niclOffset * UInt(2)
-
-              // Handle special case of being in the last hidden layer
-              when (table(tIdx).currentLayer === table(tIdx).numLayers - UInt(2)) {
-                //address to read outputs to compute derivative
-                table(tIdx).regFileAddrIn := table(tIdx).regFileAddrIn
-              } .otherwise {
-                table(tIdx).regFileAddrIn := table(tIdx).regFileAddrIn -
-                  niclOffset
-              }
-
-              // Handle special case of being in the first hidden layer
-              when (table(tIdx).currentLayer === UInt(0)){
-                table(tIdx).regFileAddrDW := table(tIdx).regFileAddrInFixed
-                when(table(tIdx).transactionType === e_TTYPE_BATCH){
-                  table(tIdx).regFileAddrSlope := table(tIdx).regFileAddrDW +
-                    table(tIdx).offsetBias + niclOffset * UInt(1)
-                  table(tIdx).biasAddr := table(tIdx).regFileAddrDW +
-                    niclOffset * UInt(1)
-                }
-              }
-            }
-            is(e_TTABLE_STATE_LEARN_UPDATE_SLOPE){
-              table(tIdx).regFileAddrDW := table(tIdx).regFileAddrIn
-              table(tIdx).regFileAddrIn := table(tIdx).regFileAddrIn + niplOffset
-              table(tIdx).regFileAddrDelta := table(tIdx).regFileAddrDelta -
-                niclOffset * UInt(2)
-              table(tIdx).biasAddr := table(tIdx).biasAddr + niclOffset
-              // Handle special case of being in the second hidden layer
-              when (table(tIdx).currentLayer === UInt(1)){
-                table(tIdx).regFileAddrDelta := table(tIdx).regFileAddrOut -
-                  niclOffset * UInt(1)
-              }
-            }
-            is(e_TTABLE_STATE_LEARN_WEIGHT_UPDATE){
-              when(table(tIdx).transactionType === e_TTYPE_BATCH){
-                when (table(tIdx).currentLayer === UInt(0)){
-                  table(tIdx).regFileAddrDW := table(tIdx).regFileAddrInFixed
-                  table(tIdx).regFileAddrIn := table(tIdx).regFileAddrInFixed +
-                    niclOffset
-                  table(tIdx).regFileAddrDelta := table(tIdx).regFileAddrDelta
-                  // If we're in the first layer, then we need to go
-                  // ahead and update the slope address. We can
-                  // compute this because we know both the slope
-                  // offset (which is the offset from the bias region
-                  // to the start of the weight update region).
-                  table(tIdx).biasAddr := table(tIdx).regFileAddrSlope -
-                    table(tIdx).offsetBias
-                }.otherwise{
-                  table(tIdx).regFileAddrDW := table(tIdx).regFileAddrIn
-                  table(tIdx).regFileAddrIn := table(tIdx).regFileAddrIn + niclOffset
-                  table(tIdx).regFileAddrDelta := table(tIdx).regFileAddrDelta +
-                    niclOffset + niplOffset
-                  table(tIdx).biasAddr := table(tIdx).biasAddr + niclOffset
-                }
-              }.otherwise{
-                table(tIdx).regFileAddrDW := table(tIdx).regFileAddrIn
-                table(tIdx).regFileAddrIn := table(tIdx).regFileAddrIn + niplOffset
-                table(tIdx).regFileAddrDelta := table(tIdx).regFileAddrDelta -
-                  niclOffset - niplOffset
-                // Handle special case of being in the second hidden layer
-                when (table(tIdx).currentLayer === UInt(1)){
-                  table(tIdx).regFileAddrDelta := table(tIdx).regFileAddrOut -
-                  niclOffset * UInt(1)
-                }
-              }
-            }
-          }
 
           printf("[INFO] TTable: Updating cache layer...\n")
           printf("[INFO]   total layers:               0x%x\n",
@@ -638,39 +485,6 @@ class TransactionTableBase[StateType <: TransactionState,
       printf("[INFO]   inFirst/inLast/inLastEarly/state: 0x%x/0x%x->0x%x/0x%x/0x%x\n",
         table(tIdx).inFirst, inLastOld, inLastNew, table(tIdx).inLastEarly,
         table(tIdx).stateLearn)
-      switch (table(tIdx).transactionType) {
-        is (e_TTYPE_FEEDFORWARD) {
-          when (!inLastOld) {
-            table(tIdx).waiting := Bool(false)
-          } .otherwise {
-            table(tIdx).decInUse := Bool(true)
-            table(tIdx).waiting := Bool(false)
-          }
-        }
-        is (e_TTYPE_INCREMENTAL) {
-          when (inLastOld &&
-            table(tIdx).stateLearn === e_TTABLE_STATE_LEARN_WEIGHT_UPDATE) {
-            table(tIdx).decInUse := Bool(true)
-            table(tIdx).waiting := Bool(false)
-          } .otherwise {
-            table(tIdx).waiting := Bool(false)
-          }
-        }
-        is (e_TTYPE_BATCH) {
-          when (inLastOld &&
-            table(tIdx).currentLayer === (table(tIdx).numLayers - UInt(1)) &&
-            table(tIdx).stateLearn === e_TTABLE_STATE_LEARN_WEIGHT_UPDATE) {
-            table(tIdx).waiting := Bool(false)
-            table(tIdx).decInUse := Bool(true)
-          } .elsewhen (table(tIdx).stateLearn === e_TTABLE_STATE_LOAD_OUTPUTS) {
-            table(tIdx).indexElement := UInt(0)
-            table(tIdx).done := Bool(true)
-            table(tIdx).valid := Bool(false)
-          } .otherwise {
-            table(tIdx).waiting := Bool(false)
-          }
-        }
-      }
     }
   }
 
@@ -708,25 +522,14 @@ class TransactionTableBase[StateType <: TransactionState,
     entryArbiter.io.in(i).bits.asid := table(i).asid
     entryArbiter.io.in(i).bits.nnid := table(i).nnid
     entryArbiter.io.in(i).bits.coreIdx := table(i).coreIdx
-    entryArbiter.io.in(i).bits.transactionType := table(i).transactionType
-    entryArbiter.io.in(i).bits.batchFirst := table(i).curBatchItem === UInt(0)
     entryArbiter.io.in(i).bits.regFileLocationBit := table(i).regFileLocationBit
     // State info
     entryArbiter.io.in(i).bits.currentNodeInLayer := table(i).currentNodeInLayer
     entryArbiter.io.in(i).bits.currentLayer := table(i).currentLayer
     entryArbiter.io.in(i).bits.neuronPointer := table(i).neuronPointer
     entryArbiter.io.in(i).bits.decimalPoint := table(i).decimalPoint
-    entryArbiter.io.in(i).bits.errorFunction := table(i).errorFunction
-    entryArbiter.io.in(i).bits.learningRate := table(i).learningRate
-    entryArbiter.io.in(i).bits.lambda := table(i).lambda
-    entryArbiter.io.in(i).bits.numWeightBlocks := table(i).numWeightBlocks
     entryArbiter.io.in(i).bits.regFileAddrIn := table(i).regFileAddrIn
     entryArbiter.io.in(i).bits.regFileAddrOut := table(i).regFileAddrOut
-    entryArbiter.io.in(i).bits.regFileAddrDelta := table(i).regFileAddrDelta
-    entryArbiter.io.in(i).bits.regFileAddrDW := table(i).regFileAddrDW
-    entryArbiter.io.in(i).bits.regFileAddrSlope := table(i).regFileAddrSlope
-    entryArbiter.io.in(i).bits.regFileAddrBias := table(i).biasAddr
-    entryArbiter.io.in(i).bits.stateLearn := table(i).stateLearn
   }
   io.control.req <> entryArbiter.io.out
 
@@ -1056,6 +859,65 @@ class TransactionTable(implicit p: Parameters)
     }
   }
 
+  when (io.control.resp.valid) {
+    val tIdx = io.control.resp.bits.tableIndex
+    when (io.control.resp.bits.cacheValid) {
+      switch (io.control.resp.bits.field) {
+        is (e_TTABLE_LAYER) {
+          val nicl = io.control.resp.bits.data(0)
+          val niclMSBs = // Nodes in previous layer MSBs [TODO] fragile
+            nicl(15, log2Up(elementsPerBlock)) ##
+          UInt(0, width=log2Up(elementsPerBlock))
+          val niclLSBs = // Nodes in previous layer LSBs
+            nicl(log2Up(elementsPerBlock)-1, 0)
+          val round = Mux(niclLSBs =/= UInt(0), UInt(elementsPerBlock), UInt(0))
+          val niclOffset = niclMSBs + round
+
+          val niplMSBs =
+            table(tIdx).nodesInCurrentLayer(15, log2Up(elementsPerBlock)) ##
+          UInt(0, width=log2Up(elementsPerBlock))
+          val niplLSBs = table(tIdx).nodesInCurrentLayer(log2Up(elementsPerBlock-1),0)
+          val niplOffset = niplMSBs + Mux(niclLSBs =/= UInt(0),
+            UInt(elementsPerBlock), UInt(0))
+          table(tIdx).waiting := Bool(false)
+          table(tIdx).regFileAddrIn := table(tIdx).regFileAddrOut
+          table(tIdx).regFileAddrOut := table(tIdx).regFileAddrOut + niclMSBs +
+          round
+          table(tIdx).regFileAddrOutFixed := table(tIdx).regFileAddrOut +
+          niclMSBs + round
+        }
+      }
+    }
+    when (io.control.resp.bits.layerValid) {
+      val tIdx = io.control.resp.bits.layerValidIndex
+      val inLastOld = table(tIdx).inLast
+      val inLastNew = table(tIdx).currentLayer === (table(tIdx).numLayers - UInt(1))
+      when (!inLastOld) {
+        table(tIdx).waiting := Bool(false)
+      } .otherwise {
+        table(tIdx).decInUse := Bool(true)
+        table(tIdx).waiting := Bool(false)
+      }
+    }
+  }
+
+  when (isPeReq) {
+    val tIdx = entryArbiter.io.out.bits.tableIndex
+    val inLastNode = table(tIdx).currentNodeInLayer ===
+      table(tIdx).nodesInCurrentLayer - UInt(1)
+    val notInLastLayer = table(tIdx).currentLayer <
+      (table(tIdx).numLayers - UInt(1))
+    when(inLastNode && notInLastLayer) {
+      table(tIdx).needsLayerInfo := Bool(true)
+      table(tIdx).currentLayer := table(tIdx).currentLayer + UInt(1)
+      table(tIdx).regFileLocationBit := !table(tIdx).regFileLocationBit
+    } .otherwise {
+      table(tIdx).needsLayerInfo := Bool(false)
+      table(tIdx).currentLayer := table(tIdx).currentLayer
+    }
+    table(tIdx).inFirst := table(tIdx).currentLayer === UInt(0)
+  }
+
 }
 
 class TransactionTableLearn(implicit p: Parameters)
@@ -1144,8 +1006,197 @@ class TransactionTableLearn(implicit p: Parameters)
       switch(io.control.resp.bits.field) {
         is(e_TTABLE_CACHE_VALID) {
           table(tIdx).globalWtptr := io.control.resp.bits.globalWtptr
+          when (table(tIdx).transactionType === e_TTYPE_BATCH) {
+            table(tIdx).numNodes := io.control.resp.bits.data(1) * UInt(2)
+          }
+          table(tIdx).errorFunction := io.control.resp.bits.data(2)(
+            errorFunctionWidth - 1, 0)
+          table(tIdx).numWeightBlocks := io.control.resp.bits.data(5)
+          printf("[INFO]   error function:          0x%x\n",
+            io.control.resp.bits.data(2)(
+              errorFunctionWidth - 1, 0))
+          printf("[INFO]   learning rate:           0x%x (NOT SET)\n",
+            io.control.resp.bits.data(3))
+          printf("[INFO]   lambda:                  0x%x (NOT SET)\n",
+            io.control.resp.bits.data(4))
+          printf("[INFO]   Totalweightblocks :      0x%x\n",
+            io.control.resp.bits.data(5))
           printf("[INFO]   Global Weight Pointer :  0x%x\n",
             io.control.resp.bits.globalWtptr)
+        }
+        is(e_TTABLE_LAYER) {
+          val nicl = io.control.resp.bits.data(0)
+          val niclMSBs = // Nodes in previous layer MSBs [TODO] fragile
+            nicl(15, log2Up(elementsPerBlock)) ##
+              UInt(0, width=log2Up(elementsPerBlock))
+          val niclLSBs = // Nodes in previous layer LSBs
+            nicl(log2Up(elementsPerBlock)-1, 0)
+          val round = Mux(niclLSBs =/= UInt(0), UInt(elementsPerBlock), UInt(0))
+          val niclOffset = niclMSBs + round
+
+          val niplMSBs =
+            table(tIdx).nodesInCurrentLayer(15, log2Up(elementsPerBlock)) ##
+              UInt(0, width=log2Up(elementsPerBlock))
+          val niplLSBs = table(tIdx).nodesInCurrentLayer(log2Up(elementsPerBlock-1),0)
+          val niplOffset = niplMSBs + Mux(niclLSBs =/= UInt(0),
+            UInt(elementsPerBlock), UInt(0))
+          when ((table(tIdx).currentLayer === UInt(0)) &&
+            (table(tIdx).stateLearn === e_TTABLE_STATE_LEARN_FEEDFORWARD ||
+              table(tIdx).stateLearn === e_TTABLE_STATE_FEEDFORWARD)) {
+            table(tIdx).waiting := Bool(false)
+          }
+          switch(table(tIdx).stateLearn) {
+            is(e_TTABLE_STATE_FEEDFORWARD){
+              table(tIdx).regFileAddrIn := table(tIdx).regFileAddrOut
+              table(tIdx).regFileAddrOut := table(tIdx).regFileAddrOut +
+                niclMSBs + round
+              table(tIdx).regFileAddrOutFixed :=
+                table(tIdx).regFileAddrOut + niclMSBs + round
+            }
+            is(e_TTABLE_STATE_LEARN_FEEDFORWARD){
+              table(tIdx).regFileAddrIn := table(tIdx).regFileAddrOut
+              // If we're in the last layer, this is a little special
+              when(table(tIdx).currentLayer === table(tIdx).numLayers - UInt(1)){
+                table(tIdx).regFileAddrDelta := table(tIdx).regFileAddrOut + UInt(2) *
+                (niclMSBs + round)
+                table(tIdx).regFileAddrDW := table(tIdx).regFileAddrOut + UInt(3) *
+                (niclMSBs + round)
+              } .otherwise{
+                // [TODO] I'm not 100% sure that this is the right way to
+                // go about this.
+                table(tIdx).regFileAddrDelta := table(tIdx).regFileAddrOut
+              }
+              table(tIdx).regFileAddrOut := table(tIdx).regFileAddrOut + niclMSBs +
+                round
+              table(tIdx).regFileAddrOutFixed :=
+                table(tIdx).regFileAddrOut + niclMSBs + round
+
+              // Update the number of total nodes in the network
+              when (table(tIdx).currentLayer === UInt(0)) { // In first layer
+                table(tIdx).numNodes := table(tIdx).numNodes +
+                  io.control.resp.bits.data(0)
+              } .elsewhen (table(tIdx).inLastEarly) {        // in the last layer
+                table(tIdx).numNodes := table(tIdx).numNodes +
+                  io.control.resp.bits.data(0)
+              } .otherwise {                                // not first or last
+                table(tIdx).numNodes := table(tIdx).numNodes +
+                  io.control.resp.bits.data(0) * UInt(2)
+              }
+
+              // Update the Bias Offset
+              table(tIdx).offsetBias := table(tIdx).offsetBias + niclOffset
+            }
+            is(e_TTABLE_STATE_LEARN_ERROR_BACKPROP){
+              table(tIdx).regFileAddrOut := table(tIdx).regFileAddrDW
+              table(tIdx).regFileAddrDelta := table(tIdx).regFileAddrDW +
+                niclOffset
+              table(tIdx).regFileAddrDW := table(tIdx).regFileAddrDW +
+                niclOffset * UInt(2)
+
+              // Handle special case of being in the last hidden layer
+              when (table(tIdx).currentLayer === table(tIdx).numLayers - UInt(2)) {
+                //address to read outputs to compute derivative
+                table(tIdx).regFileAddrIn := table(tIdx).regFileAddrIn
+              } .otherwise {
+                table(tIdx).regFileAddrIn := table(tIdx).regFileAddrIn -
+                  niclOffset
+              }
+
+              // Handle special case of being in the first hidden layer
+              when (table(tIdx).currentLayer === UInt(0)){
+                table(tIdx).regFileAddrDW := table(tIdx).regFileAddrInFixed
+                when(table(tIdx).transactionType === e_TTYPE_BATCH){
+                  table(tIdx).regFileAddrSlope := table(tIdx).regFileAddrDW +
+                    table(tIdx).offsetBias + niclOffset * UInt(1)
+                  table(tIdx).biasAddr := table(tIdx).regFileAddrDW +
+                    niclOffset * UInt(1)
+                }
+              }
+            }
+            is(e_TTABLE_STATE_LEARN_UPDATE_SLOPE){
+              table(tIdx).regFileAddrDW := table(tIdx).regFileAddrIn
+              table(tIdx).regFileAddrIn := table(tIdx).regFileAddrIn + niplOffset
+              table(tIdx).regFileAddrDelta := table(tIdx).regFileAddrDelta -
+                niclOffset * UInt(2)
+              table(tIdx).biasAddr := table(tIdx).biasAddr + niclOffset
+              // Handle special case of being in the second hidden layer
+              when (table(tIdx).currentLayer === UInt(1)){
+                table(tIdx).regFileAddrDelta := table(tIdx).regFileAddrOut -
+                  niclOffset * UInt(1)
+              }
+            }
+            is(e_TTABLE_STATE_LEARN_WEIGHT_UPDATE){
+              when(table(tIdx).transactionType === e_TTYPE_BATCH){
+                when (table(tIdx).currentLayer === UInt(0)){
+                  table(tIdx).regFileAddrDW := table(tIdx).regFileAddrInFixed
+                  table(tIdx).regFileAddrIn := table(tIdx).regFileAddrInFixed +
+                    niclOffset
+                  table(tIdx).regFileAddrDelta := table(tIdx).regFileAddrDelta
+                  // If we're in the first layer, then we need to go
+                  // ahead and update the slope address. We can
+                  // compute this because we know both the slope
+                  // offset (which is the offset from the bias region
+                  // to the start of the weight update region).
+                  table(tIdx).biasAddr := table(tIdx).regFileAddrSlope -
+                    table(tIdx).offsetBias
+                }.otherwise{
+                  table(tIdx).regFileAddrDW := table(tIdx).regFileAddrIn
+                  table(tIdx).regFileAddrIn := table(tIdx).regFileAddrIn + niclOffset
+                  table(tIdx).regFileAddrDelta := table(tIdx).regFileAddrDelta +
+                    niclOffset + niplOffset
+                  table(tIdx).biasAddr := table(tIdx).biasAddr + niclOffset
+                }
+              }.otherwise{
+                table(tIdx).regFileAddrDW := table(tIdx).regFileAddrIn
+                table(tIdx).regFileAddrIn := table(tIdx).regFileAddrIn + niplOffset
+                table(tIdx).regFileAddrDelta := table(tIdx).regFileAddrDelta -
+                  niclOffset - niplOffset
+                // Handle special case of being in the second hidden layer
+                when (table(tIdx).currentLayer === UInt(1)){
+                  table(tIdx).regFileAddrDelta := table(tIdx).regFileAddrOut -
+                  niclOffset * UInt(1)
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+    when (io.control.resp.bits.layerValid) {
+      val tIdx = io.control.resp.bits.layerValidIndex
+      val inLastOld = table(tIdx).inLast
+      val inLastNew = table(tIdx).currentLayer === (table(tIdx).numLayers - UInt(1))
+      switch (table(tIdx).transactionType) {
+        is (e_TTYPE_FEEDFORWARD) {
+          when (!inLastOld) {
+            table(tIdx).waiting := Bool(false)
+          } .otherwise {
+            table(tIdx).decInUse := Bool(true)
+            table(tIdx).waiting := Bool(false)
+          }
+        }
+        is (e_TTYPE_INCREMENTAL) {
+          when (inLastOld &&
+            table(tIdx).stateLearn === e_TTABLE_STATE_LEARN_WEIGHT_UPDATE) {
+            table(tIdx).decInUse := Bool(true)
+            table(tIdx).waiting := Bool(false)
+          } .otherwise {
+            table(tIdx).waiting := Bool(false)
+          }
+        }
+        is (e_TTYPE_BATCH) {
+          when (inLastOld &&
+            table(tIdx).currentLayer === (table(tIdx).numLayers - UInt(1)) &&
+            table(tIdx).stateLearn === e_TTABLE_STATE_LEARN_WEIGHT_UPDATE) {
+            table(tIdx).waiting := Bool(false)
+            table(tIdx).decInUse := Bool(true)
+          } .elsewhen (table(tIdx).stateLearn === e_TTABLE_STATE_LOAD_OUTPUTS) {
+            table(tIdx).indexElement := UInt(0)
+            table(tIdx).done := Bool(true)
+            table(tIdx).valid := Bool(false)
+          } .otherwise {
+            table(tIdx).waiting := Bool(false)
+          }
         }
       }
     }
@@ -1153,6 +1204,144 @@ class TransactionTableLearn(implicit p: Parameters)
 
   for (i <- 0 until transactionTableNumEntries) {
     entryArbiter.io.in(i).bits.globalWtptr := table(i).globalWtptr
+    entryArbiter.io.in(i).bits.transactionType := table(i).transactionType
+    entryArbiter.io.in(i).bits.batchFirst := table(i).curBatchItem === UInt(0)
+    entryArbiter.io.in(i).bits.errorFunction := table(i).errorFunction
+    entryArbiter.io.in(i).bits.learningRate := table(i).learningRate
+    entryArbiter.io.in(i).bits.lambda := table(i).lambda
+    entryArbiter.io.in(i).bits.numWeightBlocks := table(i).numWeightBlocks
+    entryArbiter.io.in(i).bits.regFileAddrDelta := table(i).regFileAddrDelta
+    entryArbiter.io.in(i).bits.regFileAddrDW := table(i).regFileAddrDW
+    entryArbiter.io.in(i).bits.regFileAddrSlope := table(i).regFileAddrSlope
+    entryArbiter.io.in(i).bits.regFileAddrBias := table(i).biasAddr
+    entryArbiter.io.in(i).bits.stateLearn := table(i).stateLearn
+  }
+
+  when (isPeReq) {
+    val tIdx = entryArbiter.io.out.bits.tableIndex
+    val inLastNode = table(tIdx).currentNodeInLayer ===
+      table(tIdx).nodesInCurrentLayer - UInt(1)
+    val notInLastLayer = table(tIdx).currentLayer <
+      (table(tIdx).numLayers - UInt(1))
+
+    // If we're at the end of a layer, we need new layer information
+    // The comparison here differs from how this is handled in
+    // nn_instruction.v.
+    switch(table(tIdx).stateLearn){
+      is(e_TTABLE_STATE_FEEDFORWARD){
+        when(inLastNode && notInLastLayer) {
+          table(tIdx).needsLayerInfo := Bool(true)
+          table(tIdx).currentLayer := table(tIdx).currentLayer + UInt(1)
+          table(tIdx).regFileLocationBit := !table(tIdx).regFileLocationBit
+        } .otherwise {
+          table(tIdx).needsLayerInfo := Bool(false)
+          table(tIdx).currentLayer := table(tIdx).currentLayer
+        }
+        table(tIdx).inFirst := table(tIdx).currentLayer === UInt(0)
+      }
+      is(e_TTABLE_STATE_LEARN_FEEDFORWARD){
+        when(table(tIdx).inLast && inLastNode){
+          table(tIdx).needsLayerInfo := Bool(true)
+          table(tIdx).currentLayer := table(tIdx).currentLayer - UInt(1)
+          table(tIdx).regFileLocationBit := !table(tIdx).regFileLocationBit
+          table(tIdx).inFirst := table(tIdx).currentLayer === UInt(1)
+          table(tIdx).inLastEarly := Bool(true)
+          table(tIdx).stateLearn := e_TTABLE_STATE_LEARN_ERROR_BACKPROP
+        } .elsewhen (inLastNode && notInLastLayer) {
+          table(tIdx).needsLayerInfo := Bool(true)
+          table(tIdx).currentLayer := table(tIdx).currentLayer + UInt(1)
+          table(tIdx).regFileLocationBit := !table(tIdx).regFileLocationBit
+          table(tIdx).inFirst := table(tIdx).currentLayer === UInt(0)
+
+          // inLastEarly will assert as soon as the last PE Request goes
+          // out. This is useful if you need something that goes high at
+          // the earliest possible definition of "being in the last
+          // layer", e.g., when generating a request for the next layer
+          // information.
+          table(tIdx).inLastEarly :=
+            table(tIdx).currentLayer === (table(tIdx).numLayers - UInt(2))
+        } .otherwise {
+          table(tIdx).needsLayerInfo := Bool(false)
+          table(tIdx).currentLayer := table(tIdx).currentLayer
+          table(tIdx).inFirst := table(tIdx).currentLayer === UInt(0)
+        }
+      }
+      is(e_TTABLE_STATE_LEARN_ERROR_BACKPROP){
+        when(table(tIdx).inFirst && inLastNode) {
+          table(tIdx).needsLayerInfo := Bool(true)
+          table(tIdx).currentLayer := table(tIdx).currentLayer + UInt(1)
+          table(tIdx).regFileLocationBit := !table(tIdx).regFileLocationBit
+          when(table(tIdx).transactionType === e_TTYPE_BATCH){
+            table(tIdx).stateLearn := e_TTABLE_STATE_LEARN_UPDATE_SLOPE
+          }.otherwise{
+            table(tIdx).stateLearn := e_TTABLE_STATE_LEARN_WEIGHT_UPDATE
+          }
+          table(tIdx).inFirst := Bool(false)
+          table(tIdx).inLastEarly :=
+            table(tIdx).currentLayer === (table(tIdx).numLayers - UInt(2))
+        } .elsewhen(inLastNode && (table(tIdx).currentLayer > UInt(0))) {
+          table(tIdx).needsLayerInfo := Bool(true)
+          table(tIdx).currentLayer := table(tIdx).currentLayer - UInt(1)
+          table(tIdx).regFileLocationBit := !table(tIdx).regFileLocationBit
+          table(tIdx).inFirst := table(tIdx).currentLayer === UInt(1)
+        } .otherwise {
+          table(tIdx).needsLayerInfo := Bool(false)
+          table(tIdx).currentLayer := table(tIdx).currentLayer
+        }
+      }
+      is(e_TTABLE_STATE_LEARN_UPDATE_SLOPE){
+        when(table(tIdx).inLast && inLastNode){
+          table(tIdx).needsLayerInfo := Bool(false)
+          table(tIdx).currentLayer := UInt(0)
+          table(tIdx).regFileLocationBit := !table(tIdx).regFileLocationBit
+          table(tIdx).inFirst := Bool(true)
+          table(tIdx).inLastEarly := Bool(false)
+          // We need to take some specific action based on whether or
+          // not we're done with an epoch
+          when (table(tIdx).curBatchItem === (table(tIdx).numBatchItems - UInt(1))) {
+            table(tIdx).needsLayerInfo := Bool(true)
+            table(tIdx).stateLearn := e_TTABLE_STATE_LEARN_WEIGHT_UPDATE
+          } .otherwise {
+            table(tIdx).waiting := Bool(true)
+            table(tIdx).stateLearn := e_TTABLE_STATE_LOAD_OUTPUTS
+            table(tIdx).curBatchItem := table(tIdx).curBatchItem + UInt(1)
+          }
+        } .elsewhen (inLastNode && notInLastLayer) {
+          table(tIdx).needsLayerInfo := Bool(true)
+          table(tIdx).currentLayer := table(tIdx).currentLayer + UInt(1)
+          table(tIdx).regFileLocationBit := !table(tIdx).regFileLocationBit
+          table(tIdx).inFirst := table(tIdx).currentLayer === UInt(0)
+
+          // inLastEarly will assert as soon as the last PE Request goes
+          // out. This is useful if you need something that goes high at
+          // the earliest possible definition of "being in the last
+          // layer", e.g., when generating a request for the next layer
+          // information.
+          table(tIdx).inLastEarly :=
+            table(tIdx).currentLayer === (table(tIdx).numLayers - UInt(2))
+        } .otherwise {
+          table(tIdx).needsLayerInfo := Bool(false)
+          table(tIdx).currentLayer := table(tIdx).currentLayer
+          table(tIdx).inFirst := table(tIdx).currentLayer === UInt(0)
+        }
+      }
+      is (e_TTABLE_STATE_LEARN_WEIGHT_UPDATE) {
+        // when(table(tIdx).transactionType === e_TTYPE_INCREMENTAL){
+        when(table(tIdx).inLast && inLastNode){
+            table(tIdx).waiting := Bool(true)
+          table(tIdx).currentLayer := table(tIdx).currentLayer
+        } .elsewhen(inLastNode && notInLastLayer) {
+          table(tIdx).needsLayerInfo := Bool(true)
+          table(tIdx).currentLayer := table(tIdx).currentLayer + UInt(1)
+          table(tIdx).regFileLocationBit := !table(tIdx).regFileLocationBit
+        } .otherwise {
+          table(tIdx).needsLayerInfo := Bool(false)
+          table(tIdx).currentLayer := table(tIdx).currentLayer
+          table(tIdx).inLastEarly :=
+          table(tIdx).currentLayer === (table(tIdx).numLayers - UInt(2))
+        }
+      }
+    }
   }
 
 }
