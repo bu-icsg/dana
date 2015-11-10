@@ -39,17 +39,23 @@ class TransactionState(implicit p: Parameters) extends XFilesBundle()(p) {
   val readIdx = UInt(width = log2Up(regFileNumElements))
   val coreIdx = UInt(width = log2Up(numCores))
   val indexElement = UInt(width = log2Up(regFileNumElements))
-  //-------- Learning additions
+  val countFeedback = UInt(width = feedbackWidth)
+  //-------- Can be possibly moved over to a learning-only config
+  val regFileAddrOutFixed = UInt(width = log2Up(regFileNumElements))
+}
+
+class TransactionStateLearn(implicit p: Parameters)
+    extends TransactionState()(p) {
+  val globalWtptr = UInt(width = 16) //[TODO] fragile
   val inLastEarly = Bool()
   val transactionType = UInt(width = log2Up(3)) // [TODO] fragile
+  val numTrainOutputs = UInt(width = 16) // [TODO] fragile
   val stateLearn = UInt(width = log2Up(7)) // [TODO] fragile
   val errorFunction = UInt(width = log2Up(2)) // [TODO] fragile
   val learningRate = UInt(width = 16) // [TODO] fragile
   val lambda = UInt(width = 16) // [TODO] fragile
   val numWeightBlocks = UInt(width = 16) // [TODO] fragile
-  val countFeedback = UInt(width = feedbackWidth)
-  val numTrainOutputs = UInt(width = 16) // [TODO] fragile
-  val mse = UInt(width = elementWidth)
+  val mse = UInt(width = elementWidth) // unused
   // Batch training information
   val numBatchItems = UInt(width = 16) // [TODO] fragile
   val curBatchItem = UInt(width = 16) // [TODO] fragile
@@ -58,15 +64,9 @@ class TransactionState(implicit p: Parameters) extends XFilesBundle()(p) {
   // We need to keep track of where inputs and outputs should be
   // written to in the Register File.
   val regFileAddrInFixed = UInt(width = log2Up(regFileNumElements))
-  val regFileAddrOutFixed = UInt(width = log2Up(regFileNumElements))
   val regFileAddrDelta = UInt(width = log2Up(regFileNumElements))
   val regFileAddrDW = UInt(width = log2Up(regFileNumElements))
   val regFileAddrSlope = UInt(width = log2Up(regFileNumElements))
-}
-
-class TransactionStateLearn(implicit p: Parameters)
-    extends TransactionState()(p) {
-  val globalWtptr = UInt(width = 16) //[TODO] fragile
 }
 
 class ControlReq(implicit p: Parameters) extends XFilesBundle()(p) {
@@ -92,8 +92,13 @@ class ControlReq(implicit p: Parameters) extends XFilesBundle()(p) {
   val regFileAddrIn = UInt(width = log2Up(regFileNumElements))
   val regFileAddrOut = UInt(width = log2Up(regFileNumElements))
   val regFileLocationBit = UInt(width = 1) // [TODO] fragile on definition above
-  //-------- Learning additions
+}
+
+class ControlReqLearn(implicit p: Parameters) extends ControlReq()(p) {
+  val globalWtptr = UInt(width = 16) // [TODO] fragile
   val inLastEarly = Bool()
+  val transactionType = UInt(width = log2Up(3)) // [TODO] fragile
+  val stateLearn = UInt(width = log2Up(5)) // [TODO] fragile
   val errorFunction = UInt(width = log2Up(2)) // [TODO] fragile
   val learningRate = UInt(width = 16) // [TODO] fragile
   val lambda = UInt(width = 16) // [TODO] fragile
@@ -102,13 +107,7 @@ class ControlReq(implicit p: Parameters) extends XFilesBundle()(p) {
   val regFileAddrDW = UInt(width = log2Up(regFileNumElements))
   val regFileAddrSlope = UInt(width = log2Up(regFileNumElements))
   val regFileAddrBias = UInt(width = log2Up(regFileNumElements))
-  val stateLearn = UInt(width = log2Up(5)) // [TODO] fragile
-  val transactionType = UInt(width = log2Up(3)) // [TODO] fragile
   val batchFirst = Bool()
-}
-
-class ControlReqLearn(implicit p: Parameters) extends ControlReq()(p) {
-  val globalWtptr = UInt(width = 16) // [TODO] fragile
 }
 
 class ControlResp(implicit p: Parameters) extends XFilesBundle()(p) {
@@ -186,13 +185,11 @@ class TransactionTableBase[StateType <: TransactionState,
   // Communication with the X-FILES arbiter
   lazy val io = new TransactionTableInterface()(p)
 
-  // IO alises
-  val cmd = new XFilesBundle {
+  // IO aliases
+  lazy val cmd = new XFilesBundle {
     val readOrWrite = io.arbiter.rocc.cmd.bits.inst.funct(0)
     val isNew = io.arbiter.rocc.cmd.bits.inst.funct(1)
     val isLast = io.arbiter.rocc.cmd.bits.inst.funct(2)
-    val transactionType = io.arbiter.rocc.cmd.bits.rs2(49,48)
-    val numTrainOutputs = io.arbiter.rocc.cmd.bits.rs2(47,32)
     val asid = io.arbiter.rocc.cmd.bits.rs1(asidWidth + tidWidth - 1, tidWidth)
     val tid = io.arbiter.rocc.cmd.bits.rs1(tidWidth - 1, 0)
     val coreIdx = io.arbiter.coreIdx
@@ -204,6 +201,9 @@ class TransactionTableBase[StateType <: TransactionState,
     val rd = io.arbiter.rocc.cmd.bits.inst.rd
     val regId = io.arbiter.rocc.cmd.bits.rs2(63,32)
     val regValue = io.arbiter.rocc.cmd.bits.rs2(31,0)
+    // Only used with learning, but maintained for assertion checking
+    val transactionType = io.arbiter.rocc.cmd.bits.rs2(49,48)
+    val numTrainOutputs = io.arbiter.rocc.cmd.bits.rs2(47,32)
   }
 
   val table = Reg(genStateVec)
@@ -297,7 +297,7 @@ class TransactionTableBase[StateType <: TransactionState,
           table(nextFree).regFileAddrOut := UInt(0)
 
           arbiterRespPipe.valid := Bool(true)
-          // Initiate a response that will containt the TID
+          // Initiate a response that will contain the TID
           arbiterRespPipe.bits.respType := e_TID
           arbiterRespPipe.bits.tid := cmd.tid
           arbiterRespPipe.bits.tidIdx := derefTidIndex
@@ -305,10 +305,6 @@ class TransactionTableBase[StateType <: TransactionState,
           arbiterRespPipe.bits.rd := cmd.rd
           printf("[INFO] X-Files saw new write request for NNID 0x%x/\n",
             cmd.nnid)
-
-          // Temporary stuff to purge
-          table(nextFree).transactionType := cmd.transactionType
-          table(nextFree).stateLearn := e_TTABLE_STATE_FEEDFORWARD
         }
       }
         .elsewhen(cmd.isLast) {
@@ -453,8 +449,6 @@ class TransactionTableBase[StateType <: TransactionState,
             table(tIdx).numLayers)
           printf("[INFO]   layer is:                   0x%x\n",
             table(tIdx).currentLayer)
-          printf("[INFO]   inFirst/inLast/inLastEarly: 0x%x/0x%x/0x%x\n",
-            table(tIdx).inFirst, table(tIdx).inLast, table(tIdx).inLastEarly)
           printf("[INFO]   neuron pointer:             0x%x\n",
             io.control.resp.bits.data(2))
           printf("[INFO]   nodes in current layer:     0x%x\n",
@@ -482,9 +476,6 @@ class TransactionTableBase[StateType <: TransactionState,
       table(tIdx).inLast := inLastNew
       printf("[INFO] TTable: RegFile has all outputs of tIdx 0x%x\n",
         io.control.resp.bits.layerValidIndex)
-      printf("[INFO]   inFirst/inLast/inLastEarly/state: 0x%x/0x%x->0x%x/0x%x/0x%x\n",
-        table(tIdx).inFirst, inLastOld, inLastNew, table(tIdx).inLastEarly,
-        table(tIdx).stateLearn)
     }
   }
 
@@ -514,7 +505,6 @@ class TransactionTableBase[StateType <: TransactionState,
     entryArbiter.io.in(i).bits.request := table(i).request
     entryArbiter.io.in(i).bits.inFirst := table(i).inFirst
     entryArbiter.io.in(i).bits.inLast := table(i).inLast
-    entryArbiter.io.in(i).bits.inLastEarly := table(i).inLastEarly
     entryArbiter.io.in(i).bits.isDone := table(i).decInUse
     // Global info
     entryArbiter.io.in(i).bits.tableIndex := UInt(i)
@@ -584,121 +574,6 @@ class TransactionTableBase[StateType <: TransactionState,
     // If we're at the end of a layer, we need new layer information
     // The comparison here differs from how this is handled in
     // nn_instruction.v.
-    switch(table(tIdx).stateLearn){
-      is(e_TTABLE_STATE_FEEDFORWARD){
-        when(inLastNode && notInLastLayer) {
-          table(tIdx).needsLayerInfo := Bool(true)
-          table(tIdx).currentLayer := table(tIdx).currentLayer + UInt(1)
-          table(tIdx).regFileLocationBit := !table(tIdx).regFileLocationBit
-        } .otherwise {
-          table(tIdx).needsLayerInfo := Bool(false)
-          table(tIdx).currentLayer := table(tIdx).currentLayer
-        }
-        table(tIdx).inFirst := table(tIdx).currentLayer === UInt(0)
-      }
-      is(e_TTABLE_STATE_LEARN_FEEDFORWARD){
-        when(table(tIdx).inLast && inLastNode){
-          table(tIdx).needsLayerInfo := Bool(true)
-          table(tIdx).currentLayer := table(tIdx).currentLayer - UInt(1)
-          table(tIdx).regFileLocationBit := !table(tIdx).regFileLocationBit
-          table(tIdx).inFirst := table(tIdx).currentLayer === UInt(1)
-          table(tIdx).inLastEarly := Bool(true)
-          table(tIdx).stateLearn := e_TTABLE_STATE_LEARN_ERROR_BACKPROP
-        } .elsewhen (inLastNode && notInLastLayer) {
-          table(tIdx).needsLayerInfo := Bool(true)
-          table(tIdx).currentLayer := table(tIdx).currentLayer + UInt(1)
-          table(tIdx).regFileLocationBit := !table(tIdx).regFileLocationBit
-          table(tIdx).inFirst := table(tIdx).currentLayer === UInt(0)
-
-          // inLastEarly will assert as soon as the last PE Request goes
-          // out. This is useful if you need something that goes high at
-          // the earliest possible definition of "being in the last
-          // layer", e.g., when generating a request for the next layer
-          // information.
-          table(tIdx).inLastEarly :=
-            table(tIdx).currentLayer === (table(tIdx).numLayers - UInt(2))
-        } .otherwise {
-          table(tIdx).needsLayerInfo := Bool(false)
-          table(tIdx).currentLayer := table(tIdx).currentLayer
-          table(tIdx).inFirst := table(tIdx).currentLayer === UInt(0)
-        }
-      }
-      is(e_TTABLE_STATE_LEARN_ERROR_BACKPROP){
-        when(table(tIdx).inFirst && inLastNode) {
-          table(tIdx).needsLayerInfo := Bool(true)
-          table(tIdx).currentLayer := table(tIdx).currentLayer + UInt(1)
-          table(tIdx).regFileLocationBit := !table(tIdx).regFileLocationBit
-          when(table(tIdx).transactionType === e_TTYPE_BATCH){
-            table(tIdx).stateLearn := e_TTABLE_STATE_LEARN_UPDATE_SLOPE
-          }.otherwise{
-            table(tIdx).stateLearn := e_TTABLE_STATE_LEARN_WEIGHT_UPDATE
-          }
-          table(tIdx).inFirst := Bool(false)
-          table(tIdx).inLastEarly :=
-            table(tIdx).currentLayer === (table(tIdx).numLayers - UInt(2))
-        } .elsewhen(inLastNode && (table(tIdx).currentLayer > UInt(0))) {
-          table(tIdx).needsLayerInfo := Bool(true)
-          table(tIdx).currentLayer := table(tIdx).currentLayer - UInt(1)
-          table(tIdx).regFileLocationBit := !table(tIdx).regFileLocationBit
-          table(tIdx).inFirst := table(tIdx).currentLayer === UInt(1)
-        } .otherwise {
-          table(tIdx).needsLayerInfo := Bool(false)
-          table(tIdx).currentLayer := table(tIdx).currentLayer
-        }
-      }
-      is(e_TTABLE_STATE_LEARN_UPDATE_SLOPE){
-        when(table(tIdx).inLast && inLastNode){
-          table(tIdx).needsLayerInfo := Bool(false)
-          table(tIdx).currentLayer := UInt(0)
-          table(tIdx).regFileLocationBit := !table(tIdx).regFileLocationBit
-          table(tIdx).inFirst := Bool(true)
-          table(tIdx).inLastEarly := Bool(false)
-          // We need to take some specific action based on whether or
-          // not we're done with an epoch
-          when (table(tIdx).curBatchItem === (table(tIdx).numBatchItems - UInt(1))) {
-            table(tIdx).needsLayerInfo := Bool(true)
-            table(tIdx).stateLearn := e_TTABLE_STATE_LEARN_WEIGHT_UPDATE
-          } .otherwise {
-            table(tIdx).waiting := Bool(true)
-            table(tIdx).stateLearn := e_TTABLE_STATE_LOAD_OUTPUTS
-            table(tIdx).curBatchItem := table(tIdx).curBatchItem + UInt(1)
-          }
-        } .elsewhen (inLastNode && notInLastLayer) {
-          table(tIdx).needsLayerInfo := Bool(true)
-          table(tIdx).currentLayer := table(tIdx).currentLayer + UInt(1)
-          table(tIdx).regFileLocationBit := !table(tIdx).regFileLocationBit
-          table(tIdx).inFirst := table(tIdx).currentLayer === UInt(0)
-
-          // inLastEarly will assert as soon as the last PE Request goes
-          // out. This is useful if you need something that goes high at
-          // the earliest possible definition of "being in the last
-          // layer", e.g., when generating a request for the next layer
-          // information.
-          table(tIdx).inLastEarly :=
-            table(tIdx).currentLayer === (table(tIdx).numLayers - UInt(2))
-        } .otherwise {
-          table(tIdx).needsLayerInfo := Bool(false)
-          table(tIdx).currentLayer := table(tIdx).currentLayer
-          table(tIdx).inFirst := table(tIdx).currentLayer === UInt(0)
-        }
-      }
-      is (e_TTABLE_STATE_LEARN_WEIGHT_UPDATE) {
-        // when(table(tIdx).transactionType === e_TTYPE_INCREMENTAL){
-        when(table(tIdx).inLast && inLastNode){
-            table(tIdx).waiting := Bool(true)
-          table(tIdx).currentLayer := table(tIdx).currentLayer
-        } .elsewhen(inLastNode && notInLastLayer) {
-          table(tIdx).needsLayerInfo := Bool(true)
-          table(tIdx).currentLayer := table(tIdx).currentLayer + UInt(1)
-          table(tIdx).regFileLocationBit := !table(tIdx).regFileLocationBit
-        } .otherwise {
-          table(tIdx).needsLayerInfo := Bool(false)
-          table(tIdx).currentLayer := table(tIdx).currentLayer
-          table(tIdx).inLastEarly :=
-          table(tIdx).currentLayer === (table(tIdx).numLayers - UInt(2))
-        }
-      }
-    }
   }
 
   // Reset Condition
@@ -809,12 +684,6 @@ class TransactionTableBase[StateType <: TransactionState,
     table(derefTidIndex).valid),
     "TTable saw write requests on valid TID")
 
-  // Catch any jumps to an error state
-  (0 until transactionTableNumEntries).map(i =>
-    assert(!((table(i).valid || table(i).reserved) &&
-      table(i).stateLearn === e_TTABLE_STATE_ERROR),
-      "TTable Transaction is in error state"))
-
   // If learning is disabled we should never see a learning request
   if (!learningEnabled) {
     assert(!(io.arbiter.rocc.cmd.valid &&
@@ -851,8 +720,6 @@ class TransactionTable(implicit p: Parameters)
           table(derefTidIndex).reserved := Bool(false)
           printf("[INFO] TTable: All outputs read, evicting ASID/TID 0x%x/0x%x\n",
             table(derefTidIndex).asid, table(derefTidIndex).tid)
-          printf("[INFO]         State is: 0x%x\n",
-            table(derefTidIndex).stateLearn)
         }
       } .otherwise {
       }
@@ -885,6 +752,8 @@ class TransactionTable(implicit p: Parameters)
           round
           table(tIdx).regFileAddrOutFixed := table(tIdx).regFileAddrOut +
           niclMSBs + round
+          printf("[INFO]   inFirst/inLast: 0x%x/0x%x\n", table(tIdx).inFirst,
+            table(tIdx).inLast)
         }
       }
     }
@@ -898,6 +767,8 @@ class TransactionTable(implicit p: Parameters)
         table(tIdx).decInUse := Bool(true)
         table(tIdx).waiting := Bool(false)
       }
+      printf("[INFO]   inFirst/inLast: 0x%x/0x%x->0x%x\n",
+        table(tIdx).inFirst, inLastOld, inLastNew)
     }
   }
 
@@ -958,6 +829,7 @@ class TransactionTableLearn(implicit p: Parameters)
           // [TODO] Temporary value for number of batch items
           table(nextFree).numBatchItems := UInt(1)
           table(nextFree).curBatchItem := UInt(0)
+          table(nextFree).transactionType := cmd.transactionType
           printf("[INFO] X-Files saw new write request for NNID/TType 0x%x/0x%x\n",
             cmd.nnid, cmd.transactionType)
         }
@@ -1159,6 +1031,8 @@ class TransactionTableLearn(implicit p: Parameters)
               }
             }
           }
+          printf("[INFO]   inFirst/inLast/inLastEarly: 0x%x/0x%x/0x%x\n",
+            table(tIdx).inFirst, table(tIdx).inLast, table(tIdx).inLastEarly)
         }
       }
     }
@@ -1199,6 +1073,9 @@ class TransactionTableLearn(implicit p: Parameters)
           }
         }
       }
+      printf("[INFO]   inFirst/inLast/inLastEarly/state: 0x%x/0x%x->0x%x/0x%x/0x%x\n",
+        table(tIdx).inFirst, inLastOld, inLastNew, table(tIdx).inLastEarly,
+        table(tIdx).stateLearn)
     }
   }
 
@@ -1215,6 +1092,7 @@ class TransactionTableLearn(implicit p: Parameters)
     entryArbiter.io.in(i).bits.regFileAddrSlope := table(i).regFileAddrSlope
     entryArbiter.io.in(i).bits.regFileAddrBias := table(i).biasAddr
     entryArbiter.io.in(i).bits.stateLearn := table(i).stateLearn
+    entryArbiter.io.in(i).bits.inLastEarly := table(i).inLastEarly
   }
 
   when (isPeReq) {
@@ -1343,6 +1221,12 @@ class TransactionTableLearn(implicit p: Parameters)
       }
     }
   }
+
+  // Catch any jumps to an error state
+  (0 until transactionTableNumEntries).map(i =>
+    assert(!((table(i).valid || table(i).reserved) &&
+      table(i).stateLearn === e_TTABLE_STATE_ERROR),
+      "TTable Transaction is in error state"))
 
 }
 
