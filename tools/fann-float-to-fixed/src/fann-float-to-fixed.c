@@ -32,7 +32,8 @@ int main(int argc, char *argv[])
       abort ();
     }
 
-  for (int index = 1; index < argc - optind + 1; index++) {
+  int index;
+  for (index = 1; index < argc - optind + 1; index++) {
     int index_optind = optind + index - 1;
     switch (index) {
     case 1:

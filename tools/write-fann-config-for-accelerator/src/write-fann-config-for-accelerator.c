@@ -46,7 +46,8 @@ int main(int argc, char *argv[])
   FILE * file = NULL;
   int size_of_block = -1;
   int decimal_point_offset = -1024;
-  for (int index = 1; index < argc - optind + 1; index++) {
+  int index;
+  for (index = 1; index < argc - optind + 1; index++) {
     int index_optind = optind + index - 1;
     switch (index) {
     case 1:
