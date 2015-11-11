@@ -33,5 +33,8 @@ class XFilesDanaNoLearningCPPConfig extends Config(new XFilesDanaNoLearningConfi
 class XFilesDanaFPGAConfig extends Config(new XFilesDanaConfig ++
   new DefaultXFilesDanaFPGAConfig ++ new DefaultFPGAConfig)
 
+class XFilesDanaNoLearningFPGAConfig extends Config(new XFilesDanaNoLearningConfig ++
+  new XFilesDanaConfig ++ new DefaultXFilesDanaFPGAConfig ++ new DefaultFPGAConfig)
+
 class XFilesDanaFPGASmallConfig extends Config(new XFilesDanaConfig ++
   new DefaultXFilesDanaFPGAConfig ++ new DefaultFPGASmallConfig)
