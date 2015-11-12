@@ -6,12 +6,16 @@ use Getopt::Long;
 
 sub usage() {
 print << "END"
-Usage: gen-boolean-data -n [number of input bits] -f [boolean function]
+Usage: gen-boolean-data -n [number of bits] -f [boolean function] [OPTIONS]
 
+Required parameters:
   -n, --num-bits             Number of input bits
   -f, --boolean-function     Boolean function to use
 
-Suitable boolean Functions:
+Optional parameters:
+  -s, --symmetric            Generate symmetric output (as opposed to bipolar)
+
+Supported boolean Functions:
   and
   or
   xor
@@ -20,8 +24,10 @@ END
 
 my $number_of_bits;
 my $boolean_function;
+my $flag_symmetric;
 GetOptions ("n|num-bits=i" => \$number_of_bits,
-            "f|boolean-function=s" => \$boolean_function)
+            "f|boolean-function=s" => \$boolean_function,
+            "s|symmetric" => \$flag_symmetric)
     or usage() and die "Invalid option";
 
 usage() and die "Missing required options" if
@@ -45,7 +51,8 @@ for (my $i = 0; $i < 2 ** $number_of_bits; $i++) {
         } else {
             $bit = 0;
         }
-        print "$bit ";
+        $_ = $bit; s/0/-1/;
+        print $flag_symmetric ? "$_ " : "$bit ";
 
         if ($j == $number_of_bits - 1) {
             $output = $bit;
@@ -59,5 +66,6 @@ for (my $i = 0; $i < 2 ** $number_of_bits; $i++) {
             }
         }
     }
-    print "\n$output\n";
+    $_ = $output; s/0/-1/;
+    print $flag_symmetric ? "\n$_\n" : "\n$output\n";
 }
