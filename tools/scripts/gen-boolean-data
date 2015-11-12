@@ -1,0 +1,63 @@
+#!/usr/bin/perl
+
+use strict;
+use warnings;
+use Getopt::Long;
+
+sub usage() {
+print << "END"
+Usage: gen-boolean-data -n [number of input bits] -f [boolean function]
+
+  -n, --num-bits             Number of input bits
+  -f, --boolean-function     Boolean function to use
+
+Suitable boolean Functions:
+  and
+  or
+  xor
+END
+}
+
+my $number_of_bits;
+my $boolean_function;
+GetOptions ("n|num-bits=i" => \$number_of_bits,
+            "f|boolean-function=s" => \$boolean_function)
+    or usage() and die "Invalid option";
+
+usage() and die "Missing required options" if
+    not $number_of_bits or not $boolean_function;
+
+usage() and die "Unknown boolean function $boolean_function" if
+    not ($boolean_function eq "and" or
+    $boolean_function eq "or" or
+    $boolean_function eq "xor");
+
+print 2 ** $number_of_bits . " " . $number_of_bits . " " . 1 . "\n";
+
+for (my $i = 0; $i < 2 ** $number_of_bits; $i++) {
+    my $tmp_i = $i;
+    my $output;
+    my $bit;
+    for (my $j = $number_of_bits - 1; $j >= 0; $j--) {
+        if ($tmp_i - 2 ** $j >= 0) {
+            $bit = 1;
+            $tmp_i -= 2 ** $j;
+        } else {
+            $bit = 0;
+        }
+        print "$bit ";
+
+        if ($j == $number_of_bits - 1) {
+            $output = $bit;
+        } else {
+            if ($boolean_function eq "and") {
+                $output = $output & $bit;
+            } elsif ($boolean_function eq "or") {
+                $output = $output | $bit;
+            } elsif ($boolean_function eq "xor") {
+                $output = $output ^ $bit;
+            }
+        }
+    }
+    print "\n$output\n";
+}
