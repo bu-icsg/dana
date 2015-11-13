@@ -18,6 +18,7 @@ static char * usage_message =
   "  -l, --stat-last            print last epoch number statistic\n"
   "  -m, --stat-mse             print mse statistics (optional arg: MSE period)\n"
   "  -n, --nn-config            the binary NN configuration to use\n"
+  "  -r, --learning-rate        set the learning rate (default 0.7)\n"
   "  -t, --train-file           the fixed point FANN training file to use\n"
   "  -v, --verbose              turn on per-item inputs/output printfs\n"
   "\n"
@@ -33,6 +34,7 @@ int main (int argc, char * argv[]) {
   int flag_cups = 0, flag_last = 0, flag_mse = 0, flag_verbose = 0;
   int mse_reporting_period = 1;
   float bit_fail_limit = 0.05, mse_fail_limit = -1.0;
+  double learning_rate = 0.7;
   struct fann * ann = NULL;
   struct fann_train_data * data = NULL;
   fann_type * calc_out;
@@ -49,13 +51,15 @@ int main (int argc, char * argv[]) {
       {"help",           no_argument,       0, 'h'},
       {"id",             required_argument, 0, 'i'},
       {"stat-last",      no_argument,       0, 'l'},
-      {"stat-mse",         optional_argument, 0, 'm'},
+      {"stat-mse",       optional_argument, 0, 'm'},
       {"nn-config",      required_argument, 0, 'n'},
+      {"learning-rate",  required_argument, 0, 'r'},
       {"train-file",     required_argument, 0, 't'},
       {"verbose",        no_argument,       0, 'v'}
     };
     int option_index = 0;
-    c = getopt_long (argc, argv, "cd:e:f:g:hi:lm::n:t:v", long_options, &option_index);
+    c = getopt_long (argc, argv, "cd:e:f:g:hi:lm::n:r:t:v",
+                     long_options, &option_index);
     if (c == -1)
       break;
     switch (c) {
@@ -93,6 +97,9 @@ int main (int argc, char * argv[]) {
     case 'n':
       file_nn = optarg;
       break;
+    case 'r':
+      learning_rate = atof(optarg);
+      break;
     case 't':
       file_train = optarg;
       break;
@@ -126,6 +133,7 @@ int main (int argc, char * argv[]) {
     fann_get_activation_function(ann, ann->last_layer - ann->first_layer -1, 0);
 
   ann->training_algorithm = FANN_TRAIN_BATCH;
+  ann->learning_rate = learning_rate;
 
   float mse;
   for (epoch = 0; epoch < max_epochs; epoch++) {
