@@ -24,7 +24,7 @@ static char * usage_message =
   "  -f, --bit-fail-limit       sets the bit fail limit (default 0.05)\n"
   "  -g, --mse-fail-limit       sets the maximum MSE (default -1, i.e., off)\n"
   "  -h, --help                 print this help and exit\n"
-  "  -i, --id                   numeric id to use for printing data (default 0)\n"
+  "  -i, --id                   string id to use for printing data (default 0)\n"
   "  -j, --set-asid             use a specific asic (default 0)\n"
   "  -k, --set-nnid             use a specific nnid (default 0)\n"
   "  -l, --stat-last            print last epoch number statistic\n"
@@ -88,10 +88,10 @@ uint64_t binary_config_num_connections(char * file_nn) {
 }
 
 int main (int argc, char * argv[]) {
-  int exit_code = 0, max_epochs = 10000, bits_failing = -1, id = 0,
-    batch_items = -1;
+  int exit_code = 0, max_epochs = 10000, bits_failing = -1, batch_items = -1;
   int flag_cycles = 0, flag_last = 0, flag_mse = 0, flag_performance = 0,
     flag_ant_info = 0, flag_incremental = 0;
+  char id[100] = "0";
   asid_type asid = 0;
   nnid_type nnid = 0;
 #ifdef VERBOSE_DEFAULT
@@ -164,7 +164,7 @@ int main (int argc, char * argv[]) {
       goto bail;
       break;
     case 'i':
-      id = atoi(optarg);
+      strcpy(id, optarg);
       break;
     case 'j':
       asid = atoi(optarg);
@@ -342,7 +342,7 @@ int main (int argc, char * argv[]) {
     if (flag_mse || mse_fail_limit != -1) {
       mse /= batch_items * num_output;
       if (flag_mse && (epoch % mse_reporting_period == 0))
-        printf("[STAT] epoch %d id %d bp %d mse %8.8f\n", epoch, id, binary_point, mse);
+        printf("[STAT] epoch %d id %s bp %d mse %8.8f\n", epoch, id, binary_point, mse);
     }
     if (bits_failing == 0 || mse < mse_fail_limit)
       goto finish;
@@ -424,7 +424,7 @@ int main (int argc, char * argv[]) {
     if (flag_mse || mse_fail_limit != -1) {
       mse /= batch_items * num_output;
       if (flag_mse && (epoch % mse_reporting_period == 0))
-        printf("[STAT] epoch %d id %d bp %d mse %8.8f\n", epoch, id, binary_point, mse);
+        printf("[STAT] epoch %d id %s bp %d mse %8.8f\n", epoch, id, binary_point, mse);
     }
     if (bits_failing == 0 || mse < mse_fail_limit)
       goto finish;
@@ -456,10 +456,10 @@ int main (int argc, char * argv[]) {
   // printf("# [STAT] fann-batch-id%d-bit-fail %d\n", id, bits_failing);
   // printf("# [STAT] fann-batch-id%d-final-epoch %d\n", id, epoch);
   if (flag_last)
-    printf("[STAT] bp %d id %d epoch %d\n", binary_point, id, epoch);
+    printf("[STAT] bp %d id %s epoch %d\n", binary_point, id, epoch);
   if (flag_cycles) {
-    printf("[STAT] x 0 id %d bp %d cycles %ld\n", id, binary_point, cycles);
-    printf("[STAT] x 0 id %d bp %d CUPC %0.8f\n", id, binary_point,
+    printf("[STAT] x 0 id %s bp %d cycles %ld\n", id, binary_point, cycles);
+    printf("[STAT] x 0 id %s bp %d CUPC %0.8f\n", id, binary_point,
            (connections_per_epoch * epoch * batch_items) / (double) cycles);
   }
 
