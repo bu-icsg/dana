@@ -139,9 +139,9 @@ NETS_GEN=xorSigmoid xorSigmoidSymmetric xorSigmoidSymmetricPair \
 NETS_FANN=census-house mushroom diabetes gene kin32fm soybean thyroid two-spiral
 NETS_PARITY=parity-1 parity-2 parity-3 parity-4 parity-5 parity-6 parity-7 \
 	parity-8 parity-9
-NETS+=$(NETS_GEN)
-NETS+=$(NETS_FANN)
-NETS+=$(NETS_PARITY)
+NETS_PARITY_SAME=parity-same-1 parity-same-2 parity-same-3 parity-same-4 \
+	parity-same-5 parity-same-6 parity-same-7 parity-same-8 parity-same-9
+NETS+=$(NETS_GEN) $(NETS_FANN) $(NETS_PARITY) $(NETS_PARITY_SAME)
 NETS_FLOAT=$(addsuffix -float, $(NETS))
 # Only certain networks have valid training files
 NETS_TRAIN=blackscholes fft inversek2j jmeint jpeg kmeans rsa sobel \
