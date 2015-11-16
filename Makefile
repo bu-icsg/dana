@@ -137,8 +137,11 @@ NETS_THRESHOLD=3sum collatz ll rsa amos
 NETS_GEN=xorSigmoid xorSigmoidSymmetric xorSigmoidSymmetricPair \
 	xorSigmoidSymmetricPairThreeLayer
 NETS_FANN=census-house mushroom diabetes gene kin32fm soybean thyroid two-spiral
+NETS_PARITY=parity-1 parity-2 parity-3 parity-4 parity-5 parity-6 parity-7 \
+	parity-8 parity-9
 NETS+=$(NETS_GEN)
 NETS+=$(NETS_FANN)
+NETS+=$(NETS_PARITY)
 NETS_FLOAT=$(addsuffix -float, $(NETS))
 # Only certain networks have valid training files
 NETS_TRAIN=blackscholes fft inversek2j jmeint jpeg kmeans rsa sobel \
@@ -165,6 +168,7 @@ NETS_H+=$(addprefix $(DIR_BUILD_NETS)/, $(addsuffix -fixed-16bin-64.h, $(NETS)) 
 TRAIN_H=$(addprefix $(DIR_BUILD_NETS)/, $(addsuffix _train.h, $(NETS_TRAIN)))
 TRAIN_FIXED=$(addprefix $(DIR_BUILD_NETS)/, $(addsuffix -fixed.train, $(NETS_GEN)))
 TRAIN_FIXED+=$(addprefix $(DIR_BUILD_NETS)/, $(addsuffix -fixed.train, $(NETS_FANN)))
+TRAIN_FIXED+=$(addprefix $(DIR_BUILD_NETS)/, $(addsuffix -fixed.train, $(NETS_PARITY)))
 FLOAT_TO_FIXED=$(DIR_USR_BIN)/fann-float-to-fixed
 WRITE_FANN_CONFIG=$(DIR_USR_BIN)/write-fann-config-for-accelerator
 BIN_TO_C_HEADER=$(DIR_USR_BIN)/bin-config-to-c-header
@@ -173,13 +177,15 @@ TRAIN_TO_C_HEADER_FIXED=$(DIR_USR_BIN)/fann-train-to-c-header-fixed
 FANN_RANDOM=$(DIR_USR_BIN)/fann-random
 FANN_CHANGE_FIXED_POINT=$(DIR_USR_BIN)/fann-change-fixed-point
 FANN_TRAIN_TO_FIXED=$(DIR_USR_BIN)/fann-data-to-fixed
+GEN_BOOLEAN_DATA=$(DIR_USR_BIN)/gen-boolean-data
 NETS_TOOLS = $(FLOAT_TO_FIXED) \
 	$(WRITE_FANN_CONFIG) \
 	$(BIN_TO_C_HEADER) \
 	$(TRAIN_TO_C_HEADER) \
 	$(FANN_RANDOM) \
 	$(FANN_CHANGE_FIXED_POINT) \
-	$(FANN_TRAIN_TO_FIXED)
+	$(FANN_TRAIN_TO_FIXED) \
+	$(GEN_BOOLEAN_DATA)
 DECIMAL_POINT_OFFSET=7
 DECIMAL_POINT_BITS=3
 MAX_DECIMAL_POINT=`echo "2 $(DECIMAL_POINT_BITS)^1-$(DECIMAL_POINT_OFFSET)+p"|dc`

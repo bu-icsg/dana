@@ -18,7 +18,7 @@ NET_PARITY_1=-l1 -l1 -a5 -o5
 NET_PARITY_2=-l2 -l4 -l1 -a5 -o5 -r0.2
 NET_PARITY_3=-l3 -l8 -l1 -a5 -o5 -r0.2
 NET_PARITY_4=-l4 -l9 -l1 -a5 -o5 -r0.7
-NET_PARITY_5=-l5 -l9 -l1 -a5 -05 -r0.7
+NET_PARITY_5=-l5 -l9 -l1 -a5 -o5 -r0.7
 NET_PARITY_6=-l6 -l10 -l1 -a5 -o5 -r0.7
 NET_PARITY_7=-l7 -l12 -l1 -a5 -o5 -r0.7
 NET_PARITY_8=-l8 -l14 -l1 -a5 -o5 -r0.7
@@ -37,7 +37,11 @@ NET_PARITY_9_SAME=-l9 $(NET_PARITY_SAME)
 
 .PRECIOUS: $(DIR_BUILD_NETS)/%-fixed.net \
 	$(DIR_BUILD_NETS)/%-float.net \
-	$(DIR_BUILD_NETS)/%.net
+	$(DIR_BUILD_NETS)/%.net \
+	$(DIR_BUILD_NETS)/parity-%-float.train \
+	$(DIR_BUILD_NETS)/parity-%-fixed.train \
+	$(DIR_BUILD_NETS)/parity-%-float.net \
+	$(DIR_BUILD_NETS)/parity-%-fixed.net
 
 #--------------------------------------- Build floating point NNs
 # These depend on having DIR_TOP and DIR_BUILD_NETS defined
@@ -98,6 +102,14 @@ $(DIR_BUILD_NETS)/two-spiral-float.net: $(NETS_TOOLS)
 	-n$(DIR_FANN)/datasets/two-spiral.train \
 	$(NET_TWO_SPIRAL) $@
 
+$(DIR_BUILD_NETS)/parity-%-float.net: $(NETS_TOOLS)
+	$(FANN_RANDOM) -s$(SEED) $(NET_PARITY_$*) $@
+
+#--------------------------------------- Generate special training files
+$(DIR_BUILD_NETS)/parity-%-float.train: $(NETS_TOOLS)
+	$(GEN_BOOLEAN_DATA) -n $* -f xor -s > $@
+
+#--------------------------------------- Fixed point net generationg
 $(DIR_BUILD_NETS)/%-fixed.net: $(DIR_BUILD_NETS)/%-float.net $(NETS_TOOLS)
 	$(FLOAT_TO_FIXED) $< $@
 	@ if [[ `grep decimal $@ | sed 's/.\+=//'` -gt $(MAX_DECIMAL_POINT) ]]; then \
@@ -139,4 +151,7 @@ $(DIR_BUILD_NETS)/%.128bin: $(DIR_BUILD_NETS)/%.net $(NETS_TOOLS)
 
 #--------------------------------------- Training Files
 $(DIR_BUILD_NETS)/%-fixed.train: %.train $(DIR_BUILD_NETS)/%-fixed.net $(NETS_TOOLS)
+	$(FANN_TRAIN_TO_FIXED) $< $@ `grep decimal_point $(word 2,$^) | sed 's/^.\+=//'`
+
+$(DIR_BUILD_NETS)/%-fixed.train: $(DIR_BUILD_NETS)/%-float.train $(DIR_BUILD_NETS)/%-fixed.net $(NETS_TOOLS)
 	$(FANN_TRAIN_TO_FIXED) $< $@ `grep decimal_point $(word 2,$^) | sed 's/^.\+=//'`
