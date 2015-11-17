@@ -320,7 +320,7 @@ compress.
 
 =item B<-l, --label>
 
-Statistic label to use. Defaults to "stat" if not specif
+Statistic label to use. Defaults to "stat" if not specified
 
 =head1 EXAMPLES
 
