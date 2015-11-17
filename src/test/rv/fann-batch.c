@@ -30,12 +30,14 @@ static char * usage_message =
   "  -l, --stat-last            print last epoch number statistic\n"
   "  -m, --stat-mse             print mse statistics (optional arg: MSE period)\n"
   "  -n, --nn-config            the binary NN configuration to use\n"
+  "  -o, --stat-bit-fail        print bit fail percent (optional arg: period)\n"
   "  -p, --performance-mode     runs until an epoch limit, all checks disabled\n"
   "  -r, --learning-rate        set the learning rate (default 0.7)\n"
   "  -t, --train-file           the fixed point FANN training file to use\n"
   "  -v, --verbose              turn on per-item inputs/output printfs\n"
   "  -x, --incremental          run incremental updates instead of batch updates\n"
   "  -y, --weight-decay-lambda  set the weight decay parameter, lambda (default 0)\n"
+  "  -z, --ignore-limits        continue blindly ignoring bit fail/mse limits"
   "\n"
   "Flags -n, -t, and -b are required.\n"
   "When gathering data related to connection updates per second, -p\n"
@@ -90,7 +92,8 @@ uint64_t binary_config_num_connections(char * file_nn) {
 int main (int argc, char * argv[]) {
   int exit_code = 0, max_epochs = 10000, bits_failing = -1, batch_items = -1;
   int flag_cycles = 0, flag_last = 0, flag_mse = 0, flag_performance = 0,
-    flag_ant_info = 0, flag_incremental = 0;
+    flag_ant_info = 0, flag_incremental = 0, flag_bit_fail = 0,
+    flag_ignore_limits = 0;
   char id[100] = "0";
   asid_type asid = 0;
   nnid_type nnid = 0;
@@ -99,7 +102,7 @@ int main (int argc, char * argv[]) {
 #else
   int flag_verbose = 0;
 #endif
-  int mse_reporting_period = 1;
+  int mse_reporting_period = 1, bit_fail_reporting_period = 1;
   uint64_t cycles;
   double bit_fail_limit = 0.05, mse_fail_limit = -1.0,
     learning_rate = 0.7, weight_decay_lambda = 0.0;
@@ -125,14 +128,16 @@ int main (int argc, char * argv[]) {
       {"stat-last",        no_argument,       0, 'l'},
       {"stat-mse",         optional_argument, 0, 'm'},
       {"nn-config",        required_argument, 0, 'n'},
+      {"stat-bit-fail",    optional_argument, 0, 'o'},
       {"performance-mode", no_argument,       0, 'p'},
       {"train-file",       required_argument, 0, 't'},
       {"verbose",          no_argument,       0, 'v'},
       {"incremental",      no_argument,       0, 'x'},
-      {"weight-decay-lamba,",required_argument,0,'y'}
+      {"weight-decay-lamba,",required_argument,0,'y'},
+      {"ignore-limits",    no_argument,       0, 'z'}
     };
     int option_index = 0;
-    c = getopt_long (argc, argv, "ab:cd:e:f:g:hi:j:k:lm::n:pr:t:vxy:",
+    c = getopt_long (argc, argv, "ab:cd:e:f:g:hi:j:k:lm::n:o::pr:t:vxy:z",
                      long_options, &option_index);
     if (c == -1)
       break;
@@ -183,6 +188,11 @@ int main (int argc, char * argv[]) {
     case 'n':
       file_nn = optarg;
       break;
+    case 'o':
+      if (optarg)
+        bit_fail_reporting_period = atoi(optarg);
+      flag_bit_fail = 1;
+      break;
     case 'p':
       flag_performance = 1;
       break;
@@ -200,6 +210,9 @@ int main (int argc, char * argv[]) {
       break;
     case 'y':
       weight_decay_lambda = atof(optarg);
+      break;
+    case 'z':
+      flag_ignore_limits = 1;
       break;
     }
   };
@@ -329,13 +342,11 @@ int main (int argc, char * argv[]) {
           mse += error * error;
         }
       }
-
       if (flag_verbose) {
         if (item < batch_items - 1)
           printf("\n");
       }
     }
-
 
     if (flag_verbose)
       printf("%5d\n\n", epoch);
@@ -344,7 +355,10 @@ int main (int argc, char * argv[]) {
       if (flag_mse && (epoch % mse_reporting_period == 0))
         printf("[STAT] epoch %d id %s bp %d mse %8.8f\n", epoch, id, binary_point, mse);
     }
-    if (bits_failing == 0 || mse < mse_fail_limit)
+    if (flag_bit_fail && (epoch % bit_fail_reporting_period == 0))
+      printf("[STAT] epoch %d id %s bp %d bfp %8.8f\n", epoch, id,
+             binary_point, 1 - (double) bits_failing / batch_items);
+    if (!flag_ignore_limits && (bits_failing == 0 || mse < mse_fail_limit))
       goto finish;
   }
   goto finish;
