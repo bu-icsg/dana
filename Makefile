@@ -136,7 +136,8 @@ NETS=3sum collatz rsa ll edip blackscholes fft inversek2j jmeint jpeg kmeans sob
 NETS_THRESHOLD=3sum collatz ll rsa amos
 NETS_GEN=xorSigmoid xorSigmoidSymmetric xorSigmoidSymmetricPair \
 	xorSigmoidSymmetricPairThreeLayer
-NETS_FANN=census-house mushroom diabetes gene kin32fm soybean thyroid two-spiral
+NETS_FANN=census-house mushroom diabetes gene kin32fm soybean thyroid two-spiral \
+	abelone bank32fm building census-house pumadyn-32fm robot soybean
 NETS_PARITY=parity-1 parity-2 parity-3 parity-4 parity-5 parity-6 parity-7 \
 	parity-8 parity-9
 NETS_PARITY_SAME=parity-same-1 parity-same-2 parity-same-3 parity-same-4 \

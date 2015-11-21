@@ -5,14 +5,23 @@ NET_XOR_SIGMOID=-r0.7 -l2 -l3 -l1 -a5 -o3
 NET_XOR_SIGMOID_SYMMETRIC=-l2 -l3 -l1 -a5 -o5
 NET_XOR_SIGMOID_SYMMETRIC_PAIR=-l2 -l3 -l2 -a5 -o5
 NET_XOR_SIGMOID_SYMMETRIC_THREE_LAYER=-l2 -l3 -l3 -l2 -a5 -o5
+# FANN dataset NNs
 NET_CENSUS_HOUSE=-l16 -l1 -l1 -a5 -o3
-NET_MUSHROOM=-l125 -l1 -l2 -a3 -o3
+NET_MUSHROOM=-l125 -l32 -l2 -a5 -o3
 NET_DIABETES=-l8 -l10 -l2 -a5 -o3
-NET_GENE=-l120 -l19 -l3 -a5 -o3
+NET_GENE=-l120 -l20 -l3 -a5 -o3
 NET_KIN32FM=-l32 -l20 -l1 -a5 -o3
 NET_SOYBEAN=-l82 -l20 -l19 -a5 -o3
 NET_THYROID=-l21 -l1 -l3 -a5 -o3
 NET_TWO_SPIRAL=-l2 -l10 -l30 -l3 -l1 -a5 -o3
+
+NET_ABELONE=-l10 -l8 -l1 -a5 -o3 -r0.7
+NET_BANK32FM=-l32 -l16 -l1 -a5 -o3 -r0.7
+NET_BUILDING=-l14 -l8 -l3 -a5 -o3 -r0.7
+NET_CENSUS_HOUSE=-l16 -l8 -l4 -l1 -a5 -o3 -r0.7
+NET_PUMADYN_32FM=-l32 -l16 -l8 -l4 -l1 -a5 -o3 -r0.7
+NET_ROBOT=-l48 -l16 -l3 -a5 -o3 -r0.7
+NET_SOYBEAN=-l82 -l32 -l19 -a5 -o3 -r0.7
 # Parity configurations
 NET_PARITY_1=-l1 -l1 -a5 -o5
 NET_PARITY_2=-l2 -l4 -l1 -a5 -o5 -r0.2
@@ -101,6 +110,27 @@ $(DIR_BUILD_NETS)/two-spiral-float.net: $(NETS_TOOLS)
 	$(FANN_RANDOM) -s$(SEED) \
 	-n$(DIR_FANN)/datasets/two-spiral.train \
 	$(NET_TWO_SPIRAL) $@
+
+$(DIR_BUILD_NETS)/abelone-float.net: $(NETS_TOOLS)
+	$(FANN_RANDOM) -s$(SEED) $(NET_ABELONE) $@
+
+$(DIR_BUILD_NETS)/bank32fm-float.net: $(NETS_TOOLS)
+	$(FANN_RANDOM) -s$(SEED) $(NET_BANK32FM) $@
+
+$(DIR_BUILD_NETS)/building-float.net: $(NETS_TOOLS)
+	$(FANN_RANDOM) -s$(SEED) $(NET_BUILDING) $@
+
+$(DIR_BUILD_NETS)/census-house-float.net: $(NETS_TOOLS)
+	$(FANN_RANDOM) -s$(SEED) $(NET_CENSUS_HOUSE) $@
+
+$(DIR_BUILD_NETS)/pumadyn-32fm-float.net: $(NETS_TOOLS)
+	$(FANN_RANDOM) -s$(SEED) $(NET_PUMADYN_32FM) $@
+
+$(DIR_BUILD_NETS)/robot-float.net: $(NETS_TOOLS)
+	$(FANN_RANDOM) -s$(SEED) $(NET_ROBOT) $@
+
+$(DIR_BUILD_NETS)/soybean-float.net: $(NETS_TOOLS)
+	$(FANN_RANDOM) -s$(SEED) $(NET_SOYBEAN) $@
 
 $(DIR_BUILD_NETS)/parity-same-%-float.net: $(NETS_TOOLS)
 	$(FANN_RANDOM) -s$(SEED) $(NET_PARITY_SAME_$*) $@
