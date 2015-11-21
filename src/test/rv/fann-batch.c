@@ -329,6 +329,7 @@ int main (int argc, char * argv[]) {
     // Check the outputs
     num_bits_failing = 0;
     num_correct = 0;
+    mse = 0;
     for (item = 0; item < batch_items; item++) {
       tid = new_write_request(nnid, 0, 0);
       write_data(tid, (element_type *) data->input[item], num_input);
