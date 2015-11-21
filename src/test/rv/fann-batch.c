@@ -281,6 +281,8 @@ int main (int argc, char * argv[]) {
   outputs = (element_type *) malloc(num_output * sizeof(element_type));
   if (batch_items == -1)
     batch_items = fann_length_train_data(data);
+  if (batch_items > fann_length_train_data(data))
+    batch_items = fann_length_train_data(data);
   int32_t learn_rate = (int32_t)((learning_rate / batch_items) * multiplier);
   int32_t weight_decay = (int32_t)((weight_decay_lambda / batch_items) * multiplier);
   // weight_decay = 1;
@@ -378,7 +380,7 @@ int main (int argc, char * argv[]) {
     if (flag_percent_correct && (epoch % percent_correct_reporting_period == 0))
       printf("[STAT] epoch %d id %s bp %d perc %8.8f\n", epoch, id,
              binary_point,
-             (double) num_correct / fann_length_train_data(data));
+             (double) num_correct / batch_items);
     if (!flag_ignore_limits && (num_bits_failing == 0 || mse < mse_fail_limit))
       goto finish;
   }
@@ -423,6 +425,8 @@ int main (int argc, char * argv[]) {
 
     // Check the outputs
     num_bits_failing = 0;
+    mse = 0;
+    num_correct = 0;
     for (item = 0; item < batch_items; item++) {
       tid = new_write_request(nnid, 0, 0);
       write_data(tid, (element_type *) data->input[item], num_input);
@@ -435,17 +439,22 @@ int main (int argc, char * argv[]) {
         }
       }
 
+      int correct = 1;
       for (i = 0; i < num_output; i++) {
         if (flag_verbose)
           printf("%8.5f ", ((double)outputs[i])/multiplier);
         num_bits_failing +=
           fabs((double)(outputs[i] - data->output[item][i]) / multiplier) >
           bit_fail_limit;
+        if (fabs((double)(outputs[i] - data->output[item][i]) / multiplier) >
+            bit_fail_limit)
+          correct = 0;
         if (flag_mse || mse_fail_limit != -1) {
           error = (double)(outputs[i] - data->output[item][i]) / multiplier;
           mse += error * error;
         }
       }
+      num_correct += correct;
 
       if (flag_verbose) {
         if (item < batch_items - 1)
@@ -461,6 +470,14 @@ int main (int argc, char * argv[]) {
       if (flag_mse && (epoch % mse_reporting_period == 0))
         printf("[STAT] epoch %d id %s bp %d mse %8.8f\n", epoch, id, binary_point, mse);
     }
+    if (flag_bit_fail && (epoch % bit_fail_reporting_period == 0))
+      printf("[STAT] epoch %d id %s bp %d bfp %8.8f\n", epoch, id,
+             binary_point, 1 - (double) num_bits_failing / num_output /
+             batch_items);
+    if (flag_percent_correct && (epoch % percent_correct_reporting_period == 0))
+      printf("[STAT] epoch %d id %s bp %d perc %8.8f\n", epoch, id,
+             binary_point,
+             (double) num_correct / batch_items);
     if (num_bits_failing == 0 || mse < mse_fail_limit)
       goto finish;
   }

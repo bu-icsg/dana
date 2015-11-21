@@ -150,7 +150,7 @@ int main (int argc, char * argv[]) {
 
   ann = fann_create_from_file(file_nn);
   data = fann_read_train_from_file(file_train);
-  if (batch_items != -1)
+  if (batch_items != -1 && batch_items < data->num_data)
     data->num_data = batch_items;
   enum fann_activationfunc_enum af =
     fann_get_activation_function(ann, ann->last_layer - ann->first_layer -1, 0);
