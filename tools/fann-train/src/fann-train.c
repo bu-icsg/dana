@@ -20,6 +20,7 @@ static char * usage_message =
   "  -m, --stat-mse             print mse statistics (optional arg: MSE period)\n"
   "  -n, --nn-config            the binary NN configuration to use\n"
   "  -o, --stat-bit-fail        print bit fail percent (optional arg: period)\n"
+  "  -q, --stat-percent-correct print the percent correct (optional arg: period)\n"
   "  -r, --learning-rate        set the learning rate (default 0.7)\n"
   "  -t, --train-file           the fixed point FANN training file to use\n"
   "  -v, --verbose              turn on per-item inputs/output printfs\n"
@@ -32,11 +33,12 @@ void usage () {
 }
 
 int main (int argc, char * argv[]) {
-  int i, epoch, k, num_bits_failing;
+  int i, epoch, k, num_bits_failing, num_correct;
   int max_epochs = 10000, exit_code = 0, batch_items = -1;
   int flag_cups = 0, flag_last = 0, flag_mse = 0, flag_verbose = 0,
-    flag_bit_fail = 0, flag_ignore_limits = 0;
-  int mse_reporting_period = 1, bit_fail_reporting_period = 1;
+    flag_bit_fail = 0, flag_ignore_limits = 0, flag_percent_correct = 0;
+  int mse_reporting_period = 1, bit_fail_reporting_period = 1,
+    percent_correct_reporting_period = 1;
   float bit_fail_limit = 0.05, mse_fail_limit = -1.0;
   double learning_rate = 0.7;
   char id[100] = "0";
@@ -48,24 +50,25 @@ int main (int argc, char * argv[]) {
   int c;
   while (1) {
     static struct option long_options[] = {
-      {"stat-cups",      no_argument,       0, 'c'},
-      {"num-batch-items",required_argument, 0, 'd'},
-      {"max-epochs",     required_argument, 0, 'e'},
-      {"bit-fail-limit", required_argument, 0, 'f'},
-      {"mse-fail-limit", required_argument, 0, 'g'},
-      {"help",           no_argument,       0, 'h'},
-      {"id",             required_argument, 0, 'i'},
-      {"stat-last",      no_argument,       0, 'l'},
-      {"stat-mse",       optional_argument, 0, 'm'},
-      {"nn-config",      required_argument, 0, 'n'},
-      {"stat-bit-fail",  optional_argument, 0, 'o'},
-      {"learning-rate",  required_argument, 0, 'r'},
-      {"train-file",     required_argument, 0, 't'},
-      {"verbose",        no_argument,       0, 'v'},
-      {"ignore-limits",  no_argument,       0, 'z'}
+      {"stat-cups",            no_argument,       0, 'c'},
+      {"num-batch-items",      required_argument, 0, 'd'},
+      {"max-epochs",           required_argument, 0, 'e'},
+      {"bit-fail-limit",       required_argument, 0, 'f'},
+      {"mse-fail-limit",       required_argument, 0, 'g'},
+      {"help",                 no_argument,       0, 'h'},
+      {"id",                   required_argument, 0, 'i'},
+      {"stat-last",            no_argument,       0, 'l'},
+      {"stat-mse",             optional_argument, 0, 'm'},
+      {"nn-config",            required_argument, 0, 'n'},
+      {"stat-bit-fail",        optional_argument, 0, 'o'},
+      {"stat-percent-correct", optional_argument, 0, 'q'},
+      {"learning-rate",        required_argument, 0, 'r'},
+      {"train-file",           required_argument, 0, 't'},
+      {"verbose",              no_argument,       0, 'v'},
+      {"ignore-limits",        no_argument,       0, 'z'}
     };
     int option_index = 0;
-     c = getopt_long (argc, argv, "cd:e:f:g:hi:lm::n:o::r:t:vz",
+     c = getopt_long (argc, argv, "cd:e:f:g:hi:lm::n:o::q::r:t:vz",
                      long_options, &option_index);
     if (c == -1)
       break;
@@ -108,6 +111,11 @@ int main (int argc, char * argv[]) {
       if (optarg)
         bit_fail_reporting_period = atoi(optarg);
       flag_bit_fail = 1;
+      break;
+    case 'q':
+      if (optarg)
+        percent_correct_reporting_period = atoi(optarg);
+      flag_percent_correct = 1;
       break;
     case 'r':
       learning_rate = atof(optarg);
@@ -154,6 +162,7 @@ int main (int argc, char * argv[]) {
   for (epoch = 0; epoch < max_epochs; epoch++) {
     fann_train_epoch(ann, data);
     num_bits_failing = 0;
+    num_correct = 0;
     fann_reset_MSE(ann);
     for (i = 0; i < fann_length_train_data(data); i++) {
       calc_out = fann_test(ann, data->input[i], data->output[i]);
@@ -163,12 +172,16 @@ int main (int argc, char * argv[]) {
           printf("%8.5f ", data->input[i][k]);
         }
       }
+      int correct = 1;
       for (k = 0; k < data->num_output; k++) {
         if (flag_verbose)
           printf("%8.5f ", calc_out[k]);
         num_bits_failing +=
           fabs(calc_out[k] - data->output[i][k]) > bit_fail_limit;
+        if (fabs(calc_out[k] - data->output[i][k]) > bit_fail_limit)
+          correct = 0;
       }
+      num_correct += correct;
       if (flag_verbose) {
         if (i < fann_length_train_data(data) - 1)
           printf("\n");
@@ -195,7 +208,11 @@ int main (int argc, char * argv[]) {
     }
     if (flag_bit_fail && (epoch % bit_fail_reporting_period == 0))
       printf("[STAT] epoch %d id %s bfp %8.8f\n", epoch, id,
-             1 - (double) num_bits_failing / fann_length_train_data(data));
+             1 - (double) num_bits_failing / data->num_output /
+             fann_length_train_data(data));
+    if (flag_percent_correct && (epoch % percent_correct_reporting_period == 0))
+      printf("[STAT] epoch %d id %s perc %8.8f\n", epoch, id,
+             (double) num_correct / fann_length_train_data(data));
     if (!flag_ignore_limits && (num_bits_failing == 0 || mse < mse_fail_limit))
       goto finish;
     // printf("%8.5f\n\n", fann_get_MSE(ann));

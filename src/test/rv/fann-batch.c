@@ -32,6 +32,7 @@ static char * usage_message =
   "  -n, --nn-config            the binary NN configuration to use\n"
   "  -o, --stat-bit-fail        print bit fail percent (optional arg: period)\n"
   "  -p, --performance-mode     runs until an epoch limit, all checks disabled\n"
+  "  -q, --stat-percent-correct print the percent correct (optional arg: period)\n"
   "  -r, --learning-rate        set the learning rate (default 0.7)\n"
   "  -t, --train-file           the fixed point FANN training file to use\n"
   "  -v, --verbose              turn on per-item inputs/output printfs\n"
@@ -90,10 +91,11 @@ uint64_t binary_config_num_connections(char * file_nn) {
 }
 
 int main (int argc, char * argv[]) {
-  int exit_code = 0, max_epochs = 10000, bits_failing = -1, batch_items = -1;
+  int exit_code = 0, max_epochs = 10000, num_bits_failing = -1, batch_items = -1,
+    num_correct;
   int flag_cycles = 0, flag_last = 0, flag_mse = 0, flag_performance = 0,
     flag_ant_info = 0, flag_incremental = 0, flag_bit_fail = 0,
-    flag_ignore_limits = 0;
+    flag_ignore_limits = 0, flag_percent_correct = 0;
   char id[100] = "0";
   asid_type asid = 0;
   nnid_type nnid = 0;
@@ -102,7 +104,8 @@ int main (int argc, char * argv[]) {
 #else
   int flag_verbose = 0;
 #endif
-  int mse_reporting_period = 1, bit_fail_reporting_period = 1;
+  int mse_reporting_period = 1, bit_fail_reporting_period = 1,
+    percent_correct_reporting_period = 1;
   uint64_t cycles;
   double bit_fail_limit = 0.05, mse_fail_limit = -1.0,
     learning_rate = 0.7, weight_decay_lambda = 0.0;
@@ -114,30 +117,31 @@ int main (int argc, char * argv[]) {
   int binary_point = -1, c;
   while (1) {
     static struct option long_options[] = {
-      {"ant-info",         no_argument,       0, 'a'},
-      {"binary-point",     required_argument, 0, 'b'},
-      {"stat-cycles",      no_argument,       0, 'c'},
-      {"num-batch-items",  required_argument, 0, 'd'},
-      {"max-epochs",       required_argument, 0, 'e'},
-      {"bit-fail-limit",   required_argument, 0, 'f'},
-      {"mse-fail-limit",   required_argument, 0, 'g'},
-      {"help",             no_argument,       0, 'h'},
-      {"id",               required_argument, 0, 'i'},
-      {"set-asid",         required_argument, 0, 'j'},
-      {"set-nnid",         required_argument, 0, 'k'},
-      {"stat-last",        no_argument,       0, 'l'},
-      {"stat-mse",         optional_argument, 0, 'm'},
-      {"nn-config",        required_argument, 0, 'n'},
-      {"stat-bit-fail",    optional_argument, 0, 'o'},
-      {"performance-mode", no_argument,       0, 'p'},
-      {"train-file",       required_argument, 0, 't'},
-      {"verbose",          no_argument,       0, 'v'},
-      {"incremental",      no_argument,       0, 'x'},
-      {"weight-decay-lamba,",required_argument,0,'y'},
-      {"ignore-limits",    no_argument,       0, 'z'}
+      {"ant-info",             no_argument,       0, 'a'},
+      {"binary-point",         required_argument, 0, 'b'},
+      {"stat-cycles",          no_argument,       0, 'c'},
+      {"num-batch-items",      required_argument, 0, 'd'},
+      {"max-epochs",           required_argument, 0, 'e'},
+      {"bit-fail-limit",       required_argument, 0, 'f'},
+      {"mse-fail-limit",       required_argument, 0, 'g'},
+      {"help",                 no_argument,       0, 'h'},
+      {"id",                   required_argument, 0, 'i'},
+      {"set-asid",             required_argument, 0, 'j'},
+      {"set-nnid",             required_argument, 0, 'k'},
+      {"stat-last",            no_argument,       0, 'l'},
+      {"stat-mse",             optional_argument, 0, 'm'},
+      {"nn-config",            required_argument, 0, 'n'},
+      {"stat-bit-fail",        optional_argument, 0, 'o'},
+      {"performance-mode",     no_argument,       0, 'p'},
+      {"stat-percent-correct", optional_argument, 0, 'q'},
+      {"train-file",           required_argument, 0, 't'},
+      {"verbose",              no_argument,       0, 'v'},
+      {"incremental",          no_argument,       0, 'x'},
+      {"weight-decay-lamba,",  required_argument, 0, 'y'},
+      {"ignore-limits",        no_argument,       0, 'z'}
     };
     int option_index = 0;
-    c = getopt_long (argc, argv, "ab:cd:e:f:g:hi:j:k:lm::n:o::pr:t:vxy:z",
+    c = getopt_long (argc, argv, "ab:cd:e:f:g:hi:j:k:lm::n:o::pq::r:t:vxy:z",
                      long_options, &option_index);
     if (c == -1)
       break;
@@ -198,6 +202,11 @@ int main (int argc, char * argv[]) {
       break;
     case 'r':
       learning_rate = atof(optarg);
+      break;
+    case 'q':
+      if (optarg)
+        percent_correct_reporting_period = atoi(optarg);
+      flag_percent_correct = 1;
       break;
     case 't':
       file_train = optarg;
@@ -318,7 +327,8 @@ int main (int argc, char * argv[]) {
     }
 
     // Check the outputs
-    bits_failing = 0;
+    num_bits_failing = 0;
+    num_correct = 0;
     for (item = 0; item < batch_items; item++) {
       tid = new_write_request(nnid, 0, 0);
       write_data(tid, (element_type *) data->input[item], num_input);
@@ -331,17 +341,22 @@ int main (int argc, char * argv[]) {
         }
       }
 
+      int correct = 1;
       for (i = 0; i < num_output; i++) {
         if (flag_verbose)
           printf("%8.5f ", ((double)outputs[i])/multiplier);
-        bits_failing +=
+        num_bits_failing +=
           fabs((double)(outputs[i] - data->output[item][i]) / multiplier) >
           bit_fail_limit;
+        if (fabs((double)(outputs[i] - data->output[item][i]) / multiplier) >
+            bit_fail_limit)
+          correct = 0;
         if (flag_mse || mse_fail_limit != -1) {
           error = (double)(outputs[i] - data->output[item][i]) / multiplier;
           mse += error * error;
         }
       }
+      num_correct += correct;
       if (flag_verbose) {
         if (item < batch_items - 1)
           printf("\n");
@@ -357,8 +372,13 @@ int main (int argc, char * argv[]) {
     }
     if (flag_bit_fail && (epoch % bit_fail_reporting_period == 0))
       printf("[STAT] epoch %d id %s bp %d bfp %8.8f\n", epoch, id,
-             binary_point, 1 - (double) bits_failing / batch_items);
-    if (!flag_ignore_limits && (bits_failing == 0 || mse < mse_fail_limit))
+             binary_point, 1 - (double) num_bits_failing / num_output /
+             batch_items);
+    if (flag_percent_correct && (epoch % percent_correct_reporting_period == 0))
+      printf("[STAT] epoch %d id %s bp %d perc %8.8f\n", epoch, id,
+             binary_point,
+             (double) num_correct / fann_length_train_data(data));
+    if (!flag_ignore_limits && (num_bits_failing == 0 || mse < mse_fail_limit))
       goto finish;
   }
   goto finish;
@@ -401,7 +421,7 @@ int main (int argc, char * argv[]) {
     }
 
     // Check the outputs
-    bits_failing = 0;
+    num_bits_failing = 0;
     for (item = 0; item < batch_items; item++) {
       tid = new_write_request(nnid, 0, 0);
       write_data(tid, (element_type *) data->input[item], num_input);
@@ -417,7 +437,7 @@ int main (int argc, char * argv[]) {
       for (i = 0; i < num_output; i++) {
         if (flag_verbose)
           printf("%8.5f ", ((double)outputs[i])/multiplier);
-        bits_failing +=
+        num_bits_failing +=
           fabs((double)(outputs[i] - data->output[item][i]) / multiplier) >
           bit_fail_limit;
         if (flag_mse || mse_fail_limit != -1) {
@@ -440,7 +460,7 @@ int main (int argc, char * argv[]) {
       if (flag_mse && (epoch % mse_reporting_period == 0))
         printf("[STAT] epoch %d id %s bp %d mse %8.8f\n", epoch, id, binary_point, mse);
     }
-    if (bits_failing == 0 || mse < mse_fail_limit)
+    if (num_bits_failing == 0 || mse < mse_fail_limit)
       goto finish;
   }
   goto finish;
@@ -467,7 +487,7 @@ int main (int argc, char * argv[]) {
   // Print overall statistics in a parser-friendly way
  finish:
   cycles = read_csr(0xc00) - cycles;
-  // printf("# [STAT] fann-batch-id%d-bit-fail %d\n", id, bits_failing);
+  // printf("# [STAT] fann-batch-id%d-bit-fail %d\n", id, num_bits_failing);
   // printf("# [STAT] fann-batch-id%d-final-epoch %d\n", id, epoch);
   if (flag_last)
     printf("[STAT] bp %d id %s epoch %d\n", binary_point, id, epoch);
