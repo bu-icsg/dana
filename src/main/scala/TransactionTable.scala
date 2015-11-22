@@ -472,7 +472,7 @@ class TransactionTableBase[StateType <: TransactionState,
           printf("[INFO]   regFileAddrIn:              0x%x\n",
             table(tIdx).regFileAddrOut)
           printf("[INFO]   regFileAddrOut:             0x%x\n",
-            table(tIdx).regFileAddrOut +  niclMSBs + round)
+            table(tIdx).regFileAddrOut +  niplOffset)
         }
       }
     }
@@ -768,10 +768,9 @@ class TransactionTable(implicit p: Parameters)
             UInt(elementsPerBlock), UInt(0))
           table(tIdx).waiting := Bool(false)
           table(tIdx).regFileAddrIn := table(tIdx).regFileAddrOut
-          table(tIdx).regFileAddrOut := table(tIdx).regFileAddrOut + niclMSBs +
-          round
+          table(tIdx).regFileAddrOut := table(tIdx).regFileAddrOut + niplOffset
           table(tIdx).regFileAddrOutFixed := table(tIdx).regFileAddrOut +
-          niclMSBs + round
+            niplOffset
           printf("[INFO]   inFirst/inLast: 0x%x/0x%x\n", table(tIdx).inFirst,
             table(tIdx).inLast)
         }
@@ -952,9 +951,9 @@ class TransactionTableLearn(implicit p: Parameters)
             is(e_TTABLE_STATE_FEEDFORWARD){
               table(tIdx).regFileAddrIn := table(tIdx).regFileAddrOut
               table(tIdx).regFileAddrOut := table(tIdx).regFileAddrOut +
-                niclMSBs + round
+                niplOffset
               table(tIdx).regFileAddrOutFixed :=
-                table(tIdx).regFileAddrOut + niclMSBs + round
+                table(tIdx).regFileAddrOut + niplOffset
             }
             is(e_TTABLE_STATE_LEARN_FEEDFORWARD){
               table(tIdx).regFileAddrIn := table(tIdx).regFileAddrOut
@@ -969,10 +968,9 @@ class TransactionTableLearn(implicit p: Parameters)
                 // go about this.
                 table(tIdx).regFileAddrDelta := table(tIdx).regFileAddrOut
               }
-              table(tIdx).regFileAddrOut := table(tIdx).regFileAddrOut + niclMSBs +
-                round
-              table(tIdx).regFileAddrOutFixed :=
-                table(tIdx).regFileAddrOut + niclMSBs + round
+              table(tIdx).regFileAddrOut := table(tIdx).regFileAddrOut + niplOffset
+              table(tIdx).regFileAddrOutFixed := table(tIdx).regFileAddrOut +
+                niplOffset
 
               // Update the number of total nodes in the network
               when (table(tIdx).currentLayer === UInt(0)) { // In first layer
