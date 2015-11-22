@@ -15,6 +15,7 @@ DIR_USR_BIN     = usr/bin
 DIR_USR_LIB     = usr/lib
 DIR_USR_INCLUDE = usr/include
 SEED            = $(shell echo "$$RANDOM")
+SEED            = 0
 
 # Shared parameters (be careful messing with these)
 DIR_TOP         = .
@@ -137,7 +138,7 @@ NETS_THRESHOLD=3sum collatz ll rsa amos
 NETS_GEN=xorSigmoid xorSigmoidSymmetric xorSigmoidSymmetricPair \
 	xorSigmoidSymmetricPairThreeLayer
 NETS_FANN=census-house mushroom diabetes gene kin32fm soybean thyroid two-spiral \
-	abelone bank32fm building census-house pumadyn-32fm robot soybean
+	abelone bank32fm bank32nh building census-house pumadyn-32fm robot soybean
 NETS_PARITY=parity-1 parity-2 parity-3 parity-4 parity-5 parity-6 parity-7 \
 	parity-8 parity-9
 NETS_PARITY_SAME=parity-same-1 parity-same-2 parity-same-3 parity-same-4 \

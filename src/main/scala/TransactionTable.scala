@@ -295,6 +295,7 @@ class TransactionTableBase[StateType <: TransactionState,
           table(nextFree).indexElement := UInt(0)
           table(nextFree).coreIdx := cmd.coreIdx
           table(nextFree).regFileAddrOut := UInt(0)
+          table(derefTidIndex).nodesInCurrentLayer := UInt(0)
 
           arbiterRespPipe.valid := Bool(true)
           // Initiate a response that will contain the TID
@@ -319,6 +320,12 @@ class TransactionTableBase[StateType <: TransactionState,
           log2Up(regFileNumElements)-1,log2Up(elementsPerBlock)) ##
           UInt(0, width=log2Up(elementsPerBlock))) + UInt(elementsPerBlock)
         table(derefTidIndex).indexElement := nextIndexBlock
+        val numInputs = table(derefTidIndex).indexElement
+        val numInputsMSBs = numInputs(log2Up(regFileNumElements) - 1,
+          log2Up(elementsPerBlock)) ## UInt(0, width=log2Up(elementsPerBlock))
+        val numInputsLSBs = numInputs(log2Up(elementsPerBlock) - 1, 0)
+        val numInputsOffset = numInputsMSBs + Mux(numInputsLSBs =/= UInt(0),
+          UInt(elementsPerBlock), UInt(0))
           table(derefTidIndex).valid := Bool(true)
           table(derefTidIndex).currentNode := UInt(0)
           table(derefTidIndex).readIdx := UInt(0)
@@ -328,8 +335,8 @@ class TransactionTableBase[StateType <: TransactionState,
           table(derefTidIndex).done := Bool(false)
           table(derefTidIndex).waiting := Bool(false)
           table(derefTidIndex).regFileLocationBit := UInt(0)
-          printf("[INFO] TTable: LAST input write TID/data 0x%x/0x%x\n",
-            cmd.tid, cmd.data);
+          printf("[INFO] TTable: LAST input write TID/data[%d] 0x%x/0x%x\n",
+            table(derefTidIndex).indexElement, cmd.tid, cmd.data);
       }
         // This is an input packet
         .otherwise {
@@ -342,8 +349,8 @@ class TransactionTableBase[StateType <: TransactionState,
         // Update the table entry
         table(derefTidIndex).indexElement :=
           table(derefTidIndex).indexElement + UInt(1)
-        printf("[INFO] X-Files saw write request on TID %x with data %x\n",
-          cmd.tid, cmd.data);
+        printf("[INFO] X-Files saw write request on TID %x with data[%d] %x\n",
+          cmd.tid, table(derefTidIndex).indexElement, cmd.data);
         // table(derefTidIndex).data() :=
       }
     } .otherwise { // Ths is a read packet.
@@ -710,6 +717,16 @@ class TransactionTable(implicit p: Parameters)
         } .otherwise {
         }
       } .elsewhen(cmd.isLast) {
+        val nextIndexBlock = (table(derefTidIndex).indexElement(
+          log2Up(regFileNumElements)-1,log2Up(elementsPerBlock)) ##
+          UInt(0, width=log2Up(elementsPerBlock))) + UInt(elementsPerBlock)
+        val numInputs = table(derefTidIndex).indexElement
+        val numInputsMSBs = numInputs(log2Up(regFileNumElements) - 1,
+          log2Up(elementsPerBlock)) ## UInt(0, width=log2Up(elementsPerBlock))
+        val numInputsLSBs = numInputs(log2Up(elementsPerBlock) - 1, 0)
+        val numInputsOffset = numInputsMSBs + Mux(numInputsLSBs =/= UInt(0),
+          UInt(elementsPerBlock), UInt(0))
+        table(derefTidIndex).nodesInCurrentLayer := numInputsOffset
       } .otherwise {
       }
     } .otherwise {
@@ -837,6 +854,12 @@ class TransactionTableLearn(implicit p: Parameters)
         val nextIndexBlock = (table(derefTidIndex).indexElement(
           log2Up(regFileNumElements)-1,log2Up(elementsPerBlock)) ##
           UInt(0, width=log2Up(elementsPerBlock))) + UInt(elementsPerBlock)
+        val numInputs = table(derefTidIndex).indexElement
+        val numInputsMSBs = numInputs(log2Up(regFileNumElements) - 1,
+          log2Up(elementsPerBlock)) ## UInt(0, width=log2Up(elementsPerBlock))
+        val numInputsLSBs = numInputs(log2Up(elementsPerBlock) - 1, 0)
+        val numInputsOffset = numInputsMSBs + Mux(numInputsLSBs =/= UInt(0),
+          UInt(elementsPerBlock), UInt(0))
         when (table(derefTidIndex).stateLearn === e_TTABLE_STATE_LOAD_OUTPUTS) {
           table(derefTidIndex).stateLearn := e_TTABLE_STATE_LEARN_FEEDFORWARD
           table(derefTidIndex).regFileAddrInFixed := nextIndexBlock
@@ -844,6 +867,11 @@ class TransactionTableLearn(implicit p: Parameters)
           printf("[INFO] TTable: LAST E[output] write TID/data 0x%x/0x%x\n",
             cmd.tid, cmd.data);
           table(derefTidIndex).valid := Bool(false)
+        } .otherwise {
+          table(derefTidIndex).nodesInCurrentLayer :=
+            numInputsOffset - table(derefTidIndex).regFileAddrInFixed
+          printf("[INFO] TTable: Setting nodesInCurrentLayer to 0x%x\n",
+            numInputsOffset - table(derefTidIndex).regFileAddrInFixed)
         }
         table(derefTidIndex).inLastEarly := Bool(false)
         table(derefTidIndex).regFileAddrIn := UInt(0)

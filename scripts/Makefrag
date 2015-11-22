@@ -1,27 +1,25 @@
 #-*- mode: makefile-*-
 
 # Shared NN configurations used by fann-random to generate networks
-NET_XOR_SIGMOID=-r0.7 -l2 -l3 -l1 -a5 -o3
-NET_XOR_SIGMOID_SYMMETRIC=-l2 -l3 -l1 -a5 -o5
-NET_XOR_SIGMOID_SYMMETRIC_PAIR=-l2 -l3 -l2 -a5 -o5
-NET_XOR_SIGMOID_SYMMETRIC_THREE_LAYER=-l2 -l3 -l3 -l2 -a5 -o5
+NET_XOR_SIGMOID=-r0.7 -l2 -l9 -l1 -a5 -o3
+NET_XOR_SIGMOID_SYMMETRIC=-l2 -l8 -l1 -a5 -o5 -r0.7
+NET_XOR_SIGMOID_SYMMETRIC_PAIR=-l2 -l3 -l2 -a5 -o5 -r0.7
+NET_XOR_SIGMOID_SYMMETRIC_THREE_LAYER=-l2 -l3 -l3 -l2 -a5 -o5 -r0.7
 # FANN dataset NNs
-NET_CENSUS_HOUSE=-l16 -l1 -l1 -a5 -o3
-NET_MUSHROOM=-l125 -l32 -l2 -a5 -o3
-NET_DIABETES=-l8 -l10 -l2 -a5 -o3
-NET_GENE=-l120 -l20 -l3 -a5 -o3
-NET_KIN32FM=-l32 -l20 -l1 -a5 -o3
-NET_SOYBEAN=-l82 -l20 -l19 -a5 -o3
-NET_THYROID=-l21 -l1 -l3 -a5 -o3
-NET_TWO_SPIRAL=-l2 -l10 -l30 -l3 -l1 -a5 -o3
-
 NET_ABELONE=-l10 -l8 -l1 -a5 -o3 -r0.7
 NET_BANK32FM=-l32 -l16 -l1 -a5 -o3 -r0.7
+NET_BANK32NH=-l32 -l16 -l1 -a5 -o3 -r0.7
 NET_BUILDING=-l14 -l8 -l3 -a5 -o3 -r0.7
 NET_CENSUS_HOUSE=-l16 -l8 -l4 -l1 -a5 -o3 -r0.7
+NET_DIABETES=-l8 -l10 -l2 -a5 -o3 -r0.7
+NET_GENE=-l120 -l20 -l3 -a5 -o3 -r0.7
+NET_KIN32FM=-l32 -l20 -l1 -a5 -o3
+NET_MUSHROOM=-l125 -l32 -l2 -a5 -o3
 NET_PUMADYN_32FM=-l32 -l16 -l8 -l4 -l1 -a5 -o3 -r0.7
 NET_ROBOT=-l48 -l16 -l3 -a5 -o3 -r0.7
 NET_SOYBEAN=-l82 -l32 -l19 -a5 -o3 -r0.7
+NET_THYROID=-l21 -l10 -l3 -a5 -o3
+NET_TWO_SPIRAL=-l2 -l10 -l30 -l3 -l1 -a5 -o3
 # Parity configurations
 NET_PARITY_1=-l1 -l1 -a5 -o5
 NET_PARITY_2=-l2 -l4 -l1 -a5 -o5 -r0.2
@@ -58,64 +56,46 @@ $(DIR_BUILD_NETS)/xorSigmoid-float.net:
 	$(FANN_RANDOM) -s$(SEED) $(NET_XOR_SIGMOID) $@
 
 $(DIR_BUILD_NETS)/xorSigmoidSymmetric-float.net:
-	$(FANN_RANDOM) -s$(SEED) \
-	-n$(DIR_TOP)/src/main/resources/xorSigmoidSymmetric.train \
-	$(NET_XOR_SIGMOID_SYMMETRIC) $@
+	$(FANN_RANDOM) -s$(SEED) $(NET_XOR_SIGMOID_SYMMETRIC) $@
 
 $(DIR_BUILD_NETS)/xorSigmoidSymmetricPair-float.net:
-	$(FANN_RANDOM) -s$(SEED) \
-	-n$(DIR_TOP)/src/main/resources/xorSigmoidSymmetricPair.train \
-	$(NET_XOR_SIGMOID_SYMMETRIC_PAIR) $@
+	$(FANN_RANDOM) -s$(SEED) $(NET_XOR_SIGMOID_SYMMETRIC_PAIR) $@
 
 $(DIR_BUILD_NETS)/xorSigmoidSymmetricPairThreeLayer-float.net:
-	$(FANN_RANDOM) -s$(SEED) \
-	-n$(DIR_TOP)/src/main/resources/xorSigmoidSymmetricPairThreeLayer.train \
-	$(NET_XOR_SIGMOID_SYMMETRIC_THREE_LAYER) $@
+	$(FANN_RANDOM) -s$(SEED) $(NET_XOR_SIGMOID_SYMMETRIC_THREE_LAYER) $@
 
 $(DIR_BUILD_NETS)/census-house-float.net: $(NETS_TOOLS)
-	$(FANN_RANDOM) -s$(SEED) \
-	-n$(DIR_FANN)/datasets/census-house.train \
-	$(NET_CENSUS_HOUSE) $@
+	$(FANN_RANDOM) -s$(SEED) $(NET_CENSUS_HOUSE) $@
 
 $(DIR_BUILD_NETS)/mushroom-float.net: $(NETS_TOOLS)
-	$(FANN_RANDOM) -s$(SEED) -r0.05 \
-	$(NET_MUSHROOM) $@
+	$(FANN_RANDOM) -s$(SEED) -r0.05 $(NET_MUSHROOM) $@
 
 $(DIR_BUILD_NETS)/diabetes-float.net: $(NETS_TOOLS)
-	$(FANN_RANDOM) -s$(SEED) \
-	-n$(DIR_FANN)/datasets/diabetes.train \
-	$(NET_DIABETES) $@
+	$(FANN_RANDOM) -s$(SEED) $(NET_DIABETES) $@
 
 $(DIR_BUILD_NETS)/gene-float.net: $(NETS_TOOLS)
-	$(FANN_RANDOM) -s$(SEED) \
-	-n$(DIR_FANN)/datasets/gene.train \
-	$(NET_GENE) $@
+	$(FANN_RANDOM) -s$(SEED) $(NET_GENE) $@
 
 $(DIR_BUILD_NETS)/kin32fm-float.net: $(NETS_TOOLS)
-	$(FANN_RANDOM) -s$(SEED) \
-	-n$(DIR_FANN)/datasets/kin32fm.train \
-	$(NET_KIN32FM) $@
+	$(FANN_RANDOM) -s$(SEED) $(NET_KIN32FM) $@
 
 $(DIR_BUILD_NETS)/soybean-float.net: $(NETS_TOOLS)
-	$(FANN_RANDOM) -s$(SEED) \
-	-n$(DIR_FANN)/datasets/soybean.train \
-	$(NET_SOYBEAN) $@
+	$(FANN_RANDOM) -s$(SEED) $(NET_SOYBEAN) $@
 
 $(DIR_BUILD_NETS)/thyroid-float.net: $(NETS_TOOLS)
-	$(FANN_RANDOM) -s$(SEED) \
-	-n$(DIR_FANN)/datasets/thyroid.train \
-	$(NET_THYROID) $@
+	$(FANN_RANDOM) -s$(SEED) $(NET_THYROID) $@
 
 $(DIR_BUILD_NETS)/two-spiral-float.net: $(NETS_TOOLS)
-	$(FANN_RANDOM) -s$(SEED) \
-	-n$(DIR_FANN)/datasets/two-spiral.train \
-	$(NET_TWO_SPIRAL) $@
+	$(FANN_RANDOM) -s$(SEED) $(NET_TWO_SPIRAL) $@
 
 $(DIR_BUILD_NETS)/abelone-float.net: $(NETS_TOOLS)
 	$(FANN_RANDOM) -s$(SEED) $(NET_ABELONE) $@
 
 $(DIR_BUILD_NETS)/bank32fm-float.net: $(NETS_TOOLS)
 	$(FANN_RANDOM) -s$(SEED) $(NET_BANK32FM) $@
+
+$(DIR_BUILD_NETS)/bank32nh-float.net: $(NETS_TOOLS)
+	$(FANN_RANDOM) -s$(SEED) $(NET_BANK32NH) $@
 
 $(DIR_BUILD_NETS)/building-float.net: $(NETS_TOOLS)
 	$(FANN_RANDOM) -s$(SEED) $(NET_BUILDING) $@

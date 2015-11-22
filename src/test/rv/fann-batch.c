@@ -12,12 +12,11 @@
   __tmp; })
 
 static char * usage_message =
-  "fann-batch -n[config] -t[train file] -b[binary point] [options]\n"
+  "fann-batch -n[config] -t[train file] [options]\n"
   "Run batch training on a specific neural network and training file.\n"
   "\n"
   "Options:\n"
   "  -a, --print-ant            print information about the asid--nnit table\n"
-  "  -b, --binary-point         the binary point (number of fractional bits)\n"
   "  -c, --stat-cycles          print the total number of cycles in the ROI\n"
   "  -d, --num-batch-items      specify the number of batch items to use\n"
   "  -e, --max-epochs           the epoch limit (default 10k)\n"
@@ -36,11 +35,12 @@ static char * usage_message =
   "  -r, --learning-rate        set the learning rate (default 0.7)\n"
   "  -t, --train-file           the fixed point FANN training file to use\n"
   "  -v, --verbose              turn on per-item inputs/output printfs\n"
+  "  -w, --watch-for-errors     turn on some checks for sane outputs\n"
   "  -x, --incremental          run incremental updates instead of batch updates\n"
   "  -y, --weight-decay-lambda  set the weight decay parameter, lambda (default 0)\n"
   "  -z, --ignore-limits        continue blindly ignoring bit fail/mse limits"
   "\n"
-  "Flags -n, -t, and -b are required.\n"
+  "Flags -n and -t are required.\n"
   "When gathering data related to connection updates per second, -p\n"
   "should always be used as this diables all unnecessary control statements.\n";
 
@@ -90,15 +90,35 @@ uint64_t binary_config_num_connections(char * file_nn) {
   return connections;
 }
 
+int binary_config_read_binary_point(char * file_nn, int binary_point_width) {
+  FILE * fp;
+
+  fp = fopen(file_nn, "rb");
+  if (fp == NULL) {
+    fprintf(stderr, "[ERROR] Unable to opn %s\n\n", file_nn);
+    return -1;
+  }
+
+  int8_t tmp;
+  fread(&tmp, sizeof(uint8_t), 1, fp);
+  tmp &= ~(~0 << binary_point_width);
+
+  fclose(fp);
+  return tmp;
+}
+
+
+
 int main (int argc, char * argv[]) {
   int exit_code = 0, max_epochs = 10000, num_bits_failing = -1, batch_items = -1,
     num_correct;
   int flag_cycles = 0, flag_last = 0, flag_mse = 0, flag_performance = 0,
     flag_ant_info = 0, flag_incremental = 0, flag_bit_fail = 0,
-    flag_ignore_limits = 0, flag_percent_correct = 0;
+    flag_ignore_limits = 0, flag_percent_correct = 0, flag_watch_for_errors = 0;
   char id[100] = "0";
   asid_type asid = 0;
   nnid_type nnid = 0;
+  int binary_point_width = 3, binary_point_offset = 7;
 #ifdef VERBOSE_DEFAULT
   int flag_verbose = 1;
 #else
@@ -113,12 +133,11 @@ int main (int argc, char * argv[]) {
 
   char * file_nn = NULL, * file_train = NULL;
   asid_nnid_table * table = NULL;
-  element_type * outputs = NULL;
+  element_type * outputs = NULL, * outputs_old = NULL;
   int binary_point = -1, c;
   while (1) {
     static struct option long_options[] = {
       {"ant-info",             no_argument,       0, 'a'},
-      {"binary-point",         required_argument, 0, 'b'},
       {"stat-cycles",          no_argument,       0, 'c'},
       {"num-batch-items",      required_argument, 0, 'd'},
       {"max-epochs",           required_argument, 0, 'e'},
@@ -136,21 +155,19 @@ int main (int argc, char * argv[]) {
       {"stat-percent-correct", optional_argument, 0, 'q'},
       {"train-file",           required_argument, 0, 't'},
       {"verbose",              no_argument,       0, 'v'},
+      {"watch-for-errors",     no_argument,       0, 'w'},
       {"incremental",          no_argument,       0, 'x'},
       {"weight-decay-lamba,",  required_argument, 0, 'y'},
       {"ignore-limits",        no_argument,       0, 'z'}
     };
     int option_index = 0;
-    c = getopt_long (argc, argv, "ab:cd:e:f:g:hi:j:k:lm::n:o::pq::r:t:vxy:z",
+    c = getopt_long (argc, argv, "acd:e:f:g:hi:j:k:lm::n:o::pq::r:t:vwxy:z",
                      long_options, &option_index);
     if (c == -1)
       break;
     switch (c) {
     case 'a':
       flag_ant_info = 1;
-      break;
-    case 'b':
-      binary_point = atoi(optarg);
       break;
     case 'c':
       flag_cycles = 1;
@@ -214,6 +231,9 @@ int main (int argc, char * argv[]) {
     case 'v':
       flag_verbose = 1;
       break;
+    case 'w':
+      flag_watch_for_errors = 1;
+      break;
     case 'x':
       flag_incremental = 1;
       break;
@@ -235,12 +255,23 @@ int main (int argc, char * argv[]) {
   }
 
   // Make sure we have all required inputs
-  if (file_nn == NULL || file_train == NULL || binary_point == -1) {
+  if (file_nn == NULL || file_train == NULL) {
     fprintf(stderr, "[ERROR] Missing required input argument\n\n");
     usage();
     exit_code = -1;
     goto bail;
   }
+
+  // Read the binary point and make sure its sane
+  binary_point = binary_config_read_binary_point(file_nn, binary_point_width) +
+    binary_point_offset;
+  if (binary_point < binary_point_offset) {
+    fprintf(stderr, "[ERROR] Binary point (%d) looks bad, exiting\n\n",
+            binary_point);
+    exit_code = -1;
+    goto bail;
+  }
+  printf("[INFO] Found binary point %d\n", binary_point);
 
   // Create the ASID--NNID Table
   asid_nnid_table_create(&table, asid * 2 + 1, nnid * 2 + 1);
@@ -283,6 +314,8 @@ int main (int argc, char * argv[]) {
     batch_items = fann_length_train_data(data);
   if (batch_items > fann_length_train_data(data))
     batch_items = fann_length_train_data(data);
+  outputs_old = (element_type *) malloc(num_output * batch_items *
+                                        sizeof(element_type));
   int32_t learn_rate = (int32_t)((learning_rate / batch_items) * multiplier);
   int32_t weight_decay = (int32_t)((weight_decay_lambda / batch_items) * multiplier);
   // weight_decay = 1;
@@ -358,6 +391,15 @@ int main (int argc, char * argv[]) {
           error = (double)(outputs[i] - data->output[item][i]) / multiplier;
           mse += error * error;
         }
+        if (flag_watch_for_errors && epoch > 0) {
+          double change =
+            fabs(((double) outputs[i] / multiplier) -
+                 ((double) outputs_old[item * num_output + i] / multiplier));
+          if (change > 0.1)
+            printf("\n[ERROR] Epoch %d: Output changed by > 0.1 (%0.5f)",
+                   epoch, change);
+        }
+        outputs_old[item * num_output + i] = outputs[i];
       }
       num_correct += correct;
       if (flag_verbose) {
@@ -523,5 +565,7 @@ int main (int argc, char * argv[]) {
     asid_nnid_table_destroy(&table);
   if (outputs != NULL)
     free(outputs);
+  if (outputs_old != NULL)
+    free(outputs_old);
   return exit_code;
 }
