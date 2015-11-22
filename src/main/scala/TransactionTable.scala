@@ -447,8 +447,8 @@ class TransactionTableBase[StateType <: TransactionState,
           val niplMSBs =
             table(tIdx).nodesInCurrentLayer(15, log2Up(elementsPerBlock)) ##
               UInt(0, width=log2Up(elementsPerBlock))
-          val niplLSBs = table(tIdx).nodesInCurrentLayer(log2Up(elementsPerBlock-1),0)
-          val niplOffset = niplMSBs + Mux(niclLSBs =/= UInt(0),
+          val niplLSBs = table(tIdx).nodesInCurrentLayer(log2Up(elementsPerBlock)-1,0)
+          val niplOffset = niplMSBs + Mux(niplLSBs =/= UInt(0),
             UInt(elementsPerBlock), UInt(0))
 
           printf("[INFO] TTable: Updating cache layer...\n")
@@ -466,6 +466,9 @@ class TransactionTableBase[StateType <: TransactionState,
           printf("[INFO]   niclMSBs:                   0x%x\n", niclMSBs)
           printf("[INFO]   niclLSBs:                   0x%x\n", niclLSBs)
           printf("[INFO]   round:                      0x%x\n", round)
+          printf("[INFO]   niplMSBs:                   0x%x\n", niplMSBs)
+          printf("[INFO]   niplLSBs:                   0x%x\n", niplLSBs)
+          printf("[INFO]   niplOffset:                 0x%x\n", niplOffset)
           printf("[INFO]   regFileAddrIn:              0x%x\n",
             table(tIdx).regFileAddrOut)
           printf("[INFO]   regFileAddrOut:             0x%x\n",
@@ -760,8 +763,8 @@ class TransactionTable(implicit p: Parameters)
           val niplMSBs =
             table(tIdx).nodesInCurrentLayer(15, log2Up(elementsPerBlock)) ##
           UInt(0, width=log2Up(elementsPerBlock))
-          val niplLSBs = table(tIdx).nodesInCurrentLayer(log2Up(elementsPerBlock-1),0)
-          val niplOffset = niplMSBs + Mux(niclLSBs =/= UInt(0),
+          val niplLSBs = table(tIdx).nodesInCurrentLayer(log2Up(elementsPerBlock)-1,0)
+          val niplOffset = niplMSBs + Mux(niplLSBs =/= UInt(0),
             UInt(elementsPerBlock), UInt(0))
           table(tIdx).waiting := Bool(false)
           table(tIdx).regFileAddrIn := table(tIdx).regFileAddrOut
@@ -937,8 +940,8 @@ class TransactionTableLearn(implicit p: Parameters)
           val niplMSBs =
             table(tIdx).nodesInCurrentLayer(15, log2Up(elementsPerBlock)) ##
               UInt(0, width=log2Up(elementsPerBlock))
-          val niplLSBs = table(tIdx).nodesInCurrentLayer(log2Up(elementsPerBlock-1),0)
-          val niplOffset = niplMSBs + Mux(niclLSBs =/= UInt(0),
+          val niplLSBs = table(tIdx).nodesInCurrentLayer(log2Up(elementsPerBlock)-1,0)
+          val niplOffset = niplMSBs + Mux(niplLSBs =/= UInt(0),
             UInt(elementsPerBlock), UInt(0))
           when ((table(tIdx).currentLayer === UInt(0)) &&
             (table(tIdx).stateLearn === e_TTABLE_STATE_LEARN_FEEDFORWARD ||
