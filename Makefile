@@ -143,7 +143,9 @@ NETS_PARITY=parity-1 parity-2 parity-3 parity-4 parity-5 parity-6 parity-7 \
 	parity-8 parity-9
 NETS_PARITY_SAME=parity-same-1 parity-same-2 parity-same-3 parity-same-4 \
 	parity-same-5 parity-same-6 parity-same-7 parity-same-8 parity-same-9
-NETS+=$(NETS_GEN) $(NETS_FANN) $(NETS_PARITY) $(NETS_PARITY_SAME)
+NETS_XOR=xor-sigmoid-4 xor-sigmoid-8 xor-sigmoid-16 xor-sigmoid-32 xor-sigmoid-64 \
+	xor-sigmoid-128 xor-sigmoid-256
+NETS+=$(NETS_GEN) $(NETS_FANN) $(NETS_PARITY) $(NETS_PARITY_SAME) $(NETS_XOR)
 NETS_FLOAT=$(addsuffix -float, $(NETS))
 # Only certain networks have valid training files
 NETS_TRAIN=blackscholes fft inversek2j jmeint jpeg kmeans rsa sobel \
@@ -171,6 +173,7 @@ TRAIN_H=$(addprefix $(DIR_BUILD_NETS)/, $(addsuffix _train.h, $(NETS_TRAIN)))
 TRAIN_FIXED=$(addprefix $(DIR_BUILD_NETS)/, $(addsuffix -fixed.train, $(NETS_GEN)))
 TRAIN_FIXED+=$(addprefix $(DIR_BUILD_NETS)/, $(addsuffix -fixed.train, $(NETS_FANN)))
 TRAIN_FIXED+=$(addprefix $(DIR_BUILD_NETS)/, $(addsuffix -fixed.train, $(NETS_PARITY)))
+TRAIN_FIXED+=$(addprefix $(DIR_BUILD_NETS)/, $(addsuffix -fixed.train, $(NETS_XOR)))
 FLOAT_TO_FIXED=$(DIR_USR_BIN)/fann-float-to-fixed
 WRITE_FANN_CONFIG=$(DIR_USR_BIN)/write-fann-config-for-accelerator
 BIN_TO_C_HEADER=$(DIR_USR_BIN)/bin-config-to-c-header
