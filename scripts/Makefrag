@@ -1,7 +1,7 @@
 #-*- mode: makefile-*-
 
 # Shared NN configurations used by fann-random to generate networks
-NET_XOR_SIGMOID=-r0.7 -l2 -l64 -l1 -a5 -o3
+NET_XOR_SIGMOID=-r0.7 -l2 -l4 -l1 -a5 -o3
 NET_XOR_SIGMOID_SYMMETRIC=-l2 -l8 -l1 -a5 -o5 -r0.7
 NET_XOR_SIGMOID_SYMMETRIC_PAIR=-l2 -l3 -l2 -a5 -o5 -r0.7
 NET_XOR_SIGMOID_SYMMETRIC_THREE_LAYER=-l2 -l3 -l3 -l2 -a5 -o5 -r0.7

@@ -5,8 +5,8 @@
 # file.
 
 TEST=fann-batch
-NETS_GEN=xorSigmoid xorSigmoidSymmetric xorSigmoidSymmetricPair \
-	xorSigmoidSymmetricPairThreeLayer
+NETS_GEN=xorSigmoid xorSigmoidSymmetric xorSigmoidSymmetricPair
+NETS_SKIP=xorSigmoidSymmetricPairThreeLayer
 NETS_FLOAT=$(addsuffix -float.net, $(NETS_GEN))
 NETS_TRAIN=$(addsuffix -fixed.train, $(NETS_GEN))
 SOURCES=$(TEST).c
@@ -45,7 +45,6 @@ all: $(RUNS)
 	@ $(EMULATOR) +maxcycles=$(MAX_CYCLES) pk $(TEST).rv \
 	-n $*-fixed.16bin \
 	-t $*-fixed.train \
-	-b `grep decimal_point $(word 3,$^) | sed 's/^.\+=//'` \
 	-m -e100 -j$(ASID) -k$(NNID) > $*.mse
 	@ $(TOOL_COMPARE) $*.mse-good \
 	$*.mse \
@@ -59,7 +58,6 @@ all: $(RUNS)
 	@ $(EMULATOR) +maxcycles=$(MAX_CYCLES) pk $(TEST).rv \
 	-n $*-fixed.16bin \
 	-t $*-fixed.train \
-	-b `grep decimal_point $(word 3,$^) | sed 's/^.\+=//'` \
 	-e$(MAX_CONVERGE_EPOCHS) -j$(ASID) -k$(NNID) \
 	-f$(BIT_FAIL_LIMIT) -g$(MSE_CONVERGE) -l -m > $@
 	@ tail -n 1 $@ | awk '{print $$7}' | \
