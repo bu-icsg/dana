@@ -11,7 +11,7 @@ import Implicits._
 class XFilesDanaConfig extends Config (
   topDefinitions = { (pname,site,here) =>
     pname match {
-      case BuildRoCC => Some((p: Parameters) =>
+      case BuildRoCC => Seq((p: Parameters) =>
         Module(new XFilesDana()(p.alterPartial({ case CoreName => "XFilesDana" }))))
       case CacheName => "L1D"
       case RoccMaxTaggedMemXacts => 1
