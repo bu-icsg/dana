@@ -280,8 +280,13 @@ int main (int argc, char * argv[]) {
   // Populate the ASID--NNID Table
   int i;
   for (i = 0; i < nnid * 2 + 1; i++) {
-    if (i == nnid)
-      attach_nn_configuration(&table, asid, file_nn);
+    if (i == nnid) {
+      if (attach_nn_configuration(&table, asid, file_nn) != nnid + 1) {
+        printf("[ERROR] Failed to attach NN configuration 0x%x\n", nnid);
+        goto bail;
+        exit_code = -1;
+      }
+    }
     else
       attach_garbage(&table, asid);
   }

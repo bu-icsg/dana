@@ -145,16 +145,28 @@ int attach_nn_configuration(asid_nnid_table ** table, uint16_t asid,
 
   // Open the file and find out how big it is so that we can allocate
   // the correct amount of space
-  fp = fopen(file_name, "rb");
-  if (fp == NULL) {
+  if (!(fp = fopen(file_name, "rb"))) {
     printf("[ERROR] Unable to open %s\n", file_name);
     return -1;
   }
+
   nnid = (*table)->entry[asid].num_valid;
-  fseek(fp, 0, SEEK_END);
+
+  // Kludge until fseek works again
+  // fseek(fp, 0L, SEEK_END);
+  char c = 'a';
+  while (fread(&c, 1, 1, fp)) {}
+
   file_size = ftell(fp) / sizeof(x_len);
   file_size += (ftell(fp) % sizeof(x_len)) ? 1 : 0;
-  fseek(fp, 0, SEEK_SET);
+  fseek(fp, 0L, SEEK_SET);
+
+  if (file_size <= 0) {
+    printf("[ERROR] Found nonsensical file size (%d) for file %s\n",
+           file_size, file_name);
+    return -1;
+  }
+
   (*table)->entry[asid].asid_nnid[nnid].size = file_size;
 
   // Allocate space for this configuraiton

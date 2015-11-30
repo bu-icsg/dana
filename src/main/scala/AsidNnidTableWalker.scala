@@ -253,14 +253,17 @@ class AsidNnidTableWalker(implicit p: Parameters) extends XFilesModule()(p) {
       when (io.mem.exists(respValid)) {
         val reqAddr = io.mem(indexResp).resp.bits.data_word_bypass +
           cacheReqCurrent.nnid * UInt(16)
-        configPtr := io.mem(indexResp).resp.bits.data_word_bypass +
-          cacheReqCurrent.nnid * UInt(16) + UInt(8)
+        printf("[INFO] ANTW: Saw READ_NNID_POINTER resp w/ configPtr 0x%x\n",
+          reqAddr + UInt(8))
+        configPtr := reqAddr + UInt(8)
         memRead(io.cache.req.bits.coreIndex, reqAddr)
         state := s_READ_CONFIGSIZE
       }
     }
     is (s_READ_CONFIGSIZE) {
       when (io.mem.exists(respValid)) {
+        printf("[INFO] ANTW: Saw READ_NNID_POINTER resp w/ configPtr 0x%x\n",
+          io.mem(indexResp).resp.bits.data_word_bypass)
         configSize := io.mem(indexResp).resp.bits.data_word_bypass
         val reqAddr = configPtr
         memRead(io.cache.req.bits.coreIndex, reqAddr)
@@ -320,8 +323,8 @@ class AsidNnidTableWalker(implicit p: Parameters) extends XFilesModule()(p) {
       configRob(configRobIdx).data.toBits,
       cacheReqCurrent.cacheIndex,
       configRob(configRobIdx).cacheAddr)
-    // printf("[INFO] ANTW: configWbCount: 0x%x of 0x%x\n", configWbCount,
-    //   configSize >> UInt(log2Up(configBufSize)))
+    printf("[INFO] ANTW: configWbCount: 0x%x of 0x%x\n", configWbCount,
+      configSize >> UInt(log2Up(configBufSize)))
     configRob(configRobIdx).valid := UInt(0)
     configWbCount := configWbCount + UInt(1)
   }
