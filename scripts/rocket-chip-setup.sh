@@ -1,4 +1,4 @@
-#!/usr/bin/bash
+#!/bin/bash -xe
 
 # Setup script, intended to be used by Jenkins, that will build the
 # RISC-V toolchain specified by the commit ID of the riscv-tools

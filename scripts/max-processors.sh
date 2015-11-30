@@ -1,4 +1,4 @@
-#!/usr/bin/bash
+#!/bin/bash
 
 # Figure out how many processors are in the system
 NUM_CPUS=`cat /proc/cpuinfo | \

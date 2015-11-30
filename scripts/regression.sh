@@ -1,4 +1,4 @@
-#!/usr/bin/bash -xe
+#!/bin/bash -xe
 
 # Script to handle regression testing of xfiles-dana. This script is
 # intended to work in concert with `rocket-chip-setup.sh` which deals
