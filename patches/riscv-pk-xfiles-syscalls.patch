@@ -1,17 +1,17 @@
 diff --git a/Makefile.in b/Makefile.in
-index 0c1a07e..5ba3311 100644
+index 108d19d..d851329 100644
 --- a/Makefile.in
 +++ b/Makefile.in
-@@ -32,6 +32,9 @@
- default : all
- .PHONY : default
+@@ -36,6 +36,9 @@ project_name := @PACKAGE_TARNAME@
+ src_dir      := @srcdir@
+ scripts_dir  := $(src_dir)/scripts
  
 +# Architecture to use to build everything
 +ARCH ?= RV64IMAFDXcustom
 +
- project_name := @PACKAGE_TARNAME@
- src_dir      := @srcdir@
- scripts_dir  := $(src_dir)/scripts
+ # If the version information is not in the configure script, then we
+ # assume that we are in a working directory. We use the vcs-version.sh
+ # script in the scripts directory to generate an appropriate version
 @@ -75,7 +78,7 @@ sprojs_include := -I. $(addprefix -I$(src_dir)/, $(sprojs_enabled))
  VPATH := $(addprefix $(src_dir)/, $(sprojs_enabled))
  
@@ -57,7 +57,7 @@ index 0c1a07e..5ba3311 100644
  hdrs += $$(addprefix $(src_dir)/$(1)/, $$($(2)_hdrs))
  junk += $$($(2)_junk)
  deps += $$($(2)_c_deps)
-@@ -381,7 +384,7 @@ dist_junk += config.status config.h Makefile config.log
+@@ -372,7 +375,7 @@ dist_junk += config.status config.h Makefile config.log
  # Distribution
  #-------------------------------------------------------------------------
  # The distribution tarball is named project-ver.tar.gz and it includes
@@ -67,10 +67,10 @@ index 0c1a07e..5ba3311 100644
  dist_files = \
    $(sprojs) \
 diff --git a/pk/syscall.c b/pk/syscall.c
-index 44c62cd..39aa786 100644
+index 2d96282..7d86bcd 100644
 --- a/pk/syscall.c
 +++ b/pk/syscall.c
-@@ -367,7 +367,7 @@ int sys_times(void* restrict loc)
+@@ -381,7 +381,7 @@ int sys_times(void* restrict loc)
    put_long(loc, 1, 0);
    put_long(loc, 2, 0);
    put_long(loc, 3, 0);
@@ -79,7 +79,7 @@ index 44c62cd..39aa786 100644
    return 0;
  }
  
-@@ -378,7 +378,7 @@ int sys_gettimeofday(long* loc)
+@@ -392,7 +392,7 @@ int sys_gettimeofday(long* loc)
    uintptr_t t = rdcycle();
    put_long(loc, 0, t/CLOCK_FREQ);
    put_long(loc, 1, (t % CLOCK_FREQ) / (CLOCK_FREQ / 1000000));
@@ -88,7 +88,7 @@ index 44c62cd..39aa786 100644
    return 0;
  }
  
-@@ -412,6 +412,20 @@ static int sys_stub_nosys()
+@@ -426,6 +426,20 @@ static int sys_stub_nosys()
    return -ENOSYS;
  }
  
@@ -109,22 +109,22 @@ index 44c62cd..39aa786 100644
  long do_syscall(long a0, long a1, long a2, long a3, long a4, long a5, unsigned long n)
  {
    const static void* syscall_table[] = {
-@@ -451,6 +465,8 @@ long do_syscall(long a0, long a1, long a2, long a3, long a4, long a5, unsigned l
-     [SYS_readlinkat] = sys_stub_nosys,
-     [SYS_rt_sigprocmask] = sys_stub_success,
-     [SYS_ioctl] = sys_stub_nosys,
+@@ -470,6 +484,8 @@ long do_syscall(long a0, long a1, long a2, long a3, long a4, long a5, unsigned l
+     [SYS_getrusage] = sys_stub_nosys,
+     [SYS_getrlimit] = sys_stub_nosys,
+     [SYS_setrlimit] = sys_stub_nosys,
 +    [SYS_xfiles_dana_set_asid] = sys_xfiles_dana_set_asid,
 +    [SYS_xfiles_dana_set_antp] = sys_xfiles_dana_set_antp,
    };
  
    const static void* old_syscall_table[] = {
 diff --git a/pk/syscall.h b/pk/syscall.h
-index a4a1522..633858c 100644
+index bed30e9..30bec66 100644
 --- a/pk/syscall.h
 +++ b/pk/syscall.h
-@@ -44,6 +44,10 @@
- #define SYS_rt_sigprocmask 135
- #define SYS_ioctl 29
+@@ -49,6 +49,10 @@
+ #define SYS_getrusage 165
+ #define SYS_clock_gettime 113
  
 +// X-Files/Dana
 +#define SYS_xfiles_dana_set_asid 512
