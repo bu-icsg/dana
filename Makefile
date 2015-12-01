@@ -136,7 +136,7 @@ XFILES_LIBRARIES_OBJECTS = $(DIR_BUILD)/xfiles-user.o $(DIR_BUILD)/xfiles-superv
 NETS=3sum collatz rsa ll edip blackscholes fft inversek2j jmeint jpeg kmeans sobel amos
 NETS_THRESHOLD=3sum collatz ll rsa amos
 NETS_GEN=xorSigmoid xorSigmoidSymmetric xorSigmoidSymmetricPair \
-	xorSigmoidSymmetricPairThreeLayer
+	xorSigmoidSymmetricThreeLayer
 NETS_FANN=census-house mushroom diabetes gene kin32fm soybean thyroid two-spiral \
 	abelone bank32fm bank32nh building census-house pumadyn-32fm robot soybean
 NETS_PARITY=parity-1 parity-2 parity-3 parity-4 parity-5 parity-6 parity-7 \
@@ -150,7 +150,7 @@ NETS_FLOAT=$(addsuffix -float, $(NETS))
 # Only certain networks have valid training files
 NETS_TRAIN=blackscholes fft inversek2j jmeint jpeg kmeans rsa sobel \
 	xorSigmoid xorSigmoidSymmetric xorSigmoidSymmetricPair \
-	xorSigmoidSymmetricPairThreeLayer
+	xorSigmoidSymmetricThreeLayer
 NETS_BIN=$(addprefix $(DIR_BUILD_NETS)/, $(addsuffix -fixed.16bin, $(NETS)) \
 	$(addsuffix -fixed.32bin, $(NETS)) \
 	$(addsuffix -fixed.64bin, $(NETS)) \

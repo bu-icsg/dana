@@ -4,7 +4,7 @@
 NET_XOR_SIGMOID=-r0.7 -l2 -l4 -l1 -a5 -o3
 NET_XOR_SIGMOID_SYMMETRIC=-l2 -l8 -l1 -a5 -o5 -r0.7
 NET_XOR_SIGMOID_SYMMETRIC_PAIR=-l2 -l3 -l2 -a5 -o5 -r0.7
-NET_XOR_SIGMOID_SYMMETRIC_THREE_LAYER=-l2 -l3 -l3 -l2 -a5 -o5 -r0.7
+NET_XOR_SIGMOID_SYMMETRIC_THREE_LAYER=-l2 -l8 -l9 -l1 -a5 -o5 -r0.7
 # XOR variants
 NET_XOR_SIGMOID_4=-l4 -l4 -l1 -a5 -o3 -r0.7
 NET_XOR_SIGMOID_8=-l8 -l4 -l1 -a5 -o3 -r.07
@@ -72,7 +72,7 @@ $(DIR_BUILD_NETS)/xorSigmoidSymmetric-float.net:
 $(DIR_BUILD_NETS)/xorSigmoidSymmetricPair-float.net:
 	$(FANN_RANDOM) -s$(SEED) $(NET_XOR_SIGMOID_SYMMETRIC_PAIR) $@
 
-$(DIR_BUILD_NETS)/xorSigmoidSymmetricPairThreeLayer-float.net:
+$(DIR_BUILD_NETS)/xorSigmoidSymmetricThreeLayer-float.net:
 	$(FANN_RANDOM) -s$(SEED) $(NET_XOR_SIGMOID_SYMMETRIC_THREE_LAYER) $@
 
 $(DIR_BUILD_NETS)/census-house-float.net: $(NETS_TOOLS)
