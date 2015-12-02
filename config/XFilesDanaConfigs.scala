@@ -42,3 +42,52 @@ class XFilesDanaNoLearningFPGAConfig extends Config(new XFilesDanaNoLearningConf
 
 class XFilesDanaFPGASmallConfig extends Config(new XFilesDanaConfig ++
   new DefaultXFilesDanaFPGAConfig ++ new DefaultFPGASmallConfig)
+
+// Variants that use explicit numbers of PEs
+class DanaPE1 extends Config (
+  topDefinitions = { (pname,site,here) => pname match {
+      case PeTableNumEntries => 1 }})
+
+class DanaPE2 extends Config (
+  topDefinitions = { (pname,site,here) => pname match {
+      case PeTableNumEntries => 2 }})
+
+class DanaPE3 extends Config (
+  topDefinitions = { (pname,site,here) => pname match {
+      case PeTableNumEntries => 3 }})
+
+class DanaPE4 extends Config (
+  topDefinitions = { (pname,site,here) => pname match {
+      case PeTableNumEntries => 4 }})
+
+class DanaPE5 extends Config (
+  topDefinitions = { (pname,site,here) => pname match {
+      case PeTableNumEntries => 5 }})
+
+class DanaPE6 extends Config (
+  topDefinitions = { (pname,site,here) => pname match {
+      case PeTableNumEntries => 6 }})
+
+class XFilesDanaPE1Config extends Config(new DanaPE1 ++
+  new XFilesDanaConfig ++ new DefaultXFilesDanaFPGAConfig ++
+  new DefaultFPGAConfig)
+
+class XFilesDanaPE2Config extends Config(new DanaPE2 ++
+  new XFilesDanaConfig ++ new DefaultXFilesDanaFPGAConfig ++
+  new DefaultFPGAConfig)
+
+class XFilesDanaPE3Config extends Config(new DanaPE3 ++
+  new XFilesDanaConfig ++ new DefaultXFilesDanaFPGAConfig ++
+  new DefaultFPGAConfig)
+
+class XFilesDanaPE4Config extends Config(new DanaPE4 ++
+  new XFilesDanaConfig ++ new DefaultXFilesDanaFPGAConfig ++
+  new DefaultFPGAConfig)
+
+class XFilesDanaPE5Config extends Config(new DanaPE5 ++
+  new XFilesDanaConfig ++ new DefaultXFilesDanaFPGAConfig ++
+  new DefaultFPGAConfig)
+
+class XFilesDanaPE6Config extends Config(new DanaPE6 ++
+  new XFilesDanaConfig ++ new DefaultXFilesDanaFPGAConfig ++
+  new DefaultFPGAConfig)
