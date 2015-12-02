@@ -1010,26 +1010,44 @@ class TransactionTableLearn(implicit p: Parameters)
                 table(tIdx).regFileAddrDW := table(tIdx).regFileAddrInFixed
                 when(table(tIdx).transactionType === e_TTYPE_BATCH){
                   table(tIdx).regFileAddrSlope := table(tIdx).regFileAddrDW +
-                    table(tIdx).offsetBias + niclOffset * UInt(1)
-                  table(tIdx).biasAddr := table(tIdx).regFileAddrDW +
-                    niclOffset * UInt(1)
+                    table(tIdx).offsetBias + niclOffset
+                  table(tIdx).biasAddr := table(tIdx).regFileAddrDW + niclOffset
                 }
+                printf("[INFO] TTable Layer Update, state == LEARN_ERROR_BACKPROP\n")
+                printf("[INFO]   offsetBias:       0x%x\n", table(tIdx).offsetBias)
+                printf("[INFO]   niclOffset:       0x%x\n", niclOffset)
+                printf("[INFO]   niplOffset:       0x%x\n", niplOffset)
+                printf("[INFO]   regFileAddrDw:    0x%x -> 0x%x\n",
+                  table(tIdx).regFileAddrDW, table(tIdx).regFileAddrInFixed)
+                printf("[INFO]   regFileAddrSlope: 0x%x\n",
+                  table(tIdx).regFileAddrDW + table(tIdx).offsetBias + niclOffset)
+                printf("[INFO]   biasAddr:         0x%x\n",
+                  table(tIdx).regFileAddrDW + niclOffset)
               }
             }
             is(e_TTABLE_STATE_LEARN_UPDATE_SLOPE){
               table(tIdx).regFileAddrDW := table(tIdx).regFileAddrIn
               table(tIdx).regFileAddrIn := table(tIdx).regFileAddrIn + niplOffset
               table(tIdx).regFileAddrDelta := table(tIdx).regFileAddrDelta -
-                niclOffset * UInt(2)
-              table(tIdx).biasAddr := table(tIdx).biasAddr + niclOffset
+                niclOffset - niplOffset
+              table(tIdx).biasAddr := table(tIdx).biasAddr + niplOffset
               // Handle special case of being in the second hidden layer
               when (table(tIdx).currentLayer === UInt(1)){
                 table(tIdx).regFileAddrDelta := table(tIdx).regFileAddrOut -
                   niclOffset * UInt(1)
               }
+              printf("[INFO] TTable Layer Update, state == LEARN_UPDATE_SLOPE\n")
+              printf("[INFO]   regFileAddrDW:    0x%x\n", table(tIdx).regFileAddrIn)
+              printf("[INFO]   regFileAddrIn:    0x%x\n",
+                table(tIdx).regFileAddrIn + niplOffset)
+              printf("[INFO]   regFileAddrDelta: 0x%x\n",
+                table(tIdx).regFileAddrDelta - niclOffset - niplOffset)
+              printf("[INFO]   biasAddr:         0x%x\n",
+                table(tIdx).biasAddr + niplOffset)
             }
             is(e_TTABLE_STATE_LEARN_WEIGHT_UPDATE){
               when(table(tIdx).transactionType === e_TTYPE_BATCH){
+                printf("[INFO] TTable Layer Update, state == LEARN_WEIGHT_UPDATE\n")
                 when (table(tIdx).currentLayer === UInt(0)){
                   table(tIdx).regFileAddrDW := table(tIdx).regFileAddrInFixed
                   table(tIdx).regFileAddrIn := table(tIdx).regFileAddrInFixed +
@@ -1042,12 +1060,26 @@ class TransactionTableLearn(implicit p: Parameters)
                   // to the start of the weight update region).
                   table(tIdx).biasAddr := table(tIdx).regFileAddrSlope -
                     table(tIdx).offsetBias
+                  printf("[INFO]   regFileAddrDw:   0x%x\n",
+                    table(tIdx).regFileAddrInFixed)
+                  printf("[INFO]   regFileAddrIn:   0x%x\n",
+                    table(tIdx).regFileAddrInFixed + niclOffset)
+                  printf("[INFO]   regFileAdrDelta: 0x%x\n",
+                    table(tIdx).regFileAddrDelta)
                 }.otherwise{
                   table(tIdx).regFileAddrDW := table(tIdx).regFileAddrIn
                   table(tIdx).regFileAddrIn := table(tIdx).regFileAddrIn + niclOffset
                   table(tIdx).regFileAddrDelta := table(tIdx).regFileAddrDelta +
                     niclOffset + niplOffset
-                  table(tIdx).biasAddr := table(tIdx).biasAddr + niclOffset
+                  table(tIdx).biasAddr := table(tIdx).biasAddr + niplOffset
+                  printf("[INFO]   regFileAddrDw:   0x%x\n",
+                    table(tIdx).regFileAddrIn)
+                  printf("[INFO]   regFileAddrIn:   0x%x\n",
+                    table(tIdx).regFileAddrInFixed + niclOffset)
+                  printf("[INFO]   regFileAdrDelta: 0x%x\n",
+                    table(tIdx).regFileAddrDelta + niclOffset + niplOffset)
+                  printf("[INFO]   biasAddr:        0x%x\n",
+                    table(tIdx).biasAddr + niplOffset)
                 }
               }.otherwise{
                 table(tIdx).regFileAddrDW := table(tIdx).regFileAddrIn

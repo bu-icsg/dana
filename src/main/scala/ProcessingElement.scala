@@ -129,7 +129,6 @@ class ProcessingElement(implicit p: Parameters) extends DanaModule()(p) {
     is (PE_states('e_PE_UNALLOCATED)) {
       state := Mux(io.req.valid, PE_states('e_PE_GET_INFO), state)
       io.req.ready := Bool(true)
-      hasBias := Bool(false)
       index := UInt(0)
       reqSent := Bool(false)
     }
@@ -145,13 +144,6 @@ class ProcessingElement(implicit p: Parameters) extends DanaModule()(p) {
       }
     }
     is (PE_states('e_PE_REQUEST_INPUTS_AND_WEIGHTS)) {
-      // If hasBias is false, then this is the first time we're in this
-      // state and we need to load the bias into the accumulator
-      hasBias := Bool(true)
-      when (hasBias === Bool(false)) {
-        acc := io.req.bits.bias
-      }
-
       when (!reqSent) {
         io.resp.valid := Bool(true)
         reqSent := io.req.valid
