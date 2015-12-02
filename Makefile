@@ -145,7 +145,9 @@ NETS_PARITY_SAME=parity-same-1 parity-same-2 parity-same-3 parity-same-4 \
 	parity-same-5 parity-same-6 parity-same-7 parity-same-8 parity-same-9
 NETS_XOR=xor-sigmoid-4 xor-sigmoid-8 xor-sigmoid-16 xor-sigmoid-32 xor-sigmoid-64 \
 	xor-sigmoid-128 xor-sigmoid-256
-NETS+=$(NETS_GEN) $(NETS_FANN) $(NETS_PARITY) $(NETS_PARITY_SAME) $(NETS_XOR)
+NETS_SIN=sin
+NETS+=$(NETS_GEN) $(NETS_FANN) $(NETS_PARITY) $(NETS_PARITY_SAME) $(NETS_XOR) \
+	$(NETS_SIN)
 NETS_FLOAT=$(addsuffix -float, $(NETS))
 # Only certain networks have valid training files
 NETS_TRAIN=blackscholes fft inversek2j jmeint jpeg kmeans rsa sobel \

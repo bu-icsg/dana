@@ -49,6 +49,8 @@ NET_PARITY_SAME_6=-l6 $(NET_PARITY_SAME)
 NET_PARITY_SAME_7=-l7 $(NET_PARITY_SAME)
 NET_PARITY_SAME_8=-l8 $(NET_PARITY_SAME)
 NET_PARITY_SAME_9=-l9 $(NET_PARITY_SAME)
+# Sine tests
+NET_SIN=-l1 -l16 -l1 -a5 -o5 -r0.7
 
 .PRECIOUS: $(DIR_BUILD_NETS)/%-fixed.net \
 	$(DIR_BUILD_NETS)/%-float.net \
@@ -131,6 +133,9 @@ $(DIR_BUILD_NETS)/parity-%-float.net: $(NETS_TOOLS)
 
 $(DIR_BUILD_NETS)/xor-sigmoid-%-float.net: $(NETS_TOOLS)
 	$(FANN_RANDOM) -s$(SEED) $(NET_XOR_SIGMOID_$*) $@
+
+$(DIR_BUILD_NETS)/sin-float.net: $(NETS_TOOLS)
+	$(FANN_RANDOM) -s$(SEED) $(NET_SIN) $@
 
 #--------------------------------------- Generate special training files
 $(DIR_BUILD_NETS)/parity-%-float.train: $(NETS_TOOLS)
