@@ -283,8 +283,8 @@ int main (int argc, char * argv[]) {
     if (i == nnid) {
       if (attach_nn_configuration(&table, asid, file_nn) != nnid + 1) {
         printf("[ERROR] Failed to attach NN configuration 0x%x\n", nnid);
-        goto bail;
         exit_code = -1;
+        goto bail;
       }
     }
     else
@@ -325,8 +325,9 @@ int main (int argc, char * argv[]) {
   int32_t weight_decay = (int32_t)((weight_decay_lambda / batch_items) * multiplier);
   // weight_decay = 1;
   if (learn_rate == 0) {
-    printf("[ERROR] Learning rate would be 0. Trying 0x1");
-    learn_rate = 1;
+    printf("[ERROR] Number of batch items forces learning rate increase");
+    exit_code = -3;
+    goto bail;
   }
   printf("[INFO] Computed learning rate is 0x%x\n", learn_rate);
 
