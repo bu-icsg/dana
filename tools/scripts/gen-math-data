@@ -95,7 +95,7 @@ def main():
         y_full = numpy.vectorize(eval('math.{0}'.format(args.function)))(
             x_scaling * x_full)
         plt.plot(x_full, y_full, color='#9ecae1')
-        legend = ['data']
+        legend = ['function']
         plt.axis([min(x_full), max(x_full), min(y_full), max(y_full)])
         if (args.file_train is not None):
             plt.plot(x_train, y_train, 'o', color='#41ab5d')
@@ -103,6 +103,9 @@ def main():
         if (args.file_test is not None):
             plt.plot(x_test, y_test, 's', color='#a50f15')
             legend += ['test']
+        if (args.file_train is None and args.file_test is None):
+            plt.plot(x, y, 'p', color='#807dba')
+            legend += ['samples']
         plt.legend(legend)
         plt.show()
 
