@@ -48,12 +48,12 @@ class XFilesDana(implicit p: Parameters) extends RoCC()(p) {
   xFilesArbiter.io.core(0).s := io.s
   io.interrupt := xFilesArbiter.io.core(0).interrupt
 
-  io.imem.acquire.valid := Bool(false)
-  io.imem.grant.ready := Bool(true)
+  io.autl.acquire.valid := Bool(false)
+  io.autl.grant.ready := Bool(true)
 
   for (i <- 0 until p(RoccNMemChannels)) {
-    io.dmem(i).acquire.valid := Bool(false)
-    io.dmem(i).grant.ready := Bool(true)}
+    io.utl(i).acquire.valid := Bool(false)
+    io.utl(i).grant.ready := Bool(true)}
 
   io.iptw.req.valid := Bool(false)
   io.dptw.req.valid := Bool(false)
