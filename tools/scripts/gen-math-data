@@ -24,6 +24,9 @@ def parse_arguments():
         '-p', '--plot', dest='flag_plot', action='store_true',
         help='Display a plot of the generated data')
     parser.add_argument(
+        '--file-plot', dest='file_plot', type=str,
+        help='Write the plot to a file')
+    parser.add_argument(
         '--x-scaling', dest='x_scaling', type=str, default='1',
         help='Scaling of the domain to apply')
     parser.add_argument(
@@ -90,7 +93,7 @@ def main():
 
     x, y = zip(*sorted(zip(x, y)))
 
-    if (args.flag_plot):
+    if (args.flag_plot or args.file_plot):
         x_full = numpy.linspace(domain[0], domain[1], 1000)
         y_full = numpy.vectorize(eval('math.{0}'.format(args.function)))(
             x_scaling * x_full)
@@ -107,7 +110,10 @@ def main():
             plt.plot(x, y, 'p', color='#807dba')
             legend += ['samples']
         plt.legend(legend)
-        plt.show()
+        if (args.flag_plot):
+            plt.show()
+        if (args.file_plot is not None):
+            plt.savefig(args.file_plot)
 
 if __name__ == '__main__':
     main()
