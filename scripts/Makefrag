@@ -50,18 +50,17 @@ NET_PARITY_SAME_7=-l7 $(NET_PARITY_SAME)
 NET_PARITY_SAME_8=-l8 $(NET_PARITY_SAME)
 NET_PARITY_SAME_9=-l9 $(NET_PARITY_SAME)
 # Sine tests
-NET_SIN=-l1 -l16 -l1 -a5 -o5 -r0.7
+NET_SIN=-l1 -l16 -l1 -a3 -o5 -r0.7
 
 .PRECIOUS: $(DIR_BUILD_NETS)/%-fixed.net \
-	$(DIR_BUILD_NETS)/%-float.net \
-	$(DIR_BUILD_NETS)/%.net \
-	$(DIR_BUILD_NETS)/parity-%-float.train \
-	$(DIR_BUILD_NETS)/parity-%-fixed.train \
+	$(DIR_BUILD_NETS)/%-fixed.net \
+	$(DIR_BUILD_NETS)/%-float.train \
 	$(DIR_BUILD_NETS)/parity-%-float.net \
-	$(DIR_BUILD_NETS)/parity-%-fixed.net \
-	$(DIR_BUILD_NETS)/xor-sigmoid-%-fixed.train \
 	$(DIR_BUILD_NETS)/xor-sigmoid-%-float.net \
-	$(DIR_BUILD_NETS)/xor-sigmoid-%-fixed.net
+	$(DIR_BUILD_NETS)/parity-%-float.train \
+	$(DIR_BUILD_NETS)/parity-same-%-float.net \
+	$(DIR_BUILD_NETS)/sin-%-float.train \
+	$(DIR_BUILD_NETS)/sin-scale-%-float.train
 
 #--------------------------------------- Build floating point NNs
 # These depend on having DIR_TOP and DIR_BUILD_NETS defined
@@ -141,6 +140,10 @@ $(DIR_BUILD_NETS)/sin-float.net: $(NETS_TOOLS)
 $(DIR_BUILD_NETS)/parity-%-float.train: $(NETS_TOOLS)
 	$(GEN_BOOLEAN_DATA) -n $* -f xor -s > $@
 
+$(DIR_BUILD_NETS)/sin-scale-%-float.train: $(NETS_TOOLS)
+	$(GEN_MATH_DATA) -r -f sin -d -1 1 -n 200 --x-scaling=$**1*math.pi \
+	--file-train=$@ --file-plot=$(DIR_BUILD_NETS)/sin-scale-$*.png
+
 #--------------------------------------- Fixed point net generationg
 $(DIR_BUILD_NETS)/%-fixed.net: $(DIR_BUILD_NETS)/%-float.net $(NETS_TOOLS)
 	$(FLOAT_TO_FIXED) $< $@
@@ -182,6 +185,9 @@ $(DIR_BUILD_NETS)/%.128bin: $(DIR_BUILD_NETS)/%.net $(NETS_TOOLS)
 	$(WRITE_FANN_CONFIG) 128 $< $@ $(DECIMAL_POINT_OFFSET)
 
 #--------------------------------------- Training Files
+$(DIR_BUILD_NETS)/sin-%-fixed.train: $(DIR_BUILD_NETS)/sin-%-float.train $(DIR_BUILD_NETS)/sin-fixed.net $(NETS_TOOLS)
+	$(FANN_TRAIN_TO_FIXED) $< $@ `grep decimal_point $(word 2,$^) | sed 's/^.\+=//'`
+
 $(DIR_BUILD_NETS)/%-fixed.train: %.train $(DIR_BUILD_NETS)/%-fixed.net $(NETS_TOOLS)
 	$(FANN_TRAIN_TO_FIXED) $< $@ `grep decimal_point $(word 2,$^) | sed 's/^.\+=//'`
 

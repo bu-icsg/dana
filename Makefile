@@ -157,6 +157,10 @@ NETS_BIN=$(addprefix $(DIR_BUILD_NETS)/, $(addsuffix -fixed.16bin, $(NETS)) \
 	$(addsuffix -fixed.32bin, $(NETS)) \
 	$(addsuffix -fixed.64bin, $(NETS)) \
 	$(addsuffix -fixed.128bin, $(NETS)))
+TRAIN_SIN=sin-scale-0.25 sin-scale-0.50 sin-scale-0.75 sin-scale-1.00 \
+	sin-scale-1.25 sin-scale-1.50 sin-scale-1.75 sin-scale-2.00 \
+	sin-scale-2.25 sin-scale-2.50 sin-scale-2.75 sin-scale-3.00 \
+	sin-scale-3.25 sin-scale-3.50 sin-scale-3.75 sin-scale-4.00
 # [TODO] Skip threshold nets as I don't have floating point *.net sources
 # NETS_BIN+=$(addprefix $(DIR_BUILD_NETS)/, \
 # 	$(addsuffix -threshold-fixed.16bin, $(NETS_THRESHOLD)) \
@@ -176,6 +180,7 @@ TRAIN_FIXED=$(addprefix $(DIR_BUILD_NETS)/, $(addsuffix -fixed.train, $(NETS_GEN
 TRAIN_FIXED+=$(addprefix $(DIR_BUILD_NETS)/, $(addsuffix -fixed.train, $(NETS_FANN)))
 TRAIN_FIXED+=$(addprefix $(DIR_BUILD_NETS)/, $(addsuffix -fixed.train, $(NETS_PARITY)))
 TRAIN_FIXED+=$(addprefix $(DIR_BUILD_NETS)/, $(addsuffix -fixed.train, $(NETS_XOR)))
+TRAIN_FIXED+=$(addprefix $(DIR_BUILD_NETS)/, $(addsuffix -fixed.train, $(TRAIN_SIN)))
 FLOAT_TO_FIXED=$(DIR_USR_BIN)/fann-float-to-fixed
 WRITE_FANN_CONFIG=$(DIR_USR_BIN)/write-fann-config-for-accelerator
 BIN_TO_C_HEADER=$(DIR_USR_BIN)/bin-config-to-c-header
@@ -185,6 +190,7 @@ FANN_RANDOM=$(DIR_USR_BIN)/fann-random
 FANN_CHANGE_FIXED_POINT=$(DIR_USR_BIN)/fann-change-fixed-point
 FANN_TRAIN_TO_FIXED=$(DIR_USR_BIN)/fann-data-to-fixed
 GEN_BOOLEAN_DATA=$(DIR_USR_BIN)/gen-boolean-data
+GEN_MATH_DATA=$(DIR_USR_BIN)/gen-math-data
 NETS_TOOLS = $(FLOAT_TO_FIXED) \
 	$(WRITE_FANN_CONFIG) \
 	$(BIN_TO_C_HEADER) \
