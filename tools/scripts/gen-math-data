@@ -1,0 +1,110 @@
+#!/usr/bin/python3
+
+import numpy
+import math
+import matplotlib.pyplot as plt
+import argparse
+import random
+
+def parse_arguments():
+    parser = argparse.ArgumentParser(
+        description='Generate FANN training files of mathmetical function data')
+    parser.add_argument(
+        '-f', '--function', dest='function', type=str, required=True,
+        choices=['sin','log','exp'],
+        help='Math function to use, see supported below')
+    parser.add_argument(
+        '-d', '--domain', dest='domain', type=str, required=True,
+        nargs=2,
+        help='The domain of the math function')
+    parser.add_argument(
+        '-n', '--num-samples', dest='num_samples', type=int, required=True,
+        help='The number of data samples to generate')
+    parser.add_argument(
+        '-p', '--plot', dest='flag_plot', action='store_true',
+        help='Display a plot of the generated data')
+    parser.add_argument(
+        '--x-scaling', dest='x_scaling', type=str, default='1',
+        help='Scaling of the domain to apply')
+    parser.add_argument(
+        '-r', '--random-points', dest='random_points', action='store_true',
+        help='Randomly select points from the function')
+    parser.add_argument(
+        '--file-train', dest='file_train', type=str,
+        help='Output file to populate with training data')
+    parser.add_argument(
+        '--file-test', dest='file_test', type=str,
+        help='Output file to populate with testing data')
+    parser.add_argument(
+        '--test-percentage', dest='train_percentage', type=float, default=0.1,
+        help='Percentage of data points for training (default: 0.1)')
+    parser.add_argument(
+        '-s', '--seed', dest='seed', type=int,
+        help='The seed to use')
+    return parser.parse_args()
+
+def main():
+    args = parse_arguments()
+    domain = (eval(args.domain[0]), eval(args.domain[1]))
+    x_scaling = eval(args.x_scaling)
+
+    if (args.seed is not None):
+        random.seed(args.seed)
+        print('[INFO] Using seed {0}'.format(args.seed))
+
+    if (args.random_points):
+        x = numpy.random.uniform(domain[0], domain[1], args.num_samples)
+    else:
+        x = numpy.linspace(domain[0], domain[1], args.num_samples)
+
+    y = numpy.vectorize(eval('math.{0}'.format(args.function)))(x_scaling * x)
+
+    index_shuffle = list(range(len(x)))
+    random.shuffle(index_shuffle)
+
+    num_train_samples = 0
+    if (args.file_test is not None):
+        num_train_samples = math.ceil(len(x) * args.train_percentage)
+        x_test = numpy.zeros(num_train_samples)
+        y_test = numpy.zeros(num_train_samples)
+        with open(args.file_test, 'w') as f:
+            f.write('{0} 1 1\n'.format(num_train_samples))
+            for i in range(num_train_samples):
+                f.write('{0}\n{1}\n'.format(x[index_shuffle[i]],
+                                            y[index_shuffle[i]]))
+                x_test[i] = x[index_shuffle[i]]
+                y_test[i] = y[index_shuffle[i]]
+        x_test, y_test = zip(*sorted(zip(x_test, y_test)))
+
+    if (args.file_train is not None):
+        with open(args.file_train, 'w') as f:
+            f.write('{0} 1 1\n'.format(args.num_samples - num_train_samples))
+            x_train = numpy.zeros(args.num_samples - num_train_samples)
+            y_train = numpy.zeros(args.num_samples - num_train_samples)
+            for i in range(num_train_samples, args.num_samples):
+                f.write('{0}\n{1}\n'.format(x[index_shuffle[i]],
+                                            y[index_shuffle[i]]))
+                x_train[i - num_train_samples] = x[index_shuffle[i]]
+                y_train[i - num_train_samples] = y[index_shuffle[i]]
+        x_train, y_train = zip(*sorted(zip(x_train, y_train)))
+
+    x, y = zip(*sorted(zip(x, y)))
+
+    if (args.flag_plot):
+        x_full = numpy.linspace(domain[0], domain[1], 1000)
+        y_full = numpy.vectorize(eval('math.{0}'.format(args.function)))(
+            x_scaling * x_full)
+        plt.plot(x_full, y_full, color='#9ecae1')
+        legend = ['data']
+        plt.axis([min(x_full), max(x_full), min(y_full), max(y_full)])
+        if (args.file_train is not None):
+            plt.plot(x_train, y_train, 'o', color='#41ab5d')
+            legend += ['train']
+        if (args.file_test is not None):
+            plt.plot(x_test, y_test, 's', color='#a50f15')
+            legend += ['test']
+        plt.legend(legend)
+        plt.show()
+
+if __name__ == '__main__':
+    main()
