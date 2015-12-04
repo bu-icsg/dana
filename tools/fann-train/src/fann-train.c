@@ -9,6 +9,7 @@ static char * usage_message =
   "Run batch training on a specific neural network and training file.\n"
   "\n"
   "Options:\n"
+  "  -b, --video-data           generate a trace of execution over time"
   "  -c, --stat-cups            print information about the # of connectsion\n"
   "  -d, --num-batch-items      number of batch items to use\n"
   "  -e, --max-epochs           the epoch limit (default 10k)\n"
@@ -42,6 +43,8 @@ int main (int argc, char * argv[]) {
   float bit_fail_limit = 0.05, mse_fail_limit = -1.0;
   double learning_rate = 0.7;
   char id[100] = "0";
+  char * file_video_string = NULL;
+  FILE * file_video = NULL;
   struct fann * ann = NULL;
   struct fann_train_data * data = NULL;
   fann_type * calc_out;
@@ -50,6 +53,7 @@ int main (int argc, char * argv[]) {
   int c;
   while (1) {
     static struct option long_options[] = {
+      {"video-data",           required_argument, 0, 'b'},
       {"stat-cups",            no_argument,       0, 'c'},
       {"num-batch-items",      required_argument, 0, 'd'},
       {"max-epochs",           required_argument, 0, 'e'},
@@ -68,11 +72,14 @@ int main (int argc, char * argv[]) {
       {"ignore-limits",        no_argument,       0, 'z'}
     };
     int option_index = 0;
-     c = getopt_long (argc, argv, "cd:e:f:g:hi:lm::n:o::q::r:t:vz",
+     c = getopt_long (argc, argv, "b:cd:e:f:g:hi:lm::n:o::q::r:t:vz",
                      long_options, &option_index);
     if (c == -1)
       break;
     switch (c) {
+    case 'b':
+      file_video_string = optarg;
+      break;
     case 'c':
       flag_cups = 1;
       break;
@@ -158,6 +165,9 @@ int main (int argc, char * argv[]) {
   ann->training_algorithm = FANN_TRAIN_BATCH;
   ann->learning_rate = learning_rate;
 
+  if (file_video_string != NULL)
+    file_video = fopen(file_video_string, "w");
+
   double mse;
   for (epoch = 0; epoch < max_epochs; epoch++) {
     fann_train_epoch(ann, data);
@@ -180,7 +190,11 @@ int main (int argc, char * argv[]) {
           fabs(calc_out[k] - data->output[i][k]) > bit_fail_limit;
         if (fabs(calc_out[k] - data->output[i][k]) > bit_fail_limit)
           correct = 0;
+        if (file_video)
+          fprintf(file_video, "%f ", calc_out[k]);
       }
+      if (file_video)
+        fprintf(file_video, "\n");
       num_correct += correct;
       if (flag_verbose) {
         if (i < fann_length_train_data(data) - 1)
@@ -230,6 +244,8 @@ int main (int argc, char * argv[]) {
     fann_destroy(ann);
   if (data != NULL)
     fann_destroy_train(data);
+  if (file_video != NULL)
+    fclose(file_video);
 
   return exit_code;
 }
