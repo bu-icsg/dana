@@ -25,6 +25,7 @@ static char * usage_message =
   "  -r, --learning-rate        set the learning rate (default 0.7)\n"
   "  -t, --train-file           the fixed point FANN training file to use\n"
   "  -v, --verbose              turn on per-item inputs/output printfs\n"
+  "  -x, --training-type        no arg: incremental, arg: use specific enum\n"
   "  -z, --ignore-limits        continue blindly ignoring bit fail/mse limits"
   "\n"
   "-n and -t are required\n";
@@ -48,6 +49,7 @@ int main (int argc, char * argv[]) {
   struct fann * ann = NULL;
   struct fann_train_data * data = NULL;
   fann_type * calc_out;
+  enum fann_train_enum type_training = FANN_TRAIN_BATCH;
 
   char * file_nn = NULL, * file_train = NULL;
   int c;
@@ -69,10 +71,11 @@ int main (int argc, char * argv[]) {
       {"learning-rate",        required_argument, 0, 'r'},
       {"train-file",           required_argument, 0, 't'},
       {"verbose",              no_argument,       0, 'v'},
+      {"incremental",          no_argument,       0, 'x'},
       {"ignore-limits",        no_argument,       0, 'z'}
     };
     int option_index = 0;
-     c = getopt_long (argc, argv, "b:cd:e:f:g:hi:lm::n:o::q::r:t:vz",
+     c = getopt_long (argc, argv, "b:cd:e:f:g:hi:lm::n:o::q::r:t:vx::z",
                      long_options, &option_index);
     if (c == -1)
       break;
@@ -133,6 +136,9 @@ int main (int argc, char * argv[]) {
     case 'v':
       flag_verbose = 1;
       break;
+    case 'x':
+      type_training = (optarg) ? atoi(optarg) : FANN_TRAIN_INCREMENTAL;
+      break;
     case 'z':
       flag_ignore_limits = 1;
       break;
@@ -155,6 +161,14 @@ int main (int argc, char * argv[]) {
     goto bail;
   }
 
+  // The training type needs to make sense
+  if (type_training > FANN_TRAIN_SARPROP) {
+    fprintf(stderr, "[ERROR] Training type %d outside of enumerated range (max: %d)\n",
+            type_training, FANN_TRAIN_SARPROP);
+    exit_code = -1;
+    goto bail;
+  }
+
   ann = fann_create_from_file(file_nn);
   data = fann_read_train_from_file(file_train);
   if (batch_items != -1 && batch_items < data->num_data)
@@ -162,8 +176,9 @@ int main (int argc, char * argv[]) {
   enum fann_activationfunc_enum af =
     fann_get_activation_function(ann, ann->last_layer - ann->first_layer -1, 0);
 
-  ann->training_algorithm = FANN_TRAIN_BATCH;
+  ann->training_algorithm = type_training;
   ann->learning_rate = learning_rate;
+  printf("[INFO] Using training type %d\n", type_training);
 
   if (file_video_string != NULL)
     file_video = fopen(file_video_string, "w");
