@@ -9,7 +9,7 @@ static char * usage_message =
   "Run batch training on a specific neural network and training file.\n"
   "\n"
   "Options:\n"
-  "  -b, --video-data           generate a trace of execution over time"
+  "  -b, --video-data           generate a trace of execution over time\n"
   "  -c, --stat-cups            print information about the # of connectsion\n"
   "  -d, --num-batch-items      number of batch items to use\n"
   "  -e, --max-epochs           the epoch limit (default 10k)\n"
