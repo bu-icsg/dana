@@ -191,6 +191,8 @@ FANN_CHANGE_FIXED_POINT=$(DIR_USR_BIN)/fann-change-fixed-point
 FANN_TRAIN_TO_FIXED=$(DIR_USR_BIN)/fann-data-to-fixed
 GEN_BOOLEAN_DATA=$(DIR_USR_BIN)/gen-boolean-data
 GEN_MATH_DATA=$(DIR_USR_BIN)/gen-math-data
+FANN_TRAIN=$(DIR_USR_BIN)/fann-train
+GEN_VIDEO=$(DIR_USR_BIN)/gen-trace-video
 NETS_TOOLS = $(FLOAT_TO_FIXED) \
 	$(WRITE_FANN_CONFIG) \
 	$(BIN_TO_C_HEADER) \
@@ -198,7 +200,8 @@ NETS_TOOLS = $(FLOAT_TO_FIXED) \
 	$(FANN_RANDOM) \
 	$(FANN_CHANGE_FIXED_POINT) \
 	$(FANN_TRAIN_TO_FIXED) \
-	$(GEN_BOOLEAN_DATA)
+	$(GEN_BOOLEAN_DATA) \
+	$(FANN_TRAIN)
 DECIMAL_POINT_OFFSET=7
 DECIMAL_POINT_BITS=3
 MAX_DECIMAL_POINT=`echo "2 $(DECIMAL_POINT_BITS)^1-$(DECIMAL_POINT_OFFSET)+p"|dc`
@@ -392,6 +395,9 @@ $(DIR_BUILD)/fann-rv:
 
 $(DIR_BUILD)/fann:
 	mkdir -p $@
+
+#--------- Generate videos
+include scripts/Makefrag-video
 
 #--------- Generate ScalaDoc documentation
 doc:

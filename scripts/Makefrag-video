@@ -1,0 +1,27 @@
+#-*- mode: makefile-*-
+
+DIR_VIDEO=$(DIR_BUILD)/video
+
+VID_DAT=$(addprefix $(DIR_VIDEO)/, $(addsuffix -float-x0.dat, $(TRAIN_SIN))) \
+	$(addprefix $(DIR_VIDEO)/, $(addsuffix -float-x1.dat, $(TRAIN_SIN)))
+VID_SIN=$(addprefix $(DIR_VIDEO)/, $(addsuffix -float-x0.mp4, $(TRAIN_SIN))) \
+	$(addprefix $(DIR_VIDEO)/, $(addsuffix -float-x1.mp4, $(TRAIN_SIN)))
+
+VIDEOS=$(VID_SIN)
+
+video: tools nets $(DIR_VIDEO) $(VIDEOS)
+
+$(DIR_VIDEO)/sin-%-float-x0.dat: $(DIR_BUILD_NETS)/sin-float.net $(DIR_BUILD_NETS)/sin-%-float.train
+	$(FANN_TRAIN) -n $< -t $(DIR_BUILD_NETS)/sin-$*-float.train -e500 -b $@ -x0
+
+$(DIR_VIDEO)/sin-%-float-x1.dat: $(DIR_BUILD_NETS)/sin-float.net $(DIR_BUILD_NETS)/sin-%-float.train
+	$(FANN_TRAIN) -n $< -t $(DIR_BUILD_NETS)/sin-$*-float.train -e500 -b $@ -x1
+
+$(DIR_VIDEO)/sin-%-float-x0.mp4: $(DIR_VIDEO)/sin-%-float-x0.dat
+	$(GEN_VIDEO) -t $(DIR_BUILD_NETS)/sin-$*-float.train -l $< -s $@
+
+$(DIR_VIDEO)/sin-%-float-x1.mp4: $(DIR_VIDEO)/sin-%-float-x1.dat
+	$(GEN_VIDEO) -t $(DIR_BUILD_NETS)/sin-$*-float.train -l $< -s $@
+
+$(DIR_VIDEO):
+	mkdir -p $@
