@@ -17,6 +17,7 @@ static char * usage_message =
   "\n"
   "Options:\n"
   "  -a, --print-ant            print information about the asid--nnit table\n"
+  "  -b, --video-data           generate a trace of execution over time\n"
   "  -c, --stat-cycles          print the total number of cycles in the ROI\n"
   "  -d, --num-batch-items      specify the number of batch items to use\n"
   "  -e, --max-epochs           the epoch limit (default 10k)\n"
@@ -132,6 +133,8 @@ int main (int argc, char * argv[]) {
   struct fann_train_data * data = NULL;
 
   char * file_nn = NULL, * file_train = NULL;
+  char * file_video_string = NULL;
+  FILE * file_video = NULL;
   asid_nnid_table * table = NULL;
   element_type * outputs = NULL, * outputs_old = NULL;
   int binary_point = -1, c;
@@ -161,13 +164,16 @@ int main (int argc, char * argv[]) {
       {"ignore-limits",        no_argument,       0, 'z'}
     };
     int option_index = 0;
-    c = getopt_long (argc, argv, "acd:e:f:g:hi:j:k:lm::n:o::pq::r:t:vwxy:z",
+    c = getopt_long (argc, argv, "ab:cd:e:f:g:hi:j:k:lm::n:o::pq::r:t:vwxy:z",
                      long_options, &option_index);
     if (c == -1)
       break;
     switch (c) {
     case 'a':
       flag_ant_info = 1;
+      break;
+    case 'b':
+      file_video_string = optarg;
       break;
     case 'c':
       flag_cycles = 1;
@@ -295,6 +301,9 @@ int main (int argc, char * argv[]) {
   if (flag_ant_info)
     asid_nnid_table_info(table);
 
+  if (file_video_string != NULL)
+    file_video = fopen(file_video_string, "w");
+
   uint64_t connections_per_epoch = binary_config_num_connections(file_nn);
 
   // Read in data from the training file
@@ -409,9 +418,13 @@ int main (int argc, char * argv[]) {
             printf("\n[ERROR] Epoch %d: Output changed by > 0.1 (%0.5f)",
                    epoch, change);
         }
+        if (file_video)
+          fprintf(file_video, "%f ", (double) outputs[i] / multiplier);
         outputs_old[item * num_output + i] = outputs[i];
       }
       num_correct += correct;
+      if (file_video)
+        fprintf(file_video, "\n");
       if (flag_verbose) {
         if (item < batch_items - 1)
           printf("\n");
@@ -505,9 +518,12 @@ int main (int argc, char * argv[]) {
           error = (double)(outputs[i] - data->output[item][i]) / multiplier;
           mse += error * error;
         }
+        if (file_video)
+          fprintf(file_video, "%f ", (double) outputs[i] / multiplier);
       }
       num_correct += correct;
-
+      if (file_video)
+        fprintf(file_video, "\n");
       if (flag_verbose) {
         if (item < batch_items - 1)
           printf("\n");
@@ -577,5 +593,7 @@ int main (int argc, char * argv[]) {
     free(outputs);
   if (outputs_old != NULL)
     free(outputs_old);
+  if (file_video != NULL)
+    fclose(file_video);
   return exit_code;
 }
