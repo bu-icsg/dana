@@ -1,5 +1,5 @@
 diff --git a/vsim/Makefrag-verilog b/vsim/Makefrag-verilog
-index 39ed547..11d92ef 100644
+index 39ed547..a6c2a7a 100644
 --- a/vsim/Makefrag-verilog
 +++ b/vsim/Makefrag-verilog
 @@ -6,7 +6,11 @@ $(generated_dir)/$(MODEL).$(CONFIG).v $(generated_dir)/$(MODEL).$(CONFIG).d : $(
@@ -8,9 +8,9 @@ index 39ed547..11d92ef 100644
  	if [ -a $(MODEL).$(CONFIG).conf ]; then \
 -	  $(mem_gen) $(generated_dir)/$(MODEL).$(CONFIG).conf >> $(generated_dir)/$(MODEL).$(CONFIG).v; \
 +	  if [[ $(CONFIG) == *XFiles* ]]; then \
-+	    $(mem_gen) $(generated_dir)/$(MODEL).$(CONFIG).conf -I ../../xfiles-dana/src/main/verilog -I ../../xfiles-dana/submodules/verilog/src -v sram_r1_w1_rw0.v >> $(generated_dir)/$(MODEL).$(CONFIG).v; \
++	    $(mem_gen) -c $(generated_dir)/$(MODEL).$(CONFIG).conf -I ../../xfiles-dana/src/main/verilog -I ../../xfiles-dana/submodules/verilog/src -v sram_r1_w1_rw0.v >> $(generated_dir)/$(MODEL).$(CONFIG).v; \
 +	  else \
-+	    $(mem_gen) $(generated_dir)/$(MODEL).$(CONFIG).conf >> $(generated_dir)/$(MODEL).$(CONFIG).v; \
++	    $(mem_gen) -c $(generated_dir)/$(MODEL).$(CONFIG).conf >> $(generated_dir)/$(MODEL).$(CONFIG).v; \
 +	  fi; \
  	fi
  
