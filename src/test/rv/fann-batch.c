@@ -321,11 +321,15 @@ int main (int argc, char * argv[]) {
     batch_items = fann_length_train_data(data);
   outputs_old = (element_type *) malloc(num_output * batch_items *
                                         sizeof(element_type));
-  int32_t learn_rate = (int32_t)((learning_rate / batch_items) * multiplier);
-  int32_t weight_decay = (int32_t)((weight_decay_lambda / batch_items) * multiplier);
+  int32_t learn_rate = (int32_t) (learning_rate * multiplier);
+  int32_t weight_decay = (int32_t) (weight_decay_lambda * multiplier);
+  if (!flag_incremental) {
+    learn_rate /= batch_items;
+    weight_decay /= batch_items;
+  }
   // weight_decay = 1;
   if (learn_rate == 0) {
-    printf("[ERROR] Number of batch items forces learning rate increase");
+    printf("[ERROR] Number of batch items forces learning rate increase\n");
     exit_code = -3;
     goto bail;
   }
