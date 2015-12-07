@@ -293,19 +293,19 @@ class CacheBase[SramIfType <: SRAMVariantInterface,
     val unused_0 = mem(controlRespPipe(0).bits.cacheIndex).dout(0)(
       16 - 1, decimalPointWidth + errorFunctionWidth)
     val totalWeightBlocks = mem(controlRespPipe(0).bits.cacheIndex).dout(0)(
-      32 - 1, 16)
+      16 + 16 - 1, 16)
     val totalNeurons = mem(controlRespPipe(0).bits.cacheIndex).dout(0)(
-      48 - 1, 32)
+      32 + 16 - 1, 32)
     val totalLayers = mem(controlRespPipe(0).bits.cacheIndex).dout(0)(
-      64 - 1, 48)
+      48 + 16 - 1, 48)
     val firstLayerPointer = mem(controlRespPipe(0).bits.cacheIndex).dout(0)(
-      80 - 1, 64)
+      64 + 16 - 1, 64)
     val weightsPointer = mem(controlRespPipe(0).bits.cacheIndex).dout(0)(
-      96 - 1, 80)
+      80 + 16 - 1, 80)
     val learningRate = mem(controlRespPipe(0).bits.cacheIndex).dout(0)(
-      112 - 1, 96)
+      96 + 16 - 1, 96)
     val lambda = mem(controlRespPipe(0).bits.cacheIndex).dout(0)(
-      128 - 1, 112)
+      112 + 16 - 1, 112)
   }
 
   // Pipeline second stage (SRAM read)
