@@ -34,10 +34,11 @@ class XFilesDanaCPPConfig extends Config(new XFilesDanaConfig ++
 class XFilesDanaNoLearningCPPConfig extends Config(
   new XFilesDanaNoLearningConfig ++ new XFilesDanaCPPConfig)
 
-class XFilesDanaFPGAConfig extends Config(new XFilesDanaCPPConfig)
+class XFilesDanaFPGAConfig extends Config(new XFilesDanaConfig ++
+  new DefaultXFilesDanaFPGAConfig ++ new DefaultFPGAConfig)
 
-class XFilesDanaNoLearningFPGAConfig extends Config(
-  new XFilesDanaNoLearningCPPConfig)
+class XFilesDanaNoLearningFPGAConfig extends Config(new XFilesDanaConfig ++
+  new XFilesDanaNoLearningConfig ++ new DefaultFPGAConfig)
 
 class XFilesDanaFPGASmallConfig extends Config(new XFilesDanaConfig ++
   new DefaultXFilesDanaFPGAConfig ++ new DefaultFPGASmallConfig)
@@ -46,9 +47,15 @@ class XFilesDanaFPGASmallConfig extends Config(new XFilesDanaConfig ++
 class DanaPEX(numPes: Int) extends Config(
   knobValues = { case "NUM_PES" => numPes })
 
-class XFilesDanaPE1Config extends Config(new DanaPEX(1) ++ new XFilesDanaCPPConfig)
-class XFilesDanaPE2Config extends Config(new DanaPEX(2) ++ new XFilesDanaCPPConfig)
-class XFilesDanaPE3Config extends Config(new DanaPEX(3) ++ new XFilesDanaCPPConfig)
-class XFilesDanaPE4Config extends Config(new DanaPEX(4) ++ new XFilesDanaCPPConfig)
-class XFilesDanaPE5Config extends Config(new DanaPEX(5) ++ new XFilesDanaCPPConfig)
-class XFilesDanaPE6Config extends Config(new DanaPEX(6) ++ new XFilesDanaCPPConfig)
+class XFilesDanaPE1Config extends Config(new DanaPEX(1) ++
+  new XFilesDanaFPGAConfig)
+class XFilesDanaPE2Config extends Config(new DanaPEX(2) ++
+  new XFilesDanaFPGAConfig)
+class XFilesDanaPE3Config extends Config(new DanaPEX(3) ++
+  new XFilesDanaFPGAConfig)
+class XFilesDanaPE4Config extends Config(new DanaPEX(4) ++
+  new XFilesDanaFPGAConfig)
+class XFilesDanaPE5Config extends Config(new DanaPEX(5) ++
+  new XFilesDanaFPGAConfig)
+class XFilesDanaPE6Config extends Config(new DanaPEX(6) ++
+  new XFilesDanaFPGAConfig)
