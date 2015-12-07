@@ -96,11 +96,10 @@ abstract class DanaModule(implicit val p: Parameters) extends Module
     e_TTABLE_STATE_FEEDFORWARD ::          // 1
     e_TTABLE_STATE_LEARN_FEEDFORWARD ::    // 2
     e_TTABLE_STATE_LEARN_ERROR_BACKPROP :: // 3
-    e_TTABLE_STATE_LEARN_WEIGHT_STORE ::   // 4
-    e_TTABLE_STATE_LEARN_UPDATE_SLOPE ::   // 5
-    e_TTABLE_STATE_LEARN_WEIGHT_UPDATE ::  // 6
-    e_TTABLE_STATE_ERROR ::                // 7
-    Nil) = Enum(UInt(), 8)
+    e_TTABLE_STATE_LEARN_UPDATE_SLOPE ::   // 4
+    e_TTABLE_STATE_LEARN_WEIGHT_UPDATE ::  // 5
+    e_TTABLE_STATE_ERROR ::                // 6
+    Nil) = Enum(UInt(), 7)
   // Transaction register IDs used for write register request. This
   // must match "typedef enum xfiles_reg" in "xfiles.h".
   val (e_TTABLE_WRITE_REG_BATCH_ITEMS ::      // 0
