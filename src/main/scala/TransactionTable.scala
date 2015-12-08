@@ -324,8 +324,7 @@ class TransactionTableBase[StateType <: TransactionState,
         val numInputsMSBs = numInputs(log2Up(regFileNumElements) - 1,
           log2Up(elementsPerBlock)) ## UInt(0, width=log2Up(elementsPerBlock))
         val numInputsLSBs = numInputs(log2Up(elementsPerBlock) - 1, 0)
-        val numInputsOffset = numInputsMSBs + Mux(numInputsLSBs =/= UInt(0),
-          UInt(elementsPerBlock), UInt(0))
+        val numInputsOffset = numInputsMSBs + UInt(elementsPerBlock)
           table(derefTidIndex).valid := Bool(true)
           table(derefTidIndex).currentNode := UInt(0)
           table(derefTidIndex).readIdx := UInt(0)
@@ -727,9 +726,9 @@ class TransactionTable(implicit p: Parameters)
         val numInputsMSBs = numInputs(log2Up(regFileNumElements) - 1,
           log2Up(elementsPerBlock)) ## UInt(0, width=log2Up(elementsPerBlock))
         val numInputsLSBs = numInputs(log2Up(elementsPerBlock) - 1, 0)
-        val numInputsOffset = numInputsMSBs + Mux(numInputsLSBs =/= UInt(0),
-          UInt(elementsPerBlock), UInt(0))
+        val numInputsOffset = numInputsMSBs + UInt(elementsPerBlock)
         table(derefTidIndex).nodesInCurrentLayer := numInputsOffset
+        printf("[INFO] TTable: nodes in input layer 0x%x\n", numInputsOffset)
       } .otherwise {
       }
     } .otherwise {
@@ -860,8 +859,7 @@ class TransactionTableLearn(implicit p: Parameters)
         val numInputsMSBs = numInputs(log2Up(regFileNumElements) - 1,
           log2Up(elementsPerBlock)) ## UInt(0, width=log2Up(elementsPerBlock))
         val numInputsLSBs = numInputs(log2Up(elementsPerBlock) - 1, 0)
-        val numInputsOffset = numInputsMSBs + Mux(numInputsLSBs =/= UInt(0),
-          UInt(elementsPerBlock), UInt(0))
+        val numInputsOffset = numInputsMSBs + UInt(elementsPerBlock)
         when (table(derefTidIndex).stateLearn === e_TTABLE_STATE_LOAD_OUTPUTS) {
           table(derefTidIndex).stateLearn := e_TTABLE_STATE_LEARN_FEEDFORWARD
           table(derefTidIndex).regFileAddrInFixed := nextIndexBlock
