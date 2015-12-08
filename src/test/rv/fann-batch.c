@@ -141,6 +141,7 @@ int main (int argc, char * argv[]) {
   while (1) {
     static struct option long_options[] = {
       {"ant-info",             no_argument,       0, 'a'},
+      {"video-data",           required_argument, 0, 'b'},
       {"stat-cycles",          no_argument,       0, 'c'},
       {"num-batch-items",      required_argument, 0, 'd'},
       {"max-epochs",           required_argument, 0, 'e'},
