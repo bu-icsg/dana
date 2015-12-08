@@ -547,7 +547,7 @@ int main (int argc, char * argv[]) {
       printf("[STAT] epoch %d id %s bp %d perc %8.8f\n", epoch, id,
              binary_point,
              (double) num_correct / batch_items);
-    if (num_bits_failing == 0 || mse < mse_fail_limit)
+    if (!flag_ignore_limits && (num_bits_failing == 0 || mse < mse_fail_limit))
       goto finish;
   }
   goto finish;
