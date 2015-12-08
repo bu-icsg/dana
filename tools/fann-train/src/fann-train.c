@@ -71,7 +71,7 @@ int main (int argc, char * argv[]) {
       {"learning-rate",        required_argument, 0, 'r'},
       {"train-file",           required_argument, 0, 't'},
       {"verbose",              no_argument,       0, 'v'},
-      {"incremental",          no_argument,       0, 'x'},
+      {"incremental",          optional_argument, 0, 'x'},
       {"ignore-limits",        no_argument,       0, 'z'}
     };
     int option_index = 0;
