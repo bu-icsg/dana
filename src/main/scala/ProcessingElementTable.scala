@@ -358,6 +358,11 @@ class ProcessingElementTableBase[PeStateType <: ProcessingElementState,
   // entries in the PE Table
   assert(!(!io.control.req.ready && io.control.req.valid),
     "Cache received valid control request when not ready")
+
+  // No PE should have an input and output address equal
+  assert(!(io.control.req.valid &&
+    (io.control.req.bits.inAddr === io.control.req.bits.outAddr)),
+    "PETable saw PE assignment with same input and output address")
 }
 
 class ProcessingElementTable(implicit p: Parameters)
