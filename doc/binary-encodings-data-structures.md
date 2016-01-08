@@ -160,33 +160,73 @@ All "segments" are aligned on block boundaries. To indicate this below, I define
 ### Learning Transaction
 Definitions:
 ```
-[H]: Number of Hidden Nodes
+[H]: Number of Hidden Layers
 ```
 
+#### With Delta Writes
 ```
-|-----------------------------+----------------------------------+---------------|
-| Class                       | Address                          |        Offset |
-|-----------------------------+----------------------------------+---------------|
-| E[out]                      | 0                                |             0 |
-|-----------------------------+----------------------------------+---------------|
-| Input                       | align(E[out])                    |             0 |
-| Hidden Layer 0 Output       | align(#in+E[out])                |             0 |
-| Hidden Layer 1 Output       |                                  |   align(#h_0) |
-| ...                         |                                  |               |
-| Hidden Layer [H]-1 Output   |                                  | align(#h_H-2) |
-| Output                      | align(#in+E[out]+sum(#hidden_h)) |             0 |
-|-----------------------------+----------------------------------+---------------|
-| Output       Deltas         |                                  |               |
-| Output       Delta--Weights |                                  |               |
-| Hidden [H]-1 Deltas         |                                  |               |
-| Hidden [H]-1 Delta--Weights |                                  |               |
-| Hidden [H]-2 Deltas         |                                  |               |
-| Hidden [H]-2 Delta--Weights |                                  |               |
-| Hidden 1     Deltas         |                                  |               |
-| Hidden 1     Delta--Weights |                                  |               |
-|-----------------------------+----------------------------------+---------------|
-| Accumulated Weights         |                                  |               |
-|-----------------------------+----------------------------------+---------------|
-| Accumulated Weights Old     |                                  |               |
-|-----------------------------+----------------------------------+---------------|
+|---------------+--------------+----------------------+-----------------|
+| Class         | Written by   | Size                 | State           |
+|---------------+--------------+----------------------+-----------------|
+| E[out]        | User         | output neurons       | _LOAD_OUTPUTS   |
+|---------------+--------------+----------------------+-----------------|
+| Input         | User         | input neurons        | *_FEEDFORWARD   |
+| Output        | hidden 1     | hidden 1 neurons     |                 |
+| Output        | hidden 2     | hidden 2 neurons     |                 |
+| ...           | ...          |                      |                 |
+| Output        | hidden [H]   | hidden [H] neurons   |                 |
+| Output        | output       | output neurons       |                 |
+|---------------+--------------+----------------------+-----------------|
+| Delta         | output       | output neurons       | _ERROR_BACKPROP |
+| Delta--Weight | output       | hidden [H] neurons   |                 |
+| Delta         | hidden [H]   | hidden [H] neurons   |                 |
+| Delta--Weight | hidden [H]   | hidden [H]-1 neurons |                 |
+| Delta         | hidden [H]-1 | hidden [H]-1 neurons |                 |
+| Delta--Weight | hidden [H]-1 | hidden [H]-2 neurons |                 |
+| ...           | ...          |                      |                 |
+| Delta         | hidden 2     | hidden 2 neurons     |                 |
+| Delta--Weight | hidden 2     | hidden 1 neurons     |                 |
+|---------------+--------------+----------------------+-----------------|
+| Bias          | hidden 1     | hidden 1 neurons     | _UPDATE_SLOPE   |
+| ...           | ...          |                      |                 |
+| Bias          | hidden [H]   | hidden [H] neurons   |                 |
+| Bias          | output       | output neurons       |                 |
+|---------------+--------------+----------------------+-----------------|
+| Slopes        | hidden 1     |                      | _UPDATE_SLOPE   |
+| ...           | ...          |                      |                 |
+| Slopes        | hidden [H]   |                      |                 |
+| Slopes        | output       |                      |                 |
+|---------------+--------------+----------------------+-----------------|
+```
+
+#### Without Delta Writes (#32 state merge)
+```
+|---------------+--------------+----------------------+-----------------|
+| Class         | Written by   | Size                 | State           |
+|---------------+--------------+----------------------+-----------------|
+| E[out]        | User         | output neurons       | _LOAD_OUTPUTS   |
+|---------------+--------------+----------------------+-----------------|
+| Input         | User         | input neurons        | *_FEEDFORWARD   |
+| Output        | hidden 1     | hidden 1 neurons     |                 |
+| Output        | hidden 2     | hidden 2 neurons     |                 |
+| ...           | ...          |                      |                 |
+| Output        | hidden [H]   | hidden [H] neurons   |                 |
+| Output        | output       | output neurons       |                 |
+|---------------+--------------+----------------------+-----------------|
+| Delta--Weight | output       | hidden [H] neurons   | _ERROR_BACKPROP |
+| Delta--Weight | hidden [H]   | hidden [H]-1 neurons |                 |
+| Delta--Weight | hidden [H]-1 | hidden [H]-2 neurons |                 |
+| ...           | ...          |                      |                 |
+| Delta--Weight | hidden 2     | hidden 1 neurons     |                 |
+|---------------+--------------+----------------------+-----------------|
+| Bias          | hidden 1     | hidden 1 neurons     | _ERROR_BACKPROP |
+| ...           | ...          |                      |                 |
+| Bias          | hidden [H]   | hidden [H] neurons   |                 |
+| Bias          | output       | output neurons       |                 |
+|---------------+--------------+----------------------+-----------------|
+| Slopes        | hidden 1     |                      | _ERROR_BACKPROP |
+| ...           | ...          |                      |                 |
+| Slopes        | hidden [H]   |                      |                 |
+| Slopes        | output       |                      |                 |
+|---------------+--------------+----------------------+-----------------|
 ```
