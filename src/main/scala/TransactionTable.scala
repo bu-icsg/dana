@@ -956,21 +956,14 @@ class TransactionTableLearn(implicit p: Parameters)
             is(e_TTABLE_STATE_LEARN_FEEDFORWARD){
               val regFileAddrOut = table(tIdx).regFileAddrOut + niplOffset
               table(tIdx).regFileAddrIn := table(tIdx).regFileAddrOut
-              // If we're in the last layer, this is a little special
-              when(table(tIdx).currentLayer === table(tIdx).numLayers - UInt(1)){
-                // table(tIdx).regFileAddrDelta := table(tIdx).regFileAddrOut+UInt(2) *
-                //   (niclMSBs + round)
-                // table(tIdx).regFileAddrDW := table(tIdx).regFileAddrOut + UInt(3) *
-                //   (niclMSBs + round)
-                table(tIdx).regFileAddrDelta := regFileAddrOut + niclOffset
-                table(tIdx).regFileAddrDW := regFileAddrOut + UInt(2) * niclOffset
-              } .otherwise{
-                // [TODO] I'm not 100% sure that this is the right way to
-                // go about this.
-                table(tIdx).regFileAddrDelta := table(tIdx).regFileAddrOut + niclOffset
-              }
               table(tIdx).regFileAddrOut := regFileAddrOut
               table(tIdx).regFileAddrOutFixed := regFileAddrOut
+
+              // These are updated unconditionally, but the only
+              // update of consequence is the one that happens in the
+              // last layer
+              table(tIdx).regFileAddrDelta := regFileAddrOut + niclOffset
+              table(tIdx).regFileAddrDW := regFileAddrOut + UInt(2) * niclOffset
 
               // Update the number of total nodes in the network
               when (table(tIdx).currentLayer === UInt(0)) { // In first layer
