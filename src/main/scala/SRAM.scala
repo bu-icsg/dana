@@ -62,7 +62,7 @@ class SRAM (
     dataWidth = dataWidth,
     sramDepth = sramDepth
   ).flip
-  val mem = Mem(UInt(width = dataWidth), sramDepth)
+  val mem = Mem(sramDepth, UInt(width = dataWidth))
   val buf = Reg(Vec.fill(numReadWritePorts){UInt(width = dataWidth)})
   val bufR = Reg(Vec.fill(numReadPorts){UInt(width = dataWidth)})
 
