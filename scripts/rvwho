@@ -1,0 +1,12 @@
+#!/bin/bash
+
+# Get a comma delimited list, one entry per line, of all the screen
+# sessions running and tty that they're using.
+owners=($(ps -A au | grep -i screen | grep tty | awk '{print $1","$12}'))
+
+# Loop over the owners and print them out. I could just do this with
+# the line above, but I'd like to have the opportunity to do some
+# additional processing which this loop can eventually be used for.
+for owner in "${owners[@]}"; do
+    echo $owner | awk -F',' '{printf "%-10s %s\n", $1, $2}';
+done
