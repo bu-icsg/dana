@@ -7,7 +7,12 @@ owners=($(ps -A au | grep -i screen | grep tty | awk '{print $1","$2","$12}'))
 # Loop over the owners and print them out. I could just do this with
 # the line above, but I'd like to have the opportunity to do some
 # additional processing which this loop can eventually be used for.
-awk 'BEGIN {printf "%-5s %-10s %-20s\n", "PID", "USER", "DEVICE"}';
+awk 'BEGIN {printf "%-5s %-10s %-5s %-20s\n", \
+            "PID", "USER", "FPGA", "DEVICE"}';
 for owner in "${owners[@]}"; do
-    echo $owner | awk -F',' '{printf "%-5s %-10s %-20s\n", $2, $1, $3}';
+    device=${owner#*,*,}
+    fpga=$(grep $device info.txt)
+    fpga=${fpga%,/*}
+    echo "$owner,$fpga" | awk -F',' '{printf "%-5s %-10s %-5s %-20s\n", \
+                              $2, $1, $4, $3}';
 done
