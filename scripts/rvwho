@@ -1,5 +1,7 @@
 #!/bin/bash
 
+dir=$(dirname $0)
+
 # Get a comma delimited list, one entry per line, of all the screen
 # sessions running and tty that they're using.
 owners=($(ps -A au | grep -i screen | grep tty | awk '{print $1","$2","$12}'))
@@ -11,7 +13,7 @@ awk 'BEGIN {printf "%-5s %-10s %-5s %-20s\n", \
             "PID", "USER", "FPGA", "DEVICE"}'
 for owner in "${owners[@]}"; do
     device=${owner#*,*,}
-    fpga=$(grep $device info.txt)
+    fpga=$(grep $device $dir/info.txt)
     fpga=${fpga%,/*}
     echo "$owner,$fpga" | awk -F',' '{printf "%-5s %-10s %-5s %-20s\n", \
                               $2, $1, $4, $3}'

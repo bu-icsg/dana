@@ -1,6 +1,8 @@
 #!/bin/bash
 
-fpgas=($(grep ^fpga info.txt))
+dir=$(dirname $0)
+
+fpgas=($(grep ^fpga $dir/info.txt))
 for fpga in "${fpgas[@]}"; do
     name=${fpga%%,*}
     tty=${fpga#*,}
