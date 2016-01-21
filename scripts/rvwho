@@ -8,11 +8,11 @@ owners=($(ps -A au | grep -i screen | grep tty | awk '{print $1","$2","$12}'))
 # the line above, but I'd like to have the opportunity to do some
 # additional processing which this loop can eventually be used for.
 awk 'BEGIN {printf "%-5s %-10s %-5s %-20s\n", \
-            "PID", "USER", "FPGA", "DEVICE"}';
+            "PID", "USER", "FPGA", "DEVICE"}'
 for owner in "${owners[@]}"; do
     device=${owner#*,*,}
     fpga=$(grep $device info.txt)
     fpga=${fpga%,/*}
     echo "$owner,$fpga" | awk -F',' '{printf "%-5s %-10s %-5s %-20s\n", \
-                              $2, $1, $4, $3}';
+                              $2, $1, $4, $3}'
 done
