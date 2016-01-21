@@ -8,6 +8,7 @@ you have an rvcon lock on or is not in use. You can override this with the
 force option
 
     -f          forcibly reboot an FPGA in use by another user
+    -h          display this help text
 
 Example usage:
   $0 fpga0

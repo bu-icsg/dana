@@ -1,19 +1,72 @@
 #!/bin/bash
 
-dir=$(dirname $0)
+show_help() {
+cat << EOF
+Usage: $0 [OPTION]... [FPGA (optional)]
+Connect to a free FPGA or to a specific FPGA
 
-fpgas=($(grep ^fpga $dir/info.txt))
-for fpga in "${fpgas[@]}"; do
-    name=${fpga%%,*}
+    -h          display this help text
+
+Example usage:
+  Grab any free FPGA
+    $0
+  Grab a specific FPGA
+    $0 fpga0
+EOF
+}
+
+dir=$(dirname $0)
+OPTIND=1
+while getopts "hf" opt; do
+    case "$opt" in
+        h)
+            show_help
+            exit 0
+            ;;
+    esac
+done
+
+shift "$((OPTIND-1))"
+
+if [ "$#" -gt 1 ]; then
+    echo "[ERROR] Too many arguments"
+    show_help
+    exit 1
+fi
+
+# Connect to a specific FPGA
+if [ "$#" -eq 1 ]; then
+    name=$1
+    fpga=($(grep ^$name $dir/info.txt))
+    if [ $? -eq 1 ]; then
+        echo "[ERROR] Unable to find FPGA \"$name\" in $dir/info.txt"
+        exit 1
+    fi
     tty=${fpga#*,}
     tty=${tty%%,*}
-    # Check to see if we get a hit for that tty being in use
     ps -A au | grep -i screen | grep $tty 2>&1 > /dev/null
     if [[ $? -eq 1 ]]; then
         exec screen $tty 115200,cs8,-parenb,-cstopb
         exit 0
+    else
+        echo "[ERROR] $name in use. Check ownership with rvstatus/rvwho."
+        exit 1
     fi
-done
+# Grab the next available FPGA
+else
+    fpgas=($(grep ^fpga $dir/info.txt))
+    for fpga in "${fpgas[@]}"; do
+        name=${fpga%%,*}
+        tty=${fpga#*,}
+        tty=${tty%%,*}
+        # Check to see if we get a hit for that tty being in use
+        ps -A au | grep -i screen | grep $tty 2>&1 > /dev/null
+        if [[ $? -eq 1 ]]; then
+            exec screen $tty 115200,cs8,-parenb,-cstopb
+            exit 0
+        fi
+    done
+fi
 
-echo "[ERROR] All FPGAs in use. Use rvstatus/rvwho to check ownership."
+echo "[ERROR] All FPGAs in use. Check ownership with rvstatus/rvwho."
 exit 1
