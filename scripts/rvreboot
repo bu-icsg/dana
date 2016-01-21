@@ -1,0 +1,76 @@
+#!/bin/bash
+
+show_help() {
+cat << EOF
+Usage: $0 [OPTION]... [FPGA]
+Reboot one of the attached FPGAs. You can normally only reboot an FPGA that
+you have an rvcon lock on or is not in use. You can override this with the
+force option
+
+    -f          forcibly reboot an FPGA in use by another user
+
+Example usage:
+  $0 fpga0
+EOF
+}
+
+dir=$(dirname $0)
+force=0
+OPTIND=1
+while getopts "hf" opt; do
+    case "$opt" in
+        h)
+            show_help
+            exit 0
+            ;;
+        f)
+            force=1
+            ;;
+    esac
+done
+
+shift "$((OPTIND-1))"
+
+# Die if the user didn't specify what FPGA to reset
+if [ "$#" -ne 1 ]; then
+    echo "[ERROR] Missing command line argument"
+    show_help
+    exit 1
+fi
+fpga=$1
+
+# Lookup the FPGA settings in the info.txt file, barfing if we can't find it
+fpga_info=($(grep ^$fpga $dir/info.txt))
+if [ $? -eq 1 ]; then
+    echo "[ERROR] Unable to find FPGA \"$fpga\" in $dir/info.txt"
+    exit 1
+fi
+
+# Parse info.txt to get all the info we need to reset this FPGA,
+# including any user that may have an rvcon lock on it.
+tty=${fpga_info#*,}
+tty=${tty%%,*}
+power_strip=${fpga_info#*,*,}
+power_strip=${power_strip%%,*}
+plug=${fpga_info##*,}
+ip=$(grep ip $dir/info.txt | grep ,$power_strip, | awk -F',' '{print $3}')
+user=$(ps -A au | grep -i screen | grep $tty | tail -n1 | tail -n1 | \
+    awk '{print $1}')
+
+# Barf if a user is using the FPGA that is not us and we didn't tell
+# it to force the reboot.
+if [ $user ] && [ $user != $USER ] && [ $force -eq 0 ]; then
+    echo "[ERROR] Cannot reboot because $fpga is in use by \"$user\""
+    exit 1
+fi
+
+# Get the credentials from info.txt that we need to login to the
+# powerstrip
+credentials=$(grep ^credentials $dir/info.txt)
+credentials=${credentials#*,}
+username=${credentials%,*}
+password=${credentials#*,}
+
+# Reboot the FPGA
+exec fence_apc --action=reboot --ip=$ip --plug=$plug \
+    --username=$username --password=$password
