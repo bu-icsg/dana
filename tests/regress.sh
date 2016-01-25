@@ -1,4 +1,4 @@
-#!/usr/bin/bash -xe
+#!/bin/bash -xe
 
 PARALLEL_JOBS=`../usr/bin/max-processors.sh`
 

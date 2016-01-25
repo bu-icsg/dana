@@ -1,4 +1,4 @@
-#!/usr/bin/bash
+#!/bin/bash
 
 if [[ $1 -eq $2 ]]; then
     echo "[FAIL] $3 test failed"
