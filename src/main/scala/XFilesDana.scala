@@ -36,7 +36,19 @@ class XFilesDana(implicit p: Parameters) extends RoCC()(p) {
 
   // io.mem.req.valid := Bool(false)
   // io.mem.invalidate_lr := Bool(false)
-  io.mem <> xFilesArbiter.io.core(0).mem
+  // io.mem <> xFilesArbiter.io.core(0).mem
+  io.mem.req.valid := xFilesArbiter.io.core(0).mem.req.valid
+  xFilesArbiter.io.core(0).mem.req.ready := io.mem.req.ready
+  io.mem.req.bits.kill := xFilesArbiter.io.core(0).mem.req.bits.kill
+  // io.mem.req.bits.phys := xFilesArbiter.io.core(0).mem.req.bits.phys
+  io.mem.req.bits.data := xFilesArbiter.io.core(0).mem.req.bits.data
+  io.mem.req.bits.addr := xFilesArbiter.io.core(0).mem.req.bits.addr
+  io.mem.req.bits.tag := xFilesArbiter.io.core(0).mem.req.bits.tag
+  io.mem.req.bits.cmd := xFilesArbiter.io.core(0).mem.req.bits.cmd
+  io.mem.req.bits.typ := xFilesArbiter.io.core(0).mem.req.bits.typ
+  io.mem.invalidate_lr := xFilesArbiter.io.core(0).mem.invalidate_lr
+
+  io.mem.resp <> xFilesArbiter.io.core(0).mem.resp
 
   // io.mem.xcpt.ma := Bool(false)
   // io.mem.xcpt.pf := Bool(false)
