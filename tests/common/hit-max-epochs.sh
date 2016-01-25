@@ -1,6 +1,6 @@
 #!/bin/bash
 
-if [[ $1 -eq $2 ]]; then
+if [ $1 -eq $2 ]; then
     echo "[FAIL] $3 test failed"
     exit 1
 else
