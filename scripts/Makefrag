@@ -147,12 +147,12 @@ $(DIR_BUILD_NETS)/sin-scale-%-float.train: $(NETS_TOOLS)
 #--------------------------------------- Fixed point net generationg
 $(DIR_BUILD_NETS)/%-fixed.net: $(DIR_BUILD_NETS)/%-float.net $(NETS_TOOLS)
 	$(FLOAT_TO_FIXED) $< $@
-	@ if [[ `grep decimal $@ | sed 's/.\+=//'` -gt $(MAX_DECIMAL_POINT) ]]; then \
+	@ if [ `grep decimal $@ | sed 's/.\+=//'` -gt $(MAX_DECIMAL_POINT) ]; then \
 	echo "[WARN] Fixed point precision unexpectedly high, attempting to fix..."; \
 	mv $@ $@.tooBig; \
 	$(FANN_CHANGE_FIXED_POINT) $@.tooBig $(MAX_DECIMAL_POINT) > $@; \
 	rm $@.tooBig; \
-	elif [[ `grep decimal $@ | sed 's/.\+=//'` -lt $(DECIMAL_POINT_OFFSET) ]]; \
+	elif [ `grep decimal $@ | sed 's/.\+=//'` -lt $(DECIMAL_POINT_OFFSET) ]; \
 	then echo "[WARN] Fixed point precision too low, attempting to fix..."; \
 	mv $@ $@.tooSmall; \
 	$(FANN_CHANGE_FIXED_POINT) $@.tooSmall $(DECIMAL_POINT_OFFSET) > $@; \
@@ -160,12 +160,12 @@ $(DIR_BUILD_NETS)/%-fixed.net: $(DIR_BUILD_NETS)/%-float.net $(NETS_TOOLS)
 
 $(DIR_BUILD_NETS)/%-fixed.net: %-float.net $(NETS_TOOLS)
 	$(FLOAT_TO_FIXED) $< $@
-	@ if [[ `grep decimal $@ | sed 's/.\+=//'` -gt $(MAX_DECIMAL_POINT) ]]; then \
+	@ if [ `grep decimal $@ | sed 's/.\+=//'` -gt $(MAX_DECIMAL_POINT) ]; then \
 	echo "[WARN] Fixed point precision unexpectedly high, attempting to fix..."; \
 	mv $@ $@.tooBig; \
 	$(FANN_CHANGE_FIXED_POINT) $@.tooBig $(MAX_DECIMAL_POINT) > $@; \
 	rm $@.tooBig; \
-	elif [[ `grep decimal $@ | sed 's/.\+=//'` -lt $(DECIMAL_POINT_OFFSET) ]]; \
+	elif [ `grep decimal $@ | sed 's/.\+=//'` -lt $(DECIMAL_POINT_OFFSET) ]; \
 	then echo "[WARN] Fixed point precision too low, attempting to fix..."; \
 	mv $@ $@.tooSmall; \
 	$(FANN_CHANGE_FIXED_POINT) $@.tooSmall $(DECIMAL_POINT_OFFSET) > $@; \
