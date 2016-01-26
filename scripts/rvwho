@@ -1,6 +1,6 @@
 #!/bin/bash
 
-dir=$(dirname $0)
+dir=$(dirname $(readlink -f $0))
 
 # Get a comma delimited list, one entry per line, of all the screen
 # sessions running and tty that they're using.

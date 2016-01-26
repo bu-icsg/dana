@@ -1,6 +1,6 @@
 #!/bin/bash
 
-dir=$(dirname $0)
+dir=$(dirname $(readlink -f $0))
 
 # The username and password are stored in a line beginning with
 # "credentials" in info.txt.

@@ -15,7 +15,7 @@ Example usage:
 EOF
 }
 
-dir=$(dirname $0)
+dir=$(dirname $(readlink -f $0))
 OPTIND=1
 while getopts "hf" opt; do
     case "$opt" in
