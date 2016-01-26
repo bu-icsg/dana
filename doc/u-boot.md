@@ -1,7 +1,7 @@
 # U Boot Documentation
 
 ## Manually Loading the SD Card
-It is possible that the boot.bin or uramdisk.image.gz will get FUBARed during a transfer to a remote FPGA and all you can get to is U-Boot. If this is the case, you can reload whatever you need via U-Boot. I've only done this with minicom, however.
+It is possible that the uramdisk.image.gz will get FUBARed during a transfer to a remote FPGA and all you can get to is U-Boot. If this is the case, you can reload whatever you need via U-Boot. I've only done this with minicom, however.
 
 Connect to the FPGA (using /dev/ttyACM0 as an example):
 ```
