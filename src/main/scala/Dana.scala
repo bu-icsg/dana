@@ -139,22 +139,22 @@ abstract class DanaModule(implicit val p: Parameters) extends Module
       'e_PE_ERROR_FUNCTION,                               // 8
       'e_PE_COMPUTE_DELTA,                                // 9
       'e_PE_DELTA_WRITE_BACK,                             // 10
-      'e_PE_ERROR_BACKPROP_REQUEST_WEIGHTS,               // 11
-      'e_PE_ERROR_BACKPROP_DELTA_WEIGHT_MUL,              // 12
-      'e_PE_ERROR_BACKPROP_WEIGHT_WB,                     // 13
-      'e_PE_REQUEST_OUTPUTS_ERROR_BACKPROP,               // 14
-      'e_PE_REQUEST_DELTA_WEIGHT_PRODUCT_ERROR_BACKPROP,  // 15
-      'e_PE_RUN_UPDATE_SLOPE,                             // 16
-      'e_PE_SLOPE_WB,                                     // 17
-      'e_PE_SLOPE_BIAS_WB,                                // 18
-      'e_PE_WEIGHT_UPDATE_REQUEST_DELTA,                  // 19
-      'e_PE_RUN_WEIGHT_UPDATE,                            // 20
-      'e_PE_WEIGHT_UPDATE_WRITE_BACK,                     // 21
-      'e_PE_WEIGHT_UPDATE_WRITE_BIAS,                     // 22
-      'e_PE_WEIGHT_UPDATE_REQUEST_BIAS,                   // 23
-      'e_PE_WEIGHT_UPDATE_WAIT_FOR_BIAS_d0,               // 24
-      'e_PE_DONE,                                         // 25
-      'e_PE_ERROR))                                       // 26
+      'e_PE_ERROR_BACKPROP_REQUEST_WEIGHTS,               // 10
+      'e_PE_ERROR_BACKPROP_DELTA_WEIGHT_MUL,              // 11
+      'e_PE_ERROR_BACKPROP_WEIGHT_WB,                     // 12
+      'e_PE_REQUEST_OUTPUTS_ERROR_BACKPROP,               // 13
+      'e_PE_REQUEST_DELTA_WEIGHT_PRODUCT_ERROR_BACKPROP,  // 14
+      'e_PE_RUN_UPDATE_SLOPE,                             // 15
+      'e_PE_SLOPE_WB,                                     // 16
+      'e_PE_SLOPE_BIAS_WB,                                // 17
+      'e_PE_WEIGHT_UPDATE_REQUEST_DELTA,                  // 18
+      'e_PE_RUN_WEIGHT_UPDATE,                            // 19
+      'e_PE_WEIGHT_UPDATE_WRITE_BACK,                     // 20
+      'e_PE_WEIGHT_UPDATE_WRITE_BIAS,                     // 21
+      'e_PE_WEIGHT_UPDATE_REQUEST_BIAS,                   // 22
+      'e_PE_WEIGHT_UPDATE_WAIT_FOR_BIAS_d0,               // 23
+      'e_PE_DONE,                                         // 24
+      'e_PE_ERROR))                                       // 25
   val (e_PE_REQ_INPUT ::             // 0
     e_PE_REQ_EXPECTED_OUTPUT ::      // 1
     e_PE_REQ_OUTPUT ::               // 2
