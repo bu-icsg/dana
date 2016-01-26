@@ -642,6 +642,11 @@ class ProcessingElementTableLearn(implicit p: Parameters)
 
         pe(peIdx).req.valid := Bool(true)
       }
+      is (PE_states('e_PE_DONE)) {
+        // Reset the weightPtr as we may be using this again
+        val weightPtrSaved = table(peArbiter.io.out.bits.index).weightPtrSaved
+        table(peArbiter.io.out.bits.index).weightPtr := weightPtrSaved
+      }
       is (PE_states('e_PE_REQUEST_EXPECTED_OUTPUT)) {
         regFileReadReq(
           table(peArbiter.io.out.bits.index).learnAddr,
@@ -661,13 +666,6 @@ class ProcessingElementTableLearn(implicit p: Parameters)
           peArbiter.io.out.bits.error,
           table(peArbiter.io.out.bits.index).location)
 
-        // Update the weight pointer and number of weights from stored
-        // values. [TODO] I'm not a fan of this as it involves writing
-        // of the same table entry from two always blocks. However,
-        // these _should_ be mutually exclusive.
-        table(peArbiter.io.out.bits.index).weightPtr :=
-          table(peArbiter.io.out.bits.index).weightPtrSaved
-
         pe(peArbiter.io.out.bits.index).req.valid := Bool(true)
       }
       is (PE_states('e_PE_ERROR_BACKPROP_REQUEST_WEIGHTS)) {
@@ -676,6 +674,7 @@ class ProcessingElementTableLearn(implicit p: Parameters)
         io.cache.req.bits.field := e_CACHE_WEIGHT_ONLY
         io.cache.req.bits.peIndex := peArbiter.io.out.bits.index
         io.cache.req.bits.cacheIndex := table(peArbiter.io.out.bits.index).cIdx
+        // The weightPtr has been reset in the e_PE_DONE state
         io.cache.req.bits.cacheAddr := table(peArbiter.io.out.bits.index).weightPtr
 
         pe(peArbiter.io.out.bits.index).req.valid := Bool(true)
