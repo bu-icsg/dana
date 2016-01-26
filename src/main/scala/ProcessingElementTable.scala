@@ -656,18 +656,18 @@ class ProcessingElementTableLearn(implicit p: Parameters)
           e_PE_REQ_EXPECTED_OUTPUT)
         pe(peArbiter.io.out.bits.index).req.valid := Bool(true)
       }
-      is(PE_states('e_PE_DELTA_WRITE_BACK)){
-        // Outputs are always written to the Register File
-        regFileWriteReq(
-          peArbiter.io.out.bits.incWriteCount,
-          e_PE_WRITE_ELEMENT,
-          table(peArbiter.io.out.bits.index).deltaAddr,
-          table(peArbiter.io.out.bits.index).tIdx,
-          peArbiter.io.out.bits.error,
-          table(peArbiter.io.out.bits.index).location)
+      // is(PE_states('e_PE_DELTA_WRITE_BACK)){
+      //   // Outputs are always written to the Register File
+      //   regFileWriteReq(
+      //     peArbiter.io.out.bits.incWriteCount,
+      //     e_PE_WRITE_ELEMENT,
+      //     table(peArbiter.io.out.bits.index).deltaAddr,
+      //     table(peArbiter.io.out.bits.index).tIdx,
+      //     peArbiter.io.out.bits.error,
+      //     table(peArbiter.io.out.bits.index).location)
 
-        pe(peArbiter.io.out.bits.index).req.valid := Bool(true)
-      }
+      //   pe(peArbiter.io.out.bits.index).req.valid := Bool(true)
+      // }
       is (PE_states('e_PE_ERROR_BACKPROP_REQUEST_WEIGHTS)) {
         // Send a request to the cache for weights
         io.cache.req.valid := Bool(true)

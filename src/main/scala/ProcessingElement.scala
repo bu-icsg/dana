@@ -226,8 +226,11 @@ class ProcessingElementLearn(implicit p: Parameters)
           state := PE_states('e_PE_REQUEST_INPUTS_AND_WEIGHTS)
         } .elsewhen ((io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_ERROR_BACKPROP)) {
           state := PE_states('e_PE_REQUEST_OUTPUTS_ERROR_BACKPROP)
-        } .elsewhen ((io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_WEIGHT_UPDATE ||
-            io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_UPDATE_SLOPE)) {
+        // } .elsewhen ((io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_WEIGHT_UPDATE||
+        //     io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_UPDATE_SLOPE)) {
+        } .elsewhen (io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_WEIGHT_UPDATE) {
+          // [TODO] Why is it necessary to transition into this state
+          // when doing weight updates?
           state := PE_states('e_PE_WEIGHT_UPDATE_REQUEST_DELTA)
         }
       }
@@ -245,9 +248,11 @@ class ProcessingElementLearn(implicit p: Parameters)
         reqSent := io.req.valid
       } .elsewhen (io.req.valid) {
         reqSent := Bool(false)
+        // when(io.req.bits.tType === e_TTYPE_BATCH &&
+        //   (io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_ERROR_BACKPROP ||
+        //     io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_UPDATE_SLOPE)){
         when(io.req.bits.tType === e_TTYPE_BATCH &&
-          (io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_ERROR_BACKPROP ||
-            io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_UPDATE_SLOPE)){
+          io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_ERROR_BACKPROP){
           state := PE_states('e_PE_RUN_UPDATE_SLOPE)
         } .elsewhen(io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_WEIGHT_UPDATE ||
           (io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_ERROR_BACKPROP)){
@@ -393,7 +398,7 @@ class ProcessingElementLearn(implicit p: Parameters)
           // errorOut := (der * errorOut) >> decimal
           printf("[INFO] PE: delta (output) 0x%x * 0x%x = 0x%x\n",
             der, errorOut, dsp.d)
-          state := PE_states('e_PE_DELTA_WRITE_BACK)
+          state := PE_states('e_PE_ERROR_BACKPROP_REQUEST_WEIGHTS)
         }
         is(e_TTABLE_STATE_LEARN_ERROR_BACKPROP){
           DSP(der, io.req.bits.dw_in, decimal)
@@ -403,28 +408,28 @@ class ProcessingElementLearn(implicit p: Parameters)
           when(io.req.bits.inFirst) {
             state := PE_states('e_PE_REQUEST_INPUTS_AND_WEIGHTS)
           }.otherwise {
-            state := PE_states('e_PE_DELTA_WRITE_BACK)
+            state := PE_states('e_PE_ERROR_BACKPROP_REQUEST_WEIGHTS)
           }
         }
       }
     }
-    is (PE_states('e_PE_DELTA_WRITE_BACK)){
-      // This is the "last" writeback for a group, so we turn on the
-      // `incWriteCount` flag to tell the Register File to increment its write
-      // count
-      when (io.req.valid) {
-        when((io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_ERROR_BACKPROP)){
-          state := PE_states('e_PE_ERROR_BACKPROP_REQUEST_WEIGHTS)
-        }.otherwise {
-          state := Mux(io.req.bits.inLast &&
-            io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_FEEDFORWARD,
-            PE_states('e_PE_ERROR_BACKPROP_REQUEST_WEIGHTS),
-            PE_states('e_PE_UNALLOCATED))
-        }
-      }
-      io.resp.bits.incWriteCount := Bool(true)
-      io.resp.valid := Bool(true)
-    }
+    // is (PE_states('e_PE_DELTA_WRITE_BACK)){
+    //   // This is the "last" writeback for a group, so we turn on the
+    //   // `incWriteCount` flag to tell the Register File to increment its write
+    //   // count
+    //   when (io.req.valid) {
+    //     when((io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_ERROR_BACKPROP)){
+    //       state := PE_states('e_PE_ERROR_BACKPROP_REQUEST_WEIGHTS)
+    //     }.otherwise {
+    //       state := Mux(io.req.bits.inLast &&
+    //         io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_FEEDFORWARD,
+    //         PE_states('e_PE_ERROR_BACKPROP_REQUEST_WEIGHTS),
+    //         PE_states('e_PE_UNALLOCATED))
+    //     }
+    //   }
+    //   io.resp.bits.incWriteCount := Bool(true)
+    //   io.resp.valid := Bool(true)
+    // }
     is (PE_states('e_PE_ERROR_BACKPROP_REQUEST_WEIGHTS)) {
       when (!reqSent) {
         io.resp.valid := Bool(true)
@@ -456,7 +461,7 @@ class ProcessingElementLearn(implicit p: Parameters)
       io.resp.bits.incWriteCount := index === io.req.bits.numWeights
       when (io.req.valid) {
         when (index === io.req.bits.numWeights) {
-          state := PE_states('e_PE_UNALLOCATED)
+          state := PE_states('e_PE_REQUEST_INPUTS_AND_WEIGHTS)
         } .otherwise {
           state := PE_states('e_PE_ERROR_BACKPROP_REQUEST_WEIGHTS)
         }
@@ -485,7 +490,8 @@ class ProcessingElementLearn(implicit p: Parameters)
       }
     }
     is(PE_states('e_PE_RUN_UPDATE_SLOPE)){
-      val delta = Mux(io.req.bits.inFirst, errorOut, io.req.bits.learnReg)
+      // val delta = Mux(io.req.bits.inFirst, errorOut, io.req.bits.learnReg)
+      val delta =  errorOut
       val blockIndex = index(log2Up(elementsPerBlock) - 1, 0)
       when (index === (io.req.bits.numWeights - UInt(1)) ||
         blockIndex === UInt(elementsPerBlock - 1)) {
@@ -499,7 +505,8 @@ class ProcessingElementLearn(implicit p: Parameters)
       index := index + UInt(1)
     }
     is(PE_states('e_PE_SLOPE_WB)){
-      val delta = Mux(io.req.bits.inFirst, errorOut, io.req.bits.learnReg)
+      // val delta = Mux(io.req.bits.inFirst, errorOut, io.req.bits.learnReg)
+      val delta = errorOut
       val nextState = Mux(index === io.req.bits.numWeights,
         PE_states('e_PE_SLOPE_BIAS_WB),
         PE_states('e_PE_REQUEST_INPUTS_AND_WEIGHTS))
@@ -513,15 +520,15 @@ class ProcessingElementLearn(implicit p: Parameters)
       when (io.req.valid) { state := PE_states('e_PE_UNALLOCATED) }
       io.resp.valid := Bool(true)
     }
-    is (PE_states('e_PE_WEIGHT_UPDATE_REQUEST_DELTA)){
-      when (!reqSent) {
-        io.resp.valid := Bool(true)
-        reqSent := io.req.valid
-      } .elsewhen (io.req.valid) {
-        reqSent := Bool(false)
-        state := PE_states('e_PE_REQUEST_INPUTS_AND_WEIGHTS)
-      }
-    }
+    // is (PE_states('e_PE_WEIGHT_UPDATE_REQUEST_DELTA)){
+    //   when (!reqSent) {
+    //     io.resp.valid := Bool(true)
+    //     reqSent := io.req.valid
+    //   } .elsewhen (io.req.valid) {
+    //     reqSent := Bool(false)
+    //     state := PE_states('e_PE_REQUEST_INPUTS_AND_WEIGHTS)
+    //   }
+    // }
     is (PE_states('e_PE_RUN_WEIGHT_UPDATE)){
       val blockIndex = index(log2Up(elementsPerBlock) - 1, 0)
       when (index === (io.req.bits.numWeights - UInt(1)) ||
