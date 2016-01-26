@@ -120,7 +120,6 @@ class ProcessingElementStateLearn(implicit p: Parameters)
     log2Up(elementWidth * elementsPerBlock * cacheNumBlocks))
   val learnReg = SInt(width = elementWidth)
   val dw_in = SInt(width = elementWidth)
-  val numWeightsSaved = UInt(width = 8)       // [TODO] fragile
   val errorFunction = UInt(width = log2Up(2)) // [TODO] fragile
   val learningRate = UInt(width = 16)         // [TODO] fragile
   val lambda = UInt(width = 16)               // [TODO] fragile
@@ -478,7 +477,6 @@ class ProcessingElementTableLearn(implicit p: Parameters)
         table(peIndex).weightoffset:=
           (cacheRespVec(neuronIndex).weightPtr - table(peIndex).globalWtptr) >>
           (UInt(log2Up(elementWidth / 8))) // [TODO] possibly fragile
-        table(peIndex).numWeightsSaved := cacheRespVec(neuronIndex).numWeights
       }
       is (e_CACHE_WEIGHT_ONLY) {
         table(peIndex).weightPtr :=
@@ -669,8 +667,6 @@ class ProcessingElementTableLearn(implicit p: Parameters)
         // these _should_ be mutually exclusive.
         table(peArbiter.io.out.bits.index).weightPtr :=
           table(peArbiter.io.out.bits.index).weightPtrSaved
-        table(peArbiter.io.out.bits.index).numWeights :=
-          table(peArbiter.io.out.bits.index).numWeightsSaved
 
         pe(peArbiter.io.out.bits.index).req.valid := Bool(true)
       }
