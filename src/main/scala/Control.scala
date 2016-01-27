@@ -69,7 +69,6 @@ class ControlPETableInterfaceReq(implicit p: Parameters) extends DanaBundle()(p)
 class ControlPETableInterfaceReqLearn(implicit p: Parameters)
     extends ControlPETableInterfaceReq()(p) {
   val learnAddr = UInt(width = ioIdxWidth)
-  val deltaAddr = UInt(width = ioIdxWidth)
   val dwAddr = UInt(width = ioIdxWidth)
   val slopeAddr = UInt(width = ioIdxWidth)
   val biasAddr = UInt(width = ioIdxWidth)
@@ -308,7 +307,7 @@ class ControlLearn(implicit p: Parameters)
     outAddr: UInt, neuronPointer: UInt, decimalPoint: UInt, location: UInt,
     // learning-specific
     resetWB: Bool, inFirst: Bool, inLast: Bool, batchFirst: Bool,
-    learnAddr: UInt, deltaAddr: UInt, dwAddr: UInt, slopeAddr: UInt,
+    learnAddr: UInt, dwAddr: UInt, slopeAddr: UInt,
     biasAddr: UInt, errorFunction: UInt, stateLearn: UInt, learningRate: UInt,
     lambda: UInt, numWeightBlocks: UInt, transactionType: UInt,
     globalWtptr: UInt) {
@@ -320,7 +319,6 @@ class ControlLearn(implicit p: Parameters)
     io.peTable.req.bits.inLast := inLast
     io.peTable.req.bits.batchFirst := batchFirst
     io.peTable.req.bits.learnAddr := learnAddr
-    io.peTable.req.bits.deltaAddr := deltaAddr
     io.peTable.req.bits.dwAddr := dwAddr
     io.peTable.req.bits.slopeAddr := slopeAddr
     io.peTable.req.bits.biasAddr := biasAddr
@@ -340,7 +338,7 @@ class ControlLearn(implicit p: Parameters)
   reqPETable(Bool(false),
     UInt(0), UInt(0), UInt(0), UInt(0), UInt(0), UInt(0), UInt(0),
     Bool(false), Bool(false), Bool(false), Bool(false),
-    UInt(0), UInt(0), UInt(0), UInt(0), UInt(0), UInt(0), UInt(0), UInt(0),
+    UInt(0), UInt(0), UInt(0), UInt(0), UInt(0), UInt(0), UInt(0),
     UInt(0), UInt(0), UInt(0), UInt(0))
 
   when (io.cache.resp.valid) {
@@ -370,9 +368,13 @@ class ControlLearn(implicit p: Parameters)
       // Send a request to the storage module
       val totalWritesMul = Mux(io.tTable.req.bits.inLastEarly &&
         (io.tTable.req.bits.stateLearn === e_TTABLE_STATE_LEARN_FEEDFORWARD),
-        UInt(3), Mux(!io.tTable.req.bits.inFirst &&
-          (io.tTable.req.bits.stateLearn === e_TTABLE_STATE_LEARN_ERROR_BACKPROP),
-          UInt(2), UInt(1)))
+        UInt(2), UInt(1))
+      // [TODO] #32 remove
+      // val totalWritesMul = Mux(io.tTable.req.bits.inLastEarly &&
+      //   (io.tTable.req.bits.stateLearn === e_TTABLE_STATE_LEARN_FEEDFORWARD),
+      //   UInt(3), Mux(!io.tTable.req.bits.inFirst &&
+      //     (io.tTable.req.bits.stateLearn === e_TTABLE_STATE_LEARN_ERROR_BACKPROP),
+      //     UInt(2), UInt(1)))
       // val inLastLearn = (io.tTable.req.bits.inLastEarly) &&
       //   (io.tTable.req.bits.stateLearn === e_TTABLE_STATE_LEARN_FEEDFORWARD)
       printf("[INFO] Control: TTable layer req inFirst/inLastEarly/state/totalWritesMul 0x%x/0x%x/0x%x/0x%x\n",
@@ -417,8 +419,6 @@ class ControlLearn(implicit p: Parameters)
         inLast = io.tTable.req.bits.inLast,
         batchFirst = io.tTable.req.bits.batchFirst,
         learnAddr = io.tTable.req.bits.currentNodeInLayer,
-        deltaAddr = io.tTable.req.bits.regFileAddrDelta +
-          io.tTable.req.bits.currentNodeInLayer,
         dwAddr = io.tTable.req.bits.regFileAddrDW,
         slopeAddr = io.tTable.req.bits.regFileAddrSlope,
         biasAddr = io.tTable.req.bits.regFileAddrBias +

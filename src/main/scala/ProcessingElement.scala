@@ -195,6 +195,7 @@ class ProcessingElementLearn(implicit p: Parameters)
   val derivative = Reg(SInt(width = elementWidth)) //delta
   val errorOut = Reg(SInt(width = elementWidth)) //ek
   val mse = Reg(UInt(width = elementWidth))
+  val dwWritebackDone = Reg(Bool())
 
   // Defaults
   derivative := derivative
@@ -210,6 +211,7 @@ class ProcessingElementLearn(implicit p: Parameters)
       hasBias := Bool(false)
       index := UInt(0)
       reqSent := Bool(false)
+      dwWritebackDone := Bool(false)
     }
     is (PE_states('e_PE_GET_INFO)) {
       dataOut := UInt(0)
@@ -224,14 +226,16 @@ class ProcessingElementLearn(implicit p: Parameters)
           ((io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_WEIGHT_UPDATE) &&
             (io.req.bits.tType === e_TTYPE_BATCH)))) {
           state := PE_states('e_PE_REQUEST_INPUTS_AND_WEIGHTS)
-        } .elsewhen ((io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_ERROR_BACKPROP)) {
+        } .otherwise {
+          // [TODO] #32 cleanup
+          // } .elsewhen ((io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_ERROR_BACKPROP)) {
           state := PE_states('e_PE_REQUEST_OUTPUTS_ERROR_BACKPROP)
-        // } .elsewhen ((io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_WEIGHT_UPDATE||
-        //     io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_UPDATE_SLOPE)) {
-        } .elsewhen (io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_WEIGHT_UPDATE) {
+        // // } .elsewhen ((io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_WEIGHT_UPDATE||
+        // //     io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_UPDATE_SLOPE)) {
+        // } .elsewhen (io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_WEIGHT_UPDATE) {
           // [TODO] Why is it necessary to transition into this state
-          // when doing weight updates?
-          state := PE_states('e_PE_WEIGHT_UPDATE_REQUEST_DELTA)
+          // when doing weight updatse?
+          // state := PE_states('e_PE_WEIGHT_UPDATE_REQUEST_DELTA)
         }
       }
     }
@@ -251,8 +255,12 @@ class ProcessingElementLearn(implicit p: Parameters)
         // when(io.req.bits.tType === e_TTYPE_BATCH &&
         //   (io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_ERROR_BACKPROP ||
         //     io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_UPDATE_SLOPE)){
-        when(io.req.bits.tType === e_TTYPE_BATCH &&
-          io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_ERROR_BACKPROP){
+        when((io.req.bits.tType === e_TTYPE_BATCH &&
+          io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_ERROR_BACKPROP) ||
+          // Catch the case that we're doing a learning fedforward
+          // operation and we're in the last layer
+          (dwWritebackDone === Bool(true) &&
+          io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_FEEDFORWARD)){
           state := PE_states('e_PE_RUN_UPDATE_SLOPE)
         } .elsewhen(io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_WEIGHT_UPDATE ||
           (io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_ERROR_BACKPROP)){
@@ -458,14 +466,18 @@ class ProcessingElementLearn(implicit p: Parameters)
     }
     is (PE_states('e_PE_ERROR_BACKPROP_WEIGHT_WB)) {
       val blockIndex = index(log2Up(elementsPerBlock) - 1, 0)
-      io.resp.bits.incWriteCount := index === io.req.bits.numWeights
+      // [TODO] #32 remove, forcibly set to FALSE in PETable
+      // io.resp.bits.incWriteCount := index === io.req.bits.numWeights
       when (io.req.valid) {
         when (index === io.req.bits.numWeights) {
+          index := UInt(0)
           state := PE_states('e_PE_REQUEST_INPUTS_AND_WEIGHTS)
         } .otherwise {
           state := PE_states('e_PE_ERROR_BACKPROP_REQUEST_WEIGHTS)
         }
       }
+
+      dwWritebackDone := Bool(true)
 
       io.resp.valid := Bool(true)
     }
@@ -514,6 +526,7 @@ class ProcessingElementLearn(implicit p: Parameters)
       io.resp.valid := Bool(true)
       // Setup the bias to be written back
       printf("[INFO] PE: bias wb: 0x%x\n", delta)
+      printf("[INFO]     index: 0x%x\n", index)
       dataOut := delta
     }
     is (PE_states('e_PE_SLOPE_BIAS_WB)) {

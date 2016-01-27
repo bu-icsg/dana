@@ -99,7 +99,7 @@ abstract class DanaModule(implicit val p: Parameters) extends Module
     // e_TTABLE_STATE_LEARN_UPDATE_SLOPE ::   // 4
     e_TTABLE_STATE_LEARN_WEIGHT_UPDATE ::  // 5
     e_TTABLE_STATE_ERROR ::                // 6
-    Nil) = Enum(UInt(), 7)
+    Nil) = Enum(UInt(), 6)
   // Transaction register IDs used for write register request. This
   // must match "typedef enum xfiles_reg" in "xfiles.h".
   val (e_TTABLE_WRITE_REG_BATCH_ITEMS ::      // 0
@@ -147,7 +147,7 @@ abstract class DanaModule(implicit val p: Parameters) extends Module
       'e_PE_RUN_UPDATE_SLOPE,                             // 15
       'e_PE_SLOPE_WB,                                     // 16
       'e_PE_SLOPE_BIAS_WB,                                // 17
-      'e_PE_WEIGHT_UPDATE_REQUEST_DELTA,                  // 18
+      // 'e_PE_WEIGHT_UPDATE_REQUEST_DELTA,                  // 18
       'e_PE_RUN_WEIGHT_UPDATE,                            // 19
       'e_PE_WEIGHT_UPDATE_WRITE_BACK,                     // 20
       'e_PE_WEIGHT_UPDATE_WRITE_BIAS,                     // 21
@@ -158,14 +158,14 @@ abstract class DanaModule(implicit val p: Parameters) extends Module
   val (e_PE_REQ_INPUT ::             // 0
     e_PE_REQ_EXPECTED_OUTPUT ::      // 1
     e_PE_REQ_OUTPUT ::               // 2
-    e_PE_REQ_DELTA ::                // 3
+    // e_PE_REQ_DELTA ::                // 3
     e_PE_REQ_BIAS ::                 // 4
     e_PE_REQ_DELTA_WEIGHT_PRODUCT :: // 5
     e_PE_WRITE_ELEMENT ::            // 6
     e_PE_WRITE_BLOCK_NEW ::          // 7
     e_PE_WRITE_BLOCK_ACC ::          // 8
     e_PE_INCREMENT_WRITE_COUNT ::    // 9
-    Nil) = Enum(UInt(), 10)
+    Nil) = Enum(UInt(), 9)
   // Location of inputs and outputs
   val (e_LOCATION_REG_0 :: // 0
     e_LOCATION_REG_1 ::    // 1

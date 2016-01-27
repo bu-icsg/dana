@@ -199,6 +199,21 @@ Definitions:
 |---------------+--------------+----------------------+-----------------|
 ```
 
+This results in the following number of writes to the register file based on state. Note that the number of writes may be more (in the case of writing delta--weight products), but only the last data written by a neuron will then be counted.
+```
+|-------------------------------+---------------------------------------------|
+| state (e_TTABLE_STATE prefix) | # writes (multiplies of # neurons in layer) |
+|-------------------------------+---------------------------------------------|
+| _LOAD_OUTPUTS                 | 0                                           |
+| _FEEDFORWARD                  | 1                                           |
+| _LEARN_FEEDFORWARD            | 1 or 3 (when in last layer)                 |
+| _LEARN_ERROR_BACKPROP         | 2 or 1 (when in first layer)                |
+| _LEARN_UPDATE_SLOPE           | 1 (only bias counted)                       |
+| _LEARN_WEIGHT_UPDATE          | 0                                           |
+|-------------------------------+---------------------------------------------|
+
+```
+
 #### Without Delta Writes (#32 state merge)
 ```
 |---------------+--------------+----------------------+-----------------|
@@ -230,3 +245,15 @@ Definitions:
 | Slopes        | output       |                      |                 |
 |---------------+--------------+----------------------+-----------------|
 ```
+
+Number of writes to the register file.
+```
+|-------------------------------+---------------------------------------------|
+| state (e_TTABLE_STATE prefix) | # writes (multiplies of # neurons in layer) |
+|-------------------------------+---------------------------------------------|
+| _LOAD_OUTPUTS                 | 0                                           |
+| _FEEDFORWARD                  | 1                                           |
+| _LEARN_FEEDFORWARD            | 1 or 2 (when in last layer)                 |
+| _LEARN_ERROR_BACKPROP         | 1                                           |
+| _LEARN_WEIGHT_UPDATE          | 0                                           |
+|-------------------------------+---------------------------------------------|
