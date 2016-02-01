@@ -20,22 +20,22 @@ RAM Organization. This is a modified layout of fann_small and its associated abb
 |---------+----------+--------+------+-------------+---------------------------|
 | Layers  | [LF*]    |      0 |   12 | layer 0     | first neuron ptr [L0Nf]   |
 |         |          |     12 |   10 |             | neurons in layer          |
-|         |          |     22 |   10 |             | neurons in next layer     |
+|         |          |     22 |   10 |             | neurons in previous layer |
 |         |          |     32 |   12 | layer 1     | first neuron ptr [L1Nf]   |
 |         |          |     44 |   10 |             | neurons in layer          |
-|         |          |     54 |   10 |             | neurons in next layer     |
+|         |          |     54 |   10 |             | neurons in previous layer |
 |         |          |     64 |   12 | layer 2     | first neuron ptr [L2Nf]   |
 |         |          |     76 |   10 |             | neurons in layer          |
-|         |          |     86 |   10 |             | neurons in next layer     |
+|         |          |     86 |   10 |             | neurons in previous layer |
 |         |          |     96 |   12 | layer 3     | last neurons ptr [L3Nl]   |
 |         |          |    108 |   10 |             | neurons in layer          |
-|         |          |    118 |   10 |             | neurons in next layer     |
+|         |          |    118 |   10 |             | neurons in previous layer |
 |---------+----------+--------+------+-------------+---------------------------|
 |         | ...      |    ... |  ... | ...         | ...                       |
 |---------+----------+--------+------+-------------+---------------------------|
 |         |          |      0 |   12 | layer N-2   | first neuron ptr [LpNf]   |
 |         |          |     12 |   10 |             | neurons in layer          |
-|         |          |     22 |   10 |             | neurons in next layer     |
+|         |          |     22 |   10 |             | neurons in previous layer |
 |         |          |     32 |   12 | layer N-1   | first neuron ptr [LlNf]   |
 |         |          |     44 |   10 |             | neurons in layer          |
 |         |          |     54 |   10 |             | *** unused ***            |

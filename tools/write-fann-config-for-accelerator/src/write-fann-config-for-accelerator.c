@@ -224,20 +224,17 @@ int main(int argc, char *argv[])
 
   // Write the Layer Blocks
   // int neuron_pointer = first_node;
-  int nodes_per_layer, nodes_per_next_layer, next_node;
+  int nodes_per_layer, nodes_per_previous_layer, next_node;
   int packed_layer_data;
   write_count = size_of_block;
   i = 0;
   next_node = first_node;
   for (layer = ann->first_layer + 1; layer != ann->last_layer; layer++) {
     nodes_per_layer = layer->last_neuron - layer->first_neuron - 1;
-    if (layer == ann->last_layer - 1)
-      nodes_per_next_layer = 0;
-    else
-      nodes_per_next_layer = (layer+1)->last_neuron-(layer+1)->first_neuron-1;
+    nodes_per_previous_layer = (layer-1)->last_neuron-(layer-1)->first_neuron-1;
     packed_layer_data = (next_node & 0xfff) |
       ((nodes_per_layer & 0x3ff) << 12) |
-      ((nodes_per_next_layer & 0x3ff) << (12 + 10));
+      ((nodes_per_previous_layer & 0x3ff) << (12 + 10));
     fwrite(&packed_layer_data, 4, 1, file);
     // fwrite(&next_node, 2, 1, file);
     // fwrite(&nodes_per_layer, 2, 1, file);
@@ -246,9 +243,9 @@ int main(int argc, char *argv[])
       write_count = size_of_block;
     if (flag_verbose) {
       printf("Layer %d: 0x%x is first node, 0x%x (%d) nodes/layer, "
-             "0x%x (%d) nodes/next layer\n", i,
+             "0x%x (%d) nodes/previous layer\n", i,
            next_node, nodes_per_layer, nodes_per_layer,
-           nodes_per_next_layer, nodes_per_next_layer);
+           nodes_per_previous_layer, nodes_per_previous_layer);
       printf("  Packed: 0x%08x\n", packed_layer_data);
     }
     next_node += nodes_per_layer * size_of_node;
