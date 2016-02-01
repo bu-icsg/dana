@@ -29,6 +29,7 @@ FLOAT_TO_FIXED=$(DIR_TOP)/usr/bin/fann-float-to-fixed
 WRITE_FANN_CONFIG=$(DIR_TOP)/usr/bin/write-fann-config-for-accelerator
 FANN_TRAIN_TO_FIXED=$(DIR_TOP)/usr/bin/fann-data-to-fixed
 FANN_CHANGE_FIXED_POINT=$(DIR_TOP)/usr/bin/fann-change-fixed-point
+GEN_BOOLEAN_DATA=$(DIR_TOP)/usr/bin/gen-boolean-data
 
 PHONY += all default clean
 

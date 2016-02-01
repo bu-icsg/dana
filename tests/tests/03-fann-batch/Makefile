@@ -5,17 +5,35 @@
 # file.
 
 TEST=fann-batch
-NETS_GEN=xorSigmoid \
+NETS_PATTERN=xorSigmoid \
 	xorSigmoidSymmetric \
 	xorSigmoidSymmetricPair \
 	xorSigmoidSymmetricThreeLayer
-NETS_SKIP=
-NETS_FLOAT=$(addsuffix -float.net, $(NETS_GEN))
-NETS_TRAIN=$(addsuffix -fixed.train, $(NETS_GEN))
+NETS_CONVERGE=xorSigmoid \
+	xorSigmoidSymmetric \
+	xorSigmoidSymmetricPair \
+	xorSigmoidSymmetricThreeLayer \
+	xor-sigmoid-4i \
+	xor-sigmoid-8i \
+	xor-sigmoid-16i \
+	xor-sigmoid-32i \
+	xor-sigmoid-64i \
+	xor-sigmoid-128i \
+	xor-sigmoid-4o \
+	xor-sigmoid-8o \
+	xor-sigmoid-16o \
+	xor-sigmoid-32o \
+	xor-sigmoid-64o \
+	xor-sigmoid-128o
+NETS_ALL=$(NETS_PATTERN) $(NETS_CONVERGE)
+NETS_SKIP=xor-sigmoid-256i \
+	xor-sigmoid-256o
+NETS_FLOAT=$(addsuffix -float.net, $(NETS_ALL))
+NETS_TRAIN=$(addsuffix -fixed.train, $(NETS_ALL))
 SOURCES=$(TEST).c
 TARGETS=$(SOURCES:%.c=%.rv)
-RUNS=$(addsuffix .msePattern, $(NETS_GEN)) \
-	$(addsuffix .converge, $(NETS_GEN))
+RUNS=$(addsuffix .msePattern, $(NETS_PATTERN)) \
+	$(addsuffix .converge, $(NETS_CONVERGE))
 SEED=0
 ASID=`shuf -i0-9 -n1`
 NNID=`shuf -i0-9 -n1`
