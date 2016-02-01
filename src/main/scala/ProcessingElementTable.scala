@@ -595,17 +595,7 @@ class ProcessingElementTableLearn(implicit p: Parameters)
             table(peIdx).tIdx,
             table(peIdx).location,
             e_PE_REQ_INPUT)
-        }
-        //   .elsewhen (table(peIdx).stateLearn === e_TTABLE_STATE_LEARN_UPDATE_SLOPE) {
-        //   regFileReadReq(
-        //     table(peIdx).dwAddr,
-        //     peIdx,
-        //     table(peIdx).tIdx,
-        //     table(peIdx).location,
-        //     e_PE_REQ_INPUT)
-        //   table(peIdx).slopeAddr := table(peIdx).slopeAddr + UInt(elementsPerBlock)
-        // }
-          .elsewhen (table(peIdx).stateLearn === e_TTABLE_STATE_LEARN_WEIGHT_UPDATE) {
+        } .elsewhen (table(peIdx).stateLearn === e_TTABLE_STATE_LEARN_WEIGHT_UPDATE) {
           when (table(peIdx).tType === e_TTYPE_BATCH) {
             regFileReadReq(
               table(peIdx).slopeAddr + table(peIdx).weightoffset,
@@ -654,18 +644,6 @@ class ProcessingElementTableLearn(implicit p: Parameters)
           e_PE_REQ_EXPECTED_OUTPUT)
         pe(peArbiter.io.out.bits.index).req.valid := Bool(true)
       }
-      // is(PE_states('e_PE_DELTA_WRITE_BACK)){
-      //   // Outputs are always written to the Register File
-      //   regFileWriteReq(
-      //     peArbiter.io.out.bits.incWriteCount,
-      //     e_PE_WRITE_ELEMENT,
-      //     table(peArbiter.io.out.bits.index).deltaAddr,
-      //     table(peArbiter.io.out.bits.index).tIdx,
-      //     peArbiter.io.out.bits.error,
-      //     table(peArbiter.io.out.bits.index).location)
-
-      //   pe(peArbiter.io.out.bits.index).req.valid := Bool(true)
-      // }
       is (PE_states('e_PE_ERROR_BACKPROP_REQUEST_WEIGHTS)) {
         // Send a request to the cache for weights
         io.cache.req.valid := Bool(true)
@@ -725,16 +703,6 @@ class ProcessingElementTableLearn(implicit p: Parameters)
 
         pe(peArbiter.io.out.bits.index).req.valid := Bool(true)
       }
-      // is (PE_states('e_PE_WEIGHT_UPDATE_REQUEST_DELTA)) {
-      //   regFileReadReq(
-      //     table(peArbiter.io.out.bits.index).deltaAddr,
-      //     peArbiter.io.out.bits.index,
-      //     table(peArbiter.io.out.bits.index).tIdx,
-      //     table(peArbiter.io.out.bits.index).location,
-      //     e_PE_REQ_DELTA)
-
-      //   pe(peArbiter.io.out.bits.index).req.valid := Bool(true)
-      // }
       is(PE_states('e_PE_WEIGHT_UPDATE_WRITE_BACK)) {
         // Send an element-wise increment block-write to the cache
         io.cache.req.valid := Bool(true)

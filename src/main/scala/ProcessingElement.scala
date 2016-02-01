@@ -229,15 +229,7 @@ class ProcessingElementLearn(implicit p: Parameters)
             (io.req.bits.tType === e_TTYPE_BATCH)))) {
           state := PE_states('e_PE_REQUEST_INPUTS_AND_WEIGHTS)
         } .otherwise {
-          // [TODO] #32 cleanup
-          // } .elsewhen ((io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_ERROR_BACKPROP)) {
           state := PE_states('e_PE_REQUEST_OUTPUTS_ERROR_BACKPROP)
-        // // } .elsewhen ((io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_WEIGHT_UPDATE||
-        // //     io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_UPDATE_SLOPE)) {
-        // } .elsewhen (io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_WEIGHT_UPDATE) {
-          // [TODO] Why is it necessary to transition into this state
-          // when doing weight updatse?
-          // state := PE_states('e_PE_WEIGHT_UPDATE_REQUEST_DELTA)
         }
       }
     }
@@ -424,23 +416,6 @@ class ProcessingElementLearn(implicit p: Parameters)
         }
       }
     }
-    // is (PE_states('e_PE_DELTA_WRITE_BACK)){
-    //   // This is the "last" writeback for a group, so we turn on the
-    //   // `incWriteCount` flag to tell the Register File to increment its write
-    //   // count
-    //   when (io.req.valid) {
-    //     when((io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_ERROR_BACKPROP)){
-    //       state := PE_states('e_PE_ERROR_BACKPROP_REQUEST_WEIGHTS)
-    //     }.otherwise {
-    //       state := Mux(io.req.bits.inLast &&
-    //         io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_FEEDFORWARD,
-    //         PE_states('e_PE_ERROR_BACKPROP_REQUEST_WEIGHTS),
-    //         PE_states('e_PE_UNALLOCATED))
-    //     }
-    //   }
-    //   io.resp.bits.incWriteCount := Bool(true)
-    //   io.resp.valid := Bool(true)
-    // }
     is (PE_states('e_PE_ERROR_BACKPROP_REQUEST_WEIGHTS)) {
       when (!reqSent) {
         io.resp.valid := Bool(true)
@@ -469,8 +444,6 @@ class ProcessingElementLearn(implicit p: Parameters)
     }
     is (PE_states('e_PE_ERROR_BACKPROP_WEIGHT_WB)) {
       val blockIndex = index(log2Up(elementsPerBlock) - 1, 0)
-      // [TODO] #32 remove, forcibly set to FALSE in PETable
-      // io.resp.bits.incWriteCount := index === io.req.bits.numWeights
       when (io.req.valid) {
         when (index === io.req.bits.numWeights) {
           index := UInt(0)
@@ -535,15 +508,6 @@ class ProcessingElementLearn(implicit p: Parameters)
       when (io.req.valid) { state := PE_states('e_PE_UNALLOCATED) }
       io.resp.valid := Bool(true)
     }
-    // is (PE_states('e_PE_WEIGHT_UPDATE_REQUEST_DELTA)){
-    //   when (!reqSent) {
-    //     io.resp.valid := Bool(true)
-    //     reqSent := io.req.valid
-    //   } .elsewhen (io.req.valid) {
-    //     reqSent := Bool(false)
-    //     state := PE_states('e_PE_REQUEST_INPUTS_AND_WEIGHTS)
-    //   }
-    // }
     is (PE_states('e_PE_RUN_WEIGHT_UPDATE)){
       val blockIndex = index(log2Up(elementsPerBlock) - 1, 0)
       when (index === (io.req.bits.numWeights - UInt(1)) ||

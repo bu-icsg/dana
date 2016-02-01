@@ -96,7 +96,6 @@ abstract class DanaModule(implicit val p: Parameters) extends Module
     e_TTABLE_STATE_FEEDFORWARD ::          // 1
     e_TTABLE_STATE_LEARN_FEEDFORWARD ::    // 2
     e_TTABLE_STATE_LEARN_ERROR_BACKPROP :: // 3
-    // e_TTABLE_STATE_LEARN_UPDATE_SLOPE ::   // 4
     e_TTABLE_STATE_LEARN_WEIGHT_UPDATE ::  // 5
     e_TTABLE_STATE_ERROR ::                // 6
     Nil) = Enum(UInt(), 6)
@@ -138,7 +137,6 @@ abstract class DanaModule(implicit val p: Parameters) extends Module
       'e_PE_COMPUTE_ERROR,                                // 7
       'e_PE_ERROR_FUNCTION,                               // 8
       'e_PE_COMPUTE_DELTA,                                // 9
-      // 'e_PE_DELTA_WRITE_BACK,                             // 10
       'e_PE_ERROR_BACKPROP_REQUEST_WEIGHTS,               // 10
       'e_PE_ERROR_BACKPROP_DELTA_WEIGHT_MUL,              // 11
       'e_PE_ERROR_BACKPROP_WEIGHT_WB,                     // 12
@@ -147,7 +145,6 @@ abstract class DanaModule(implicit val p: Parameters) extends Module
       'e_PE_RUN_UPDATE_SLOPE,                             // 15
       'e_PE_SLOPE_WB,                                     // 16
       'e_PE_SLOPE_BIAS_WB,                                // 17
-      // 'e_PE_WEIGHT_UPDATE_REQUEST_DELTA,                  // 18
       'e_PE_RUN_WEIGHT_UPDATE,                            // 19
       'e_PE_WEIGHT_UPDATE_WRITE_BACK,                     // 20
       'e_PE_WEIGHT_UPDATE_WRITE_BIAS,                     // 21
@@ -158,7 +155,6 @@ abstract class DanaModule(implicit val p: Parameters) extends Module
   val (e_PE_REQ_INPUT ::             // 0
     e_PE_REQ_EXPECTED_OUTPUT ::      // 1
     e_PE_REQ_OUTPUT ::               // 2
-    // e_PE_REQ_DELTA ::                // 3
     e_PE_REQ_BIAS ::                 // 4
     e_PE_REQ_DELTA_WEIGHT_PRODUCT :: // 5
     e_PE_WRITE_ELEMENT ::            // 6
