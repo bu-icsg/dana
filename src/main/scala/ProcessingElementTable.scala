@@ -114,6 +114,7 @@ class ProcessingElementStateLearn(implicit p: Parameters)
   val dwAddr = UInt(width = log2Up(regFileNumElements))
   val slopeAddr = UInt(width = log2Up(regFileNumElements))
   val biasAddr = UInt(width = log2Up(regFileNumElements))
+  val auxAddr = UInt(width = log2Up(regFileNumElements))
   val inAddrSaved = UInt(width = log2Up(regFileNumElements))
   val weightPtrSaved = UInt(width =
     log2Up(elementWidth * elementsPerBlock * cacheNumBlocks))
@@ -299,7 +300,6 @@ class ProcessingElementTableBase[PeStateType <: ProcessingElementState,
     peArbiter.io.in(i).bits.state := pe(i).resp.bits.state
     peArbiter.io.in(i).bits.index := pe(i).resp.bits.index
     peArbiter.io.in(i).bits.incWriteCount := pe(i).resp.bits.incWriteCount
-
   }
 
   // If the arbiter is showing a valid output, then we have to
@@ -446,6 +446,7 @@ class ProcessingElementTableLearn(implicit p: Parameters)
     table(nextFree).dwAddr := io.control.req.bits.dwAddr
     table(nextFree).slopeAddr := io.control.req.bits.slopeAddr
     table(nextFree).biasAddr := io.control.req.bits.biasAddr
+    table(nextFree).auxAddr := io.control.req.bits.auxAddr
     when (io.control.req.bits.resetWB) {
       regFileBlockWbTable(io.control.req.bits.tIdx) := UInt(0)
     }
@@ -458,6 +459,7 @@ class ProcessingElementTableLearn(implicit p: Parameters)
     printf("[INFO]   DW addr:        0x%x\n", io.control.req.bits.dwAddr)
     printf("[INFO]   slope addr:     0x%x\n", io.control.req.bits.slopeAddr)
     printf("[INFO]   bias addr:      0x%x\n", io.control.req.bits.biasAddr)
+    printf("[INFO]   aux addr:       0x%x\n", io.control.req.bits.auxAddr)
     printf("[INFO]   stateLearn:     0x%x\n", io.control.req.bits.stateLearn)
     printf("[INFO]   tType:          0x%x\n", io.control.req.bits.tType)
     printf("[INFO]   inLast:         0x%x\n", io.control.req.bits.inLast)
@@ -496,6 +498,7 @@ class ProcessingElementTableLearn(implicit p: Parameters)
         when ((table(peIndex).stateLearn === e_TTABLE_STATE_LEARN_WEIGHT_UPDATE) ||
           (table(peIndex).stateLearn === e_TTABLE_STATE_LEARN_ERROR_BACKPROP)) {
           table(peIndex).dwAddr := table(peIndex).dwAddr + UInt(elementsPerBlock)
+          table(peIndex).auxAddr := table(peIndex).auxAddr + UInt(elementsPerBlock)
         } .otherwise {
           table(peIndex).inAddr := table(peIndex).inAddr + UInt(elementsPerBlock)
         }
@@ -559,6 +562,7 @@ class ProcessingElementTableLearn(implicit p: Parameters)
   for (i <- 0 until peTableNumEntries) {
     peArbiter.io.in(i).bits.dataBlock := pe(i).resp.bits.dataBlock
     peArbiter.io.in(i).bits.error := pe(i).resp.bits.error
+    peArbiter.io.in(i).bits.resetWeightPtr := pe(i).resp.bits.resetWeightPtr
   }
 
   val biasIndex = table(peArbiter.io.out.bits.index).neuronPtr(
@@ -574,15 +578,19 @@ class ProcessingElementTableLearn(implicit p: Parameters)
   biasUpdateVecSlope(biasAddrLSBs) := peArbiter.io.out.bits.data
 
   when (peArbiter.io.out.valid) {
+    val peIdx = peArbiter.io.out.bits.index
+    // Reset the weight pointer if the PE is telling us to do so
+    when (peArbiter.io.out.bits.resetWeightPtr) {
+      table(peIdx).weightPtr := table(peIdx).weightPtrSaved
+    }
+    // The request type is function of PE state
     switch (peArbiter.io.out.bits.state) {
       is (PE_states('e_PE_REQUEST_INPUTS_AND_WEIGHTS)) {
         // All requests are now routed through the Register File (the
         // intermediate storage area for all computation)
-        val peIdx = peArbiter.io.out.bits.index
         when (table(peIdx).stateLearn === e_TTABLE_STATE_LEARN_ERROR_BACKPROP) {
           regFileReadReq(
-            // table(peIdx).dwAddr,
-            table(peIdx).inAddr,
+            table(peIdx).auxAddr,
             peIdx,
             table(peIdx).tIdx,
             table(peIdx).location,
@@ -605,6 +613,8 @@ class ProcessingElementTableLearn(implicit p: Parameters)
               table(peIdx).tIdx,
               table(peIdx).location,
               e_PE_REQ_INPUT)
+            table(peIdx).slopeAddr := table(peIdx).slopeAddr +
+              UInt(elementsPerBlock)
           } .otherwise {
             regFileReadReq(
               table(peIdx).dwAddr,
@@ -633,8 +643,6 @@ class ProcessingElementTableLearn(implicit p: Parameters)
       }
       is (PE_states('e_PE_DONE)) {
         // Reset the weightPtr and inAddr as we may be using this again
-        val peIdx = peArbiter.io.out.bits.index
-        table(peIdx).weightPtr := table(peIdx).weightPtrSaved
         table(peIdx).inAddr := table(peIdx).inAddrSaved
       }
       is (PE_states('e_PE_REQUEST_EXPECTED_OUTPUT)) {
@@ -670,7 +678,6 @@ class ProcessingElementTableLearn(implicit p: Parameters)
         pe(peArbiter.io.out.bits.index).req.valid := Bool(true)
       }
       is (PE_states('e_PE_ERROR_BACKPROP_WEIGHT_WB)) {
-        val peIdx = peArbiter.io.out.bits.index
         val tIdx = table(peIdx).tIdx
         val addrWB = table(peIdx).dwAddr
         // Send a request to the Register File to writeback the
@@ -766,8 +773,6 @@ class ProcessingElementTableLearn(implicit p: Parameters)
         pe(peArbiter.io.out.bits.index).req.valid := Bool(true)
       }
       is(PE_states('e_PE_SLOPE_WB)){
-        val peIdx = peArbiter.io.out.bits.index
-
         io.regFile.req.valid := Bool(true)
         io.regFile.req.bits.isWrite := Bool(true)
         io.regFile.req.bits.incWriteCount := Bool(false)
@@ -789,8 +794,6 @@ class ProcessingElementTableLearn(implicit p: Parameters)
         pe(peIdx).req.valid := Bool(true)
       }
       is (PE_states('e_PE_SLOPE_BIAS_WB)) {
-        val peIdx = peArbiter.io.out.bits.index
-
         io.regFile.req.valid := Bool(true)
         io.regFile.req.bits.isWrite := Bool(true)
         io.regFile.req.bits.incWriteCount := Bool(true)
@@ -814,8 +817,6 @@ class ProcessingElementTableLearn(implicit p: Parameters)
         pe(peIdx).req.valid := Bool(true)
       }
       is (PE_states('e_PE_WEIGHT_UPDATE_REQUEST_BIAS)) {
-        val peIdx = peArbiter.io.out.bits.index
-
         io.regFile.req.valid := Bool(true)
         io.regFile.req.bits.isWrite := Bool(false)
         io.regFile.req.bits.peIndex := peArbiter.io.out.bits.index

@@ -68,6 +68,8 @@ class TransactionStateLearn(implicit p: Parameters)
   // val regFileAddrDelta = UInt(width = log2Up(regFileNumElements))
   val regFileAddrDW = UInt(width = log2Up(regFileNumElements))
   val regFileAddrSlope = UInt(width = log2Up(regFileNumElements))
+  val regFileAddrAux = UInt(width = log2Up(regFileNumElements))
+  val nodesInPreviousLayer = UInt(width = 16) // [TODO] fragile
 }
 
 class ControlReq(implicit p: Parameters) extends XFilesBundle()(p) {
@@ -108,6 +110,7 @@ class ControlReqLearn(implicit p: Parameters) extends ControlReq()(p) {
   val regFileAddrDW = UInt(width = log2Up(regFileNumElements))
   val regFileAddrSlope = UInt(width = log2Up(regFileNumElements))
   val regFileAddrBias = UInt(width = log2Up(regFileNumElements))
+  val regFileAddrAux = UInt(width = log2Up(regFileNumElements))
   val batchFirst = Bool()
 }
 
@@ -461,7 +464,7 @@ class TransactionTableBase[StateType <: TransactionState,
           printf("[INFO]   nodes in current layer:     0x%x\n",
             io.control.resp.bits.data(0))
           printf("[INFO]   nodes in previous layer:    0x%x\n",
-            table(tIdx).nodesInCurrentLayer)
+            io.control.resp.bits.data(1))
           printf("[INFO]   nicl:                       0x%x\n", nicl)
           printf("[INFO]   niclMSBs:                   0x%x\n", niclMSBs)
           printf("[INFO]   niclLSBs:                   0x%x\n", niclLSBs)
@@ -936,12 +939,17 @@ class TransactionTableLearn(implicit p: Parameters)
           val round = Mux(niclLSBs =/= UInt(0), UInt(elementsPerBlock), UInt(0))
           val niclOffset = niclMSBs + round
 
-          val niplMSBs =
-            table(tIdx).nodesInCurrentLayer(15, log2Up(elementsPerBlock)) ##
+          val nipl = io.control.resp.bits.data(1)
+          val niplMSBs = nipl(15, log2Up(elementsPerBlock)) ##
               UInt(0, width=log2Up(elementsPerBlock))
-          val niplLSBs = table(tIdx).nodesInCurrentLayer(log2Up(elementsPerBlock)-1,0)
+          val niplLSBs = nipl(log2Up(elementsPerBlock)-1,0)
           val niplOffset = niplMSBs + Mux(niplLSBs =/= UInt(0),
             UInt(elementsPerBlock), UInt(0))
+
+          printf("[INFO]   nicl:             0x%x\n", nicl)
+          printf("[INFO]   niclOffset:       0x%x\n", niclOffset)
+          printf("[INFO]   nipl:             0x%x\n", nipl)
+          printf("[INFO]   niplOffset:       0x%x\n", niplOffset)
           when ((table(tIdx).currentLayer === UInt(0)) &&
             (table(tIdx).stateLearn === e_TTABLE_STATE_LEARN_FEEDFORWARD ||
               table(tIdx).stateLearn === e_TTABLE_STATE_FEEDFORWARD)) {
@@ -984,24 +992,23 @@ class TransactionTableLearn(implicit p: Parameters)
               // The bias offset is the size of the bias region
               val offsetBias = table(tIdx).offsetBias + niclOffset
               table(tIdx).offsetBias := offsetBias
-              // The DW offset is the size of the DW region
-              when (!table(tIdx).inLastEarly) {
-                table(tIdx).offsetDW := table(tIdx).offsetDW + niclOffset
-              }
               val biasAddr = regFileAddrOut + table(tIdx).offsetBias +
                 table(tIdx).offsetDW + niclOffset
               table(tIdx).biasAddr := biasAddr
               table(tIdx).regFileAddrSlope := biasAddr + niclOffset
-              printf("[INFO]   offsetBias:       0x%x\n", table(tIdx).offsetBias)
+              printf("[INFO]   offsetBias:       0x%x\n",
+                table(tIdx).offsetBias + niclOffset)
+              // The DW offset is the size of the DW region
+              when (!table(tIdx).inLastEarly) {
+                table(tIdx).offsetDW := table(tIdx).offsetDW + niclOffset
+                printf("[INFO]   offsetDW:         0x%x\n",
+                  table(tIdx).offsetDW + niclOffset)
+              }
               printf("[INFO]   offsetDW:         0x%x\n", table(tIdx).offsetDW)
-              printf("[INFO]   niclOffset:       0x%x\n", niclOffset)
-              printf("[INFO]   niplOffset:       0x%x\n", niplOffset)
               printf("[INFO]   regFileAddrDw:    0x%x -> 0x%x\n",
-                table(tIdx).regFileAddrDW, table(tIdx).regFileAddrInFixed)
-              printf("[INFO]   regFileAddrSlope: 0x%x\n",
-                table(tIdx).regFileAddrDW + table(tIdx).offsetBias + niclOffset)
-              printf("[INFO]   biasAddr:         0x%x\n",
-                table(tIdx).regFileAddrDW + niclOffset)
+                table(tIdx).regFileAddrDW, regFileAddrOut + niclOffset)
+              printf("[INFO]   regFileAddrSlope: 0x%x\n", biasAddr + niclOffset)
+              printf("[INFO]   biasAddr:         0x%x\n", biasAddr)
             }
             is(e_TTABLE_STATE_LEARN_ERROR_BACKPROP){
               table(tIdx).regFileAddrOut := table(tIdx).regFileAddrDW
@@ -1012,27 +1019,41 @@ class TransactionTableLearn(implicit p: Parameters)
               table(tIdx).regFileAddrDW := table(tIdx).regFileAddrDW +
                 niclOffset
 
-              // Handle special case of being in the last hidden layer
+              // Handle special case of being in the last hidden
+              // layer. Also, setup the Auxiliary address which, in
+              // this state, is used to store the address of the
+              // previous layer's inputs
               when (table(tIdx).currentLayer === table(tIdx).numLayers - UInt(2)) {
+                val regFileAddrIn = table(tIdx).regFileAddrIn
+                val regFileAddrAux = regFileAddrIn - niplOffset
                 //address to read outputs to compute derivative
-                table(tIdx).regFileAddrIn := table(tIdx).regFileAddrIn
+                table(tIdx).regFileAddrIn := regFileAddrIn
+                table(tIdx).regFileAddrAux := regFileAddrAux
+                printf("[INFO]   regFileAddrIn:    0x%x\n", regFileAddrIn)
+                printf("[INFO]   regFileAddrAux:   0x%x\n", regFileAddrAux)
               } .otherwise {
-                table(tIdx).regFileAddrIn := table(tIdx).regFileAddrIn -
-                  niclOffset
+                val regFileAddrIn = table(tIdx).regFileAddrIn
+                val regFileAddrAux = regFileAddrIn - niclOffset - niplOffset
+                table(tIdx).regFileAddrIn := regFileAddrIn
+                table(tIdx).regFileAddrAux := regFileAddrAux
+                printf("[INFO]   regFileAddrIn:    0x%x\n", regFileAddrIn)
+                printf("[INFO]   regFileAddrAux:   0x%x\n", regFileAddrAux)
               }
 
               // [TODO] Check that this is working
               table(tIdx).biasAddr := table(tIdx).biasAddr - niclOffset
               printf("[INFO]   offsetBias:       0x%x\n", table(tIdx).offsetBias)
               printf("[INFO]   offsetDW:         0x%x\n", table(tIdx).offsetDW)
-              printf("[INFO]   niclOffset:       0x%x\n", niclOffset)
-              printf("[INFO]   niplOffset:       0x%x\n", niplOffset)
               printf("[INFO]   regFileAddrDw:    0x%x -> 0x%x\n",
-                table(tIdx).regFileAddrDW, table(tIdx).regFileAddrInFixed)
+                table(tIdx).regFileAddrDW, table(tIdx).regFileAddrDW + niclOffset)
               printf("[INFO]   regFileAddrSlope: 0x%x\n",
-                table(tIdx).regFileAddrDW + table(tIdx).offsetBias + niclOffset)
+                table(tIdx).regFileAddrSlope)
               printf("[INFO]   biasAddr:         0x%x\n",
-                table(tIdx).regFileAddrDW + niclOffset)
+                table(tIdx).regFileAddrDW - niclOffset)
+
+              // when (table(tIdx).currentLayer === UInt(0)){
+              //   table(tIdx).regFileAddrDW := table(tIdx).regFileAddrInFixed
+              // }
 
               // [TODO] #32 remove
               // Handle special case of being in the first hidden layer
@@ -1193,6 +1214,7 @@ class TransactionTableLearn(implicit p: Parameters)
     entryArbiter.io.in(i).bits.regFileAddrDW := table(i).regFileAddrDW
     entryArbiter.io.in(i).bits.regFileAddrSlope := table(i).regFileAddrSlope
     entryArbiter.io.in(i).bits.regFileAddrBias := table(i).biasAddr
+    entryArbiter.io.in(i).bits.regFileAddrAux := table(i).regFileAddrAux
     entryArbiter.io.in(i).bits.stateLearn := table(i).stateLearn
     entryArbiter.io.in(i).bits.inLastEarly := table(i).inLastEarly
   }

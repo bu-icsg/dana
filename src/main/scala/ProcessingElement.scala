@@ -38,6 +38,7 @@ class ProcessingElementRespLearn(implicit p: Parameters)
     extends ProcessingElementResp()(p) {
   val dataBlock = Vec.fill(elementsPerBlock){SInt(width = elementWidth)}
   val error = SInt(width = elementWidth)
+  val resetWeightPtr = Bool()
 }
 
 class ProcessingElementInterface(implicit p: Parameters) extends DanaBundle()(p) {
@@ -201,6 +202,7 @@ class ProcessingElementLearn(implicit p: Parameters)
   derivative := derivative
   io.resp.bits.dataBlock := weightWB
   io.resp.bits.error := errorOut
+  io.resp.bits.resetWeightPtr := Bool(false)
   af.io.req.bits.afType := e_AF_DO_ACTIVATION_FUNCTION
   af.io.req.bits.errorFunction := io.req.bits.errorFunction
 
@@ -307,6 +309,7 @@ class ProcessingElementLearn(implicit p: Parameters)
       }
       io.resp.bits.incWriteCount := Bool(true)
       io.resp.valid := Bool(true)
+      io.resp.bits.resetWeightPtr := Bool(true)
     }
     is (PE_states('e_PE_COMPUTE_DERIVATIVE)){
       state := Mux((io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_ERROR_BACKPROP),
@@ -472,13 +475,12 @@ class ProcessingElementLearn(implicit p: Parameters)
         when (index === io.req.bits.numWeights) {
           index := UInt(0)
           state := PE_states('e_PE_REQUEST_INPUTS_AND_WEIGHTS)
+          io.resp.bits.resetWeightPtr := Bool(true)
         } .otherwise {
           state := PE_states('e_PE_ERROR_BACKPROP_REQUEST_WEIGHTS)
         }
       }
-
       dwWritebackDone := Bool(true)
-
       io.resp.valid := Bool(true)
     }
     is (PE_states('e_PE_REQUEST_OUTPUTS_ERROR_BACKPROP)) {

@@ -333,7 +333,9 @@ class CacheBase[SramIfType <: SRAMVariantInterface,
       // Number of neurons in this layer
       controlRespPipe(1).bits.data(0) :=
         compressedLayers(controlRespPipe(0).bits.data(0))(12 + 10 - 1, 12)
-      // data(1) is currently unused
+      // Number of neurons in the previous layer
+      controlRespPipe(1).bits.data(1) :=
+        compressedLayers(controlRespPipe(0).bits.data(0))(22 + 10 - 1, 22)
       // Pointer to the first neuron
       controlRespPipe(1).bits.data(2) :=
         compressedLayers(controlRespPipe(0).bits.data(0))(12 - 1, 0)

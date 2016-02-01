@@ -72,6 +72,7 @@ class ControlPETableInterfaceReqLearn(implicit p: Parameters)
   val dwAddr = UInt(width = ioIdxWidth)
   val slopeAddr = UInt(width = ioIdxWidth)
   val biasAddr = UInt(width = ioIdxWidth)
+  val auxAddr = UInt(width = ioIdxWidth)
   val errorFunction = UInt(width = log2Up(2)) // [TODO] fragile
   val stateLearn = UInt(width = log2Up(7)) // [TODO] fragile
   val inLast = Bool()
@@ -308,9 +309,9 @@ class ControlLearn(implicit p: Parameters)
     // learning-specific
     resetWB: Bool, inFirst: Bool, inLast: Bool, batchFirst: Bool,
     learnAddr: UInt, dwAddr: UInt, slopeAddr: UInt,
-    biasAddr: UInt, errorFunction: UInt, stateLearn: UInt, learningRate: UInt,
-    lambda: UInt, numWeightBlocks: UInt, transactionType: UInt,
-    globalWtptr: UInt) {
+    biasAddr: UInt, auxAddr: UInt, errorFunction: UInt, stateLearn: UInt,
+    learningRate: UInt, lambda: UInt, numWeightBlocks: UInt,
+    transactionType: UInt, globalWtptr: UInt) {
     reqPETable(valid = valid, cacheIndex = cacheIndex, tIdx = tIdx,
       inAddr = inAddr, outAddr = outAddr, neuronPointer = neuronPointer,
       decimalPoint = decimalPoint, location = location)
@@ -322,6 +323,7 @@ class ControlLearn(implicit p: Parameters)
     io.peTable.req.bits.dwAddr := dwAddr
     io.peTable.req.bits.slopeAddr := slopeAddr
     io.peTable.req.bits.biasAddr := biasAddr
+    io.peTable.req.bits.auxAddr := auxAddr
     io.peTable.req.bits.errorFunction := errorFunction
     io.peTable.req.bits.stateLearn := stateLearn
     io.peTable.req.bits.learningRate := learningRate
@@ -338,7 +340,7 @@ class ControlLearn(implicit p: Parameters)
   reqPETable(Bool(false),
     UInt(0), UInt(0), UInt(0), UInt(0), UInt(0), UInt(0), UInt(0),
     Bool(false), Bool(false), Bool(false), Bool(false),
-    UInt(0), UInt(0), UInt(0), UInt(0), UInt(0), UInt(0), UInt(0),
+    UInt(0), UInt(0), UInt(0), UInt(0), UInt(0), UInt(0), UInt(0), UInt(0),
     UInt(0), UInt(0), UInt(0), UInt(0))
 
   when (io.cache.resp.valid) {
@@ -423,6 +425,7 @@ class ControlLearn(implicit p: Parameters)
         slopeAddr = io.tTable.req.bits.regFileAddrSlope,
         biasAddr = io.tTable.req.bits.regFileAddrBias +
           io.tTable.req.bits.currentNodeInLayer,
+        auxAddr = io.tTable.req.bits.regFileAddrAux,
         errorFunction = io.tTable.req.bits.errorFunction,
         stateLearn = io.tTable.req.bits.stateLearn,
         learningRate = io.tTable.req.bits.learningRate,
