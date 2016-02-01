@@ -1032,8 +1032,8 @@ class TransactionTableLearn(implicit p: Parameters)
                 printf("[INFO]   regFileAddrIn:    0x%x\n", regFileAddrIn)
                 printf("[INFO]   regFileAddrAux:   0x%x\n", regFileAddrAux)
               } .otherwise {
-                val regFileAddrIn = table(tIdx).regFileAddrIn
-                val regFileAddrAux = regFileAddrIn - niclOffset - niplOffset
+                val regFileAddrIn = table(tIdx).regFileAddrIn - niclOffset
+                val regFileAddrAux = regFileAddrIn - niplOffset
                 table(tIdx).regFileAddrIn := regFileAddrIn
                 table(tIdx).regFileAddrAux := regFileAddrAux
                 printf("[INFO]   regFileAddrIn:    0x%x\n", regFileAddrIn)
