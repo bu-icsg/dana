@@ -143,8 +143,10 @@ NETS_PARITY=parity-1 parity-2 parity-3 parity-4 parity-5 parity-6 parity-7 \
 	parity-8 parity-9
 NETS_PARITY_SAME=parity-same-1 parity-same-2 parity-same-3 parity-same-4 \
 	parity-same-5 parity-same-6 parity-same-7 parity-same-8 parity-same-9
-NETS_XOR=xor-sigmoid-4 xor-sigmoid-8 xor-sigmoid-16 xor-sigmoid-32 xor-sigmoid-64 \
-	xor-sigmoid-128 xor-sigmoid-256
+NETS_XOR=xor-sigmoid-4i xor-sigmoid-8i xor-sigmoid-16i xor-sigmoid-32i \
+	xor-sigmoid-64i xor-sigmoid-128i xor-sigmoid-256i \
+	xor-sigmoid-4o xor-sigmoid-8o xor-sigmoid-16o xor-sigmoid-32o \
+	xor-sigmoid-64o xor-sigmoid-128o xor-sigmoid-256o
 NETS_SIN=sin
 NETS+=$(NETS_GEN) $(NETS_FANN) $(NETS_PARITY) $(NETS_PARITY_SAME) $(NETS_XOR) \
 	$(NETS_SIN)

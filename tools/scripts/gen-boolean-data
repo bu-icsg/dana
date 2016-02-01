@@ -11,6 +11,8 @@ Usage: gen-boolean-data -n [number of bits] -f [boolean function] [OPTIONS]
 Required parameters:
   -n, --num-bits             Number of input bits
   -f, --boolean-function     Boolean function to use
+      --replicate-input      Replicate the inputs a number of times
+      --replicate-output     Replicate the outputs a number of times
 
 Optional parameters:
   -s, --symmetric            Generate symmetric output (as opposed to bipolar)
@@ -25,9 +27,13 @@ END
 my $number_of_bits;
 my $boolean_function;
 my $flag_symmetric;
+my $replicate_input = 1;
+my $replicate_output = 1;
 GetOptions ("n|num-bits=i" => \$number_of_bits,
             "f|boolean-function=s" => \$boolean_function,
-            "s|symmetric" => \$flag_symmetric)
+            "s|symmetric" => \$flag_symmetric,
+            "replicate-input=i" => \$replicate_input,
+            "replicate-output=i" => \$replicate_output)
     or usage() and die "Invalid option";
 
 usage() and die "Missing required options" if
@@ -35,37 +41,48 @@ usage() and die "Missing required options" if
 
 usage() and die "Unknown boolean function $boolean_function" if
     not ($boolean_function eq "and" or
-    $boolean_function eq "or" or
-    $boolean_function eq "xor");
+         $boolean_function eq "or" or
+         $boolean_function eq "xor");
 
-print 2 ** $number_of_bits . " " . $number_of_bits . " " . 1 . "\n";
+die "Input/output replication bust be >= 1" if
+    ($replicate_input < 1 or $replicate_output < 1);
+
+print 2 ** $number_of_bits . " " .
+    $number_of_bits * $replicate_input . " " .
+    1 * $replicate_output . "\n";
 
 for (my $i = 0; $i < 2 ** $number_of_bits; $i++) {
-    my $tmp_i = $i;
     my $output;
     my $bit;
-    for (my $j = $number_of_bits - 1; $j >= 0; $j--) {
-        if ($tmp_i - 2 ** $j >= 0) {
-            $bit = 1;
-            $tmp_i -= 2 ** $j;
-        } else {
-            $bit = 0;
-        }
-        $_ = $bit; s/0/-1/;
-        print $flag_symmetric ? "$_ " : "$bit ";
+    for (my $k = 0; $k < $replicate_input; $k++) {
+        my $tmp_i = $i;
+        for (my $j = $number_of_bits - 1; $j >= 0; $j--) {
+            if ($tmp_i - 2 ** $j >= 0) {
+                $bit = 1;
+                $tmp_i -= 2 ** $j;
+            } else {
+                $bit = 0;
+            }
+            $_ = $bit; s/0/-1/;
+            print $flag_symmetric ? "$_ " : "$bit ";
 
-        if ($j == $number_of_bits - 1) {
-            $output = $bit;
-        } else {
-            if ($boolean_function eq "and") {
-                $output = $output & $bit;
-            } elsif ($boolean_function eq "or") {
-                $output = $output | $bit;
-            } elsif ($boolean_function eq "xor") {
-                $output = $output ^ $bit;
+            if ($j == $number_of_bits - 1) {
+                $output = $bit;
+            } else {
+                if ($boolean_function eq "and") {
+                    $output = $output & $bit;
+                } elsif ($boolean_function eq "or") {
+                    $output = $output | $bit;
+                } elsif ($boolean_function eq "xor") {
+                    $output = $output ^ $bit;
+                }
             }
         }
     }
+    print "\n";
     $_ = $output; s/0/-1/;
-    print $flag_symmetric ? "\n$_\n" : "\n$output\n";
+    for (my $k = 0; $k < $replicate_output; $k++) {
+        print $flag_symmetric ? "$_ " : "$output ";
+    }
+    print "\n";
 }

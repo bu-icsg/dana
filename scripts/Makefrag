@@ -6,13 +6,20 @@ NET_XOR_SIGMOID_SYMMETRIC=-l2 -l8 -l1 -a5 -o5 -r0.7
 NET_XOR_SIGMOID_SYMMETRIC_PAIR=-l2 -l3 -l2 -a5 -o5 -r0.7
 NET_XOR_SIGMOID_SYMMETRIC_THREE_LAYER=-l2 -l8 -l9 -l1 -a5 -o5 -r0.7
 # XOR variants
-NET_XOR_SIGMOID_4=-l4 -l4 -l1 -a5 -o3 -r0.7
-NET_XOR_SIGMOID_8=-l8 -l4 -l1 -a5 -o3 -r.07
-NET_XOR_SIGMOID_16=-l16 -l4 -l1 -a5 -o3 -r.07
-NET_XOR_SIGMOID_32=-l32 -l4 -l1 -a5 -o3 -r.07
-NET_XOR_SIGMOID_64=-l64 -l4 -l1 -a5 -o3 -r.07
-NET_XOR_SIGMOID_128=-l128 -l4 -l1 -a5 -o3 -r.07
-NET_XOR_SIGMOID_256=-l256 -l4 -l1 -a5 -o3 -r.07
+NET_XOR_SIGMOID_4i=-l4 -l4 -l1 -a5 -o3 -r0.7
+NET_XOR_SIGMOID_8i=-l8 -l4 -l1 -a5 -o3 -r.07
+NET_XOR_SIGMOID_16i=-l16 -l4 -l1 -a5 -o3 -r.07
+NET_XOR_SIGMOID_32i=-l32 -l4 -l1 -a5 -o3 -r.07
+NET_XOR_SIGMOID_64i=-l64 -l4 -l1 -a5 -o3 -r.07
+NET_XOR_SIGMOID_128i=-l128 -l4 -l1 -a5 -o3 -r.07
+NET_XOR_SIGMOID_256i=-l256 -l4 -l1 -a5 -o3 -r.07
+NET_XOR_SIGMOID_4o=-l2 -l4 -l4 -a5 -o3 -r0.7
+NET_XOR_SIGMOID_8o=-l2 -l4 -l8 -a5 -o3 -r.07
+NET_XOR_SIGMOID_16o=-l2 -l4 -l16 -a5 -o3 -r.07
+NET_XOR_SIGMOID_32o=-l2 -l4 -l32 -a5 -o3 -r.07
+NET_XOR_SIGMOID_64o=-l2 -l4 -l64 -a5 -o3 -r.07
+NET_XOR_SIGMOID_128o=-l2 -l4 -l128 -a5 -o3 -r.07
+NET_XOR_SIGMOID_256o=-l2 -l4 -l256 -a5 -o3 -r.07
 # FANN dataset NNs
 NET_ABELONE=-l10 -l8 -l1 -a5 -o3 -r0.7
 NET_BANK32FM=-l32 -l16 -l1 -a5 -o3 -r0.7
@@ -57,6 +64,8 @@ NET_SIN=-l1 -l8 -l1 -a3 -o5 -r0.7
 	$(DIR_BUILD_NETS)/%-float.train \
 	$(DIR_BUILD_NETS)/parity-%-float.net \
 	$(DIR_BUILD_NETS)/xor-sigmoid-%-float.net \
+	$(DIR_BUILD_NETS)/xor-sigmoid-%i-float.train \
+	$(DIR_BUILD_NETS)/xor-sigmoid-%o-float.train \
 	$(DIR_BUILD_NETS)/parity-%-float.train \
 	$(DIR_BUILD_NETS)/parity-same-%-float.net \
 	$(DIR_BUILD_NETS)/sin-%-float.train \
@@ -139,6 +148,12 @@ $(DIR_BUILD_NETS)/sin-float.net: $(NETS_TOOLS)
 #--------------------------------------- Generate special training files
 $(DIR_BUILD_NETS)/parity-%-float.train: $(NETS_TOOLS)
 	$(GEN_BOOLEAN_DATA) -n $* -f xor -s > $@
+
+$(DIR_BUILD_NETS)/xor-sigmoid-%i-float.train: $(NETS_TOOLS)
+	$(GEN_BOOLEAN_DATA) -n 2 -f xor --replicate-input $* > $@
+
+$(DIR_BUILD_NETS)/xor-sigmoid-%o-float.train: $(NETS_TOOLS)
+	$(GEN_BOOLEAN_DATA) -n 2 -f xor --replicate-output $* > $@
 
 $(DIR_BUILD_NETS)/sin-scale-%-float.train: $(NETS_TOOLS)
 	$(GEN_MATH_DATA) -f sin -d -1 1 -n 128 --x-scaling=$**1*math.pi \
