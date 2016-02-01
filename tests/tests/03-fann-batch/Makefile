@@ -5,8 +5,11 @@
 # file.
 
 TEST=fann-batch
-NETS_GEN=xorSigmoid xorSigmoidSymmetric xorSigmoidSymmetricPair
-NETS_SKIP=xorSigmoidSymmetricThreeLayer
+NETS_GEN=xorSigmoid \
+	xorSigmoidSymmetric \
+	xorSigmoidSymmetricPair \
+	xorSigmoidSymmetricThreeLayer
+NETS_SKIP=
 NETS_FLOAT=$(addsuffix -float.net, $(NETS_GEN))
 NETS_TRAIN=$(addsuffix -fixed.train, $(NETS_GEN))
 SOURCES=$(TEST).c
