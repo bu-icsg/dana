@@ -82,9 +82,14 @@ class SRAMElementIncrement (
       a(j) := b(elementWidth*(j+1) - 1, elementWidth * j)) }
 
   def writeBlockIncrement(a: Vec[UInt], b: UInt, c: UInt) {
+    def index(j: Int): (Int, Int) = (elementWidth*(j+1) - 1, elementWidth * j)
     (0 until elementsPerBlock).map(j =>
-      a(j) := b((j+1) * elementWidth - 1, j * elementWidth) +
-        c((j+1) * elementWidth - 1, j * elementWidth)) }
+      a(j) := b(index(j)) + c(index(j))) }
+
+  def writeBlockIncrement(a: Vec[UInt], b: UInt, c: UInt, d: UInt) {
+    def index(j: Int): (Int, Int) = (elementWidth*(j+1) - 1, elementWidth * j)
+      (0 until elementsPerBlock).map(j =>
+        a(j) := b(index(j)) + c(index(j)) + d(index(j))) }
 
   // Combinational Logic
   for (i <- 0 until numPorts) {
@@ -130,13 +135,8 @@ class SRAMElementIncrement (
         is (UInt(2)) {
           writeBlockIncrement(tmp(i), sram.io.doutR(i), writePending(i).dataBlock)
           when (fwdBlockIncrement) {
-            (0 until elementsPerBlock).map(j =>
-              tmp(i)(j) := io.din(i)(elementWidth*(j+1) - 1,
-                elementWidth * j) +
-                writePending(i).dataBlock(elementWidth*(j+1) - 1,
-                  elementWidth * j) +
-                sram.io.doutR(i).toBits()((j+1) * elementWidth - 1,
-                  j * elementWidth)) }}}
+            writeBlockIncrement(tmp(i), sram.io.doutR(i), writePending(i).dataBlock,
+              io.din(i)) }}}
       printf("[INFO] SRAMElementIncrement: PE write block Addr/Data_acc/Data_new/Data_old 0x%x/0x%x/0x%x/0x%x\n",
               writePending(i).addrHi##writePending(i).addrLo, tmp(i).toBits, writePending(i).dataBlock, sram.io.doutR(i).toBits)
     }
