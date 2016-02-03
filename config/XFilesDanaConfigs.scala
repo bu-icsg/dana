@@ -59,3 +59,8 @@ class XFilesDanaPE5Config extends Config(new DanaPEX(5) ++
   new XFilesDanaFPGAConfig)
 class XFilesDanaPE6Config extends Config(new DanaPEX(6) ++
   new XFilesDanaFPGAConfig)
+
+class XFilesDanaCppPe1Config extends Config(new DanaPEX(1) ++
+  new XFilesDanaCPPConfig)
+class XFilesDanaCppPe2Config extends Config(new DanaPEX(2) ++
+  new XFilesDanaCPPConfig)
