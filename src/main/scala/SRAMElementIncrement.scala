@@ -129,7 +129,7 @@ class SRAMElementIncrement (
             writeBlockIncrement(tmp1(i), tmp0(i).toBits, io.din(i)) }}}
 
       printf("[INFO] SramEleInc: WRITE port/type/fwd?/fwdType 0x%x/0x%x/0x%x/0x%x\n",
-        i, writePending(i).wtype, forwarding(i), io.wType(i))
+        UInt(i), writePending(i).wType, forwarding(i), io.wType(i))
       printf("[INFO]              DATA addr/dataOld/dataNew 0x%x/0x%x/0x%x\n",
         writePending(i).addrHi##writePending(i).addrLo, tmp1(i).toBits,
         sram.io.doutR(i).toBits)
