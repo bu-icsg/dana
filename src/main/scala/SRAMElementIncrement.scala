@@ -82,7 +82,7 @@ class SRAMElementIncrement (
   def index(j: Int): (Int, Int) = (elementWidth*(j+1) - 1, elementWidth * j)
   def writeElement(a: Vec[UInt], index: UInt, b: UInt) { a(index) := b }
   def writeBlock(a: Vec[UInt], b: UInt) {
-    (0 until elementsPerBlock).map(j => a(j) := b(index(j)) }
+    (0 until elementsPerBlock).map(j => a(j) := b(index(j))) }
   def writeBlockIncrement(a: Vec[UInt], b: UInt, c: UInt) {
     (0 until elementsPerBlock).map(j => a(j) := b(index(j)) + c(index(j))) }
 
