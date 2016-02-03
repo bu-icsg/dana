@@ -100,16 +100,14 @@ class SRAMElementIncrement (
         // Element Write
         is (UInt(0)) {
           for (j <- 0 until elementsPerBlock) {
-            when (UInt(j) === writePending(i).addrLo) {
-              tmp(i)(j) := writePending(i).dataElement
-            } .elsewhen(addr(i).addrHi === writePending(i).addrHi &&
+            when (addr(i).addrHi === writePending(i).addrHi &&
               io.we(i) &&
               io.wType(i) === UInt(0) &&
               UInt(j) === addr(i).addrLo) {
               tmp(i)(j) := io.dinElement(i)
               forwarding(i) := Bool(true)
-            } .otherwise {
-              tmp(i)(j) := sram.io.doutR(i).toBits()((j+1) * elementWidth - 1, j * elementWidth)
+            } .elsewhen (UInt(j) === writePending(i).addrLo) {
+              tmp(i)(j) := writePending(i).dataElement
             }
           }
         }
