@@ -64,3 +64,7 @@ class XFilesDanaCppPe1Config extends Config(new DanaPEX(1) ++
   new XFilesDanaCPPConfig)
 class XFilesDanaCppPe2Config extends Config(new DanaPEX(2) ++
   new XFilesDanaCPPConfig)
+class XFilesDanaCppPe3Config extends Config(new DanaPEX(3) ++
+  new XFilesDanaCPPConfig)
+class XFilesDanaCppPe4Config extends Config(new DanaPEX(4) ++
+  new XFilesDanaCPPConfig)
