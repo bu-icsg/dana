@@ -98,6 +98,10 @@ class SRAMElementIncrement (
 
     when (writePending(i).valid) {
       val sameAddrHi = addr(i).addrHi === writePending(i).addrHi && io.we(i)
+      val fwdElement = sameAddrHi && io.wType(i) === UInt(0)
+      val fwdBlock = sameAddrHi && io.wType(i) === UInt(1)
+      val fwdBlockIncrement = sameAddrHi && io.wType(i) === UInt(2)
+      forwarding(i) := fwdElement | fwdBlock | fwdBlockIncrement
       switch (writePending(i).wType) {
         // Element Write
         is (UInt(0)) {
@@ -105,15 +109,15 @@ class SRAMElementIncrement (
           for (j <- 0 until elementsPerBlock) {
             when (UInt(j) === writePending(i).addrLo) {
               tmp(i)(j) := writePending(i).dataElement }
-            when (forwarding(i) && UInt(j) === addr(i).addrLo) {
-              tmp(i)(j) := io.dinElement(i) }}}
+            when (fwdElement &&  UInt(j) === addr(i).addrLo) {
+              tmp(i)(j) := io.dinElement(i) }}
+        }
         // Block Write
         is (UInt(1)) {
           (0 until elementsPerBlock).map(j =>
             tmp(i)(j) := writePending(i).dataBlock(elementWidth*(j+1) - 1,
               elementWidth * j))
-          forwarding(i) := sameAddrHi && io.wType(i) === UInt(1)
-          when (forwarding(i)) {
+          when (fwdBlock) {
             (0 until elementsPerBlock).map(j =>
               tmp(i)(j) := io.din(i)(elementWidth*(j+1) - 1,
                 elementWidth * j)) }}
@@ -124,8 +128,7 @@ class SRAMElementIncrement (
               j * elementWidth) +
               writePending(i).dataBlock(elementWidth*(j+1) - 1,
                 elementWidth * j))
-          forwarding(i) := sameAddrHi && io.wType(i) === UInt(2)
-          when (forwarding(i)) {
+          when (fwdBlockIncrement) {
             (0 until elementsPerBlock).map(j =>
               tmp(i)(j) := io.din(i)(elementWidth*(j+1) - 1,
                 elementWidth * j) +
