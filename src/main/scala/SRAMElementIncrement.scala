@@ -119,24 +119,27 @@ class SRAMElementIncrement (
       switch (writePending(i).wType) {
         // Element Write
         is (UInt(0)) {
-          forwarding(i) := sameAddrHi && io.wType(i) === UInt(0)
           for (j <- 0 until elementsPerBlock) {
             when (UInt(j) === writePending(i).addrLo) {
-              tmp(i)(j) := writePending(i).dataElement }
-            when (fwdElement &&  UInt(j) === addr(i).addrLo) {
-              tmp(i)(j) := io.dinElement(i) }}
+              tmp(i)(j) := writePending(i).dataElement }}
+          when (fwdElement) {
+            tmp(i)(addr(i).addrLo) := io.dinElement(i) }
         }
         // Block Write
         is (UInt(1)) {
           writeBlock(tmp(i), writePending(i).dataBlock)
           when (fwdBlock) {
-            writeBlock(tmp(i), io.din(i)) }}
+            writeBlock(tmp(i), io.din(i))
+          } .elsewhen (fwdBlockIncrement) {
+            writeBlockIncrement(tmp(i), writePending(i).dataBlock, io.din(i)) }}
         // Block Write with Element-wise Increment
         is (UInt(2)) {
           writeBlockIncrement(tmp(i), sram.io.doutR(i), writePending(i).dataBlock)
           when (fwdBlockIncrement) {
             writeBlockIncrement(tmp(i), sram.io.doutR(i), writePending(i).dataBlock,
-              io.din(i)) }}}
+              io.din(i))
+          } .elsewhen (fwdBlock) {
+            writeBlock(tmp(i), io.din(i)) }}}
       printf("[INFO] SRAMElementIncrement: PE write block Addr/Data_acc/Data_new/Data_old 0x%x/0x%x/0x%x/0x%x\n",
               writePending(i).addrHi##writePending(i).addrLo, tmp(i).toBits, writePending(i).dataBlock, sram.io.doutR(i).toBits)
     }
