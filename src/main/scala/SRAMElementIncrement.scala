@@ -167,4 +167,19 @@ class SRAMElementIncrement (
       writePending(i).addrLo := addr(i).addrLo
     }
   }
+
+  // Assertions
+
+  // Any consecutive writes should be of the same type or else
+  // behavior is technically undefined.
+  assert(!Vec((0 until numPorts).map(
+    i => writePending(i).valid && io.we(i) &&
+      (addr(i).addrHi === writePending(i).addrHi) &&
+      (writePending(i).wType =/= io.wType(i)))).contains(Bool(true)),
+    "SRAMElementIncrement saw consecutive writes of different types")
+
+  // We only define write types up through 2
+  assert(!Vec((0 until numPorts).map(i =>
+    io.we(i) && io.wType(i) > UInt(2))).contains(Bool(true)),
+    "SRAMElementIncrement saw unsupported wType > 2")
 }
