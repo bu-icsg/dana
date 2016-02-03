@@ -77,6 +77,15 @@ class SRAMElementIncrement (
     Vec.fill(elementsPerBlock){ UInt(width = elementWidth) }})
   val forwarding = Wire(Vec.fill(numPorts){ Bool() })
 
+  def writeBlock(a: Vec[UInt], b: UInt) {
+    (0 until elementsPerBlock).map(j =>
+      a(j) := b(elementWidth*(j+1) - 1, elementWidth * j)) }
+
+  def writeBlockIncrement(a: Vec[UInt], b: UInt, c: UInt) {
+    (0 until elementsPerBlock).map(j =>
+      a(j) := b((j+1) * elementWidth - 1, j * elementWidth) +
+        c((j+1) * elementWidth - 1, j * elementWidth)) }
+
   // Combinational Logic
   for (i <- 0 until numPorts) {
     // Assign the addresses
@@ -114,20 +123,12 @@ class SRAMElementIncrement (
         }
         // Block Write
         is (UInt(1)) {
-          (0 until elementsPerBlock).map(j =>
-            tmp(i)(j) := writePending(i).dataBlock(elementWidth*(j+1) - 1,
-              elementWidth * j))
+          writeBlock(tmp(i), writePending(i).dataBlock)
           when (fwdBlock) {
-            (0 until elementsPerBlock).map(j =>
-              tmp(i)(j) := io.din(i)(elementWidth*(j+1) - 1,
-                elementWidth * j)) }}
+            writeBlock(tmp(i), io.din(i)) }}
         // Block Write with Element-wise Increment
         is (UInt(2)) {
-          (0 until elementsPerBlock).map(j =>
-            tmp(i)(j) := sram.io.doutR(i).toBits()((j+1) * elementWidth - 1,
-              j * elementWidth) +
-              writePending(i).dataBlock(elementWidth*(j+1) - 1,
-                elementWidth * j))
+          writeBlockIncrement(tmp(i), sram.io.doutR(i), writePending(i).dataBlock)
           when (fwdBlockIncrement) {
             (0 until elementsPerBlock).map(j =>
               tmp(i)(j) := io.din(i)(elementWidth*(j+1) - 1,
