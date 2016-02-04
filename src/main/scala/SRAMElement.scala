@@ -59,17 +59,17 @@ class SRAMElement (
   val elementsPerBlock = divUp(dataWidth, elementWidth)
 
   val addr = Vec.fill(numPorts){ new Bundle{
-    val addrHi = UInt(width = log2Up(sramDepth))
-    val addrLo = UInt(width = log2Up(elementsPerBlock))}}
+    val addrHi = Wire(UInt(width = log2Up(sramDepth)))
+    val addrLo = Wire(UInt(width = log2Up(elementsPerBlock)))}}
 
   val writePending = Vec.fill(numPorts){Reg(new WritePendingBundle(
     elementWidth = elementWidth,
     dataWidth = dataWidth,
     sramDepth = sramDepth))}
 
-  val tmp = Vec.fill(numPorts){
-    Vec.fill(elementsPerBlock){ UInt(width = elementWidth) }}
-  val forwarding = Vec.fill(numPorts){ Bool() }
+  val tmp = Wire(Vec.fill(numPorts){
+    Vec.fill(elementsPerBlock){ UInt(width = elementWidth) }})
+  val forwarding = Wire(Vec.fill(numPorts){ Bool() })
 
   // Combinational Logic
   for (i <- 0 until numPorts) {
