@@ -2,12 +2,12 @@
 
 dir=$(dirname $(readlink -f $0))
 
-# The username and password are stored in a line beginning with
+# The APC username and password are stored in a line beginning with
 # "credentials" in info.txt.
-credentials=$(grep ^credentials $dir/info.txt)
-credentials=${credentials#*,}
-username=${credentials%,*}
-password=${credentials#*,}
+credentials_apc=$(grep ^credentials-apc $dir/info.txt)
+credentials_apc=${credentials_apc#*,}
+username_apc=${credentials_apc%,*}
+password_apc=${credentials_apc#*,}
 
 # FPGA info is also in info.txt in a line beginning with "fpga"
 fpgas=($(grep ^fpga $dir/info.txt))
@@ -24,6 +24,6 @@ for fpga in "${fpgas[@]}"; do
     user=$(ps -A au | grep -i screen | grep $tty | tail -n1 | tail -n1 | \
         awk '{print $1}')
     status=$(exec fence_apc --action=status --ip=$ip --plug=$plug \
-        --username=$username --password=$password | awk '{print $2}')
+        --username=$username_apc --password=$password_apc | awk '{print $2}')
     echo "$name $status $user" | awk '{printf "%-6s %-7s %-10s\n", $1, $2, $3}'
 done

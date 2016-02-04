@@ -65,13 +65,13 @@ if [ $user ] && [ $user != $USER ] && [ $force -eq 0 ]; then
     exit 1
 fi
 
-# Get the credentials from info.txt that we need to login to the
+# Get the credentials_apc from info.txt that we need to login to the
 # powerstrip
-credentials=$(grep ^credentials $dir/info.txt)
-credentials=${credentials#*,}
-username=${credentials%,*}
-password=${credentials#*,}
+credentials_apc=$(grep ^credentials-apc $dir/info.txt)
+credentials_apc=${credentials_apc#*,}
+username_apc=${credentials_apc%,*}
+password_apc=${credentials_apc#*,}
 
 # Reboot the FPGA
 exec fence_apc --action=reboot --ip=$ip --plug=$plug \
-    --username=$username --password=$password
+    --username=$username_apc --password=$password_apc
