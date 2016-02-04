@@ -58,6 +58,8 @@ class SRAMElement (
 
   val elementsPerBlock = divUp(dataWidth, elementWidth)
 
+  def index(j: Int): (Int, Int) = (elementWidth*(j+1) - 1, elementWidth * j)
+
   val addr = Vec.fill(numPorts){ new Bundle{
     val addrHi = Wire(UInt(width = log2Up(sramDepth)))
     val addrLo = Wire(UInt(width = log2Up(elementsPerBlock)))}}
@@ -75,36 +77,27 @@ class SRAMElement (
   for (i <- 0 until numPorts) {
     // Assign the addresses
     addr(i).addrHi := io.addr(i).toBits()(
-      log2Up(sramDepth * elementsPerBlock) - 1,
-      log2Up(elementsPerBlock))
-    addr(i).addrLo := io.addr(i).toBits()(
-      log2Up(elementsPerBlock) - 1, 0)
+      log2Up(sramDepth * elementsPerBlock) - 1, log2Up(elementsPerBlock))
+    addr(i).addrLo := io.addr(i).toBits()(log2Up(elementsPerBlock) - 1, 0)
+
     // Connections to the sram
     sram.io.weW(i) := writePending(i).valid
     sram.io.dinW(i) := tmp(i).toBits()
+    sram.io.addrW(i) := writePending(i).addrHi
     sram.io.addrR(i) := addr(i).addrHi
     io.dout(i) := sram.io.doutR(i)
+
     // Defaults
-    forwarding(i) := Bool(false)
-    (0 until elementsPerBlock).map(j =>
-      tmp(i)(j) := sram.io.doutR(i)(elementsPerBlock*(j+1)-1,elementsPerBlock*j))
-    sram.io.addrW(i) := writePending(i).addrHi
+    (0 until elementsPerBlock).map(j => tmp(i)(j) := sram.io.doutR(i)(index(j)))
+    forwarding(i) := addr(i).addrHi === writePending(i).addrHi && io.we(i) &&
+      writePending(i).valid
+
     when (writePending(i).valid) {
-      for (j <- 0 until elementsPerBlock) {
-        when (UInt(j) === writePending(i).addrLo) {
-          tmp(i)(j) := writePending(i).data
-        } .elsewhen(addr(i).addrHi === writePending(i).addrHi &&
-            io.we(i) &&
-            UInt(j) === addr(i).addrLo) {
-          tmp(i)(j) := io.dinElement(i)
-          forwarding(i) := Bool(true)
-        } .otherwise {
-          tmp(i)(j) := sram.io.doutR(i).toBits()((j+1) * elementWidth - 1,
-            j * elementWidth)
-        }
-      }
-    }
-  }
+      // Write the element
+      tmp(i)(writePending(i).addrLo) := writePending(i).data
+      // Write the forwarded element if needed
+      when (forwarding(i)) {
+        tmp(i)(writePending(i).addrLo) := io.dinElement(i) }}}
 
   // Sequential Logic
   for (i <- 0 until numPorts) {
@@ -114,9 +107,7 @@ class SRAMElement (
       writePending(i).valid := Bool(true)
       writePending(i).data := io.dinElement(i)
       writePending(i).addrHi := addr(i).addrHi
-      writePending(i).addrLo := addr(i).addrLo
-    }
-  }
+      writePending(i).addrLo := addr(i).addrLo }}
 }
 
 class SRAMElementTests(uut: SRAMElement, isTrace: Boolean = true)

@@ -63,6 +63,12 @@ class SRAMElementIncrement (
 
   val elementsPerBlock = divUp(dataWidth, elementWidth)
 
+  def index(j: Int): (Int, Int) = (elementWidth*(j+1) - 1, elementWidth * j)
+  def writeBlock(a: Vec[UInt], b: UInt) {
+    (0 until elementsPerBlock).map(j => a(j) := b(index(j))) }
+  def writeBlockIncrement(a: Vec[UInt], b: UInt, c: UInt) {
+    (0 until elementsPerBlock).map(j => a(j) := b(index(j)) + c(index(j))) }
+
   val addr = Vec.fill(numPorts){ new Bundle{
     // [TODO] Use of Wire inside Vec may be verboten
     val addrHi = Wire(UInt(width = log2Up(sramDepth)))
@@ -79,13 +85,6 @@ class SRAMElementIncrement (
     Vec.fill(elementsPerBlock){ UInt(width = elementWidth) }})
   val forwarding = Wire(Vec.fill(numPorts){ Bool() })
 
-  def index(j: Int): (Int, Int) = (elementWidth*(j+1) - 1, elementWidth * j)
-  def writeElement(a: Vec[UInt], index: UInt, b: UInt) { a(index) := b }
-  def writeBlock(a: Vec[UInt], b: UInt) {
-    (0 until elementsPerBlock).map(j => a(j) := b(index(j))) }
-  def writeBlockIncrement(a: Vec[UInt], b: UInt, c: UInt) {
-    (0 until elementsPerBlock).map(j => a(j) := b(index(j)) + c(index(j))) }
-
   // Combinational Logic
   for (i <- 0 until numPorts) {
     // Assign the addresses: addrHi->block address, addrLo->element address
@@ -101,8 +100,7 @@ class SRAMElementIncrement (
     io.dout(i) := sram.io.doutR(i)
 
     // Defaults
-    (0 until elementsPerBlock).map(j =>
-      tmp0(i)(j) := sram.io.doutR(i)(elementWidth*(j+1)-1,elementWidth*j))
+    (0 until elementsPerBlock).map(j => tmp0(i)(j) := sram.io.doutR(i)(index(j)))
     tmp1(i) := tmp0(i)
     forwarding(i) := addr(i).addrHi === writePending(i).addrHi && io.we(i) &&
       writePending(i).valid
