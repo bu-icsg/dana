@@ -57,14 +57,24 @@ class SRAMBlockIncrement (
     sramDepth = sramDepth,
     numPorts = numPorts,
     elementWidth = elementWidth).flip
+
   val elementsPerBlock = divUp(dataWidth, elementWidth)
+
+  def index(j: Int): (Int, Int) = (elementWidth*(j+1) - 1, elementWidth * j)
+  def writeElement(a: Vec[UInt], index: UInt, b: UInt) { a(index) := b }
+  def writeBlock(a: Vec[UInt], b: UInt) {
+    (0 until elementsPerBlock).map(j => a(j) := b(index(j))) }
+  def writeBlockIncrement(a: Vec[UInt], b: UInt, c: UInt) {
+    (0 until elementsPerBlock).map(j => a(j) := b(index(j)) + c(index(j))) }
 
   val writePending = Vec.fill(numPorts){Reg(new WritePendingBlockIncrementBundle(
     elementWidth = elementWidth,
     dataWidth = dataWidth,
     sramDepth = sramDepth))}
 
-  val tmp = Wire(Vec.fill(numPorts){
+  val tmp0 = Wire(Vec.fill(numPorts){
+    Vec.fill(elementsPerBlock){ UInt(width = elementWidth) }})
+  val tmp1 = Wire(Vec.fill(numPorts){
     Vec.fill(elementsPerBlock){ UInt(width = elementWidth) }})
   val forwarding = Wire(Vec.fill(numPorts){ Bool() })
 
@@ -72,56 +82,36 @@ class SRAMBlockIncrement (
   for (i <- 0 until numPorts) {
     // Connections to the sram
     sram.io.weW(i) := writePending(i).valid
-    sram.io.dinW(i) := tmp(i).toBits()
+    sram.io.dinW(i) := tmp1(i).toBits()
+    sram.io.addrW(i) := writePending(i).addr
     sram.io.addrR(i) := io.addr(i)
     io.dout(i) := sram.io.doutR(i)
-    // Defaults
-    forwarding(i) := Bool(false)
-    (0 until elementsPerBlock).map(j =>
-      tmp(i)(j) := sram.io.doutR(i)(elementWidth*(j+1)-1,elementWidth*j))
-    sram.io.addrW(i) := writePending(i).addr
-    when (writePending(i).valid) {
-      switch (writePending(i).inc) {
-        // Block Write
-        is (Bool(false)) {
-          when (io.addr(i) === writePending(i).addr &&
-            io.we(i) && io.inc(i) === Bool(false)) {
-            (0 until elementsPerBlock).map(j =>
-              tmp(i)(j) := io.din(i)(elementWidth*(j+1) - 1, elementWidth * j))
-            forwarding(i) := Bool(true)
-          } .otherwise {
-            (0 until elementsPerBlock).map(j =>
-              tmp(i)(j) := writePending(i).data(elementWidth*(j+1) - 1,
-                elementWidth * j))
-          }
-        }
-        // Block Write with Element-wise Increment
-        is (Bool(true)) {
-          when (io.addr(i) === writePending(i).addr &&
-            io.we(i) && io.inc(i) === Bool(true)) {
-            (0 until elementsPerBlock).map(j =>
-              tmp(i)(j) := io.din(i)(elementWidth*(j+1) - 1,
-                elementWidth * j) +
-                writePending(i).data(elementWidth*(j+1) - 1,
-                  elementWidth * j) +
-                sram.io.doutR(i).toBits()((j+1) * elementWidth - 1,
-                  j * elementWidth))
-            forwarding(i) := Bool(true)
-          } .otherwise {
-            (0 until elementsPerBlock).map(j =>
-              tmp(i)(j) := sram.io.doutR(i).toBits()((j+1) * elementWidth - 1,
-                j * elementWidth) +
-              writePending(i).data(elementWidth*(j+1) - 1,
-                elementWidth * j))
-          }
 
-        }
-      }
-      printf("[INFO] SRAMBlockIncrement: PE write block Addr/Data_acc/Data_new/Data_old 0x%x/0x%x/0x%x/0x%x\n",
-        writePending(i).addr##UInt(0, width=log2Up(elementsPerBlock)),
-        tmp(i).toBits, writePending(i).data, sram.io.doutR(i).toBits)
-    }
-  }
+    // Defaults
+    (0 until elementsPerBlock).map(j =>
+      tmp0(i)(j) := sram.io.doutR(i)(elementWidth*(j+1)-1,elementWidth*j))
+    tmp1(i) := tmp0(i)
+    forwarding(i) := writePending(i).valid && io.we(i) &&
+      io.addr(i) === writePending(i).addr
+
+    // Handle a pending write if one exists
+    when (writePending(i).valid) {
+      when (!writePending(i).inc) {
+        writeBlock(tmp0(i), writePending(i).data)
+      } .otherwise {
+        writeBlockIncrement(tmp0(i), writePending(i).data, sram.io.doutR(i)) }
+
+      // Deal with forwarding
+      when (forwarding(i)) {
+        when (!io.inc(i)) {
+          writeBlock(tmp0(i), io.din(i))
+        } .otherwise {
+          writeBlockIncrement(tmp1(i), tmp0(i).toBits, io.din(i)) }}
+
+      printf("[INFO] SramBloInc: WRITE port/inc?/fwd?/fwdInc? 0x%x/0x%x/0x%x/0x%x\n",
+        UInt(i), writePending(i).inc, forwarding(i), io.inc(i))
+      printf("[INFO]              DATA addr/dataOld/dataNew 0x%x/0x%x/0x%x\n",
+        writePending(i).addr, tmp1(i).toBits, sram.io.doutR(i).toBits) }}
 
   // Sequential Logic
   for (i <- 0 until numPorts) {
@@ -131,7 +121,5 @@ class SRAMBlockIncrement (
       writePending(i).valid := Bool(true)
       writePending(i).inc := io.inc(i)
       writePending(i).data := io.din(i)
-      writePending(i).addr := io.addr(i)
-    }
-  }
+      writePending(i).addr := io.addr(i) }}
 }
