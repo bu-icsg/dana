@@ -15,6 +15,12 @@ Example usage:
 EOF
 }
 
+# Check that the user can actually access the TTY
+if [ `groups | grep -c dialout` -eq 0 ]; then
+    echo "[ERROR] User needs to be in group \"dialout\""
+    exit 1
+fi
+
 dir=$(dirname $(readlink -f $0))
 OPTIND=1
 while getopts "hf" opt; do
