@@ -559,7 +559,7 @@ class ProcessingElementLearn(implicit p: Parameters)
           when (io.req.bits.tType === e_TTYPE_BATCH) {
             state := PE_states('e_PE_WEIGHT_UPDATE_REQUEST_BIAS)
           } .otherwise {
-            state := PE_states('e_PE_WEIGHT_UPDATE_WRITE_BIAS)
+            state := PE_states('e_PE_WEIGHT_UPDATE_COMPUTE_BIAS)
           }
         }
       }
