@@ -970,10 +970,9 @@ class TransactionTableLearn(implicit p: Parameters)
                 niplOffset
               table(tIdx).regFileAddrOutFixed :=
                 table(tIdx).regFileAddrOut + niplOffset
-              // Store the number of nodes in the output layer for future use
-              when (table(tIdx).inLastEarly) {
-                table(tIdx).nodesInLast := io.control.resp.bits.data(0)
-              }
+              // nodesInLast can be blindly set during non-learning
+              // feedforward mode
+              table(tIdx).nodesInLast := nicl
             }
             is(e_TTABLE_STATE_LEARN_FEEDFORWARD){
               val regFileAddrOut = table(tIdx).regFileAddrOut + niplOffset
@@ -991,14 +990,11 @@ class TransactionTableLearn(implicit p: Parameters)
 
               // Update the number of total nodes in the network
               when (table(tIdx).currentLayer === UInt(0)) { // In first layer
-                table(tIdx).numNodes := table(tIdx).numNodes +
-                  io.control.resp.bits.data(0)
+                table(tIdx).numNodes := table(tIdx).numNodes + nicl
               } .elsewhen (table(tIdx).inLastEarly) {        // in the last layer
-                table(tIdx).numNodes := table(tIdx).numNodes +
-                  io.control.resp.bits.data(0)
+                table(tIdx).numNodes := table(tIdx).numNodes + nicl
               } .otherwise {                                // not first or last
-                table(tIdx).numNodes := table(tIdx).numNodes +
-                  io.control.resp.bits.data(0) * UInt(2)
+                table(tIdx).numNodes := table(tIdx).numNodes + nicl * UInt(2)
               }
 
               // The bias offset is the size of the bias region
@@ -1019,7 +1015,7 @@ class TransactionTableLearn(implicit p: Parameters)
 
               // Store the number of nodes in the output layer for future use
               when (table(tIdx).inLastEarly) {
-                table(tIdx).nodesInLast := io.control.resp.bits.data(0)
+                table(tIdx).nodesInLast := nicl
               }
 
               printf("[INFO]   offsetDW:         0x%x\n", table(tIdx).offsetDW)
