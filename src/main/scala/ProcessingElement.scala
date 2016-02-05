@@ -571,10 +571,10 @@ class ProcessingElementLearn(implicit p: Parameters)
         reqSent := io.req.valid
       } .elsewhen (io.req.valid) {
         reqSent := Bool(false)
-        state := PE_states('e_PE_WEIGHT_UPDATE_WAIT_FOR_BIAS_d0)
+        state := PE_states('e_PE_WEIGHT_UPDATE_COMPUTE_BIAS)
       }
     }
-    is (PE_states('e_PE_WEIGHT_UPDATE_WAIT_FOR_BIAS_d0)) {
+    is (PE_states('e_PE_WEIGHT_UPDATE_COMPUTE_BIAS)) {
       state := PE_states('e_PE_WEIGHT_UPDATE_WRITE_BIAS)
       DSP(io.req.bits.dw_in, io.req.bits.learningRate.toSInt, decimal)
       dataOut := dsp.d

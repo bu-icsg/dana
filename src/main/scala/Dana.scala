@@ -149,7 +149,7 @@ abstract class DanaModule(implicit val p: Parameters) extends Module
       'e_PE_WEIGHT_UPDATE_WRITE_BACK,                     // 20
       'e_PE_WEIGHT_UPDATE_WRITE_BIAS,                     // 21
       'e_PE_WEIGHT_UPDATE_REQUEST_BIAS,                   // 22
-      'e_PE_WEIGHT_UPDATE_WAIT_FOR_BIAS_d0,               // 23
+      'e_PE_WEIGHT_UPDATE_COMPUTE_BIAS,                   // 23
       'e_PE_DONE,                                         // 24
       'e_PE_ERROR))                                       // 25
   val (e_PE_REQ_INPUT ::             // 0
