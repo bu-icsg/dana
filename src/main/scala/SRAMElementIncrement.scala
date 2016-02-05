@@ -129,8 +129,8 @@ class SRAMElementIncrement (
       printf("[INFO] SramEleInc: WRITE port/type/fwd?/fwdType 0x%x/0x%x/0x%x/0x%x\n",
         UInt(i), writePending(i).wType, forwarding(i), io.wType(i))
       printf("[INFO]              DATA addr/dataOld/dataNew 0x%x/0x%x/0x%x\n",
-        writePending(i).addrHi##writePending(i).addrLo, tmp1(i).toBits,
-        sram.io.doutR(i).toBits)
+        writePending(i).addrHi##writePending(i).addrLo, sram.io.doutR(i).toBits,
+        tmp1(i).toBits)
     }
   }
 
