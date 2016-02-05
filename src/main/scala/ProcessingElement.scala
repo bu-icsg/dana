@@ -576,7 +576,9 @@ class ProcessingElementLearn(implicit p: Parameters)
     }
     is (PE_states('e_PE_WEIGHT_UPDATE_COMPUTE_BIAS)) {
       state := PE_states('e_PE_WEIGHT_UPDATE_WRITE_BIAS)
-      DSP(io.req.bits.dw_in, io.req.bits.learningRate.toSInt, decimal)
+      val bias = Mux(io.req.bits.tType === e_TTYPE_BATCH,
+        io.req.bits.dw_in, io.req.bits.bias)
+      DSP(bias, io.req.bits.learningRate.toSInt, decimal)
       dataOut := dsp.d
     }
     is (PE_states('e_PE_WEIGHT_UPDATE_WRITE_BIAS)) {
