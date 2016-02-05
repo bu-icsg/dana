@@ -245,23 +245,18 @@ class ProcessingElementLearn(implicit p: Parameters)
         reqSent := io.req.valid
       } .elsewhen (io.req.valid) {
         reqSent := Bool(false)
-        // when(io.req.bits.tType === e_TTYPE_BATCH &&
-        //   (io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_ERROR_BACKPROP ||
-        //     io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_UPDATE_SLOPE)){
-        when((io.req.bits.tType === e_TTYPE_BATCH &&
-          io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_ERROR_BACKPROP) ||
-          // Catch the case that we're doing a learning fedforward
-          // operation and we're in the last layer
-          (dwWritebackDone === Bool(true) &&
-          io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_FEEDFORWARD)){
-          state := PE_states('e_PE_RUN_UPDATE_SLOPE)
-        } .elsewhen(io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_WEIGHT_UPDATE ||
-          (io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_ERROR_BACKPROP)){
-          state := PE_states('e_PE_RUN_WEIGHT_UPDATE)
-        } .otherwise{
-          state := PE_states('e_PE_RUN)
-        }
-      }
+
+        state := PE_states('e_PE_RUN)
+        when (io.req.bits.tType === e_TTYPE_BATCH) {
+          when (io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_ERROR_BACKPROP ||
+            dwWritebackDone) {
+            state := PE_states('e_PE_RUN_UPDATE_SLOPE)
+          } .elsewhen (io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_WEIGHT_UPDATE) {
+            state := PE_states('e_PE_RUN_WEIGHT_UPDATE) }
+        } .elsewhen (io.req.bits.tType === e_TTYPE_INCREMENTAL) {
+          when (io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_ERROR_BACKPROP ||
+            dwWritebackDone) {
+            state := PE_states('e_PE_RUN_WEIGHT_UPDATE) }}}
     }
     is (PE_states('e_PE_RUN)) {
       val blockIndex = index(log2Up(elementsPerBlock) - 1, 0)
