@@ -1111,8 +1111,7 @@ class TransactionTableLearn(implicit p: Parameters)
       val tIdx = io.control.resp.bits.layerValidIndex
       val inLastOld = table(tIdx).inLast
       val inLastNew = table(tIdx).currentLayer === (table(tIdx).numLayers - UInt(1))
-      val inLastPenultimate =
-        table(tIdx).currentLayer === (table(tIdx).numLayers - UInt(2))
+      val inFirst = table(tIdx).currentLayer === UInt(0)
       switch (table(tIdx).transactionType) {
         is (e_TTYPE_FEEDFORWARD) {
           when (!inLastOld) {
@@ -1123,7 +1122,7 @@ class TransactionTableLearn(implicit p: Parameters)
           }
         }
         is (e_TTYPE_INCREMENTAL) {
-          when (inLastPenultimate &&
+          when (inFirst &&
             table(tIdx).stateLearn === e_TTABLE_STATE_LEARN_WEIGHT_UPDATE) {
             table(tIdx).decInUse := Bool(true)
             table(tIdx).waiting := Bool(false)
