@@ -1,8 +1,5 @@
 package dana
 
-// [TODO]:
-//   * the "blockIndex" val is actually an element index
-
 import Chisel._
 import cde.{Parameters, Field}
 
@@ -70,6 +67,7 @@ class ProcessingElement(implicit p: Parameters) extends DanaModule()(p) {
   val acc = Reg(SInt(width = elementWidth))
   val dataOut = Reg(SInt(width = elementWidth))
   val reqSent = Reg(Bool())
+  val eleIndex = index(log2Up(elementsPerBlock) - 1, 0)
 
   // [TODO] fragile on PE stateu enum (Common.scala)
   val state = Reg(UInt(), init = PE_states('e_PE_UNALLOCATED))
@@ -164,17 +162,16 @@ class ProcessingElement(implicit p: Parameters) extends DanaModule()(p) {
       }
     }
     is (PE_states('e_PE_RUN)) {
-      val blockIndex = index(log2Up(elementsPerBlock) - 1, 0)
       when (index === (io.req.bits.numWeights - UInt(1))) {
         state := PE_states('e_PE_ACTIVATION_FUNCTION)
-      } .elsewhen (blockIndex === UInt(elementsPerBlock - 1)) {
+      } .elsewhen (eleIndex === UInt(elementsPerBlock - 1)) {
         state := PE_states('e_PE_REQUEST_INPUTS_AND_WEIGHTS)
       }
-      DSP(io.req.bits.iBlock(blockIndex), io.req.bits.wBlock(blockIndex), decimal)
+      DSP(io.req.bits.iBlock(eleIndex), io.req.bits.wBlock(eleIndex), decimal)
       acc := acc + dsp.d
       index := index + UInt(1)
       printf("[INFO] PE: run 0x%x + (0x%x * 0x%x) >> 0x%x = 0x%x\n",
-        acc, io.req.bits.iBlock(blockIndex), io.req.bits.wBlock(blockIndex),
+        acc, io.req.bits.iBlock(eleIndex), io.req.bits.wBlock(eleIndex),
         decimal, acc + dsp.d)
     }
     is (PE_states('e_PE_ACTIVATION_FUNCTION)) {
@@ -262,20 +259,19 @@ class ProcessingElementLearn(implicit p: Parameters)
             state := PE_states('e_PE_RUN_UPDATE_SLOPE) }}}
     }
     is (PE_states('e_PE_RUN)) {
-      val blockIndex = index(log2Up(elementsPerBlock) - 1, 0)
       when (index === (io.req.bits.numWeights - UInt(1))) {
         state := PE_states('e_PE_ACTIVATION_FUNCTION)
-      } .elsewhen (blockIndex === UInt(elementsPerBlock - 1)) {
+      } .elsewhen (eleIndex === UInt(elementsPerBlock - 1)) {
         state := PE_states('e_PE_REQUEST_INPUTS_AND_WEIGHTS)
       }
-      DSP(io.req.bits.iBlock(blockIndex), io.req.bits.wBlock(blockIndex), decimal)
+      DSP(io.req.bits.iBlock(eleIndex), io.req.bits.wBlock(eleIndex), decimal)
       acc := acc + dsp.d
-      // acc := acc + ((io.req.bits.iBlock(blockIndex) *
-      //        io.req.bits.wBlock(blockIndex)) >>
+      // acc := acc + ((io.req.bits.iBlock(eleIndex) *
+      //        io.req.bits.wBlock(eleIndex)) >>
       //   decimal)(elementWidth-1,0)
       index := index + UInt(1)
       printf("[INFO] PE: run 0x%x + (0x%x * 0x%x) >> 0x%x = 0x%x\n",
-        acc, io.req.bits.iBlock(blockIndex), io.req.bits.wBlock(blockIndex),
+        acc, io.req.bits.iBlock(eleIndex), io.req.bits.wBlock(eleIndex),
         decimal, acc + dsp.d)
     }
     is (PE_states('e_PE_ACTIVATION_FUNCTION)) {
@@ -423,24 +419,22 @@ class ProcessingElementLearn(implicit p: Parameters)
       }
     }
     is (PE_states('e_PE_ERROR_BACKPROP_DELTA_WEIGHT_MUL)) {
-      val blockIndex = index(log2Up(elementsPerBlock) - 1, 0)
       // Loop over all the weights in the weight buffer, multiplying
       // these by their delta
       when (index === (io.req.bits.numWeights - UInt(1)) ||
-        blockIndex === UInt(elementsPerBlock - 1)) {
+        eleIndex === UInt(elementsPerBlock - 1)) {
         state := PE_states('e_PE_ERROR_BACKPROP_WEIGHT_WB)
       }
-      DSP(errorOut, io.req.bits.wBlock(blockIndex), decimal)
-      weightWB(blockIndex) := dsp.d
-      // weightWB(blockIndex) := (errorOut * io.req.bits.wBlock(blockIndex)) >>
+      DSP(errorOut, io.req.bits.wBlock(eleIndex), decimal)
+      weightWB(eleIndex) := dsp.d
+      // weightWB(eleIndex) := (errorOut * io.req.bits.wBlock(eleIndex)) >>
       //   decimal
       printf("[INFO] PE: d*weight (0x%x * 0x%x) >> 0x%x = 0x%x\n",
-        errorOut, io.req.bits.wBlock(blockIndex), decimal,
+        errorOut, io.req.bits.wBlock(eleIndex), decimal,
         dsp.d)
       index := index + UInt(1)
     }
     is (PE_states('e_PE_ERROR_BACKPROP_WEIGHT_WB)) {
-      val blockIndex = index(log2Up(elementsPerBlock) - 1, 0)
       when (io.req.valid) {
         when (index === io.req.bits.numWeights) {
           index := UInt(0)
@@ -477,12 +471,12 @@ class ProcessingElementLearn(implicit p: Parameters)
       // val delta = Mux(io.req.bits.inFirst, errorOut, io.req.bits.learnReg)
       val delta =  errorOut
       // [TODO] This is actually an element index!
-      val blockIndex = index(log2Up(elementsPerBlock) - 1, 0)
+      val inLastElement = (index === (io.req.bits.numWeights - UInt(1)) ||
+        eleIndex === UInt(elementsPerBlock - 1))
       index := index + UInt(1)
-      when (index === (io.req.bits.numWeights - UInt(1)) ||
-        blockIndex === UInt(elementsPerBlock - 1)) {
+      when (inLastElement) {
         state := PE_states('e_PE_SLOPE_WB)
-        when (io.req.bits.stateLearn === e_TTYPE_INCREMENTAL) {
+        when (io.req.bits.tType === e_TTYPE_INCREMENTAL) {
           state := PE_states('e_PE_RUN_WEIGHT_UPDATE)
           // Reset any modifications that have been made to the index
           // as this will be reused during weight update
@@ -491,10 +485,10 @@ class ProcessingElementLearn(implicit p: Parameters)
             UInt(0, width = log2Up(elementsPerBlock))
         }
       }
-      DSP(delta, io.req.bits.iBlock(blockIndex), decimal)
-      weightWB(blockIndex) := dsp.d
+      DSP(delta, io.req.bits.iBlock(eleIndex), decimal)
+      weightWB(eleIndex) := dsp.d
       printf("[INFO] PE: update slope 0x%x * 0x%x = 0x%x\n",
-        delta, io.req.bits.iBlock(blockIndex),
+        delta, io.req.bits.iBlock(eleIndex),
         dsp.d)
     }
     is(PE_states('e_PE_SLOPE_WB)){
@@ -515,35 +509,35 @@ class ProcessingElementLearn(implicit p: Parameters)
       io.resp.valid := Bool(true)
     }
     is (PE_states('e_PE_RUN_WEIGHT_UPDATE)){
-      val blockIndex = index(log2Up(elementsPerBlock) - 1, 0)
       when (index === (io.req.bits.numWeights - UInt(1)) ||
-        blockIndex === UInt(elementsPerBlock - 1)) {
+        eleIndex === UInt(elementsPerBlock - 1)) {
         state := PE_states('e_PE_WEIGHT_UPDATE_WRITE_BACK)
       }
-      val delta = (Mux(io.req.bits.inFirst, errorOut, io.req.bits.learnReg) *
-        io.req.bits.learningRate) >> decimal
-      val weightDecay = (-io.req.bits.wBlock(blockIndex) * io.req.bits.lambda) >>
+      val weightDecay = (-io.req.bits.wBlock(eleIndex) * io.req.bits.lambda) >>
         decimal
+      printf("[INFO] PE: weight decay %d: -1 * 0x%x * 0x%x = 0x%x\n",
+        eleIndex,
+        io.req.bits.wBlock(eleIndex), io.req.bits.lambda, weightDecay)
+
       when (io.req.bits.tType === e_TTYPE_BATCH) {
-        DSP(io.req.bits.iBlock(blockIndex), io.req.bits.learningRate.toSInt,
+        DSP(io.req.bits.iBlock(eleIndex), io.req.bits.learningRate.toSInt,
           decimal)
-        weightWB(blockIndex) := dsp.d + weightDecay
+        weightWB(eleIndex) := dsp.d + weightDecay
         printf("[INFO] PE: weight update %d: 0x%x * 0x%x + 0x%x = 0x%x\n",
-          blockIndex,
-          io.req.bits.iBlock(blockIndex), io.req.bits.learningRate, weightDecay,
-          dsp.d + weightDecay)
+          eleIndex,
+          io.req.bits.iBlock(eleIndex), io.req.bits.learningRate.toSInt,
+          weightDecay, dsp.d + weightDecay)
       } .otherwise {
         // [TODO] #54: we're doing incremental learning here, so the
         // source is coming from weightWB
-        DSP(delta, weightWB(blockIndex), decimal)
-        weightWB(blockIndex) := dsp.d + weightDecay
+        DSP(weightWB(eleIndex), io.req.bits.learningRate.toSInt, decimal)
+        weightWB(eleIndex) := dsp.d + weightDecay
         printf("[INFO] PE: weight update %d: 0x%x * 0x%x + 0x%x = 0x%x\n",
-          blockIndex,
-          io.req.bits.iBlock(blockIndex), delta, weightDecay,
+          eleIndex,
+          weightWB(eleIndex), io.req.bits.learningRate, weightDecay,
           dsp.d + weightDecay)
       }
       index := index + UInt(1)
-      dataOut := delta
     }
     is (PE_states('e_PE_WEIGHT_UPDATE_WRITE_BACK)){
       when (io.req.valid) {
@@ -554,8 +548,8 @@ class ProcessingElementLearn(implicit p: Parameters)
         // likely incorrect when doing incremental learning. I think we
         // need to jump into the _d0 state and make sure that the bias
         // is loaded into dw_in prior to that.
+        state := PE_states('e_PE_REQUEST_INPUTS_AND_WEIGHTS)
         when (index === io.req.bits.numWeights) {
-          state := PE_states('e_PE_REQUEST_INPUTS_AND_WEIGHTS)
           when (io.req.bits.tType === e_TTYPE_BATCH) {
             state := PE_states('e_PE_WEIGHT_UPDATE_REQUEST_BIAS)
           } .otherwise {
@@ -576,16 +570,26 @@ class ProcessingElementLearn(implicit p: Parameters)
     }
     is (PE_states('e_PE_WEIGHT_UPDATE_COMPUTE_BIAS)) {
       state := PE_states('e_PE_WEIGHT_UPDATE_WRITE_BIAS)
-      val bias = Mux(io.req.bits.tType === e_TTYPE_BATCH,
-        io.req.bits.dw_in, io.req.bits.bias)
-      DSP(bias, io.req.bits.learningRate.toSInt, decimal)
+      val biasSlope = Mux(io.req.bits.tType === e_TTYPE_BATCH,
+        io.req.bits.dw_in, errorOut)
+      DSP(biasSlope, io.req.bits.learningRate.toSInt, decimal)
       dataOut := dsp.d
+      printf("[INFO] PE: biasSlope scale 0x%x * 0x%x = 0x%x\n",
+        biasSlope, io.req.bits.learningRate.toSInt, dsp.d)
     }
     is (PE_states('e_PE_WEIGHT_UPDATE_WRITE_BIAS)) {
       when (io.req.valid) { state := PE_states('e_PE_UNALLOCATED) }
       io.resp.valid := Bool(true)
     }
   }
+
+  // Assertions
+
+  // [TODO] #54: disallow specific states for certain transaction types
+  assert(!(io.req.bits.tType === e_TTYPE_INCREMENTAL &&
+    (state === PE_states('e_PE_SLOPE_WB) ||
+      state === PE_states('e_PE_SLOPE_BIAS_WB))),
+    "PE entered a disallowed state for incremental learning")
 }
 
 // [TODO] This whole testbench is broken due to the integration with
