@@ -70,6 +70,7 @@ class TransactionStateLearn(implicit p: Parameters)
   val regFileAddrSlope = UInt(width = log2Up(regFileNumElements))
   val regFileAddrAux = UInt(width = log2Up(regFileNumElements))
   val nodesInPreviousLayer = UInt(width = 16) // [TODO] fragile
+  val nodesInLast = UInt(width = 16) // [TODO] fragile
 }
 
 class ControlReq(implicit p: Parameters) extends XFilesBundle()(p) {
@@ -434,6 +435,7 @@ class TransactionTableBase[StateType <: TransactionState,
           table(tIdx).currentNodeInLayer := UInt(0)
           table(tIdx).nodesInCurrentLayer := io.control.resp.bits.data(0)
           table(tIdx).neuronPointer := io.control.resp.bits.data(2)
+
           // Once we have layer information, we can update the
           // previous and current layer addresses. These are adjusted
           // to be on block boundaries, so there's an optional round
@@ -888,8 +890,14 @@ class TransactionTableLearn(implicit p: Parameters)
       }
     } .otherwise {
       when (table(derefTidIndex).done) {
+        // [TODO] #54: this comparison for an exit condition is
+        // causing problems with incremental learning. I'm not
+        // planning to read in the output layer, so the exit condition
+        // for looking that the readIdx is equal to the number of
+        // nodes in the current layer is valid.
+        printf("[INFO] nodesInLast: 0x%x\n", table(derefTidIndex).nodesInLast)
         when ((table(derefTidIndex).readIdx ===
-          table(derefTidIndex).nodesInCurrentLayer - UInt(1)) &&
+          table(derefTidIndex).nodesInLast - UInt(1)) &&
           (table(derefTidIndex).stateLearn =/= e_TTABLE_STATE_LOAD_OUTPUTS)) {
           table(derefTidIndex).valid := Bool(false)
           table(derefTidIndex).reserved := Bool(false)
@@ -962,6 +970,10 @@ class TransactionTableLearn(implicit p: Parameters)
                 niplOffset
               table(tIdx).regFileAddrOutFixed :=
                 table(tIdx).regFileAddrOut + niplOffset
+              // Store the number of nodes in the output layer for future use
+              when (table(tIdx).inLastEarly) {
+                table(tIdx).nodesInLast := io.control.resp.bits.data(0)
+              }
             }
             is(e_TTABLE_STATE_LEARN_FEEDFORWARD){
               val regFileAddrOut = table(tIdx).regFileAddrOut + niplOffset
@@ -1004,6 +1016,12 @@ class TransactionTableLearn(implicit p: Parameters)
                 printf("[INFO]   offsetDW:         0x%x\n",
                   table(tIdx).offsetDW + niclOffset)
               }
+
+              // Store the number of nodes in the output layer for future use
+              when (table(tIdx).inLastEarly) {
+                table(tIdx).nodesInLast := io.control.resp.bits.data(0)
+              }
+
               printf("[INFO]   offsetDW:         0x%x\n", table(tIdx).offsetDW)
               printf("[INFO]   regFileAddrDw:    0x%x -> 0x%x\n",
                 table(tIdx).regFileAddrDW, regFileAddrOut + niclOffset)
@@ -1097,6 +1115,8 @@ class TransactionTableLearn(implicit p: Parameters)
       val tIdx = io.control.resp.bits.layerValidIndex
       val inLastOld = table(tIdx).inLast
       val inLastNew = table(tIdx).currentLayer === (table(tIdx).numLayers - UInt(1))
+      val inLastPenultimate =
+        table(tIdx).currentLayer === (table(tIdx).numLayers - UInt(2))
       switch (table(tIdx).transactionType) {
         is (e_TTYPE_FEEDFORWARD) {
           when (!inLastOld) {
@@ -1107,7 +1127,7 @@ class TransactionTableLearn(implicit p: Parameters)
           }
         }
         is (e_TTYPE_INCREMENTAL) {
-          when (inLastOld &&
+          when (inLastPenultimate &&
             table(tIdx).stateLearn === e_TTABLE_STATE_LEARN_WEIGHT_UPDATE) {
             table(tIdx).decInUse := Bool(true)
             table(tIdx).waiting := Bool(false)
