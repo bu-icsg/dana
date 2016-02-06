@@ -1,6 +1,15 @@
 #!/bin/bash
 
-dir=$(dirname $(readlink -f $0))
+# User configuration
+dir=/opt/etc
+
+# Fixed configuration
+ssh_key=$dir/fpga-ssh
+username=root
+
+if [ -e $dir/fpga-motd ]; then
+    cat $dir/fpga-motd
+fi
 
 # The APC username and password are stored in a line beginning with
 # "credentials" in info.txt.
@@ -12,7 +21,8 @@ password_apc=${credentials_apc#*,}
 # FPGA info is also in info.txt in a line beginning with "fpga"
 fpgas=($(grep ^fpga $dir/info.txt))
 
-awk 'BEGIN {printf "%-6s %-7s %-10s\n", "FPGA", "STATUS", "USER"}'
+awk 'BEGIN {printf "%-5s %-6s %-32s %-10s\n",
+"FPGA", "STATUS", "CONFIG=md5(boot.bin)", "USER"}'
 for fpga in "${fpgas[@]}"; do
     name=${fpga%%,*}
     tty=${fpga#*,}
@@ -25,5 +35,12 @@ for fpga in "${fpgas[@]}"; do
         awk '{print $1}')
     status=$(exec fence_apc --action=status --ip=$ip --plug=$plug \
         --username=$username_apc --password=$password_apc | awk '{print $2}')
-    echo "$name $status $user" | awk '{printf "%-6s %-7s %-10s\n", $1, $2, $3}'
+    if [ $status = "OFF" ]; then
+        config=$(ssh -i $ssh_key $username@$name md5sum /mnt/boot/boot.bin \
+            | awk '{print $1}')
+    else
+        config="???"
+    fi
+    echo "$name $status $config $user" | \
+        awk '{printf "%-5s %-6s %-32s %-10s\n", $1, $2, $3, $4}'
 done

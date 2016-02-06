@@ -1,6 +1,11 @@
 #!/bin/bash
 
-dir=$(dirname $(readlink -f $0))
+# User configuration
+dir=/opt/etc
+
+if [ -e $dir/fpga-motd ]; then
+    cat $dir/fpga-motd
+fi
 
 # Get a comma delimited list, one entry per line, of all the screen
 # sessions running and tty that they're using.

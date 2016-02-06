@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# User configuration
+dir=/opt/etc
+
 show_help() {
 cat << EOF
 Usage: $0 [OPTION]... [FPGA]
@@ -15,7 +18,10 @@ Example usage:
 EOF
 }
 
-dir=$(dirname $(readlink -f $0))
+if [ -e $dir/fpga-motd ]; then
+    cat $dir/fpga-motd
+fi
+
 force=0
 OPTIND=1
 while getopts "hf" opt; do

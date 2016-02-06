@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# User configuration
+dir=/opt/etc
+
 show_help() {
 cat << EOF
 Usage: $0 [OPTION]... [FPGA (optional)]
@@ -21,7 +24,10 @@ if [ `groups | grep -c dialout` -eq 0 ]; then
     exit 1
 fi
 
-dir=$(dirname $(readlink -f $0))
+if [ -e $dir/fpga-motd ]; then
+    cat $dir/fpga-motd
+fi
+
 OPTIND=1
 while getopts "hf" opt; do
     case "$opt" in
