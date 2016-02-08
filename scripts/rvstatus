@@ -35,11 +35,19 @@ for fpga in "${fpgas[@]}"; do
         awk '{print $1}')
     status=$(exec fence_apc --action=status --ip=$ip --plug=$plug \
         --username=$username_apc --password=$password_apc | awk '{print $2}')
-    if [ $status = "OFF" ]; then
-        config=$(ssh -i $ssh_key $username@$name md5sum /mnt/boot/boot.bin \
-            | awk '{print $1}')
+    if [ $status = "ON" ]; then
+        # config=$(ssh -i $ssh_key -o ConnectTimeout=1 $username@$name \
+        #     md5sum /mnt/boot/boot.bin 2>/dev/null | awk '{print $1}')
+        config=$(ssh -i $ssh_key -o ConnectTimeout=1 $username@$name \
+            "md5sum /mnt/boot/boot.bin" 2>/dev/null)
+        return=$?
+        if [ $return -ne 0 ]; then
+            config="ssh-error-$return"
+        else
+            config=$(echo $config | awk '{print $1}')
+        fi
     else
-        config="???"
+        config="fpga off no info"
     fi
     echo "$name $status $config $user" | \
         awk '{printf "%-5s %-6s %-32s %-10s\n", $1, $2, $3, $4}'
