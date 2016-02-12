@@ -35,6 +35,7 @@ static char * usage_message =
   "  -q, --stat-percent-correct print the percent correct (optional arg: period)\n"
   "  -r, --learning-rate        set the learning rate (default 0.7)\n"
   "  -t, --train-file           the fixed point FANN training file to use\n"
+  "  -u, --fake-incremental     run incremental learning using batch learning\n"
   "  -v, --verbose              turn on per-item inputs/output printfs\n"
   "  -w, --watch-for-errors     turn on some checks for sane outputs\n"
   "  -x, --incremental          run incremental updates instead of batch updates\n"
@@ -43,7 +44,8 @@ static char * usage_message =
   "\n"
   "Flags -n and -t are required.\n"
   "When gathering data related to connection updates per second, -p\n"
-  "should always be used as this diables all unnecessary control statements.\n";
+  "should always be used as this diables all unnecessary control statements.\n"
+  "Flags -u and -x are mutually exclusive.";
 
 void usage() {
   printf("Usage: %s", usage_message);
@@ -115,7 +117,8 @@ int main (int argc, char * argv[]) {
     num_correct;
   int flag_cycles = 0, flag_last = 0, flag_mse = 0, flag_performance = 0,
     flag_ant_info = 0, flag_incremental = 0, flag_bit_fail = 0,
-    flag_ignore_limits = 0, flag_percent_correct = 0, flag_watch_for_errors = 0;
+    flag_ignore_limits = 0, flag_percent_correct = 0, flag_watch_for_errors = 0,
+    flag_incremental_fake = 0;
   char id[100] = "0";
   asid_type asid = 0;
   nnid_type nnid = 0;
@@ -165,7 +168,7 @@ int main (int argc, char * argv[]) {
       {"ignore-limits",        no_argument,       0, 'z'}
     };
     int option_index = 0;
-    c = getopt_long (argc, argv, "ab:cd:e:f:g:hi:j:k:lm::n:o::pq::r:t:vwxy:z",
+    c = getopt_long (argc, argv, "ab:cd:e:f:g:hi:j:k:lm::n:o::pq::r:t:uvwxy:z",
                      long_options, &option_index);
     if (c == -1)
       break;
@@ -235,6 +238,9 @@ int main (int argc, char * argv[]) {
     case 't':
       file_train = optarg;
       break;
+    case 'u':
+      flag_incremental_fake = 1;
+      break;
     case 'v':
       flag_verbose = 1;
       break;
@@ -264,6 +270,14 @@ int main (int argc, char * argv[]) {
   // Make sure we have all required inputs
   if (file_nn == NULL || file_train == NULL) {
     fprintf(stderr, "[ERROR] Missing required input argument\n\n");
+    usage();
+    exit_code = -1;
+    goto bail;
+  }
+
+  // Incremental and fake incremental are conflicting options
+  if (flag_incremental && flag_incremental_fake) {
+    fprintf(stderr, "[ERROR] Only one of '-x' or '-u' may be specified\n\n");
     usage();
     exit_code = -1;
     goto bail;
