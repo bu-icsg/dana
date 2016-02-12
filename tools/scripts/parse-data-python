@@ -1,0 +1,43 @@
+#! /usr/bin/python
+
+# Completely generic data parser that adheres to a specific output log
+# format. All lines that we care about look like:
+#
+#    |------------------------------------- start of line, i.e., will match m/^/
+#    |    |-------------------------------- independent variable label and value
+#    |    |    |--------------------------- first dependent variable
+#    |    |    |    |---------------------- second dependent variable
+#    |    |    |    |                       ...
+#    |    |    |    |        |------------- last dependent variable
+#    |    v    v    v        v
+#    v   |-| |--| |--|     |--|
+# [STAT] x 0 y1 1 y2 2 ... yn n
+#
+# Variable labels are camelcase words that can include numbers.
+# Variable values are signed floats.
+
+import argparse
+import re
+import numpy
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-k', '--key')
+    parser.add_argument('-l', '--label')
+    parser.add_argument('-v', dest='verbose', action='store_true')
+    parser.add_argument('file_in', action='store')
+    args = parser.parse_args()
+
+    f = open(args.file_in, 'r')
+    line_stat = re.compile('^\[STAT\]')
+
+    array = numpy.array([])
+    for line in f:
+        if not line_stat.match(line):
+            continue
+
+
+    f.close()
+
+if __name__ == '__main__':
+    main()

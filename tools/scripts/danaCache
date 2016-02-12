@@ -9,7 +9,7 @@ SCRIPT=$(readlink -f $0)
 # Absolute path this script is in. /home/user/bin
 SCRIPTPATH=$(dirname $SCRIPT)
 
-export PATH=$PATH:$SCRIPTPATH/../../usr/bin
+export PATH=$PATH:$SCRIPTPATH/../usr/bin
 
 DANA_DEV=${DANA_DEV:-/dev/ttyUSB0}
 FLOATTOFIXEDCMD=fann-float-to-fixed
@@ -41,7 +41,7 @@ verify()
      echo "ERROR: can't find $FLOATTOFIXEDCMD in your path"
      exit -1
    fi
-}  
+}
 
 trim()
 {
@@ -62,7 +62,7 @@ function calc_sizes()
     input_size=${sizes%% *}
     output_size=${sizes##* }
 
-    # fann has bias node that needs to be removed 
+    # fann has bias node that needs to be removed
     (( input_size-- ))
     (( output_size-- ))
 }
@@ -117,7 +117,7 @@ function find_free()
   freelink=${freelink%%-*}
 }
 
-function assign() 
+function assign()
 {
   source=$(basename $netfixed)
   for b in $BLOCKWIDTHS; do
@@ -127,13 +127,13 @@ function assign()
 
 
 verify
-  
+
 if [[ -z $cache || -z $net ]]; then
   echo $USAGE > /dev/stderr
   exit -1
 fi
 
-if [[ ! -a $cache ]]; then 
+if [[ ! -a $cache ]]; then
 #   echo "Creating $cache" > /dev/stderr
    mkdir -p $cache
 #   echo "populating with null enties"
@@ -185,4 +185,3 @@ assign
 
 echo "dana:$freenum,$input_size,$output_size,$decimal_bits,$DANA_DEV.net -> $net" > $cache/entry${freenum}.info
 cat $cache/entry${freenum}.info
-
