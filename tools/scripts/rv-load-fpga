@@ -1,0 +1,32 @@
+#!/bin/bash
+
+# User configuration
+dir=/opt/etc
+dir_zedboard=/mnt/kd/se/research_local/rocket-chip/fpga-zynq/zedboard/fpga-images-zedboard
+dir_zedboard_local=/home/se/research_local/rocket-chip/fpga-zynq/zedboard/fpga-images-zedboard
+
+# Fixed configuration
+ssh_key=$dir/fpga-ssh
+username=root
+
+# FPGA info is also in info.txt in a line beginning with "fpga"
+fpgas=($(grep ^fpga $dir/info.txt))
+
+for fpga in "${fpgas[@]}"; do
+    name=${fpga%%,*}
+    ssh -i $ssh_key $username@$name \
+        "cp /mnt/boot/boot.bin /mnt/boot/boot.bin.bak"
+    scp -i $ssh_key $dir_zedboard_local/boot.bin \
+        $username@$name:/mnt/boot/boot.bin
+    checksum_fpga=$(ssh -i $ssh_key $username@$name \
+        md5sum /mnt/boot/boot.bin | awk '{print $1}')
+    checksum_local=$(ssh -i $ssh_key $username@$name \
+        md5sum $dir_zedboard/boot.bin | awk '{print $1}')
+    if [ $checksum_fpga != $checksum_local ]; then
+        echo "[ERROR] Checksums after copying do not match! Reverting..."
+        # ssh -i $ssh_key $username@$name \
+        #     "cp /mnt/boot/boot.bin.bak /mnt/boot/boot.bin"
+        exit 1
+    fi
+    echo "[INFO] Updated boot.bin of $name"
+done
