@@ -16,9 +16,8 @@ NETS_CONVERGE=xorSigmoid \
 	xor-sigmoid-4i \
 	xor-sigmoid-8i \
 	xor-sigmoid-4o \
-	xor-sigmoid-8o
-NETS_ALL=$(NETS_PATTERN) $(NETS_CONVERGE)
-NETS_SKIP=xor-sigmoid-16i \
+	xor-sigmoid-8o \
+	xor-sigmoid-16i \
 	xor-sigmoid-32i \
 	xor-sigmoid-64i \
 	xor-sigmoid-128i \
@@ -28,6 +27,8 @@ NETS_SKIP=xor-sigmoid-16i \
 	xor-sigmoid-32o \
 	xor-sigmoid-64o \
 	xor-sigmoid-128o
+NETS_ALL=$(NETS_PATTERN) $(NETS_CONVERGE)
+NETS_SKIP=
 NETS_FLOAT=$(addsuffix -float.net, $(NETS_ALL))
 NETS_TRAIN=$(addsuffix -fixed.train, $(NETS_ALL))
 SOURCES=$(TEST).c
