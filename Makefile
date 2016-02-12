@@ -95,7 +95,7 @@ RV_TESTS             = hello.c \
 	xorSigmoid-batch.c \
 	xorSigmoidSymmetric-batch.c \
 	torture.c \
-	fann-batch.c \
+	fann-xfiles.c \
 	fann-soft.c
 RV_TESTS_EXECUTABLES = $(RV_TESTS:%.c=$(DIR_BUILD)/%.rv)
 RV_TESTS_DISASM      = $(RV_TESTS:%.c=$(DIR_BUILD)/%.rvS)

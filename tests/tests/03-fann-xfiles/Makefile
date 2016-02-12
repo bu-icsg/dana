@@ -4,7 +4,7 @@
 # which improve X-Files/Dana will require regenerating the good data
 # file.
 
-TEST=fann-batch
+TEST=fann-xfiles
 NETS_PATTERN=xorSigmoid \
 	xorSigmoidSymmetric \
 	xorSigmoidSymmetricPair \
@@ -45,7 +45,7 @@ MAX_CONVERGE_EPOCHS=10000
 DIR_BUILD_NETS=.
 
 include ../../common/Makefrag
-include ../../../scripts/Makefrag
+include ../../../tools/common/Makefrag
 
 vpath %.train $(DIR_TOP)/src/main/resources
 vpath %.train $(DIR_TOP)/submodules/fann/datasets

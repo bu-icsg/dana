@@ -12,8 +12,8 @@
   __tmp; })
 
 static char * usage_message =
-  "fann-batch -n[config] -t[train file] [options]\n"
-  "Run batch training on a specific neural network and training file.\n"
+  "fann-xfiles -n[config] -t[train file] [options]\n"
+  "Run training on a specific neural network and training file.\n"
   "\n"
   "Options:\n"
   "  -a, --print-ant            print information about the asid--nnit table\n"
@@ -588,8 +588,6 @@ int main (int argc, char * argv[]) {
   // Print overall statistics in a parser-friendly way
  finish:
   cycles = read_csr(0xc00) - cycles;
-  // printf("# [STAT] fann-batch-id%d-bit-fail %d\n", id, num_bits_failing);
-  // printf("# [STAT] fann-batch-id%d-final-epoch %d\n", id, epoch);
   if (flag_last)
     printf("[STAT] bp %d id %s epoch %d\n", binary_point, id, epoch);
   if (flag_cycles) {

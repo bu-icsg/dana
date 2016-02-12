@@ -11,7 +11,7 @@
   __tmp; })
 
 static char * usage_message =
-  "fann-batch -n[config] -t[train file] -b[binary point] [options]\n"
+  "fann-soft -n[config] -t[train file] -b[binary point] [options]\n"
   "Run batch training on a specific neural network and training file.\n"
   "\n"
   "Options:\n"
@@ -197,8 +197,6 @@ int main (int argc, char * argv[]) {
   // Print overall statistics in a parser-friendly way
  finish:
   cycles = read_csr(0xc00) - cycles;
-  // printf("# [STAT] fann-batch-id%d-bit-fail %d\n", id, bits_failing);
-  // printf("# [STAT] fann-batch-id%d-final-epoch %d\n", id, epoch);
   if (flag_last)
     printf("[STAT] id %d epoch %d\n", id, epoch);
   if (flag_cycles) {

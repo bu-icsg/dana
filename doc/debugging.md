@@ -38,10 +38,10 @@ The name of the emulator will include the configuration. For the code above we s
 ./emulator-Top-XFilesDanaCppPe1Config pk ../xfiles-dana/build/hello.rv
 ```
 
-Similarly, you can run any program that works on the FPGA, like `fann-batch`:
+Similarly, you can run any program that works on the FPGA, like `fann-xfiles`:
 
 ```
-./emulator-Top-XFilesDanaCppPe1Config pk ../xfiles-dana/build/fann-batch.rv \
+./emulator-Top-XFilesDanaCppPe1Config pk ../xfiles-dana/build/fann-xfiles.rv \
     -n../xfiles-dana/build/nets/xorSigmoidSymmetric-fixed.16bin \
     -t ../xfiles-dana/build/nets/xorSigmoidSymmetric-fixed.train -m -e10
 ```
@@ -55,7 +55,7 @@ To catch assertions also look for `Assert`. To do all this, the following comman
 
 ```
 ./emulator-Top-XFilesDanaCppPe1Config +verbose pk \
-    ../xfiles-dana/build/fann-batch.rv
+    ../xfiles-dana/build/fann-xfiles.rv
     -n ../xfiles-dana/build/nets/xorSigmoidSymmetric-fixed.16bin \
     -t ../xfiles-dana/build/nets/xorSigmoidSymmetric-fixed.train \
     -m -e2 -x 2>&1 | grep "INFO\|WARN\|ERROR\|Assert"
@@ -65,7 +65,7 @@ We can also send this to a file for better analysis:
 
 ```
 ./emulator-Top-XFilesDanaCppPe1Config +verbose pk \
-    ../xfiles-dana/build/fann-batch.rv
+    ../xfiles-dana/build/fann-xfiles.rv
     -n ../xfiles-dana/build/nets/xorSigmoidSymmetric-fixed.16bin \
     -t ../xfiles-dana/build/nets/xorSigmoidSymmetric-fixed.train \
     -m -e2 -x 2>&1 | grep "INFO\|WARN\|ERROR\|Assert" > issue-54.log
