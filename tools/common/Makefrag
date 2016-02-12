@@ -145,7 +145,7 @@ $(DIR_BUILD_NETS)/parity-%-float.train: $(NETS_TOOLS)
 	$(GEN_BOOLEAN_DATA) -n $* -f xor -s > $@
 
 $(DIR_BUILD_NETS)/xor-sigmoid-%i-float.train: $(NETS_TOOLS)
-	$(GEN_BOOLEAN_DATA) -n 2 -f xor --replicate-input `echo $* 2\p | dc` > $@
+	$(GEN_BOOLEAN_DATA) -n 2 -f xor --replicate-input `echo $* 2/p | dc` > $@
 
 $(DIR_BUILD_NETS)/xor-sigmoid-%o-float.train: $(NETS_TOOLS)
 	$(GEN_BOOLEAN_DATA) -n 2 -f xor --replicate-output $* > $@
