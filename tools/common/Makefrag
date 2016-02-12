@@ -13,6 +13,8 @@ NET_XOR_SIGMOID_32i=-l32 -l4 -l1 -a5 -o3 -r.07
 NET_XOR_SIGMOID_64i=-l64 -l4 -l1 -a5 -o3 -r.07
 NET_XOR_SIGMOID_128i=-l128 -l4 -l1 -a5 -o3 -r.07
 NET_XOR_SIGMOID_256i=-l256 -l4 -l1 -a5 -o3 -r.07
+NET_XOR_SIGMOID_512i=-l512 -l4 -l1 -a5 -o3 -r.07
+NET_XOR_SIGMOID_1024i=-l1024 -l4 -l1 -a5 -o3 -r.07
 NET_XOR_SIGMOID_4o=-l2 -l4 -l4 -a5 -o3 -r0.7
 NET_XOR_SIGMOID_8o=-l2 -l4 -l8 -a5 -o3 -r.07
 NET_XOR_SIGMOID_16o=-l2 -l4 -l16 -a5 -o3 -r.07
@@ -20,6 +22,8 @@ NET_XOR_SIGMOID_32o=-l2 -l4 -l32 -a5 -o3 -r.07
 NET_XOR_SIGMOID_64o=-l2 -l4 -l64 -a5 -o3 -r.07
 NET_XOR_SIGMOID_128o=-l2 -l4 -l128 -a5 -o3 -r.07
 NET_XOR_SIGMOID_256o=-l2 -l4 -l256 -a5 -o3 -r.07
+NET_XOR_SIGMOID_512o=-l2 -l4 -l512 -a5 -o3 -r.07
+NET_XOR_SIGMOID_1024o=-l2 -l4 -l1024 -a5 -o3 -r.07
 # FANN dataset NNs
 NET_ABELONE=-l10 -l8 -l1 -a5 -o3 -r0.7
 NET_BANK32FM=-l32 -l16 -l1 -a5 -o3 -r0.7
