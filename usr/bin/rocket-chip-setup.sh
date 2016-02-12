@@ -1,0 +1,1 @@
+../../tools/scripts/rocket-chip-setup.sh

@@ -345,7 +345,7 @@ $(DIR_BUILD)/%.rvS: $(DIR_BUILD)/%.rv
 	$(RV_OBJDUMP) -S $< > $@
 
 #------------------- Nets
-include scripts/Makefrag
+include tools/common/Makefrag
 
 $(DIR_BUILD_NETS)/%-16bin-32.h: $(DIR_BUILD_NETS)/%.16bin $(NETS_TOOLS)
 	$(BIN_TO_C_HEADER) $< \
@@ -399,7 +399,7 @@ $(DIR_BUILD)/fann:
 	mkdir -p $@
 
 #--------- Generate videos
-include scripts/Makefrag-video
+include tools/common/Makefrag-video
 
 #--------- Generate ScalaDoc documentation
 doc:

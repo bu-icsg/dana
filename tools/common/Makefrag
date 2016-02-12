@@ -85,8 +85,6 @@ $(DIR_BUILD_NETS)/xorSigmoidSymmetricPair-float.net:
 $(DIR_BUILD_NETS)/xorSigmoidSymmetricThreeLayer-float.net:
 	$(FANN_RANDOM) -s$(SEED) $(NET_XOR_SIGMOID_SYMMETRIC_THREE_LAYER) $@
 
-$(DIR_BUILD_NETS)/census-house-float.net: $(NETS_TOOLS)
-	$(FANN_RANDOM) -s$(SEED) $(NET_CENSUS_HOUSE) $@
 
 $(DIR_BUILD_NETS)/mushroom-float.net: $(NETS_TOOLS)
 	$(FANN_RANDOM) -s$(SEED) -r0.05 $(NET_MUSHROOM) $@
@@ -99,9 +97,6 @@ $(DIR_BUILD_NETS)/gene-float.net: $(NETS_TOOLS)
 
 $(DIR_BUILD_NETS)/kin32fm-float.net: $(NETS_TOOLS)
 	$(FANN_RANDOM) -s$(SEED) $(NET_KIN32FM) $@
-
-$(DIR_BUILD_NETS)/soybean-float.net: $(NETS_TOOLS)
-	$(FANN_RANDOM) -s$(SEED) $(NET_SOYBEAN) $@
 
 $(DIR_BUILD_NETS)/thyroid-float.net: $(NETS_TOOLS)
 	$(FANN_RANDOM) -s$(SEED) $(NET_THYROID) $@

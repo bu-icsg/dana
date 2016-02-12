@@ -1,1 +1,1 @@
-../../scripts/max-processors.sh
+../../tools/scripts/max-processors.sh
