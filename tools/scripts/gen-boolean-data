@@ -11,11 +11,11 @@ Usage: gen-boolean-data -n [number of bits] -f [boolean function] [OPTIONS]
 Required parameters:
   -n, --num-bits             Number of input bits
   -f, --boolean-function     Boolean function to use
-      --replicate-input      Replicate the inputs a number of times
-      --replicate-output     Replicate the outputs a number of times
 
 Optional parameters:
   -s, --symmetric            Generate symmetric output (as opposed to bipolar)
+      --replicate-input      Replicate the inputs a number of times
+      --replicate-output     Replicate the outputs a number of times
 
 Supported boolean Functions:
   and
