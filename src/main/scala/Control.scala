@@ -295,15 +295,6 @@ class ControlLearn(implicit p: Parameters)
     extends ControlBase()(p) {
   override lazy val io = new ControlInterfaceLearn
 
-  def reqCache(valid: Bool, request: UInt, asid: UInt, nnid: UInt,
-    tableIndex: UInt, coreIdx: UInt, layer: UInt, location: UInt,
-    totalWritesMul: UInt) {
-    reqCache(valid = valid, request = request, asid = asid, nnid = nnid,
-      tableIndex = tableIndex, coreIdx = coreIdx, layer = layer,
-      location = location)
-    io.cache.req.bits.totalWritesMul := totalWritesMul
-  }
-
   def reqPETable(valid: Bool, cacheIndex: UInt, tIdx: UInt, inAddr: UInt,
     outAddr: UInt, neuronPointer: UInt, decimalPoint: UInt, location: UInt,
     // learning-specific
@@ -335,8 +326,6 @@ class ControlLearn(implicit p: Parameters)
 
   io.tTable.resp.bits.globalWtptr := UInt(0)
 
-  reqCache(Bool(false), UInt(0), UInt(0), UInt(0), UInt(0), UInt(0), UInt(0),
-    UInt(0), UInt(0))
   reqPETable(Bool(false),
     UInt(0), UInt(0), UInt(0), UInt(0), UInt(0), UInt(0), UInt(0),
     Bool(false), Bool(false), Bool(false), Bool(false),
@@ -355,6 +344,7 @@ class ControlLearn(implicit p: Parameters)
     }
   }
 
+  io.cache.req.bits.totalWritesMul := UInt(0)
   when (io.tTable.req.valid) {
     when (!io.tTable.req.bits.cacheValid && !io.tTable.req.bits.waiting) {
       // Send a request to the cache
@@ -363,22 +353,13 @@ class ControlLearn(implicit p: Parameters)
         nnid = io.tTable.req.bits.nnid,
         tableIndex = io.tTable.req.bits.tableIndex,
         coreIdx = io.tTable.req.bits.coreIdx,
-        layer = UInt(0), location = UInt(0),
-        totalWritesMul = UInt(0))
+        layer = UInt(0), location = UInt(0))
     } .elsewhen (io.tTable.req.bits.cacheValid &&
       io.tTable.req.bits.needsLayerInfo) {
       // Send a request to the storage module
       val totalWritesMul = Mux(io.tTable.req.bits.inLastEarly &&
         (io.tTable.req.bits.stateLearn === e_TTABLE_STATE_LEARN_FEEDFORWARD),
         UInt(2), UInt(1))
-      // [TODO] #32 remove
-      // val totalWritesMul = Mux(io.tTable.req.bits.inLastEarly &&
-      //   (io.tTable.req.bits.stateLearn === e_TTABLE_STATE_LEARN_FEEDFORWARD),
-      //   UInt(3), Mux(!io.tTable.req.bits.inFirst &&
-      //     (io.tTable.req.bits.stateLearn === e_TTABLE_STATE_LEARN_ERROR_BACKPROP),
-      //     UInt(2), UInt(1)))
-      // val inLastLearn = (io.tTable.req.bits.inLastEarly) &&
-      //   (io.tTable.req.bits.stateLearn === e_TTABLE_STATE_LEARN_FEEDFORWARD)
       printf("[INFO] Control: TTable layer req inFirst/inLastEarly/state/totalWritesMul 0x%x/0x%x/0x%x/0x%x\n",
         io.tTable.req.bits.inFirst,
         io.tTable.req.bits.inLastEarly, io.tTable.req.bits.stateLearn, totalWritesMul)
@@ -388,15 +369,15 @@ class ControlLearn(implicit p: Parameters)
         tableIndex = io.tTable.req.bits.tableIndex,
         coreIdx = io.tTable.req.bits.coreIdx,
         layer = io.tTable.req.bits.currentLayer,
-        location = io.tTable.req.bits.regFileLocationBit,
-        totalWritesMul = totalWritesMul)
+        location = io.tTable.req.bits.regFileLocationBit)
+      io.cache.req.bits.totalWritesMul := totalWritesMul
     } .elsewhen (io.tTable.req.bits.isDone) {
       // [TODO] This passes no information about the core index which
       // _may_ be needed to close out any final cache updates.
       reqCache(valid = Bool(true), request = e_CACHE_DECREMENT_IN_USE_COUNT,
         asid = io.tTable.req.bits.asid, nnid = io.tTable.req.bits.nnid,
         tableIndex = UInt(0), coreIdx = UInt(0), layer = UInt(0),
-        location = UInt(0), totalWritesMul = Bool(false))
+        location = UInt(0))
     } .elsewhen (io.tTable.req.bits.cacheValid &&
       !io.tTable.req.bits.needsLayerInfo && io.peTable.req.ready) {
       // Go ahead and allocate an entry in the Processing Element
