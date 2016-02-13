@@ -503,15 +503,20 @@ class TransactionTableBase[StateType <: TransactionState,
   // All of these need to be wired up manually as the internal
   // connections aren't IO
   for (i <- 0 until transactionTableNumEntries) {
+    val isValid = table(i).valid
+    val isNotWaiting = !table(i).waiting
+    val noRequestLastCycle = Reg(next = !entryArbiter.io.out.valid)
+    val cacheWorkToDo = (table(i).decInUse || !table(i).cacheValid ||
+      table(i).needsLayerInfo)
+    val peWorkToDo = (table(i).currentNode =/= table(i).numNodes)
+
     // A request is valid if it is valid, is not waiting, and if all
     // the nodes haven't already been allocated (but, the cache must
     // already be valid, i.e., we need to have valid data sitting in
     // the currentNode and numNodes to actually do this comparison).
-    entryArbiter.io.in(i).valid := table(i).valid && !table(i).waiting &&
-      Reg(next = !entryArbiter.io.out.valid) &&
-      ((readyCache && (table(i).decInUse || !table(i).cacheValid ||
-        table(i).needsLayerInfo)) ||
-       (readyPeTable && (table(i).currentNode =/= table(i).numNodes)))
+    entryArbiter.io.in(i).valid := isValid && isNotWaiting &&
+      noRequestLastCycle &&
+      ((readyCache && cacheWorkToDo) || (readyPeTable && peWorkToDo))
     // The other data connections are just aliases to the contents of
     // the specific table entry
     entryArbiter.io.in(i).bits.cacheValid := table(i).cacheValid
