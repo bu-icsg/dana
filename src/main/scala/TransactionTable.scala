@@ -519,27 +519,9 @@ class TransactionTableBase[StateType <: TransactionState,
       ((readyCache && cacheWorkToDo) || (readyPeTable && peWorkToDo))
     // The other data connections are just aliases to the contents of
     // the specific table entry
-    entryArbiter.io.in(i).bits.cacheValid := table(i).cacheValid
-    entryArbiter.io.in(i).bits.waiting := table(i).waiting
-    entryArbiter.io.in(i).bits.needsLayerInfo := table(i).needsLayerInfo
-    entryArbiter.io.in(i).bits.request := table(i).request
-    entryArbiter.io.in(i).bits.inFirst := table(i).inFirst
-    entryArbiter.io.in(i).bits.inLast := table(i).inLast
+    table(i) <> entryArbiter.io.in(i).bits
     entryArbiter.io.in(i).bits.isDone := table(i).decInUse
-    // Global info
     entryArbiter.io.in(i).bits.tableIndex := UInt(i)
-    entryArbiter.io.in(i).bits.cacheIndex := table(i).cacheIndex
-    entryArbiter.io.in(i).bits.asid := table(i).asid
-    entryArbiter.io.in(i).bits.nnid := table(i).nnid
-    entryArbiter.io.in(i).bits.coreIdx := table(i).coreIdx
-    entryArbiter.io.in(i).bits.regFileLocationBit := table(i).regFileLocationBit
-    // State info
-    entryArbiter.io.in(i).bits.currentNodeInLayer := table(i).currentNodeInLayer
-    entryArbiter.io.in(i).bits.currentLayer := table(i).currentLayer
-    entryArbiter.io.in(i).bits.neuronPointer := table(i).neuronPointer
-    entryArbiter.io.in(i).bits.decimalPoint := table(i).decimalPoint
-    entryArbiter.io.in(i).bits.regFileAddrIn := table(i).regFileAddrIn
-    entryArbiter.io.in(i).bits.regFileAddrOut := table(i).regFileAddrOut
   }
   io.control.req <> entryArbiter.io.out
 
