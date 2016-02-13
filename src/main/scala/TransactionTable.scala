@@ -509,11 +509,10 @@ class TransactionTableBase[StateType <: TransactionState,
     val cacheWorkToDo = (table(i).decInUse || !table(i).cacheValid ||
       table(i).needsLayerInfo)
     val peWorkToDo = (table(i).currentNode =/= table(i).numNodes)
-
-    // A request is valid if it is valid, is not waiting, and if all
-    // the nodes haven't already been allocated (but, the cache must
-    // already be valid, i.e., we need to have valid data sitting in
-    // the currentNode and numNodes to actually do this comparison).
+    // The entryArbiter has a valid request if that TTable entry is
+    // valid, it is not waiting, a request was not generated last
+    // cycle, and either there is cache or PE table work to do and the
+    // backend can support one of these.
     entryArbiter.io.in(i).valid := isValid && isNotWaiting &&
       noRequestLastCycle &&
       ((readyCache && cacheWorkToDo) || (readyPeTable && peWorkToDo))
