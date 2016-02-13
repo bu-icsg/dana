@@ -187,7 +187,6 @@ class TransactionTableBase[StateType <: TransactionState,
   ControlReqType <: ControlReq](
   genStateVec: => Vec[StateType], genControlReq: => ControlReqType)(
   implicit p: Parameters) extends XFilesModule()(p) {
-  // Communication with the X-FILES arbiter
   lazy val io = new TransactionTableInterface()(p)
 
   // IO aliases
@@ -208,9 +207,9 @@ class TransactionTableBase[StateType <: TransactionState,
     val regValue = io.arbiter.rocc.cmd.bits.rs2(31,0)
     // Only used with learning, but maintained for assertion checking
     val transactionType = io.arbiter.rocc.cmd.bits.rs2(49,48)
-    val numTrainOutputs = io.arbiter.rocc.cmd.bits.rs2(47,32)
-  }
+    val numTrainOutputs = io.arbiter.rocc.cmd.bits.rs2(47,32) }
 
+  // Create the actual Transaction Table
   val table = Reg(genStateVec)
 
   // An entry is free if it is not valid and not reserved
@@ -257,21 +256,17 @@ class TransactionTableBase[StateType <: TransactionState,
       io.arbiter.rocc.resp.bits.data := arbiterRespPipe.bits.respType ##
         UInt(0, width = 14) ##
         arbiterRespPipe.bits.tid ##
-        UInt(0, width = elementWidth)
-    }
+        UInt(0, width = elementWidth) }
     is (e_READ) {
       io.arbiter.rocc.resp.bits.data := arbiterRespPipe.bits.respType ##
         UInt(0, width = 14) ##
         arbiterRespPipe.bits.tid ##
-        io.regFile.resp.bits.data
-    }
+        io.regFile.resp.bits.data }
     is (e_NOT_DONE) {
       io.arbiter.rocc.resp.bits.data := arbiterRespPipe.bits.respType ##
         UInt(0, width = 14) ##
         arbiterRespPipe.bits.tid ##
-        arbiterRespPipe.bits.status
-    }
-  }
+        arbiterRespPipe.bits.status }}
   io.arbiter.rocc.resp.bits.rd := arbiterRespPipe.bits.rd
   io.arbiter.indexOut := arbiterRespPipe.bits.coreIdx
 
@@ -500,8 +495,6 @@ class TransactionTableBase[StateType <: TransactionState,
   // these is passed out over an interface to DANA's control module.
   val entryArbiter = Module(new RRArbiter(genControlReq,
     transactionTableNumEntries))
-  // All of these need to be wired up manually as the internal
-  // connections aren't IO
   for (i <- 0 until transactionTableNumEntries) {
     val isValid = table(i).valid
     val isNotWaiting = !table(i).waiting
@@ -551,9 +544,7 @@ class TransactionTableBase[StateType <: TransactionState,
     when (entryArbiter.io.out.bits.isDone) {
       printf("[INFO] TTable entry for ASID/TID %x/%x is done\n",
         table(tIdx).asid, table(tIdx).tid);
-        table(tIdx).done := Bool(true)
-    }
-  }
+        table(tIdx).done := Bool(true) }}
   when (isPeReq) {
     val tIdx = entryArbiter.io.out.bits.tableIndex
     val inLastNode = table(tIdx).currentNodeInLayer ===
@@ -561,26 +552,12 @@ class TransactionTableBase[StateType <: TransactionState,
     val notInLastLayer = table(tIdx).currentLayer <
       (table(tIdx).numLayers - UInt(1))
     table(tIdx).currentNode := table(tIdx).currentNode + UInt(1)
-    // [TODO] This currentNodeInLayer is always incremented and I
-    // think this is okay as the value will be reset when a Layer
-    // Info request gets serviced.
-    table(tIdx).currentNodeInLayer := table(tIdx).currentNodeInLayer + UInt(1)
-    // [TODO] I can either set inFirst/inLast here or when layer data
-    // comes back from the Cache. The latter approach is problematic
-    // as I'm still processing data from the previous layer, but this
-    // bit has been updated as if we're in the last layer.
-    // Consequently, I think it makes sense to only set inLast here.
-    // table(tIdx).inFirst := table(tIdx).currentLayer === UInt(0)
-
-    // If we're at the end of a layer, we need new layer information
-    // The comparison here differs from how this is handled in
-    // nn_instruction.v.
-  }
+    table(tIdx).currentNodeInLayer := table(tIdx).currentNodeInLayer + UInt(1) }
 
   // Reset Condition
   when (reset) {for (i <- 0 until transactionTableNumEntries) {
     table(i).valid := Bool(false)
-    table(i).reserved := Bool(false)}}
+    table(i).reserved := Bool(false) }}
 
   // Assertions
 
@@ -611,17 +588,6 @@ class TransactionTableBase[StateType <: TransactionState,
     (io.control.resp.bits.layerValidIndex === derefTidIndex)),
     "TTable saw non-new write req on same entry as control resp from Reg File")
 
-  // Receiving a read request on the same entry should be okay as this
-  // will only generate a "not done" response.
-  // assert(!(io.arbiter.rocc.cmd.valid && !cmd.readOrWrite &&
-  //   io.control.resp.bits.cacheValid &&
-  //   (io.control.resp.bits.tableIndex === derefTidIndex)),
-  //   "TTable saw read req on same entry as control resp from Cache")
-  // assert(!(io.arbiter.rocc.cmd.valid && !cmd.readOrWrite &&
-  //   io.control.resp.bits.layerValid &&
-  //   (io.control.resp.bits.layerValidIndex === derefTidIndex)),
-  //   "TTable saw read req on same entry as control resp from Reg File")
-
   // Valid should never be true if reserved is not true
   for (i <- 0 until transactionTableNumEntries)
     assert(!table(i).valid || table(i).reserved,
@@ -640,18 +606,6 @@ class TransactionTableBase[StateType <: TransactionState,
   assert(!(!foundTid && io.arbiter.rocc.cmd.valid &&
     cmd.readOrWrite && cmd.isNew && cmd.isLast),
     "TTable saw write register on non-existent ASID/TID")
-
-  // A response from the Control module should never be dually valid
-  // in terms of actions on the same transaction table index. This
-  // assertion is currently disabled as it *shouldn't* be a problem.
-  // The only field updated by a response originating at the register
-  // file is the waiting field. If this arrives at the same time as a
-  // cache response, the correct value (from the register file) will
-  // correctly overwrite that of the cache update.
-  // assert(!(io.control.resp.valid &&
-  //   io.control.resp.bits.cacheValid && io.control.resp.bits.layerValid &&
-  //   (io.control.resp.bits.tableIndex === io.control.resp.bits.layerValidIndex)),
-  //   "TTable received dually valid control response addressing same TID index")
 
   // A Control response should never have a cacheValid or layerValid
   // asserted when the decoupled valid is deasserted
@@ -675,10 +629,6 @@ class TransactionTableBase[StateType <: TransactionState,
     !io.regFile.resp.valid),
     "TTable sending valid RoCC read response, but RegisterFile response not valid")
 
-  // Certain transaction types are not currently supported
-  //assert(!(io.arbiter.rocc.cmd.valid && cmd.readOrWrite && cmd.isNew &&
-  //  cmd.transactionType === e_TTYPE_BATCH),
-  //  "TTable saw unsupported transaction type")
 
   // No writes should show up if the transaction is already valid
   assert(!(io.arbiter.rocc.cmd.valid && cmd.readOrWrite &&
@@ -691,13 +641,6 @@ class TransactionTableBase[StateType <: TransactionState,
       (cmd.transactionType === e_TTYPE_INCREMENTAL ||
         cmd.transactionType === e_TTYPE_BATCH)),
       "Built X-Files does not support learning") }
-
-  // Inbound read requests should only hit a done entry. [TODO] I'm
-  // currently generating e_NOT_DONE responses when this happens.
-  // Assertion is getting turned off, consequently.
-  // assert(!(io.arbiter.rocc.cmd.valid && !cmd.readOrWrite &&
-  //   !table(derefTidIndex).done),
-  //   "TTable saw read request on entry that is not done")
 }
 
 class TransactionTable(implicit p: Parameters)
@@ -720,7 +663,6 @@ class TransactionTable(implicit p: Parameters)
         val numInputsLSBs = numInputs(log2Up(elementsPerBlock) - 1, 0)
         val numInputsOffset = numInputsMSBs + UInt(elementsPerBlock)
         table(derefTidIndex).nodesInCurrentLayer := numInputsOffset
-        printf("[INFO] TTable: nodes in input layer 0x%x\n", numInputsOffset)
       } .otherwise {
       }
     } .otherwise {
@@ -965,13 +907,6 @@ class TransactionTableLearn(implicit p: Parameters)
               table(tIdx).regFileAddrIn := table(tIdx).regFileAddrOut
               table(tIdx).regFileAddrOut := regFileAddrOut
               table(tIdx).regFileAddrOutFixed := regFileAddrOut
-
-              // These are updated unconditionally, but the only
-              // update of consequence is the one that happens in the
-              // last layer
-
-              // table(tIdx).regFileAddrDelta := regFileAddrOut + niclOffset
-              // table(tIdx).regFileAddrDW := regFileAddrOut + UInt(2) * niclOffset
               table(tIdx).regFileAddrDW := regFileAddrOut + niclOffset
 
               // Update the number of total nodes in the network
@@ -1012,10 +947,6 @@ class TransactionTableLearn(implicit p: Parameters)
             }
             is(e_TTABLE_STATE_LEARN_ERROR_BACKPROP){
               table(tIdx).regFileAddrOut := table(tIdx).regFileAddrDW
-              // table(tIdx).regFileAddrDelta := table(tIdx).regFileAddrDW +
-              //   niclOffset
-              // table(tIdx).regFileAddrDW := table(tIdx).regFileAddrDW +
-              //   niclOffset * UInt(2)
               table(tIdx).regFileAddrDW := table(tIdx).regFileAddrDW +
                 niclOffset
 

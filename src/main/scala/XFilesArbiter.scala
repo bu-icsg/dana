@@ -95,11 +95,6 @@ class XFilesArbiter(implicit p: Parameters) extends XFilesModule()(p) {
         io.core(i).cmd.bits.rs1(feedbackWidth - 1, 0) ##
         asidRegs(i).asid ##
         asidRegs(i).tid
-      // Respond to the core with the TID
-      // io.core(i).resp.valid := Bool(false)
-      // io.core(i).resp.bits.rd := io.core(i).cmd.bits.inst.rd
-      // io.core(i).resp.bits.data := asidRegs(i).tid << UInt(elementWidth)
-      // tTable.io.arbiter.rocc.resp.ready := Bool(false)
     } .otherwise {
       coreQueue(i).enq.bits := io.core(i).cmd.bits
       coreQueue(i).enq.bits.rs1 :=
@@ -111,16 +106,11 @@ class XFilesArbiter(implicit p: Parameters) extends XFilesModule()(p) {
     coreQueue(i).deq.ready := coreArbiter.io.in(i).ready
     coreArbiter.io.in(i).valid := coreQueue(i).deq.valid
     coreArbiter.io.in(i).bits := coreQueue(i).deq.bits
-    // coreArbiter.io.in(i).bits.rs1 :=
-    //   Cat(io.core(i).cmd.bits.rs1(feedbackWidth + tidWidth - 1, tidWidth),
-    //     asidRegs(i).asid,
-    //     io.core(i).cmd.bits.rs1(tidWidth - 1, 0))
     io.core(i).cmd.ready := coreArbiter.io.in(i).ready
     // Inbound reqeusts are also fed into the ASID registers
     asidRegs(i).core.cmd.valid := io.core(i).cmd.valid
     asidRegs(i).core.cmd.bits := io.core(i).cmd.bits
     asidRegs(i).core.s := io.core(i).s
-    // [TODO] Attach the ASID Units to the ANTW
     asidRegs(i).antw <> antw.io.asidUnit(i)
   }
 
@@ -132,6 +122,4 @@ class XFilesArbiter(implicit p: Parameters) extends XFilesModule()(p) {
   io.dana.regFile <> tTable.io.regFile
   io.dana.cache <> antw.io.cache
   (0 until numCores).map(i => io.core(i).mem <> antw.io.mem(i))
-
-  // Assertions
 }

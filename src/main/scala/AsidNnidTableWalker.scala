@@ -148,10 +148,6 @@ class AsidNnidTableWalker(implicit p: Parameters) extends XFilesModule()(p) {
     configRob(configRobSlot).data(configRobOffset) :=
       io.mem(indexResp).resp.bits.data_word_bypass
 
-    // Print out the response [TODO] remove
-    // printf("[INFO] ANTW: Resp addr/data 0x%x/0x%x\n",
-    //   respIdx, io.mem(indexResp).resp.bits.data_word_bypass)
-
     // Assertions
 
     // The Config ROB bit that we're setting valid should not already
@@ -223,13 +219,11 @@ class AsidNnidTableWalker(implicit p: Parameters) extends XFilesModule()(p) {
         cacheReqCurrent.cacheIndex := cacheReqQueue.io.deq.bits.cacheIndex
         cacheReqCurrent.coreIndex := cacheReqQueue.io.deq.bits.coreIndex
         cacheReqQueue.io.deq.ready := Bool(true)
+        memRead(cacheReqQueue.io.deq.bits.coreIndex, reqAddr)
+        state := s_CHECK_NNID_WAIT
         printf("[INFO] ANTW: Dequeuing mem request for Core/ASID/NNID/Idx 0x%x/0x%x/0x%x/0x%x\n",
           cacheReqQueue.io.deq.bits.coreIndex, cacheReqQueue.io.deq.bits.asid,
           cacheReqQueue.io.deq.bits.nnid, cacheReqQueue.io.deq.bits.cacheIndex)
-        // printf("[INFO] ANTW: New request addr/tag 0x%x/0x%x\n",
-        //   reqAddr, reqAddr(coreDCacheReqTagBits - 1, 0))
-        memRead(cacheReqQueue.io.deq.bits.coreIndex, reqAddr)
-        state := s_CHECK_NNID_WAIT
       }
     }
     is (s_CHECK_NNID_WAIT) {
@@ -328,12 +322,6 @@ class AsidNnidTableWalker(implicit p: Parameters) extends XFilesModule()(p) {
     configRob(configRobIdx).valid := UInt(0)
     configWbCount := configWbCount + UInt(1)
   }
-
-  // when (io.mem.exists(respValid)) {
-  //   printf("[INFO] ANTW (state==%x): Memory response subword 0x%x\n",
-  //     state,
-  //     io.mem(indexResp).resp.bits.data_word_bypass)
-  // }
 
   // Reset conditions
   when (reset) {

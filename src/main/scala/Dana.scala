@@ -229,15 +229,11 @@ class Dana(implicit p: Parameters) extends DanaModule {
     Module(new RegisterFile)
 
   // Wire everything up. Ordering shouldn't matter here.
-  // io.arbiter <> tTable.io.arbiter
-  // tTable.io.control <> control.io.tTable
   io.control <> control.io.tTable
   cache.io.control <> control.io.cache
   control.io.peTable <> peTable.io.control
   control.io.regFile <> regFile.io.control
   peTable.io.cache <> cache.io.pe
-  // peTable.io.tTable <> tTable.io.peTable
-  // peTable.io.tTable <> io.peTable
   regFile.io.tTable <> io.regFile
   peTable.io.regFile <> regFile.io.pe
   cache.io.mem <> io.cache
