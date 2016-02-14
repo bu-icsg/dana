@@ -159,7 +159,7 @@ class CacheBase[SramIfType <: SRAMVariantInterface,
   controlRespPipe(0).bits.data := Vec.fill(6){UInt(0)}
   controlRespPipe(0).bits.decimalPoint := UInt(0)
   controlRespPipe(0).bits.field := UInt(0)
-  controlRespPipe(0).bits.location := UInt(0)
+  controlRespPipe(0).bits.regFileLocationBit := UInt(0)
 
   peRespPipe(0).valid := Bool(false)
   peRespPipe(0).bits.field := UInt(0)
@@ -199,8 +199,8 @@ class CacheBase[SramIfType <: SRAMVariantInterface,
     val asid = tTableReqQueue.deq.bits.asid
     val nnid = tTableReqQueue.deq.bits.nnid
     val tableIndex = tTableReqQueue.deq.bits.tableIndex
-    val layer = tTableReqQueue.deq.bits.layer
-    val location = tTableReqQueue.deq.bits.location
+    val layer = tTableReqQueue.deq.bits.currentLayer
+    val location = tTableReqQueue.deq.bits.regFileLocationBit
     val coreIdx = tTableReqQueue.deq.bits.coreIdx
     switch (request) {
       is (e_CACHE_LOAD) {
@@ -246,7 +246,7 @@ class CacheBase[SramIfType <: SRAMVariantInterface,
           controlRespPipe(0).bits.tableMask := UIntToOH(tableIndex)
           controlRespPipe(0).bits.cacheIndex := derefNnid
           controlRespPipe(0).bits.field := e_CACHE_INFO
-          controlRespPipe(0).bits.location := location
+          controlRespPipe(0).bits.regFileLocationBit := location
 
           printf("[INFO] Cache: req Core/ASID/NNID %d/0x%x/0x%x hit\n",
             coreIdx, asid, nnid);
@@ -258,7 +258,7 @@ class CacheBase[SramIfType <: SRAMVariantInterface,
         controlRespPipe(0).bits.field := e_CACHE_LAYER
         // The layer sub-index is temporarily stored in data(0)
         controlRespPipe(0).bits.data(0) := layer(log2Up(elementsPerBlock)-1,0)
-        controlRespPipe(0).bits.location := location
+        controlRespPipe(0).bits.regFileLocationBit := location
         controlRespPipe(0).bits.cacheIndex := derefNnid
 
         // Read the layer information from the correct block. A layer
@@ -279,7 +279,7 @@ class CacheBase[SramIfType <: SRAMVariantInterface,
     controlRespPipe(0).bits.cacheIndex := idxNotify
     controlRespPipe(0).bits.field := e_CACHE_INFO
     // [TODO] The location bit isn't used? Remove this?
-    controlRespPipe(0).bits.location := UInt(0)
+    controlRespPipe(0).bits.regFileLocationBit := UInt(0)
     // Now that this is away, we can deassert some table bits
     table(idxNotify).fetch := Bool(false)
     table(idxNotify).notifyFlag := Bool(false)

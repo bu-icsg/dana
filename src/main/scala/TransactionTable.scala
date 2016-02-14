@@ -511,7 +511,7 @@ class TransactionTableBase[StateType <: TransactionState,
       ((readyCache && cacheWorkToDo) || (readyPeTable && peWorkToDo))
     // The other data connections are just aliases to the contents of
     // the specific table entry
-    table(i) <> entryArbiter.io.in(i).bits
+    entryArbiter.io.in(i).bits := table(i)
     entryArbiter.io.in(i).bits.isDone := table(i).decInUse
     entryArbiter.io.in(i).bits.tableIndex := UInt(i)
   }

@@ -11,7 +11,7 @@ class ControlCacheInterfaceResp(implicit p: Parameters) extends DanaBundle()(p) 
   val data = Vec.fill(6){UInt(width = 16)} // [TODO] possibly fragile
   val decimalPoint = UInt(INPUT, decimalPointWidth)
   val field = UInt(width = log2Up(7)) // [TODO] fragile on Constants.scala
-  val location = UInt(width = 1)
+  val regFileLocationBit = UInt(width = 1)
 }
 
 class ControlCacheInterfaceRespLearn(implicit p: Parameters)
@@ -25,8 +25,8 @@ class ControlCacheInterfaceReq(implicit p: Parameters) extends XFilesBundle()(p)
   val asid = UInt(width = asidWidth)
   val nnid = UInt(width = nnidWidth)
   val tableIndex = UInt(width = log2Up(transactionTableNumEntries))
-  val layer = UInt(width = 16) // [TODO] fragile
-  val location = UInt(width = 1) // [TODO] fragile
+  val currentLayer = UInt(width = 16) // [TODO] fragile
+  val regFileLocationBit = UInt(width = 1) // [TODO] fragile
   val coreIdx = UInt(width = log2Up(numCores))
 }
 
@@ -131,17 +131,6 @@ class ControlInterfaceLearn(implicit p: Parameters)
 class ControlBase(implicit p: Parameters) extends DanaModule()(p) {
   lazy val io = new ControlInterface
   // IO Driver Functions
-  def reqCache(valid: Bool, request: UInt, asid: UInt, nnid: UInt,
-    tableIndex: UInt, coreIdx: UInt, layer: UInt, location: UInt) {
-    io.cache.req.valid := valid
-    io.cache.req.bits.request := request
-    io.cache.req.bits.asid := asid
-    io.cache.req.bits.nnid := nnid
-    io.cache.req.bits.tableIndex := tableIndex
-    io.cache.req.bits.coreIdx := coreIdx
-    io.cache.req.bits.layer := layer
-    io.cache.req.bits.location := location
-  }
   def reqPETable(valid: Bool, cacheIndex: UInt, tIdx: UInt, inAddr: UInt,
     outAddr: UInt, neuronPointer: UInt, decimalPoint: UInt, location: UInt) {
     io.peTable.req.valid := valid
@@ -171,8 +160,6 @@ class ControlBase(implicit p: Parameters) extends DanaModule()(p) {
   io.tTable.resp.bits.layerValidIndex := UInt(0)
   // io.cache defaults
   io.cache.resp.ready := Bool(true) // [TODO] not correct
-  reqCache(Bool(false), UInt(0), UInt(0), UInt(0), UInt(0), UInt(0), UInt(0),
-    UInt(0))
   // io.petable defaults
   reqPETable(Bool(false),
     UInt(0), UInt(0), UInt(0), UInt(0), UInt(0), UInt(0), UInt(0))
@@ -215,54 +202,26 @@ class ControlBase(implicit p: Parameters) extends DanaModule()(p) {
         io.regFile.req.bits.totalWrites := io.cache.resp.bits.data(0)
         // This is the output location. This needs to match the
         // convention used for the Processing Elements
-        io.regFile.req.bits.location := io.cache.resp.bits.location
+        io.regFile.req.bits.location := io.cache.resp.bits.regFileLocationBit
       }
     }
   }
-  // No inbound requests, so we just handle whatever is valid coming
-  // from the Transaction Table
+
+  def reqCache(request: UInt) {
+    io.cache.req.valid := Bool(true)
+    io.cache.req.bits.request := request
+  }
+  reqCache(UInt(0))
+  io.cache.req.valid := Bool(false)
+  io.cache.req.bits := io.tTable.req.bits
   when (io.tTable.req.valid) {
-    printf("[INFO] Control sees core index: %d\n",
-      io.tTable.req.bits.coreIdx)
-    // Cache state is unknown and we're not waiting for the cache to
-    // respond
     when (!io.tTable.req.bits.cacheValid && !io.tTable.req.bits.waiting) {
-      // Send a request to the cache
-      reqCache(valid = Bool(true), request = e_CACHE_LOAD,
-        asid = io.tTable.req.bits.asid,
-        nnid = io.tTable.req.bits.nnid,
-        tableIndex = io.tTable.req.bits.tableIndex,
-        coreIdx = io.tTable.req.bits.coreIdx,
-        layer = UInt(0),
-        location = UInt(0))
-    }
-      .elsewhen (io.tTable.req.bits.cacheValid && io.tTable.req.bits.needsLayerInfo) {
-      // Send a request to the storage module
-      // val inLastLearn = (io.tTable.req.bits.inLastEarly) &&
-      //   (io.tTable.req.bits.stateLearn === e_TTABLE_STATE_LEARN_FEEDFORWARD)
-      printf("[INFO] Control: TTable layer req inFirst 0x%x\n",
-        io.tTable.req.bits.inFirst)
-      reqCache(valid = Bool(true), request = e_CACHE_LAYER_INFO,
-        asid = io.tTable.req.bits.asid,
-        nnid = io.tTable.req.bits.nnid,
-        tableIndex = io.tTable.req.bits.tableIndex,
-        coreIdx = io.tTable.req.bits.coreIdx,
-        layer = io.tTable.req.bits.currentLayer,
-        location = io.tTable.req.bits.regFileLocationBit)
-    }
-    // If this entry is done, then its cache entry needs to be invalidated
-      .elsewhen (io.tTable.req.bits.isDone) {
-      // [TODO] This passes no information about the core index which
-      // _may_ be needed to close out any final cache updates.
-      reqCache(valid = Bool(true), request = e_CACHE_DECREMENT_IN_USE_COUNT,
-        asid = io.tTable.req.bits.asid,
-        nnid = io.tTable.req.bits.nnid,
-        tableIndex = UInt(0),
-        coreIdx = UInt(0),
-        layer = UInt(0),
-        location = UInt(0))
-    }
-      .elsewhen (io.tTable.req.bits.cacheValid && !io.tTable.req.bits.needsLayerInfo &&
+      reqCache(request = e_CACHE_LOAD)
+    } .elsewhen (io.tTable.req.bits.cacheValid && io.tTable.req.bits.needsLayerInfo) {
+      reqCache(request = e_CACHE_LAYER_INFO)
+    } .elsewhen (io.tTable.req.bits.isDone) {
+      reqCache(request = e_CACHE_DECREMENT_IN_USE_COUNT)
+    } .elsewhen (io.tTable.req.bits.cacheValid && !io.tTable.req.bits.needsLayerInfo &&
       io.peTable.req.ready) {
       // Go ahead and allocate an entry in the Processing Element
       reqPETable(valid = Bool(true),
@@ -347,37 +306,14 @@ class ControlLearn(implicit p: Parameters)
   io.cache.req.bits.totalWritesMul := UInt(0)
   when (io.tTable.req.valid) {
     when (!io.tTable.req.bits.cacheValid && !io.tTable.req.bits.waiting) {
-      // Send a request to the cache
-      reqCache(valid = Bool(true), request = e_CACHE_LOAD,
-        asid = io.tTable.req.bits.asid,
-        nnid = io.tTable.req.bits.nnid,
-        tableIndex = io.tTable.req.bits.tableIndex,
-        coreIdx = io.tTable.req.bits.coreIdx,
-        layer = UInt(0), location = UInt(0))
     } .elsewhen (io.tTable.req.bits.cacheValid &&
       io.tTable.req.bits.needsLayerInfo) {
       // Send a request to the storage module
       val totalWritesMul = Mux(io.tTable.req.bits.inLastEarly &&
         (io.tTable.req.bits.stateLearn === e_TTABLE_STATE_LEARN_FEEDFORWARD),
         UInt(2), UInt(1))
-      printf("[INFO] Control: TTable layer req inFirst/inLastEarly/state/totalWritesMul 0x%x/0x%x/0x%x/0x%x\n",
-        io.tTable.req.bits.inFirst,
-        io.tTable.req.bits.inLastEarly, io.tTable.req.bits.stateLearn, totalWritesMul)
-      reqCache(valid = Bool(true), request = e_CACHE_LAYER_INFO,
-        asid = io.tTable.req.bits.asid,
-        nnid = io.tTable.req.bits.nnid,
-        tableIndex = io.tTable.req.bits.tableIndex,
-        coreIdx = io.tTable.req.bits.coreIdx,
-        layer = io.tTable.req.bits.currentLayer,
-        location = io.tTable.req.bits.regFileLocationBit)
       io.cache.req.bits.totalWritesMul := totalWritesMul
     } .elsewhen (io.tTable.req.bits.isDone) {
-      // [TODO] This passes no information about the core index which
-      // _may_ be needed to close out any final cache updates.
-      reqCache(valid = Bool(true), request = e_CACHE_DECREMENT_IN_USE_COUNT,
-        asid = io.tTable.req.bits.asid, nnid = io.tTable.req.bits.nnid,
-        tableIndex = UInt(0), coreIdx = UInt(0), layer = UInt(0),
-        location = UInt(0))
     } .elsewhen (io.tTable.req.bits.cacheValid &&
       !io.tTable.req.bits.needsLayerInfo && io.peTable.req.ready) {
       // Go ahead and allocate an entry in the Processing Element
