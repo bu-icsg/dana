@@ -36,11 +36,7 @@ class ControlCacheInterfaceReqLearn(implicit p: Parameters)
 }
 
 class ControlCacheInterface(implicit p: Parameters) extends DanaBundle()(p) {
-  // Outbound request. nnsim-hdl equivalent:
-  //   cache_types::ctl2storage_struct
   lazy val req = Decoupled(new ControlCacheInterfaceReq)
-  // Inbound response. nnsim-hdl equivalent:
-  //   cache_types::cache2ctl_struct
   lazy val resp = Decoupled(new ControlCacheInterfaceResp).flip
 }
 
@@ -51,12 +47,7 @@ class ControlCacheInterfaceLearn(implicit p: Parameters)
 }
 
 class ControlPETableInterfaceReq(implicit p: Parameters) extends DanaBundle()(p) {
-  // The PE Index shouldn't be needed if the PE Table is allocating PEs
-  // val peIndex = UInt(width = log2Up(peTableNumEntries))
   val cacheIndex = UInt(width = log2Up(cacheNumEntries))
-  // new_state -- this should be unnecessary as all we need to do is
-  // give the PE a kick, which should be accomplished with the
-  // decoupled valid signal
   val tIdx = UInt(width = log2Up(transactionTableNumEntries))
   // [TODO] Change ioIdxWidth to regFileNumElements?
   val inAddr = UInt(width = ioIdxWidth)
@@ -109,7 +100,6 @@ class ControlRegisterFileInterfaceResp(implicit p: Parameters) extends DanaBundl
 }
 
 class ControlRegisterFileInterface(implicit p: Parameters) extends DanaBundle()(p) {
-  // Outbound request/inbound response. No nnsim-hdl equivalent.
   val req = Decoupled(new ControlRegisterFileInterfaceReq)
   val resp = Decoupled(new ControlRegisterFileInterfaceResp).flip
 }
@@ -130,36 +120,28 @@ class ControlInterfaceLearn(implicit p: Parameters)
 
 class ControlBase(implicit p: Parameters) extends DanaModule()(p) {
   lazy val io = new ControlInterface
-  // io.tTable defaults
-  // The actual req.ready signal serves no purpose. Readiness is
-  // indicated using the readyCache and readyPeTable lines passed
-  // using the response portion of the tTable bundle.
+  // Transaction Table connections
   io.tTable.req.ready := Bool(true)
+
+  io.tTable.resp.valid := io.cache.resp.valid || io.regFile.resp.valid
   io.tTable.resp.bits.readyCache := io.cache.req.ready
   io.tTable.resp.bits.readyPeTable := io.peTable.req.ready
   io.tTable.resp.bits.field := UInt(0)
-  io.tTable.resp.bits.layerValid := Bool(false)
-  io.tTable.resp.bits.layerValidIndex := UInt(0)
-  // io.cache defaults
-  io.cache.resp.ready := Bool(true) // [TODO] not correct
-  // io.petable defaults
-  // io.regFile defaults
-  io.regFile.req.valid := Bool(false)
-  io.regFile.resp.ready := Bool(false) // [TODO] not correct
-
   io.tTable.resp.bits.data := io.cache.resp.bits.data
   io.tTable.resp.bits.tableIndex := io.cache.resp.bits.tableIndex
-  io.tTable.resp.valid := io.cache.resp.valid || io.regFile.resp.valid
   io.tTable.resp.bits.decimalPoint := io.cache.resp.bits.decimalPoint
   io.tTable.resp.bits.cacheValid := io.cache.resp.valid
   io.tTable.resp.bits.layerValidIndex := io.regFile.resp.bits.tIdx
   io.tTable.resp.bits.layerValid := io.regFile.resp.valid
 
+  // Register File connections
+  io.regFile.req.valid := Bool(false)
+  io.regFile.resp.ready := Bool(false) // [TODO] not correct
   io.regFile.req.bits.tIdx := io.cache.resp.bits.tableIndex
   io.regFile.req.bits.totalWrites := io.cache.resp.bits.data(0)
   io.regFile.req.bits.location := io.cache.resp.bits.regFileLocationBit
 
-  // This is where we handle responses
+  // Handling of Cache responses
   when (io.cache.resp.valid) {
     switch (io.cache.resp.bits.field) {
       is (e_CACHE_INFO) {
@@ -170,14 +152,13 @@ class ControlBase(implicit p: Parameters) extends DanaModule()(p) {
         io.tTable.resp.bits.field := e_TTABLE_LAYER
         io.regFile.req.valid := Bool(true) }}}
 
-  def reqCache(request: UInt) {
-    io.cache.req.valid := Bool(true)
-    io.cache.req.bits.request := request
-  }
-  reqCache(UInt(0))
+  // Cache connections
+  io.cache.req.bits.request := UInt(0)
+  io.cache.resp.ready := Bool(true)
   io.cache.req.valid := Bool(false)
   io.cache.req.bits := io.tTable.req.bits
 
+  // PE Table connections
   io.peTable.req.valid := Bool(false)
   io.peTable.req.bits.cacheIndex := io.tTable.req.bits.cacheIndex
   io.peTable.req.bits.tIdx := io.tTable.req.bits.tableIndex
@@ -189,21 +170,21 @@ class ControlBase(implicit p: Parameters) extends DanaModule()(p) {
   io.peTable.req.bits.decimalPoint := io.tTable.req.bits.decimalPoint
   io.peTable.req.bits.location := io.tTable.req.bits.regFileLocationBit
 
-  when (io.tTable.req.valid) {
-    when (!io.tTable.req.bits.cacheValid && !io.tTable.req.bits.waiting) {
-      reqCache(request = e_CACHE_LOAD)
-    } .elsewhen (io.tTable.req.bits.cacheValid && io.tTable.req.bits.needsLayerInfo) {
-      reqCache(request = e_CACHE_LAYER_INFO)
-    } .elsewhen (io.tTable.req.bits.isDone) {
-      reqCache(request = e_CACHE_DECREMENT_IN_USE_COUNT)
-    } .elsewhen (io.tTable.req.bits.cacheValid && !io.tTable.req.bits.needsLayerInfo &&
-      io.peTable.req.ready) {
-      // Go ahead and allocate an entry in the Processing Element
-      io.peTable.req.valid := Bool(true)
-    }
-  }
+  val tTableValid = io.tTable.req.valid
+  val cacheLoad = tTableValid &&
+    !io.tTable.req.bits.cacheValid && !io.tTable.req.bits.waiting
+  val cacheLayer = tTableValid && io.tTable.req.bits.cacheValid &&
+    io.tTable.req.bits.needsLayerInfo
+  val cacheDone = tTableValid && io.tTable.req.bits.isDone
+  val peAllocate = tTableValid && io.tTable.req.bits.cacheValid &&
+    !io.tTable.req.bits.needsLayerInfo && io.peTable.req.ready
 
-  // Assertions
+  io.cache.req.valid := cacheLoad || cacheLayer || cacheDone
+  when (cacheLoad) {
+    io.cache.req.bits.request := e_CACHE_LOAD } .elsewhen(cacheLayer) {
+    io.cache.req.bits.request := e_CACHE_LAYER_INFO } .elsewhen(cacheDone) {
+    io.cache.req.bits.request := e_CACHE_DECREMENT_IN_USE_COUNT } .otherwise {
+    io.peTable.req.valid := peAllocate }
 }
 
 class Control(implicit p: Parameters)
@@ -217,7 +198,8 @@ class ControlLearn(implicit p: Parameters)
   io.regFile.req.bits.totalWrites := io.cache.resp.bits.totalWritesMul *
     io.cache.resp.bits.data(0)
 
-  io.peTable.req.bits.inAddr := Mux((io.tTable.req.bits.stateLearn === e_TTABLE_STATE_LEARN_ERROR_BACKPROP) ||
+  io.peTable.req.bits.inAddr :=
+    Mux((io.tTable.req.bits.stateLearn === e_TTABLE_STATE_LEARN_ERROR_BACKPROP) ||
     (io.tTable.req.bits.stateLearn === e_TTABLE_STATE_LEARN_WEIGHT_UPDATE),
     io.tTable.req.bits.regFileAddrIn + io.tTable.req.bits.currentNodeInLayer,
     io.tTable.req.bits.regFileAddrIn)
@@ -230,7 +212,8 @@ class ControlLearn(implicit p: Parameters)
   io.peTable.req.bits.learnAddr := io.tTable.req.bits.currentNodeInLayer
   io.peTable.req.bits.dwAddr := io.tTable.req.bits.regFileAddrDW
   io.peTable.req.bits.slopeAddr := io.tTable.req.bits.regFileAddrSlope
-  io.peTable.req.bits.biasAddr := io.tTable.req.bits.regFileAddrBias + io.tTable.req.bits.currentNodeInLayer
+  io.peTable.req.bits.biasAddr := io.tTable.req.bits.regFileAddrBias +
+    io.tTable.req.bits.currentNodeInLayer
   io.peTable.req.bits.auxAddr := io.tTable.req.bits.regFileAddrAux
   io.peTable.req.bits.errorFunction := io.tTable.req.bits.errorFunction
   io.peTable.req.bits.stateLearn := io.tTable.req.bits.stateLearn
