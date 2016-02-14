@@ -104,28 +104,22 @@ class CacheBase[SramIfType <: SRAMVariantInterface,
   val peCacheIndex_d0 = Reg(UInt(), next = io.pe.req.bits.cacheIndex)
 
   // Helper functions for examing the cache entries
-  def isFree(x: CacheState): Bool = {!x.valid}
-  def isUnused(x: CacheState): Bool = {x.inUseCount === UInt(0)}
-  def derefNnid(x: CacheState, y: UInt): Bool = {x.valid && x.nnid === y}
-  def isDoneFetching(x: CacheState): Bool = {x.notifyFlag}
+  def fIsFree(x: CacheState): Bool = {!x.valid}
+  def fIsUnused(x: CacheState): Bool = {x.inUseCount === UInt(0)}
+  def fDerefNnid(x: CacheState, y: UInt): Bool = {x.valid && x.nnid === y}
+  def fIsDoneFetching(x: CacheState): Bool = {x.notifyFlag}
 
   // State that we need to derive from the cache
-  val hasFree = Wire(Bool())
-  val hasUnused = Wire(Bool())
-  val nextFree = Wire(UInt())
-  val nextUnused = Wire(UInt())
-  val foundNnid = Wire(Bool())
-  val derefNnid = Wire(UInt())
-  val hasNotify = Wire(Bool())
-  val idxNotify = Wire(UInt())
-  hasFree := table.exists(isFree)
-  hasUnused := table.exists(isUnused)
-  nextFree := table.indexWhere(isFree)
-  nextUnused := table.indexWhere(isUnused)
-  foundNnid := table.exists(derefNnid(_, tTableReqQueue.deq.bits.nnid))
-  derefNnid := table.indexWhere(derefNnid(_, tTableReqQueue.deq.bits.nnid))
-  hasNotify := table.exists(isDoneFetching)
-  idxNotify := table.indexWhere(isDoneFetching)
+  val hasFree = table.exists(fIsFree(_))
+  val hasUnused = table.exists(fIsUnused(_))
+  val nextFree = table.indexWhere(fIsFree(_))
+  val nextUnused = table.indexWhere(fIsUnused(_))
+  val foundNnid = table.exists(fDerefNnid(_: CacheState,
+    tTableReqQueue.deq.bits.nnid))
+  val derefNnid = table.indexWhere(fDerefNnid(_: CacheState,
+    tTableReqQueue.deq.bits.nnid))
+  val hasNotify = table.exists(fIsDoneFetching(_))
+  val idxNotify = table.indexWhere(fIsDoneFetching(_))
 
   // This initializes a new cache entry
   def tableInit(index: UInt) {

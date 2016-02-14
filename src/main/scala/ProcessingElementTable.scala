@@ -188,11 +188,9 @@ class ProcessingElementTableBase[PeStateType <: ProcessingElementState,
     regFileWriteReqBase(incWC, reqType, addr, tIdx, data, location)
   }
 
-  def isFree(x: ProcessingElementInterface): Bool = { x.req.ready }
-  val hasFree = Wire(Bool())
-  val nextFree = Wire(UInt())
-  hasFree := pe.exists(isFree)
-  nextFree := pe.indexWhere(isFree)
+  def fIsFree(x: ProcessingElementInterface): Bool = { x.req.ready }
+  val hasFree = pe.exists(fIsFree(_))
+  val nextFree = pe.indexWhere(fIsFree(_))
 
   io.control.req.ready := hasFree
 

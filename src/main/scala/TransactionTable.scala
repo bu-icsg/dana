@@ -213,20 +213,17 @@ class TransactionTableBase[StateType <: TransactionState,
   val table = Reg(genStateVec)
 
   // An entry is free if it is not valid and not reserved
-  def isFree(x: StateType): Bool = { !x.valid && !x.reserved }
-  def derefTid(x: StateType, asid: UInt, tid: UInt): Bool = {
+  def fIsFree(x: StateType): Bool = { !x.valid && !x.reserved }
+  def fDerefTid(x: StateType, asid: UInt, tid: UInt): Bool = {
     (x.asid === asid) && (x.tid === tid) && (x.valid || x.reserved) }
 
   // Determine if there exits a free entry in the table and the index
   // of the next availble free entry
-  val hasFree = Wire(Bool())
-  val nextFree = Wire(UInt())
-  val foundTid = Wire(Bool())
-  val derefTidIndex = Wire(UInt())
-  hasFree := table.exists(isFree)
-  nextFree := table.indexWhere(isFree)
-  foundTid := table.exists(derefTid(_, cmd.asid, cmd.tid))
-  derefTidIndex := table.indexWhere(derefTid(_, cmd.asid, cmd.tid))
+  val hasFree = table.exists(fIsFree(_))
+  val nextFree = table.indexWhere(fIsFree(_))
+  val foundTid = table.exists(fDerefTid(_: StateType, cmd.asid, cmd.tid))
+  val derefTidIndex = table.indexWhere(fDerefTid(_: StateType, cmd.asid,
+    cmd.tid))
   // io.arbiter.rocc.cmd.ready := hasFree
   io.arbiter.rocc.cmd.ready := Bool(true)
   io.arbiter.rocc.resp.valid := Bool(false)
