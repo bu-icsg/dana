@@ -453,22 +453,14 @@ class CacheLearn(implicit p: Parameters)
   }
 
   controlRespPipe(0).bits.totalWritesMul := UInt(0)
-  controlRespPipe(0).bits.globalWtptr := UInt(0)
+  controlRespPipe(0).bits.globalWtptr := compressedInfo.weightsPointer
 
   when (tTableReqQueue.deq.valid && !io.pe.req.valid) {
-    val request = tTableReqQueue.deq.bits.request
     val totalWritesMul = tTableReqQueue.deq.bits.totalWritesMul
     switch (request) {
       is (e_CACHE_LAYER_INFO) {
         controlRespPipe(0).bits.totalWritesMul := totalWritesMul
       }
-    }
-  }
-
-  switch (controlRespPipe(0).bits.field) {
-    is (e_CACHE_INFO) {
-      //global Weight pointer
-      controlRespPipe(1).bits.globalWtptr := compressedInfo.weightsPointer
     }
   }
 
