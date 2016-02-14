@@ -40,9 +40,6 @@ class CacheMemInterface(implicit p: Parameters) extends DanaBundle()(p) {
 }
 
 class CacheInterface(implicit p: Parameters) extends Bundle {
-  // The cache is connected to memory (technically via the arbiter
-  // when this gets added), the control unit, and to the processing
-  // elements
   val mem = new CacheMemInterface
   lazy val control = (new ControlCacheInterface).flip
   lazy val pe = (new PECacheInterface).flip
@@ -88,7 +85,6 @@ class CacheBase[SramIfType <: SRAMVariantInterface,
   // inbound request from every entry in the Transaction Table
   val tTableReqQueue = Module(new Queue(genControlReq,
     transactionTableNumEntries)).io
-  // tTableReqQueue <> io.control.req
   tTableReqQueue.enq.valid := io.control.req.valid
   tTableReqQueue.enq.bits := io.control.req.bits
   io.control.req.ready := tTableReqQueue.enq.ready
@@ -97,10 +93,8 @@ class CacheBase[SramIfType <: SRAMVariantInterface,
   // cycles to generate due to the fact that data needs to be read out
   // of the individual cache SRAMs so we construct a pipeline that
   // builds up the responses.
-  val controlRespPipe =
-    Vec.fill(2){Reg(Valid(genControlResp))}
-  val peRespPipe =
-    Vec.fill(2){Reg(Valid(genPEResp))}
+  val controlRespPipe = Vec.fill(2){Reg(Valid(genControlResp))}
+  val peRespPipe = Vec.fill(2){Reg(Valid(genPEResp))}
   val cacheRead = Reg(Vec.fill(cacheNumEntries){
     (UInt(width=log2Up(cacheNumBlocks)))})
   // We also need to store the cache index of an inbound request by a
@@ -193,15 +187,28 @@ class CacheBase[SramIfType <: SRAMVariantInterface,
 
   tTableReqQueue.deq.ready := Bool(false)
   // Handle requests from the control module
+  val request = tTableReqQueue.deq.bits.request
+  val asid = tTableReqQueue.deq.bits.asid
+  val nnid = tTableReqQueue.deq.bits.nnid
+  val tableIndex = tTableReqQueue.deq.bits.tableIndex
+  val layer = tTableReqQueue.deq.bits.currentLayer
+  val location = tTableReqQueue.deq.bits.regFileLocationBit
+  val coreIdx = tTableReqQueue.deq.bits.coreIdx
+  // Blind assignments
+  controlRespPipe(0).bits.tableIndex := tableIndex
+  controlRespPipe(0).bits.regFileLocationBit := location
+  controlRespPipe(0).bits.data(0) := layer(log2Up(elementsPerBlock) - 1, 0)
+  when (hasNotify) {
+    controlRespPipe(0).bits.tableIndex := table(idxNotify).notifyIndex
+    controlRespPipe(0).bits.tableMask := table(idxNotify).notifyMask
+    controlRespPipe(0).bits.cacheIndex := idxNotify
+  } .otherwise {
+    controlRespPipe(0).bits.tableIndex := tableIndex
+    controlRespPipe(0).bits.tableMask := UIntToOH(tableIndex)
+    controlRespPipe(0).bits.cacheIndex := derefNnid
+  }
   when (tTableReqQueue.deq.valid && !io.pe.req.valid) {
     tTableReqQueue.deq.ready := Bool(true)
-    val request = tTableReqQueue.deq.bits.request
-    val asid = tTableReqQueue.deq.bits.asid
-    val nnid = tTableReqQueue.deq.bits.nnid
-    val tableIndex = tTableReqQueue.deq.bits.tableIndex
-    val layer = tTableReqQueue.deq.bits.currentLayer
-    val location = tTableReqQueue.deq.bits.regFileLocationBit
-    val coreIdx = tTableReqQueue.deq.bits.coreIdx
     switch (request) {
       is (e_CACHE_LOAD) {
         when (!foundNnid) {
@@ -242,11 +249,7 @@ class CacheBase[SramIfType <: SRAMVariantInterface,
 
           // Start a response to the control unit
           controlRespPipe(0).valid := Bool(true)
-          controlRespPipe(0).bits.tableIndex := tableIndex
-          controlRespPipe(0).bits.tableMask := UIntToOH(tableIndex)
-          controlRespPipe(0).bits.cacheIndex := derefNnid
           controlRespPipe(0).bits.field := e_CACHE_INFO
-          controlRespPipe(0).bits.regFileLocationBit := location
 
           printf("[INFO] Cache: req Core/ASID/NNID %d/0x%x/0x%x hit\n",
             coreIdx, asid, nnid);
@@ -254,12 +257,8 @@ class CacheBase[SramIfType <: SRAMVariantInterface,
       }
       is (e_CACHE_LAYER_INFO) {
         controlRespPipe(0).valid := Bool(true)
-        controlRespPipe(0).bits.tableIndex := tableIndex
         controlRespPipe(0).bits.field := e_CACHE_LAYER
         // The layer sub-index is temporarily stored in data(0)
-        controlRespPipe(0).bits.data(0) := layer(log2Up(elementsPerBlock)-1,0)
-        controlRespPipe(0).bits.regFileLocationBit := location
-        controlRespPipe(0).bits.cacheIndex := derefNnid
 
         // Read the layer information from the correct block. A layer
         // occupies one block, so we need to pull the block address
@@ -274,12 +273,7 @@ class CacheBase[SramIfType <: SRAMVariantInterface,
   } .elsewhen (hasNotify) {
     // Start a response to the control unit
     controlRespPipe(0).valid := Bool(true)
-    controlRespPipe(0).bits.tableIndex := table(idxNotify).notifyIndex
-    controlRespPipe(0).bits.tableMask := table(idxNotify).notifyMask
-    controlRespPipe(0).bits.cacheIndex := idxNotify
     controlRespPipe(0).bits.field := e_CACHE_INFO
-    // [TODO] The location bit isn't used? Remove this?
-    controlRespPipe(0).bits.regFileLocationBit := UInt(0)
     // Now that this is away, we can deassert some table bits
     table(idxNotify).fetch := Bool(false)
     table(idxNotify).notifyFlag := Bool(false)
