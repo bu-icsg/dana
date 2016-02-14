@@ -148,14 +148,9 @@ class ControlBase(implicit p: Parameters) extends DanaModule()(p) {
   // indicated using the readyCache and readyPeTable lines passed
   // using the response portion of the tTable bundle.
   io.tTable.req.ready := Bool(true)
-  io.tTable.resp.valid := Bool(false)
   io.tTable.resp.bits.readyCache := io.cache.req.ready
   io.tTable.resp.bits.readyPeTable := io.peTable.req.ready
-  io.tTable.resp.bits.cacheValid := Bool(false)
-  io.tTable.resp.bits.tableIndex := UInt(0)
   io.tTable.resp.bits.field := UInt(0)
-  io.tTable.resp.bits.data := Vec.fill(6){UInt(0)}
-  io.tTable.resp.bits.decimalPoint := UInt(0)
   io.tTable.resp.bits.layerValid := Bool(false)
   io.tTable.resp.bits.layerValidIndex := UInt(0)
   // io.cache defaults
@@ -165,47 +160,30 @@ class ControlBase(implicit p: Parameters) extends DanaModule()(p) {
     UInt(0), UInt(0), UInt(0), UInt(0), UInt(0), UInt(0), UInt(0))
   // io.regFile defaults
   io.regFile.req.valid := Bool(false)
-  io.regFile.req.bits.tIdx := UInt(0)
-  io.regFile.req.bits.totalWrites := UInt(0)
-  io.regFile.req.bits.location := UInt(0)
   io.regFile.resp.ready := Bool(false) // [TODO] not correct
+
+  io.tTable.resp.bits.data := io.cache.resp.bits.data
+  io.tTable.resp.bits.tableIndex := io.cache.resp.bits.tableIndex
+  io.tTable.resp.valid := io.cache.resp.valid || io.regFile.resp.valid
+  io.tTable.resp.bits.decimalPoint := io.cache.resp.bits.decimalPoint
+  io.tTable.resp.bits.cacheValid := io.cache.resp.valid
+  io.tTable.resp.bits.layerValidIndex := io.regFile.resp.bits.tIdx
+  io.tTable.resp.bits.layerValid := io.regFile.resp.valid
+
+  io.regFile.req.bits.tIdx := io.cache.resp.bits.tableIndex
+  io.regFile.req.bits.totalWrites := io.cache.resp.bits.data(0)
+  io.regFile.req.bits.location := io.cache.resp.bits.regFileLocationBit
 
   // This is where we handle responses
   when (io.cache.resp.valid) {
-    io.tTable.resp.valid := Bool(true)
-    io.tTable.resp.bits.cacheValid := Bool(true)
-    io.tTable.resp.bits.tableIndex := io.cache.resp.bits.tableIndex
     switch (io.cache.resp.bits.field) {
       is (e_CACHE_INFO) {
         io.tTable.resp.bits.field := e_TTABLE_CACHE_VALID
-        io.tTable.resp.bits.data(0) := io.cache.resp.bits.data(0)
-        io.tTable.resp.bits.data(1) := io.cache.resp.bits.data(1)
         io.tTable.resp.bits.data(2) := io.cache.resp.bits.cacheIndex ##
-          io.cache.resp.bits.data(2)(errorFunctionWidth - 1,0)
-        io.tTable.resp.bits.data(3) := io.cache.resp.bits.data(3)
-        io.tTable.resp.bits.data(4) := io.cache.resp.bits.data(4)
-        io.tTable.resp.bits.data(5) := io.cache.resp.bits.data(5)
-        io.tTable.resp.bits.decimalPoint := io.cache.resp.bits.decimalPoint
-      }
+          io.cache.resp.bits.data(2)(errorFunctionWidth - 1,0) }
       is (e_CACHE_LAYER) {
-        io.tTable.resp.bits.field := e_TTABLE_LAYER // [TODO] may be wrong
-        io.tTable.resp.bits.data := io.cache.resp.bits.data
-        // Inform the Register File aobut the number of writes that it
-        // is expected to see. The total writes is equal to the number
-        // of nodes in the current layer. [TODO] This shouldn't
-        // technically be allowed to go through when the current layer
-        // is the last layer, but I don't think it's hurting anything.
-        io.regFile.req.valid := Bool(true)
-        io.regFile.req.bits.tIdx := io.cache.resp.bits.tableIndex
-        // [TODO] This won't work as the tTable data is no longer
-        // valid when the cache response comes back.
-        io.regFile.req.bits.totalWrites := io.cache.resp.bits.data(0)
-        // This is the output location. This needs to match the
-        // convention used for the Processing Elements
-        io.regFile.req.bits.location := io.cache.resp.bits.regFileLocationBit
-      }
-    }
-  }
+        io.tTable.resp.bits.field := e_TTABLE_LAYER
+        io.regFile.req.valid := Bool(true) }}}
 
   def reqCache(request: UInt) {
     io.cache.req.valid := Bool(true)
@@ -235,13 +213,6 @@ class ControlBase(implicit p: Parameters) extends DanaModule()(p) {
         decimalPoint = io.tTable.req.bits.decimalPoint,
         location = io.tTable.req.bits.regFileLocationBit)
     }
-  }
-  when (io.regFile.resp.valid) {
-    // The register file for the next layer is 100% ready so we make
-    // the specific Transaction Table entry stop waiting
-    io.tTable.resp.valid := Bool(true)
-    io.tTable.resp.bits.layerValid := Bool(true)
-    io.tTable.resp.bits.layerValidIndex := io.regFile.resp.bits.tIdx
   }
 
   // Assertions
