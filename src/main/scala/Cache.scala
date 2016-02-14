@@ -150,10 +150,7 @@ class CacheBase[SramIfType <: SRAMVariantInterface,
   controlRespPipe(0).bits.regFileLocationBit := UInt(0)
 
   peRespPipe(0).valid := Bool(false)
-  peRespPipe(0).bits.field := UInt(0)
   peRespPipe(0).bits.data := UInt(0)
-  peRespPipe(0).bits.peIndex := UInt(0)
-  peRespPipe(0).bits.neuronIndex := UInt(0)
 
   // [TODO] This shouldn't always be true
   io.pe.req.ready := Bool(true)
@@ -331,6 +328,10 @@ class CacheBase[SramIfType <: SRAMVariantInterface,
   }
 
   // Handle requests from the Processing Element Table
+  peRespPipe(0).bits.field := io.pe.req.bits.field
+  peRespPipe(0).bits.peIndex := io.pe.req.bits.peIndex
+  peRespPipe(0).bits.neuronIndex :=
+    io.pe.req.bits.cacheAddr(2 + log2Up(elementsPerBlock) - 1, 3)
   when (io.pe.req.valid) {
     // Generate a request to the cache-specific SRAM. We need to
     // generate a block address from the input cache byte address.
@@ -345,17 +346,11 @@ class CacheBase[SramIfType <: SRAMVariantInterface,
     switch (io.pe.req.bits.field) {
       is (e_CACHE_NEURON) {
         peRespPipe(0).valid := Bool(true)
-        peRespPipe(0).bits.peIndex := io.pe.req.bits.peIndex
-        peRespPipe(0).bits.field := io.pe.req.bits.field
-        peRespPipe(0).bits.neuronIndex :=
-          io.pe.req.bits.cacheAddr(2 + log2Up(elementsPerBlock) - 1, 3)
       }
       is (e_CACHE_WEIGHT) {
         printf("[INFO] Cache: PE 0x%x req for weight @ addr 0x%x\n",
           io.pe.req.bits.peIndex, io.pe.req.bits.cacheAddr)
         peRespPipe(0).valid := Bool(true)
-        peRespPipe(0).bits.peIndex := io.pe.req.bits.peIndex
-        peRespPipe(0).bits.field := io.pe.req.bits.field
       }
     }
   }
@@ -463,10 +458,6 @@ class CacheLearn(implicit p: Parameters)
         printf("[INFO] Cache: PE 0x%x req for weight @ addr 0x%x\n",
           io.pe.req.bits.peIndex, io.pe.req.bits.cacheAddr)
         peRespPipe(0).valid := Bool(true)
-        peRespPipe(0).bits.peIndex := io.pe.req.bits.peIndex
-        peRespPipe(0).bits.field := io.pe.req.bits.field
-        peRespPipe(0).bits.neuronIndex :=
-          io.pe.req.bits.cacheAddr(2 + log2Up(elementsPerBlock) - 1, 2)
       }
       is (e_CACHE_WEIGHT_WB) {
         printf("[INFO] Cache: PE 0x%x req to inc weight @addr 0x%x\n",
