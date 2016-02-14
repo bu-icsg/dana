@@ -250,21 +250,7 @@ class ControlLearn(implicit p: Parameters)
   io.peTable.req.bits.tType := io.tTable.req.bits.transactionType
   io.peTable.req.bits.globalWtptr := io.tTable.req.bits.globalWtptr
 
-  io.cache.req.bits.totalWritesMul := UInt(0)
-  when (io.tTable.req.valid) {
-    when (!io.tTable.req.bits.cacheValid && !io.tTable.req.bits.waiting) {
-    } .elsewhen (io.tTable.req.bits.cacheValid &&
-      io.tTable.req.bits.needsLayerInfo) {
-      // Send a request to the storage module
-      val totalWritesMul = Mux(io.tTable.req.bits.inLastEarly &&
-        (io.tTable.req.bits.stateLearn === e_TTABLE_STATE_LEARN_FEEDFORWARD),
-        UInt(2), UInt(1))
-      io.cache.req.bits.totalWritesMul := totalWritesMul
-    } .elsewhen (io.tTable.req.bits.isDone) {
-    } .elsewhen (io.tTable.req.bits.cacheValid &&
-      !io.tTable.req.bits.needsLayerInfo && io.peTable.req.ready) {
-      // Go ahead and allocate an entry in the Processing Element
-    }
-  }
-
+  io.cache.req.bits.totalWritesMul := Mux(io.tTable.req.bits.inLastEarly &&
+    (io.tTable.req.bits.stateLearn === e_TTABLE_STATE_LEARN_FEEDFORWARD),
+    UInt(2), UInt(1))
 }
