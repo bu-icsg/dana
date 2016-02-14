@@ -213,19 +213,9 @@ class ControlLearn(implicit p: Parameters)
     extends ControlBase()(p) {
   override lazy val io = new ControlInterfaceLearn
 
-  io.tTable.resp.bits.globalWtptr := UInt(0)
-
-  when (io.cache.resp.valid) {
-    switch (io.cache.resp.bits.field) {
-      is (e_CACHE_INFO) {
-        io.tTable.resp.bits.globalWtptr := io.cache.resp.bits.globalWtptr
-      }
-      is (e_CACHE_LAYER) {
-        io.regFile.req.bits.totalWrites := io.cache.resp.bits.totalWritesMul *
-          io.cache.resp.bits.data(0)
-      }
-    }
-  }
+  io.tTable.resp.bits.globalWtptr := io.cache.resp.bits.globalWtptr
+  io.regFile.req.bits.totalWrites := io.cache.resp.bits.totalWritesMul *
+    io.cache.resp.bits.data(0)
 
   io.peTable.req.bits.inAddr := Mux((io.tTable.req.bits.stateLearn === e_TTABLE_STATE_LEARN_ERROR_BACKPROP) ||
     (io.tTable.req.bits.stateLearn === e_TTABLE_STATE_LEARN_WEIGHT_UPDATE),
