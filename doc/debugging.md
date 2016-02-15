@@ -72,3 +72,14 @@ We can also send this to a file for better analysis:
 ```
 
 Most of the enumerated types are stored in src/main/scala/Dana.scala.
+
+### Table Based Debugging
+Debugging with straight Chisel `printfs` of events is very difficult as it requires complete knowledge of the system. We're in the process of moving to a debugging style where the state of X-FILES and DANA tables are dumped whenever they see an event which updates their state. Chisel, however, does not provide a `printf` that accepts field widths (field widths are inferred from signal widths). Each module includes a dedicated `info` method which will dump the state of the module into a CSV format prepended with `^[DEBUG] *`. The included etc/debug-table.awk can be used to convert the raw output from the C++ emulator to pretty, formatted tables. As an example, you can run this with:
+
+```
+./emulator-Top-XFilesDanaCppPe1Config +verbose pk \
+    ../xfiles-dana/build/fann-xfiles.rv
+    -n ../xfiles-dana/build/nets/xorSigmoidSymmetric-fixed.16bin \
+    -t ../xfiles-dana/build/nets/xorSigmoidSymmetric-fixed.train \
+    -m -e2 -x 2>&1 | awk -f ../xfiles-dana/etc/debug-table.awk
+```
