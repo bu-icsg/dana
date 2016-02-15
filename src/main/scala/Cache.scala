@@ -81,6 +81,18 @@ class CacheBase[SramIfType <: SRAMVariantInterface,
   // Create the table of cache entries
   val table = Reg(Vec.fill(cacheNumEntries){new CacheState})
 
+  def info(x: Vec[CacheState]) {
+    printf("[DEBUG] |V|N|F|InUse|Asid|Nnid|NIdx|        NM| Cache\n")
+    (0 until cacheNumEntries).map(i =>
+      printf("[DEBUG] |%d|%d|%d|    %d|%x|%x|    %d|%x|\n", table(i).valid,
+        table(i).notifyFlag, table(i).fetch, table(i).inUseCount,
+        table(i).asid, table(i).nnid, table(i).notifyIndex,
+        table(i).notifyMask)) }
+
+  when (io.control.req.valid || io.mem.req.valid || io.pe.req.valid ||
+    io.control.resp.valid || io.mem.resp.valid || io.pe.resp.valid) {
+   info(table) }
+
   // The Transaction Table Queue needs to be big enough to hold one
   // inbound request from every entry in the Transaction Table
   val tTableReqQueue = Module(new Queue(genControlReq,
