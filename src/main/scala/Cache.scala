@@ -270,60 +270,47 @@ class CacheBase[SramIfType <: SRAMVariantInterface,
     table(idxNotify).notifyFlag := Bool(false)
   }
 
-  val compressedInfo = new Bundle{
-    val decimalPoint = mem(controlRespPipe(0).bits.cacheIndex).dout(0)(
-      decimalPointWidth - 1, 0)
-    val errorFunction = mem(controlRespPipe(0).bits.cacheIndex).dout(0)(
-      decimalPointWidth + errorFunctionWidth - 1, decimalPointWidth)
-    val unused_0 = mem(controlRespPipe(0).bits.cacheIndex).dout(0)(
-      16 - 1, decimalPointWidth + errorFunctionWidth)
-    val totalWeightBlocks = mem(controlRespPipe(0).bits.cacheIndex).dout(0)(
-      16 + 16 - 1, 16)
-    val totalNeurons = mem(controlRespPipe(0).bits.cacheIndex).dout(0)(
-      32 + 16 - 1, 32)
-    val totalLayers = mem(controlRespPipe(0).bits.cacheIndex).dout(0)(
-      48 + 16 - 1, 48)
-    val firstLayerPointer = mem(controlRespPipe(0).bits.cacheIndex).dout(0)(
-      64 + 16 - 1, 64)
-    val weightsPointer = mem(controlRespPipe(0).bits.cacheIndex).dout(0)(
-      80 + 16 - 1, 80)
-    val learningRate = mem(controlRespPipe(0).bits.cacheIndex).dout(0)(
-      96 + 16 - 1, 96)
-    val lambda = mem(controlRespPipe(0).bits.cacheIndex).dout(0)(
-      112 + 16 - 1, 112)
-  }
+  val dataDecode = new Bundle{
+    val cacheIdx = controlRespPipe(0).bits.cacheIndex
+    val memData = mem(cacheIdx).dout(0)
+    val dpw = decimalPointWidth
+    val efw = errorFunctionWidth
+    val decimalPoint =      memData(      dpw - 1,         0)
+    val errorFunction =     memData(dpw + efw - 1,       dpw)
+    val unused_0 =          memData(       16 - 1, dpw + efw)
+    val totalWeightBlocks = memData(  16 + 16 - 1,        16)
+    val totalNeurons =      memData(  32 + 16 - 1,        32)
+    val totalLayers =       memData(  48 + 16 - 1,        48)
+    val firstLayerPointer = memData(  64 + 16 - 1,        64)
+    val weightsPointer =    memData(  80 + 16 - 1,        80)
+    val learningRate =      memData(  96 + 16 - 1,        96)
+    val lambda =            memData( 112 + 16 - 1,       112)
+    val layers =
+      Vec((0 until bitsPerBlock/32).map(i => memData(32*(i + 1) - 1, 32*i))) }
 
   // Pipeline second stage (SRAM read)
   switch (controlRespPipe(0).bits.field) {
     is (e_CACHE_INFO) {
-      // Decimal Point
-      controlRespPipe(1).bits.decimalPoint := compressedInfo.decimalPoint
-      // Layers
-      controlRespPipe(1).bits.data(0) := compressedInfo.totalLayers
-      // Neurons
-      controlRespPipe(1).bits.data(1) := compressedInfo.totalNeurons
+      controlRespPipe(1).bits.decimalPoint := dataDecode.decimalPoint
+      controlRespPipe(1).bits.data(0) := dataDecode.totalLayers
+      controlRespPipe(1).bits.data(1) := dataDecode.totalNeurons
       // Pass back the error function in LSBs of data(2)
-      controlRespPipe(1).bits.data(2) := UInt(0, width=16-errorFunctionWidth) ##
-        compressedInfo.errorFunction
-      // Learning Rate
-      controlRespPipe(1).bits.data(3) := compressedInfo.learningRate
-      // Weight decay lambda
-      controlRespPipe(1).bits.data(4) := compressedInfo.lambda
-      // Total Weight Blocks
-      controlRespPipe(1).bits.data(5) := compressedInfo.totalWeightBlocks
+      controlRespPipe(1).bits.data(2) :=
+        UInt(0, width=16-dataDecode.efw) ## dataDecode.errorFunction
+      controlRespPipe(1).bits.data(3) := dataDecode.learningRate
+      controlRespPipe(1).bits.data(4) := dataDecode.lambda
+      controlRespPipe(1).bits.data(5) := dataDecode.totalWeightBlocks
     }
     is (e_CACHE_LAYER_INFO) {
-      val compressedLayers = Vec((0 until bitsPerBlock / 32).map(i =>
-        mem(controlRespPipe(0).bits.cacheIndex).dout(0)(32 * (i + 1) - 1, 32 * i)))
       // Number of neurons in this layer
       controlRespPipe(1).bits.data(0) :=
-        compressedLayers(controlRespPipe(0).bits.data(0))(12 + 10 - 1, 12)
+        dataDecode.layers(controlRespPipe(0).bits.data(0))(12 + 10 - 1, 12)
       // Number of neurons in the previous layer
       controlRespPipe(1).bits.data(1) :=
-        compressedLayers(controlRespPipe(0).bits.data(0))(22 + 10 - 1, 22)
+        dataDecode.layers(controlRespPipe(0).bits.data(0))(22 + 10 - 1, 22)
       // Pointer to the first neuron
       controlRespPipe(1).bits.data(2) :=
-        compressedLayers(controlRespPipe(0).bits.data(0))(12 - 1, 0)
+        dataDecode.layers(controlRespPipe(0).bits.data(0))(12 - 1, 0)
     }
   }
 
@@ -448,7 +435,7 @@ class CacheLearn(implicit p: Parameters)
   }
 
   controlRespPipe(0).bits.totalWritesMul := UInt(0)
-  controlRespPipe(0).bits.globalWtptr := compressedInfo.weightsPointer
+  controlRespPipe(0).bits.globalWtptr := dataDecode.weightsPointer
   controlRespPipe(0).bits.totalWritesMul :=
     tTableReqQueue.deq.bits.totalWritesMul
 
