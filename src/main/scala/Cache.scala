@@ -230,11 +230,7 @@ class CacheBase[SramIfType <: SRAMVariantInterface,
             io.mem.req.bits.nnid := nnid
             io.mem.req.bits.cacheIndex := nextFree
             io.mem.req.bits.coreIndex := coreIdx
-            printf("[INFO] Cache: req Core/ASID/NNID %d/0x%x/0x%x miss\n",
-              coreIdx, asid, nnid);
           } .otherwise {
-            printf("[ERROR] Cache: req ASID/NNID 0x%x/0x%x, no space\n",
-            asid, nnid)
           }
 
         } .elsewhen (table(derefNnid).fetch) {
@@ -244,18 +240,12 @@ class CacheBase[SramIfType <: SRAMVariantInterface,
           table(derefNnid).inUseCount := table(derefNnid).inUseCount + UInt(1)
           table(derefNnid).notifyMask := table(derefNnid).notifyMask |
             UIntToOH(tableIndex)
-          printf("[INFO] Cache: req Core/ASID/NNID %d/0x%x/0x%x miss (loading)\n",
-            coreIdx, asid, nnid)
         } .otherwise {
           // The NNID was found and the data has already been loaded
           table(derefNnid).inUseCount := table(derefNnid).inUseCount + UInt(1)
-
           // Start a response to the control unit
           controlRespPipe(0).valid := Bool(true)
           controlRespPipe(0).bits.field := e_CACHE_INFO
-
-          printf("[INFO] Cache: req Core/ASID/NNID %d/0x%x/0x%x hit\n",
-            coreIdx, asid, nnid);
         }
       }
       is (e_CACHE_LAYER_INFO) {
