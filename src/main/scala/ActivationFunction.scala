@@ -276,14 +276,6 @@ class ActivationFunctionLearn(implicit p: Parameters)
   val atanh_x3 = _atanh_x3 >> (UInt(31)-io.req.bits.decimal-UInt(decimalPointOffset))
   val atanh_x4 = _atanh_x4 >> (UInt(31)-io.req.bits.decimal-UInt(decimalPointOffset))
   val atanh_x5 = _atanh_x5 >> (UInt(31)-io.req.bits.decimal-UInt(decimalPointOffset))
-  // when (io.req.valid) {
-  //   printf("[INFO] AF: atanh_x0 is 0x%x\n", atanh_x0)
-  //   printf("[INFO] AF: atanh_x1 is 0x%x\n", atanh_x1)
-  //   printf("[INFO] AF: atanh_x2 is 0x%x\n", atanh_x2)
-  //   printf("[INFO] AF: atanh_x3 is 0x%x\n", atanh_x3)
-  //   printf("[INFO] AF: atanh_x4 is 0x%x\n", atanh_x4)
-  //   printf("[INFO] AF: atanh_x5 is 0x%x\n", atanh_x5)
-  // }
   // Binary Point: 26
   val atanh_y0 = _atanh_y0 >> (UInt(26)-io.req.bits.decimal-UInt(decimalPointOffset))
   val atanh_y1 = _atanh_y1 >> (UInt(26)-io.req.bits.decimal-UInt(decimalPointOffset))
@@ -291,27 +283,12 @@ class ActivationFunctionLearn(implicit p: Parameters)
   val atanh_y3 = _atanh_y3 >> (UInt(26)-io.req.bits.decimal-UInt(decimalPointOffset))
   val atanh_y4 = _atanh_y4 >> (UInt(26)-io.req.bits.decimal-UInt(decimalPointOffset))
   val atanh_y5 = _atanh_y5 >> (UInt(26)-io.req.bits.decimal-UInt(decimalPointOffset))
-  // when (io.req.valid) {
-  //   printf("[INFO] AF: atanh_y0 is 0x%x\n", atanh_y0)
-  //   printf("[INFO] AF: atanh_y1 is 0x%x\n", atanh_y1)
-  //   printf("[INFO] AF: atanh_y2 is 0x%x\n", atanh_y2)
-  //   printf("[INFO] AF: atanh_y3 is 0x%x\n", atanh_y3)
-  //   printf("[INFO] AF: atanh_y4 is 0x%x\n", atanh_y4)
-  //   printf("[INFO] AF: atanh_y5 is 0x%x\n", atanh_y5)
-  // }
   // Binary Point: 19
   val atanh_s1 = _atanh_s1 >> (UInt(19)-io.req.bits.decimal-UInt(decimalPointOffset))
   val atanh_s2 = _atanh_s2 >> (UInt(19)-io.req.bits.decimal-UInt(decimalPointOffset))
   val atanh_s3 = _atanh_s3 >> (UInt(19)-io.req.bits.decimal-UInt(decimalPointOffset))
   val atanh_s4 = _atanh_s4 >> (UInt(19)-io.req.bits.decimal-UInt(decimalPointOffset))
   val atanh_s5 = _atanh_s5 >> (UInt(19)-io.req.bits.decimal-UInt(decimalPointOffset))
-  // when (io.req.valid) {
-  //   printf("[INFO] AF: atanh_s1 is 0x%x\n", atanh_s1)
-  //   printf("[INFO] AF: atanh_s2 is 0x%x\n", atanh_s2)
-  //   printf("[INFO] AF: atanh_s3 is 0x%x\n", atanh_s3)
-  //   printf("[INFO] AF: atanh_s4 is 0x%x\n", atanh_s4)
-  //   printf("[INFO] AF: atanh_s5 is 0x%x\n", atanh_s5)
-  // }
 
   // Atanh error function
   val atanhOffsetX = Wire(SInt(width = elementWidth))
