@@ -82,9 +82,9 @@ class CacheBase[SramIfType <: SRAMVariantInterface,
   val table = Reg(Vec.fill(cacheNumEntries){new CacheState})
 
   def info(x: Vec[CacheState]) {
-    printf("[DEBUG] |V|N|F|InUse|Asid|Nnid|NIdx|        NM| Cache\n")
+    printf("[DEBUG] Cache,VNF,InUse,Asid,Nnid,NIdx,NM\n")
     (0 until cacheNumEntries).map(i =>
-      printf("[DEBUG] |%d|%d|%d|    %d|%x|%x|    %d|%x|\n", table(i).valid,
+      printf("[DEBUG] ,%d%d%d,%d,%x,%x,%d,%x\n", table(i).valid,
         table(i).notifyFlag, table(i).fetch, table(i).inUseCount,
         table(i).asid, table(i).nnid, table(i).notifyIndex,
         table(i).notifyMask)) }
