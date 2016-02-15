@@ -14,7 +14,6 @@ class TransactionState(implicit p: Parameters) extends XFilesBundle()(p) {
   val needsLayerInfo = Bool()
   val done = Bool()
   val decInUse = Bool()
-  val request = Bool()
   // There are two "in the last layer" bits. The first, "inLast",
   // asserts when all PEs in the previous layer are done. The latter,
   // "inLastEarly", asserts as soon as all PEs in the previous layer
@@ -79,7 +78,6 @@ class ControlReq(implicit p: Parameters) extends XFilesBundle()(p) {
   val waiting = Bool()
   val needsLayerInfo = Bool()
   val isDone = Bool()
-  val request = Bool()
   val inFirst = Bool()
   val inLast = Bool()
   // Global info
@@ -285,7 +283,6 @@ class TransactionTableBase[StateType <: TransactionState,
           table(nextFree).tid := cmd.tid
           table(nextFree).nnid := cmd.nnid
           table(nextFree).currentLayer := UInt(0)
-          table(nextFree).request := Bool(false)
           table(nextFree).countFeedback := cmd.countFeedback
           table(nextFree).done := Bool(false)
           table(nextFree).decInUse := Bool(false)
