@@ -218,7 +218,6 @@ class Dana(implicit p: Parameters) extends DanaModule {
     (new XFilesDanaInterface).flip
 
   // Module instantiation
-  // val tTable = Module(new TransactionTable)
   val control = if (learningEnabled) Module(new ControlLearn) else
     Module(new Control)
   val cache = if (learningEnabled) Module(new CacheLearn) else
