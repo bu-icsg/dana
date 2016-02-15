@@ -76,6 +76,15 @@ trait DanaParameters extends HasCoreParameters {
 // X-FILES framework?). This defines all shared DANA parameters.
 abstract class DanaModule(implicit val p: Parameters) extends Module
     with DanaParameters {
+  // Create a tupled version of printf
+  val printff = printf _
+  val printft = printff.tupled
+
+  // Info method that will dump the state of a table
+  def info[T <: DanaBundle](x: Vec[T], prepend: String = "") = {
+    printf(x(0).printElements(prepend))
+    (0 until x.length).map(i => printft(x(i).printAll(","))) }
+
   // Transaction Table State Entries. nnsim-hdl equivalent:
   //   controL_types::field_enum
   val (e_TTABLE_VALID ::       // 0
@@ -211,7 +220,35 @@ abstract class DanaModule(implicit val p: Parameters) extends Module
 // should be the same as in DanaModule.
 abstract class DanaBundle(implicit val p: Parameters)
     extends junctions.ParameterizedBundle()(p)
-    with DanaParameters
+    with DanaParameters {
+
+  // Return a CSV list of all the elements in this bundle
+  def printElements(prepend: String = ""): String = {
+    var res = "[DEBUG]" + prepend
+    var sep = ""
+    for ((n, i) <- elements) {
+      res += sep + n
+      sep = ","
+    }
+    res += "\n"
+    res
+  }
+
+  // Return a (String, Seq[Node]) tuple suitable for passing to printf
+  // that contains the values of all the elements in the bundle
+  def printAll(prepend: String = ""): (String, Seq[Node]) = {
+    var format = "[DEBUG]" + prepend
+    var sep = ""
+    var argsIn = Seq[Node]()
+    for ((n, i) <- elements) {
+      format += sep + "%x"
+      sep = ","
+      argsIn = argsIn :+ i.toNode
+    }
+    format += "\n"
+    (format, argsIn)
+  }
+}
 
 class Dana(implicit p: Parameters) extends DanaModule {
   val io = if (learningEnabled) (new XFilesDanaInterfaceLearn).flip else
