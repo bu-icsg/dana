@@ -126,10 +126,24 @@ class ProcessingElement(implicit p: Parameters) extends DanaModule()(p) {
   af.io.req.bits.steepness := io.req.bits.steepness
   af.io.req.bits.activationFunction := io.req.bits.activationFunction
 
+  state := state
+  // Jump to nextState when we are able to get a request out
+  def reqNoResp(nextState: UInt) = {
+    when (io.req.valid) { state := nextState }}
+  // Jump to nextState when we get a request out and we receive a
+  // response
+  def reqWaitForResp(nextState: UInt) = {
+      when (!reqSent) {
+        io.resp.valid := Bool(true)
+        reqSent := io.req.valid
+      } .elsewhen (io.req.valid) {
+        reqSent := Bool(false)
+        state := nextState }}
+
   // State-driven logic
   switch (state) {
     is (PE_states('e_PE_UNALLOCATED)) {
-      state := Mux(io.req.valid, PE_states('e_PE_GET_INFO), state)
+      reqNoResp(PE_states('e_PE_GET_INFO))
       io.req.ready := Bool(true)
       hasBias := Bool(false)
       index := UInt(0)
@@ -138,13 +152,7 @@ class ProcessingElement(implicit p: Parameters) extends DanaModule()(p) {
     is (PE_states('e_PE_GET_INFO)) {
       dataOut := UInt(0)
       index := UInt(0)
-      when (!reqSent) {
-        io.resp.valid := Bool(true)
-        reqSent := io.req.valid
-      } .elsewhen (io.req.valid) {
-        reqSent := Bool(false)
-        state := PE_states('e_PE_REQUEST_INPUTS_AND_WEIGHTS)
-      }
+      reqWaitForResp(PE_states('e_PE_REQUEST_INPUTS_AND_WEIGHTS))
     }
     is (PE_states('e_PE_REQUEST_INPUTS_AND_WEIGHTS)) {
       // If hasBias is false, then this is the first time we're in this
@@ -153,13 +161,7 @@ class ProcessingElement(implicit p: Parameters) extends DanaModule()(p) {
       when (hasBias === Bool(false)) {
         acc := io.req.bits.bias
       }
-      when (!reqSent) {
-        io.resp.valid := Bool(true)
-        reqSent := io.req.valid
-      } .elsewhen (io.req.valid) {
-        reqSent := Bool(false)
-        state := PE_states('e_PE_RUN)
-      }
+      reqWaitForResp(PE_states('e_PE_RUN))
     }
     is (PE_states('e_PE_RUN)) {
       when (index === (io.req.bits.numWeights - UInt(1))) {
@@ -178,14 +180,11 @@ class ProcessingElement(implicit p: Parameters) extends DanaModule()(p) {
       af.io.req.valid := Bool(true)
       af.io.req.bits.in := acc
       when (af.io.resp.valid) {
-        state := PE_states('e_PE_DONE)
-      }
+        state := PE_states('e_PE_DONE) }
       dataOut := Mux(af.io.resp.valid, af.io.resp.bits.out, dataOut)
     }
     is (PE_states('e_PE_DONE)) {
-      when (io.req.valid) {
-        state := PE_states('e_PE_UNALLOCATED)
-      }
+      reqNoResp(PE_states('e_PE_UNALLOCATED))
       io.resp.bits.incWriteCount := Bool(true)
       io.resp.valid := Bool(true)
     }
