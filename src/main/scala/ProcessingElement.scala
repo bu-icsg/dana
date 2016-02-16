@@ -214,15 +214,9 @@ class ProcessingElementLearn(implicit p: Parameters)
 
   switch (state) {
     is (PE_states('e_PE_UNALLOCATED)) {
-      state := Mux(io.req.valid, PE_states('e_PE_GET_INFO), state)
-      io.req.ready := Bool(true)
-      index := UInt(0)
-      reqSent := Bool(false)
       dwWritebackDone := Bool(false)
     }
     is (PE_states('e_PE_GET_INFO)) {
-      dataOut := UInt(0)
-      index := UInt(0)
       when (!reqSent) {
         io.resp.valid := Bool(true)
         reqSent := io.req.valid
