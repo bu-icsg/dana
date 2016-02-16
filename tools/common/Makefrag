@@ -155,7 +155,7 @@ $(DIR_BUILD_NETS)/xor-sigmoid-%o-float.train: $(NETS_TOOLS)
 	$(GEN_BOOLEAN_DATA) -n 2 -f xor --replicate-output $* > $@
 
 $(DIR_BUILD_NETS)/sin-scale-%-float.train: $(NETS_TOOLS)
-	$(GEN_MATH_DATA) -f sin -d -1 1 -n 128 --x-scaling=$**1*math.pi \
+	$(GEN_MATH_DATA) -f sin -s0 -d -1 1 -n 128 --x-scaling=$**1*math.pi \
 	--file-train=$@ --file-plot=$(DIR_BUILD_NETS)/sin-scale-$*.png
 
 #--------------------------------------- Fixed point net generationg
