@@ -41,6 +41,34 @@ class TransactionState(implicit p: Parameters) extends XFilesBundle()(p) {
   val countFeedback = UInt(width = feedbackWidth)
   //-------- Can be possibly moved over to a learning-only config
   val regFileAddrOutFixed = UInt(width = log2Up(regFileNumElements))
+
+  aliasList += ( "valid" -> "V",
+    "reserved" -> "R",
+    "cacheValid" -> "C",
+    "waiting" -> "W",
+    "needsLayerInfo" -> "NLI",
+    "done" -> "D",
+    "decInUse" -> "-",
+    "inLast" -> "L?",
+    "inFirst" -> "F?",
+    "cacheIndex" -> "C#",
+    "decimalPoint" -> "DP",
+    "numLayers" -> "#L",
+    "numNodes" -> "#N",
+    "currentNode" -> "cN",
+    "currentNodeInLayer" -> "cNiL",
+    "currentLayer" -> "cL",
+    "nodesInCurrentLayer" -> "#NcL",
+    "neuronPointer" -> "N*",
+    "regFileLocationBit" -> "LB",
+    "regFileAddrIn" -> "AIn",
+    "regFileAddrOut" -> "AOut",
+    "readIdx" -> "R#",
+    "coreIdx" -> "Co#",
+    "indexElement" -> "#E",
+    "countFeedback" -> "CF",
+    "regFileAddrOutFixed" -> "AOutF"
+  )
 }
 
 class TransactionStateLearn(implicit p: Parameters)
@@ -70,6 +98,29 @@ class TransactionStateLearn(implicit p: Parameters)
   val regFileAddrAux = UInt(width = log2Up(regFileNumElements))
   val nodesInPreviousLayer = UInt(width = 16) // [TODO] fragile
   val nodesInLast = UInt(width = 16) // [TODO] fragile
+
+  aliasList += (
+    "globalWtptr" -> "GW*",
+    "inLastEarly" -> "L?e",
+    "transactionType" -> "T?",
+    "numTrainOutputs" -> "#TO",
+    "stateLearn" -> "state",
+    "errorFunction" -> "ef",
+    "learningRate" -> "lr",
+    "lambda" -> "Y",
+    "numWeightBlocks" -> "#WB",
+    "numBatchItems" -> "#BI",
+    "curBatchItem" -> "cB",
+    "biasAddr" -> "AB",
+    "offsetBias" -> "oB",
+    "offsetDW" -> "oDW",
+    "regFileAddrInFixed" -> "AInF",
+    "regFileAddrDW" -> "ADW",
+    "regFileAddrSlope" -> "AS",
+    "regFileAddrAux" -> "AAux",
+    "nodesInPreviousLayer" -> "nipl",
+    "nodesInLast" -> "nil"
+  )
 }
 
 class ControlReq(implicit p: Parameters) extends XFilesBundle()(p) {

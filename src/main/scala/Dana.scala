@@ -236,12 +236,21 @@ abstract class DanaBundle(implicit val p: Parameters)
     extends junctions.ParameterizedBundle()(p)
     with DanaParameters {
 
+  val aliasList = scala.collection.mutable.Map[String, String]()
+  def alias (name: String): String = {
+    if (aliasList.contains(name)) {
+      return aliasList(name)
+    } else {
+      return name
+    }
+  }
+
   // Return a CSV list of all the elements in this bundle
   def printElements(prepend: String = ""): String = {
     var res = "[DEBUG]" + prepend
     var sep = ""
     for ((n, i) <- elements) {
-      res += sep + n
+      res += sep + alias(n)
       sep = ","
     }
     res += "\n"
