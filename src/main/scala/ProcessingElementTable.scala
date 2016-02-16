@@ -232,14 +232,14 @@ class ProcessingElementTableBase[PeStateType <: ProcessingElementState,
     table(nextFree).inValid := Bool(false)
     // Kick the PE
     pe(nextFree).req.valid := Bool(true)
-    printf("[INFO] PETable: Received control request...\n")
-    printf("[INFO]   next free:      0x%x\n", nextFree);
-    printf("[INFO]   tid idx:        0x%x\n", io.control.req.bits.tIdx)
-    printf("[INFO]   cache idx:      0x%x\n", io.control.req.bits.cacheIndex)
-    printf("[INFO]   neuron ptr:     0x%x\n", io.control.req.bits.neuronPointer)
-    printf("[INFO]   decimal:        0x%x\n", io.control.req.bits.decimalPoint)
-    printf("[INFO]   in addr:        0x%x\n", io.control.req.bits.inAddr)
-    printf("[INFO]   out addr:       0x%x\n", io.control.req.bits.outAddr)
+    printfInfo("PETable: Received control request...\n")
+    printfInfo("  next free:      0x%x\n", nextFree);
+    printfInfo("  tid idx:        0x%x\n", io.control.req.bits.tIdx)
+    printfInfo("  cache idx:      0x%x\n", io.control.req.bits.cacheIndex)
+    printfInfo("  neuron ptr:     0x%x\n", io.control.req.bits.neuronPointer)
+    printfInfo("  decimal:        0x%x\n", io.control.req.bits.decimalPoint)
+    printfInfo("  in addr:        0x%x\n", io.control.req.bits.inAddr)
+    printfInfo("  out addr:       0x%x\n", io.control.req.bits.outAddr)
   }
 
   // Inbound requests from the cache. I setup some helper nodes here
@@ -265,7 +265,7 @@ class ProcessingElementTableBase[PeStateType <: ProcessingElementState,
         table(peIndex).steepness := cacheRespVec(neuronIndex).steepness
         table(peIndex).bias := cacheRespVec(neuronIndex).bias
         pe(peIndex).req.valid := Bool(true)
-        printf("[INFO] PETable: Weight ptr: 0x%x\n",
+        printfInfo("PETable: Weight ptr: 0x%x\n",
           cacheRespVec(neuronIndex).weightPtr)
       }
       is (e_CACHE_WEIGHT) {
@@ -283,7 +283,7 @@ class ProcessingElementTableBase[PeStateType <: ProcessingElementState,
         } .otherwise {
           table(peIndex).weightValid := Bool(true)
         }
-        printf("[INFO] PETable: Valid cache weight resp PE/data 0x%x/0x%x\n",
+        printfInfo("PETable: Valid cache weight resp PE/data 0x%x/0x%x\n",
           peIndex, io.cache.resp.bits.data)
       }
     }
@@ -380,7 +380,7 @@ class ProcessingElementTable(implicit p: Parameters)
     } .otherwise {
       table(peIndex).inValid := Bool(true)
     }
-    printf("[INFO] PETable: Valid RegFile input resp PE/data 0x%x/0x%x\n",
+    printfInfo("PETable: Valid RegFile input resp PE/data 0x%x/0x%x\n",
       peIndex, io.regFile.resp.bits.data)
   }
 }
@@ -449,21 +449,21 @@ class ProcessingElementTableLearn(implicit p: Parameters)
       regFileBlockWbTable(io.control.req.bits.tIdx) := UInt(0)
     }
     table(nextFree).inAddrSaved := io.control.req.bits.inAddr
-    printf("[INFO]   error func:     0x%x\n", io.control.req.bits.errorFunction)
-    printf("[INFO]   learn rate:     0x%x\n", io.control.req.bits.learningRate)
-    printf("[INFO]   lambda:         0x%x\n", io.control.req.bits.lambda)
-    printf("[INFO]   Global wtptr:   0x%x\n", io.control.req.bits.globalWtptr)
-    printf("[INFO]   learn addr:     0x%x\n", io.control.req.bits.learnAddr)
-    printf("[INFO]   DW addr:        0x%x\n", io.control.req.bits.dwAddr)
-    printf("[INFO]   slope addr:     0x%x\n", io.control.req.bits.slopeAddr)
-    printf("[INFO]   bias addr:      0x%x\n", io.control.req.bits.biasAddr)
-    printf("[INFO]   aux addr:       0x%x\n", io.control.req.bits.auxAddr)
-    printf("[INFO]   stateLearn:     0x%x\n", io.control.req.bits.stateLearn)
-    printf("[INFO]   tType:          0x%x\n", io.control.req.bits.tType)
-    printf("[INFO]   inLast:         0x%x\n", io.control.req.bits.inLast)
-    printf("[INFO]   inFirst:        0x%x\n", io.control.req.bits.inFirst)
-    printf("[INFO]   batchFirst:     0x%x\n", io.control.req.bits.batchFirst)
-    printf("[INFO]   in addr saved:  0x%x\n", io.control.req.bits.inAddr)
+    printfInfo("  error func:     0x%x\n", io.control.req.bits.errorFunction)
+    printfInfo("  learn rate:     0x%x\n", io.control.req.bits.learningRate)
+    printfInfo("  lambda:         0x%x\n", io.control.req.bits.lambda)
+    printfInfo("  Global wtptr:   0x%x\n", io.control.req.bits.globalWtptr)
+    printfInfo("  learn addr:     0x%x\n", io.control.req.bits.learnAddr)
+    printfInfo("  DW addr:        0x%x\n", io.control.req.bits.dwAddr)
+    printfInfo("  slope addr:     0x%x\n", io.control.req.bits.slopeAddr)
+    printfInfo("  bias addr:      0x%x\n", io.control.req.bits.biasAddr)
+    printfInfo("  aux addr:       0x%x\n", io.control.req.bits.auxAddr)
+    printfInfo("  stateLearn:     0x%x\n", io.control.req.bits.stateLearn)
+    printfInfo("  tType:          0x%x\n", io.control.req.bits.tType)
+    printfInfo("  inLast:         0x%x\n", io.control.req.bits.inLast)
+    printfInfo("  inFirst:        0x%x\n", io.control.req.bits.inFirst)
+    printfInfo("  batchFirst:     0x%x\n", io.control.req.bits.batchFirst)
+    printfInfo("  in addr saved:  0x%x\n", io.control.req.bits.inAddr)
   }
 
   when (io.cache.resp.valid) {
@@ -475,14 +475,14 @@ class ProcessingElementTableLearn(implicit p: Parameters)
           (UInt(log2Up(elementWidth / 8))) // [TODO] possibly fragile
         table(peIndex).weightPtrSaved := cacheRespVec(neuronIndex).weightPtr
         table(peIndex).weightoffset:= weightOffset
-        printf("[INFO] PETable: weightoffset 0x%x\n", weightOffset)
+        printfInfo("PETable: weightoffset 0x%x\n", weightOffset)
       }
       is (e_CACHE_WEIGHT_ONLY) {
         table(peIndex).weightPtr :=
           table(peIndex).weightPtr + UInt(elementsPerBlock * elementWidth / 8)
         table(peIndex).weightBlock := io.cache.resp.bits.data
         pe(peIndex).req.valid := Bool(true)
-        printf("[INFO] PETable: Valid cache weight resp PE/data 0x%x/0x%x\n",
+        printfInfo("PETable: Valid cache weight resp PE/data 0x%x/0x%x\n",
           peIndex, io.cache.resp.bits.data)
       }
     }
@@ -507,7 +507,7 @@ class ProcessingElementTableLearn(implicit p: Parameters)
         } .otherwise {
           table(peIndex).inValid := Bool(true)
         }
-        printf("[INFO] PETable: Valid RegFile input resp PE/data 0x%x/0x%x\n",
+        printfInfo("PETable: Valid RegFile input resp PE/data 0x%x/0x%x\n",
           peIndex, io.regFile.resp.bits.data)
       }
       is (e_PE_REQ_EXPECTED_OUTPUT) {
@@ -516,9 +516,9 @@ class ProcessingElementTableLearn(implicit p: Parameters)
           (io.regFile.resp.bits.data)(elementWidth * (i + 1) - 1, elementWidth * i)))
         table(peIndex).learnReg := dataVec(addr)
         pe(peIndex).req.valid := Bool(true)
-        printf("[INFO] PETable: Valid RegFile E[out] resp PE/data 0x%x/0x%x\n",
+        printfInfo("PETable: Valid RegFile E[out] resp PE/data 0x%x/0x%x\n",
           peIndex, io.regFile.resp.bits.data)
-        printf("[INFO]          learnReg -> dataVec(0x%x): 0x%x\n", addr,
+        printfInfo("         learnReg -> dataVec(0x%x): 0x%x\n", addr,
           dataVec(addr))
       }
       is(e_PE_REQ_OUTPUT){
@@ -527,9 +527,9 @@ class ProcessingElementTableLearn(implicit p: Parameters)
           (io.regFile.resp.bits.data)(elementWidth * (i + 1) - 1, elementWidth * i)))
         table(peIndex).learnReg := dataVec(addr)
         pe(peIndex).req.valid := Bool(true)
-        printf("[INFO] PETable: Valid RegFile out resp PE/data 0x%x/0x%x\n",
+        printfInfo("PETable: Valid RegFile out resp PE/data 0x%x/0x%x\n",
           peIndex, io.regFile.resp.bits.data)
-        printf("[INFO]          learnReg -> dataVec(0x%x): 0x%x\n", addr,
+        printfInfo("         learnReg -> dataVec(0x%x): 0x%x\n", addr,
           dataVec(addr))
       }
       is(e_PE_REQ_DELTA_WEIGHT_PRODUCT){
@@ -538,9 +538,9 @@ class ProcessingElementTableLearn(implicit p: Parameters)
           (io.regFile.resp.bits.data)(elementWidth * (i + 1) - 1, elementWidth * i)))
         table(peIndex).dw_in := dataVec(addr)
         pe(peIndex).req.valid := Bool(true)
-        printf("[INFO] PETable: Valid RegFile delta--weight resp PE/data 0x%x/0x%x\n",
+        printfInfo("PETable: Valid RegFile delta--weight resp PE/data 0x%x/0x%x\n",
           peIndex, io.regFile.resp.bits.data)
-        printf("[INFO]          input delta weight product -> dataVec(0x%x): 0x%x\n",
+        printfInfo("         input delta weight product -> dataVec(0x%x): 0x%x\n",
           addr, dataVec(addr))
       }
       is (e_PE_REQ_BIAS) {
@@ -549,9 +549,9 @@ class ProcessingElementTableLearn(implicit p: Parameters)
           (io.regFile.resp.bits.data)(elementWidth * (i + 1) - 1, elementWidth * i)))
         table(peIndex).dw_in := dataVec(addr)
         pe(peIndex).req.valid := Bool(true)
-        printf("[INFO] PETable: Valid RegFile bias resp PE/data 0x%x/0x%x\n",
+        printfInfo("PETable: Valid RegFile bias resp PE/data 0x%x/0x%x\n",
           peIndex, io.regFile.resp.bits.data)
-        printf("[INFO]          bias put in dw_in -> dataVec(0x%x): 0x%x\n",
+        printfInfo("         bias put in dw_in -> dataVec(0x%x): 0x%x\n",
           addr, dataVec(addr))
       }
     }
@@ -666,11 +666,11 @@ class ProcessingElementTableLearn(implicit p: Parameters)
         when (addrWB > regFileBlockWbTable(tIdx)) {
           regFileBlockWbTable(tIdx) := addrWB
           io.regFile.req.bits.reqType := e_PE_WRITE_BLOCK_NEW
-          printf("[INFO] PE Table: _WEIGHT_WB reqType/datablock 0x%x/0x%x\n",
+          printfInfo("PE Table: _WEIGHT_WB reqType/datablock 0x%x/0x%x\n",
             e_PE_WRITE_BLOCK_NEW, peArbiter.io.out.bits.dataBlock.toBits)
         } .otherwise {
           io.regFile.req.bits.reqType := e_PE_WRITE_BLOCK_ACC
-          printf("[INFO] PE Table: _WEIGHT_WB reqType/datablock 0x%x/0x%x\n",
+          printfInfo("PE Table: _WEIGHT_WB reqType/datablock 0x%x/0x%x\n",
             e_PE_WRITE_BLOCK_ACC, peArbiter.io.out.bits.dataBlock.toBits)
         }
         io.regFile.req.bits.addr := addrWB
@@ -710,7 +710,7 @@ class ProcessingElementTableLearn(implicit p: Parameters)
         io.cache.req.bits.cacheAddr := table(peArbiter.io.out.bits.index).weightPtr -
           UInt(elementsPerBlock * elementWidth / 8)
         io.cache.req.bits.data := peArbiter.io.out.bits.dataBlock.toBits
-        printf("[INFO] PE Table: weight block 0x%x\n",
+        printfInfo("PE Table: weight block 0x%x\n",
           peArbiter.io.out.bits.dataBlock.toBits)
 
         pe(peArbiter.io.out.bits.index).req.valid := Bool(true)
@@ -723,9 +723,9 @@ class ProcessingElementTableLearn(implicit p: Parameters)
         io.cache.req.bits.cacheIndex := table(peArbiter.io.out.bits.index).cIdx
         io.cache.req.bits.cacheAddr := table(peArbiter.io.out.bits.index).neuronPtr
         io.cache.req.bits.data := biasUpdateVec.toBits
-        printf("[INFO] PE Table: Trying to write bias biasIndex/bias 0x%x/0x%x\n",
+        printfInfo("PE Table: Trying to write bias biasIndex/bias 0x%x/0x%x\n",
           biasIndex, biasUpdateVec.toBits)
-        printf("[INFO]           .data: 0x%x\n", peArbiter.io.out.bits.data)
+        printfInfo("          .data: 0x%x\n", peArbiter.io.out.bits.data)
 
         // Send a dummy write to the register file so it kicks the
         // Transaction Table
@@ -773,7 +773,7 @@ class ProcessingElementTableLearn(implicit p: Parameters)
         }
         io.regFile.req.bits.data := peArbiter.io.out.bits.data
         io.regFile.req.bits.dataBlock := biasUpdateVecSlope.toBits
-        printf("[INFO] PE Table: bias wb slope: 0x%x\n",
+        printfInfo("PE Table: bias wb slope: 0x%x\n",
           biasUpdateVecSlope.toBits)
 
         io.regFile.req.bits.addr := table(peIdx).biasAddr

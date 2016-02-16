@@ -24,6 +24,7 @@ case object CacheNumEntries extends Field[Int]
 case object CacheDataSize extends Field[Int]
 case object RegisterFileNumElements extends Field[Int]
 case object LearningEnabled extends Field[Boolean]
+case object DebugEnabled extends Field[Boolean]
 case object BitsPerBlock extends Field[Int]
 case object RegFileNumBlocks extends Field[Int]
 case object CacheNumBlocks extends Field[Int]
@@ -64,6 +65,7 @@ trait DanaParameters extends HasCoreParameters {
   val ioIdxWidth = log2Up(p(RegisterFileNumElements) * p(ElementWidth))
   val bitsPerBlock = p(BitsPerBlock)
   val learningEnabled = p(LearningEnabled)
+  val debugEnabled = p(DebugEnabled)
 
   // Related to the neural network configuration format
   val nnConfigNeuronWidth = p(NNConfigNeuronWidth)
@@ -84,6 +86,18 @@ abstract class DanaModule(implicit val p: Parameters) extends Module
   def info[T <: DanaBundle](x: Vec[T], prepend: String = "") = {
     printf(x(0).printElements(prepend))
     (0 until x.length).map(i => printft(x(i).printAll(","))) }
+
+  def printfInfo(message: String, args: Node*): Unit = {
+    if (debugEnabled) printff("[INFO] " + message, args) }
+
+  def printfWarn(message: String, args: Node*) {
+    if (debugEnabled) { printff("[WARN] " + message, args) }}
+
+  def printfError(message: String, args: Node*) {
+    if (debugEnabled) { printff("[ERROR] " + message, args) }}
+
+  def printfDebug(message: String, args: Node*) {
+    if (debugEnabled) { printff("[DEBUG] " + message, args) }}
 
   // Transaction Table State Entries. nnsim-hdl equivalent:
   //   controL_types::field_enum

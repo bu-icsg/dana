@@ -270,7 +270,7 @@ class TransactionTableBase[StateType <: TransactionState,
     when (cmd.readOrWrite) { // Write == True
       when (cmd.isNew) {
         when (cmd.isLast) {
-          printf("[INFO] X-Files saw reg write TID/Reg/Value 0x%x/0x%x/0x%x\n",
+          printfInfo("X-Files saw reg write TID/Reg/Value 0x%x/0x%x/0x%x\n",
             cmd.tid, cmd.regId, cmd.regValue)
         } .otherwise {
           // [TODO] A lot of this can be removed as not everything has
@@ -298,7 +298,7 @@ class TransactionTableBase[StateType <: TransactionState,
           arbiterRespPipe.bits.tidIdx := derefTidIndex
           arbiterRespPipe.bits.coreIdx := cmd.coreIdx
           arbiterRespPipe.bits.rd := cmd.rd
-          printf("[INFO] X-Files saw new write request for NNID 0x%x/\n",
+          printfInfo("X-Files saw new write request for NNID 0x%x/\n",
             cmd.nnid)
         }
       }
@@ -328,7 +328,7 @@ class TransactionTableBase[StateType <: TransactionState,
           table(derefTidIndex).done := Bool(false)
           table(derefTidIndex).waiting := Bool(false)
           table(derefTidIndex).regFileLocationBit := UInt(0)
-          printf("[INFO] TTable: LAST input write TID/data[%d] 0x%x/0x%x\n",
+          printfInfo("TTable: LAST input write TID/data[%d] 0x%x/0x%x\n",
             table(derefTidIndex).indexElement, cmd.tid, cmd.data);
       }
         // This is an input packet
@@ -342,7 +342,7 @@ class TransactionTableBase[StateType <: TransactionState,
         // Update the table entry
         table(derefTidIndex).indexElement :=
           table(derefTidIndex).indexElement + UInt(1)
-        printf("[INFO] X-Files saw write request on TID %x with data[%d] %x\n",
+        printfInfo("X-Files saw write request on TID %x with data[%d] %x\n",
           cmd.tid, table(derefTidIndex).indexElement, cmd.data);
         // table(derefTidIndex).data() :=
       }
@@ -367,7 +367,7 @@ class TransactionTableBase[StateType <: TransactionState,
         // some batch training state where we expect to see a new set
         // training input/output item.
         table(derefTidIndex).readIdx := table(derefTidIndex).readIdx + UInt(1)
-        printf("[INFO] X-Files saw read request on TID %x\n",
+        printfInfo("X-Files saw read request on TID %x\n",
           cmd.tid);
       } .otherwise {
         arbiterRespPipe.valid := Bool(true)
@@ -387,7 +387,7 @@ class TransactionTableBase[StateType <: TransactionState,
           table(derefTidIndex).neuronPointer(7,0) ##
           table(derefTidIndex).currentNodeInLayer(7,0) ##
           table(derefTidIndex).numNodes(7,0)
-        printf("[INFO] X-Files saw read request on TID %x, but transaction not done!\n",
+        printfInfo("X-Files saw read request on TID %x, but transaction not done!\n",
           cmd.tid);
       }
     }
@@ -410,12 +410,12 @@ class TransactionTableBase[StateType <: TransactionState,
           // table(tIdx).lambda := io.control.resp.bits.data(4)
           // Once we know the cache is valid, this entry is no longer waiting
           table(tIdx).waiting := Bool(false)
-          printf("[INFO] TTable: Updating global info from Cache...\n")
-          printf("[INFO]   total layers:            0x%x\n",
+          printfInfo("TTable: Updating global info from Cache...\n")
+          printfInfo("  total layers:            0x%x\n",
             io.control.resp.bits.data(0))
-          printf("[INFO]   total nodes:             0x%x\n",
+          printfInfo("  total nodes:             0x%x\n",
             io.control.resp.bits.data(1))
-          printf("[INFO]   cache index:             0x%x\n",
+          printfInfo("  cache index:             0x%x\n",
             io.control.resp.bits.data(2)(
             log2Up(cacheNumEntries) + errorFunctionWidth - 1, errorFunctionWidth))
         }
@@ -445,27 +445,27 @@ class TransactionTableBase[StateType <: TransactionState,
           val niplOffset = niplMSBs + Mux(niplLSBs =/= UInt(0),
             UInt(elementsPerBlock), UInt(0))
 
-          printf("[INFO] TTable: Updating cache layer...\n")
-          printf("[INFO]   total layers:               0x%x\n",
+          printfInfo("TTable: Updating cache layer...\n")
+          printfInfo("  total layers:               0x%x\n",
             table(tIdx).numLayers)
-          printf("[INFO]   layer is:                   0x%x\n",
+          printfInfo("  layer is:                   0x%x\n",
             table(tIdx).currentLayer)
-          printf("[INFO]   neuron pointer:             0x%x\n",
+          printfInfo("  neuron pointer:             0x%x\n",
             io.control.resp.bits.data(2))
-          printf("[INFO]   nodes in current layer:     0x%x\n",
+          printfInfo("  nodes in current layer:     0x%x\n",
             io.control.resp.bits.data(0))
-          printf("[INFO]   nodes in previous layer:    0x%x\n",
+          printfInfo("  nodes in previous layer:    0x%x\n",
             io.control.resp.bits.data(1))
-          printf("[INFO]   nicl:                       0x%x\n", nicl)
-          printf("[INFO]   niclMSBs:                   0x%x\n", niclMSBs)
-          printf("[INFO]   niclLSBs:                   0x%x\n", niclLSBs)
-          printf("[INFO]   round:                      0x%x\n", round)
-          printf("[INFO]   niplMSBs:                   0x%x\n", niplMSBs)
-          printf("[INFO]   niplLSBs:                   0x%x\n", niplLSBs)
-          printf("[INFO]   niplOffset:                 0x%x\n", niplOffset)
-          printf("[INFO]   regFileAddrIn:              0x%x\n",
+          printfInfo("  nicl:                       0x%x\n", nicl)
+          printfInfo("  niclMSBs:                   0x%x\n", niclMSBs)
+          printfInfo("  niclLSBs:                   0x%x\n", niclLSBs)
+          printfInfo("  round:                      0x%x\n", round)
+          printfInfo("  niplMSBs:                   0x%x\n", niplMSBs)
+          printfInfo("  niplLSBs:                   0x%x\n", niplLSBs)
+          printfInfo("  niplOffset:                 0x%x\n", niplOffset)
+          printfInfo("  regFileAddrIn:              0x%x\n",
             table(tIdx).regFileAddrOut)
-          printf("[INFO]   regFileAddrOut:             0x%x\n",
+          printfInfo("  regFileAddrOut:             0x%x\n",
             table(tIdx).regFileAddrOut +  niplOffset)
         }
       }
@@ -478,7 +478,7 @@ class TransactionTableBase[StateType <: TransactionState,
       val inLastOld = table(tIdx).inLast
       val inLastNew = table(tIdx).currentLayer === (table(tIdx).numLayers - UInt(1))
       table(tIdx).inLast := inLastNew
-      printf("[INFO] TTable: RegFile has all outputs of tIdx 0x%x\n",
+      printfInfo("TTable: RegFile has all outputs of tIdx 0x%x\n",
         io.control.resp.bits.layerValidIndex)
     }
   }
@@ -536,7 +536,7 @@ class TransactionTableBase[StateType <: TransactionState,
     val tIdx = entryArbiter.io.out.bits.tableIndex
     table(tIdx).waiting := Bool(true)
     when (entryArbiter.io.out.bits.isDone) {
-      printf("[INFO] TTable entry for ASID/TID %x/%x is done\n",
+      printfInfo("TTable entry for ASID/TID %x/%x is done\n",
         table(tIdx).asid, table(tIdx).tid);
         table(tIdx).done := Bool(true) }}
   when (isPeReq) {
@@ -547,6 +547,10 @@ class TransactionTableBase[StateType <: TransactionState,
       (table(tIdx).numLayers - UInt(1))
     table(tIdx).currentNode := table(tIdx).currentNode + UInt(1)
     table(tIdx).currentNodeInLayer := table(tIdx).currentNodeInLayer + UInt(1) }
+
+  // Dump table information
+  when (isPeReq || io.control.resp.valid) {
+    info(table, "ttable,") }
 
   // Reset Condition
   when (reset) {for (i <- 0 until transactionTableNumEntries) {
@@ -665,7 +669,7 @@ class TransactionTable(implicit p: Parameters)
           table(derefTidIndex).nodesInCurrentLayer - UInt(1))) {
           table(derefTidIndex).valid := Bool(false)
           table(derefTidIndex).reserved := Bool(false)
-          printf("[INFO] TTable: All outputs read, evicting ASID/TID 0x%x/0x%x\n",
+          printfInfo("TTable: All outputs read, evicting ASID/TID 0x%x/0x%x\n",
             table(derefTidIndex).asid, table(derefTidIndex).tid)
         }
       } .otherwise {
@@ -698,7 +702,7 @@ class TransactionTable(implicit p: Parameters)
           table(tIdx).regFileAddrOut := table(tIdx).regFileAddrOut + niplOffset
           table(tIdx).regFileAddrOutFixed := table(tIdx).regFileAddrOut +
             niplOffset
-          printf("[INFO]   inFirst/inLast: 0x%x/0x%x\n", table(tIdx).inFirst,
+          printfInfo("  inFirst/inLast: 0x%x/0x%x\n", table(tIdx).inFirst,
             table(tIdx).inLast)
         }
       }
@@ -713,7 +717,7 @@ class TransactionTable(implicit p: Parameters)
         table(tIdx).decInUse := Bool(true)
         table(tIdx).waiting := Bool(false)
       }
-      printf("[INFO]   inFirst/inLast: 0x%x/0x%x->0x%x\n",
+      printfInfo("  inFirst/inLast: 0x%x/0x%x->0x%x\n",
         table(tIdx).inFirst, inLastOld, inLastNew)
     }
   }
@@ -751,15 +755,15 @@ class TransactionTableLearn(implicit p: Parameters)
           switch(cmd.regId) {
             is (e_TTABLE_WRITE_REG_BATCH_ITEMS) {
               table(derefTidIndex).numBatchItems := cmd.regValue
-              printf("[INFO] TTable setting TID 0x%x numBatchItems to 0x%x\n",
+              printfInfo("TTable setting TID 0x%x numBatchItems to 0x%x\n",
                 cmd.tid, cmd.regValue)}
             is (e_TTABLE_WRITE_REG_LEARNING_RATE) {
               table(derefTidIndex).learningRate := cmd.regValue
-              printf("[INFO] TTable setting TID 0x%x learningRate to 0x%x\n",
+              printfInfo("TTable setting TID 0x%x learningRate to 0x%x\n",
                 cmd.tid, cmd.regValue)}
             is (e_TTABLE_WRITE_REG_WEIGHT_DECAY_LAMBDA) {
               table(derefTidIndex).lambda := cmd.regValue
-              printf("[INFO] TTable setting TID 0x%x lambda to 0x%x\n",
+              printfInfo("TTable setting TID 0x%x lambda to 0x%x\n",
                 cmd.tid, cmd.regValue)}
           }
         } .otherwise {
@@ -776,7 +780,7 @@ class TransactionTableLearn(implicit p: Parameters)
           table(nextFree).numBatchItems := UInt(1)
           table(nextFree).curBatchItem := UInt(0)
           table(nextFree).transactionType := cmd.transactionType
-          printf("[INFO] X-Files saw new write request for NNID/TType 0x%x/0x%x\n",
+          printfInfo("X-Files saw new write request for NNID/TType 0x%x/0x%x\n",
             cmd.nnid, cmd.transactionType)
         }
       } .elsewhen(cmd.isLast) {
@@ -792,13 +796,13 @@ class TransactionTableLearn(implicit p: Parameters)
           table(derefTidIndex).stateLearn := e_TTABLE_STATE_LEARN_FEEDFORWARD
           table(derefTidIndex).regFileAddrInFixed := nextIndexBlock
           table(derefTidIndex).regFileAddrOut := nextIndexBlock
-          printf("[INFO] TTable: LAST E[output] write TID/data 0x%x/0x%x\n",
+          printfInfo("TTable: LAST E[output] write TID/data 0x%x/0x%x\n",
             cmd.tid, cmd.data);
           table(derefTidIndex).valid := Bool(false)
         } .otherwise {
           table(derefTidIndex).nodesInCurrentLayer :=
             numInputsOffset - table(derefTidIndex).regFileAddrInFixed
-          printf("[INFO] TTable: Setting nodesInCurrentLayer to 0x%x\n",
+          printfInfo("TTable: Setting nodesInCurrentLayer to 0x%x\n",
             numInputsOffset - table(derefTidIndex).regFileAddrInFixed)
         }
         table(derefTidIndex).inLastEarly := Bool(false)
@@ -817,15 +821,15 @@ class TransactionTableLearn(implicit p: Parameters)
         // planning to read in the output layer, so the exit condition
         // for looking that the readIdx is equal to the number of
         // nodes in the current layer is valid.
-        printf("[INFO] nodesInLast: 0x%x\n", table(derefTidIndex).nodesInLast)
+        printfInfo("nodesInLast: 0x%x\n", table(derefTidIndex).nodesInLast)
         when ((table(derefTidIndex).readIdx ===
           table(derefTidIndex).nodesInLast - UInt(1)) &&
           (table(derefTidIndex).stateLearn =/= e_TTABLE_STATE_LOAD_OUTPUTS)) {
           table(derefTidIndex).valid := Bool(false)
           table(derefTidIndex).reserved := Bool(false)
-          printf("[INFO] TTable: All outputs read, evicting ASID/TID 0x%x/0x%x\n",
+          printfInfo("TTable: All outputs read, evicting ASID/TID 0x%x/0x%x\n",
             table(derefTidIndex).asid, table(derefTidIndex).tid)
-          printf("[INFO]         State is: 0x%x\n",
+          printfInfo("        State is: 0x%x\n",
             table(derefTidIndex).stateLearn)
         }
       } .otherwise {
@@ -847,16 +851,16 @@ class TransactionTableLearn(implicit p: Parameters)
           table(tIdx).errorFunction := io.control.resp.bits.data(2)(
             errorFunctionWidth - 1, 0)
           table(tIdx).numWeightBlocks := io.control.resp.bits.data(5)
-          printf("[INFO]   error function:          0x%x\n",
+          printfInfo("  error function:          0x%x\n",
             io.control.resp.bits.data(2)(
               errorFunctionWidth - 1, 0))
-          printf("[INFO]   learning rate:           0x%x (NOT SET)\n",
+          printfInfo("  learning rate:           0x%x (NOT SET)\n",
             io.control.resp.bits.data(3))
-          printf("[INFO]   lambda:                  0x%x (NOT SET)\n",
+          printfInfo("  lambda:                  0x%x (NOT SET)\n",
             io.control.resp.bits.data(4))
-          printf("[INFO]   Totalweightblocks :      0x%x\n",
+          printfInfo("  Totalweightblocks :      0x%x\n",
             io.control.resp.bits.data(5))
-          printf("[INFO]   Global Weight Pointer :  0x%x\n",
+          printfInfo("  Global Weight Pointer :  0x%x\n",
             io.control.resp.bits.globalWtptr)
         }
         is(e_TTABLE_LAYER) {
@@ -876,10 +880,10 @@ class TransactionTableLearn(implicit p: Parameters)
           val niplOffset = niplMSBs + Mux(niplLSBs =/= UInt(0),
             UInt(elementsPerBlock), UInt(0))
 
-          printf("[INFO]   nicl:             0x%x\n", nicl)
-          printf("[INFO]   niclOffset:       0x%x\n", niclOffset)
-          printf("[INFO]   nipl:             0x%x\n", nipl)
-          printf("[INFO]   niplOffset:       0x%x\n", niplOffset)
+          printfInfo("  nicl:             0x%x\n", nicl)
+          printfInfo("  niclOffset:       0x%x\n", niclOffset)
+          printfInfo("  nipl:             0x%x\n", nipl)
+          printfInfo("  niplOffset:       0x%x\n", niplOffset)
           when ((table(tIdx).currentLayer === UInt(0)) &&
             (table(tIdx).stateLearn === e_TTABLE_STATE_LEARN_FEEDFORWARD ||
               table(tIdx).stateLearn === e_TTABLE_STATE_FEEDFORWARD)) {
@@ -919,12 +923,12 @@ class TransactionTableLearn(implicit p: Parameters)
                 table(tIdx).offsetDW + niclOffset
               table(tIdx).biasAddr := biasAddr
               table(tIdx).regFileAddrSlope := biasAddr + niclOffset
-              printf("[INFO]   offsetBias:       0x%x\n",
+              printfInfo("  offsetBias:       0x%x\n",
                 table(tIdx).offsetBias + niclOffset)
               // The DW offset is the size of the DW region
               when (!table(tIdx).inLastEarly) {
                 table(tIdx).offsetDW := table(tIdx).offsetDW + niclOffset
-                printf("[INFO]   offsetDW:         0x%x\n",
+                printfInfo("  offsetDW:         0x%x\n",
                   table(tIdx).offsetDW + niclOffset)
               }
 
@@ -933,11 +937,11 @@ class TransactionTableLearn(implicit p: Parameters)
                 table(tIdx).nodesInLast := nicl
               }
 
-              printf("[INFO]   offsetDW:         0x%x\n", table(tIdx).offsetDW)
-              printf("[INFO]   regFileAddrDw:    0x%x -> 0x%x\n",
+              printfInfo("  offsetDW:         0x%x\n", table(tIdx).offsetDW)
+              printfInfo("  regFileAddrDw:    0x%x -> 0x%x\n",
                 table(tIdx).regFileAddrDW, regFileAddrOut + niclOffset)
-              printf("[INFO]   regFileAddrSlope: 0x%x\n", biasAddr + niclOffset)
-              printf("[INFO]   biasAddr:         0x%x\n", biasAddr)
+              printfInfo("  regFileAddrSlope: 0x%x\n", biasAddr + niclOffset)
+              printfInfo("  biasAddr:         0x%x\n", biasAddr)
             }
             is(e_TTABLE_STATE_LEARN_ERROR_BACKPROP){
               table(tIdx).regFileAddrOut := table(tIdx).regFileAddrDW
@@ -954,32 +958,32 @@ class TransactionTableLearn(implicit p: Parameters)
                 //address to read outputs to compute derivative
                 table(tIdx).regFileAddrIn := regFileAddrIn
                 table(tIdx).regFileAddrAux := regFileAddrAux
-                printf("[INFO]   regFileAddrIn:    0x%x\n", regFileAddrIn)
-                printf("[INFO]   regFileAddrAux:   0x%x\n", regFileAddrAux)
+                printfInfo("  regFileAddrIn:    0x%x\n", regFileAddrIn)
+                printfInfo("  regFileAddrAux:   0x%x\n", regFileAddrAux)
               } .otherwise {
                 val regFileAddrIn = table(tIdx).regFileAddrIn - niclOffset
                 val regFileAddrAux = regFileAddrIn - niplOffset
                 table(tIdx).regFileAddrIn := regFileAddrIn
                 table(tIdx).regFileAddrAux := regFileAddrAux
-                printf("[INFO]   regFileAddrIn:    0x%x\n", regFileAddrIn)
-                printf("[INFO]   regFileAddrAux:   0x%x\n", regFileAddrAux)
+                printfInfo("  regFileAddrIn:    0x%x\n", regFileAddrIn)
+                printfInfo("  regFileAddrAux:   0x%x\n", regFileAddrAux)
               }
 
               // [TODO] Check that this is working
               table(tIdx).biasAddr := table(tIdx).biasAddr - niclOffset
-              printf("[INFO]   offsetBias:       0x%x\n", table(tIdx).offsetBias)
-              printf("[INFO]   offsetDW:         0x%x\n", table(tIdx).offsetDW)
-              printf("[INFO]   regFileAddrDw:    0x%x -> 0x%x\n",
+              printfInfo("  offsetBias:       0x%x\n", table(tIdx).offsetBias)
+              printfInfo("  offsetDW:         0x%x\n", table(tIdx).offsetDW)
+              printfInfo("  regFileAddrDw:    0x%x -> 0x%x\n",
                 table(tIdx).regFileAddrDW, table(tIdx).regFileAddrDW + niclOffset)
-              printf("[INFO]   regFileAddrSlope: 0x%x\n",
+              printfInfo("  regFileAddrSlope: 0x%x\n",
                 table(tIdx).regFileAddrSlope)
-              printf("[INFO]   biasAddr:         0x%x\n",
+              printfInfo("  biasAddr:         0x%x\n",
                 table(tIdx).regFileAddrDW - niclOffset)
 
             }
             is(e_TTABLE_STATE_LEARN_WEIGHT_UPDATE){
               when(table(tIdx).transactionType === e_TTYPE_BATCH){
-                printf("[INFO] TTable Layer Update, state == LEARN_WEIGHT_UPDATE\n")
+                printfInfo("TTable Layer Update, state == LEARN_WEIGHT_UPDATE\n")
                 when (table(tIdx).currentLayer === UInt(0)){
                   table(tIdx).regFileAddrDW := table(tIdx).regFileAddrInFixed
                   table(tIdx).regFileAddrIn := table(tIdx).regFileAddrInFixed +
@@ -992,19 +996,19 @@ class TransactionTableLearn(implicit p: Parameters)
                   // to the start of the weight update region).
                   table(tIdx).biasAddr := table(tIdx).regFileAddrSlope -
                     table(tIdx).offsetBias
-                  printf("[INFO]   regFileAddrDw:   0x%x\n",
+                  printfInfo("  regFileAddrDw:   0x%x\n",
                     table(tIdx).regFileAddrInFixed)
-                  printf("[INFO]   regFileAddrIn:   0x%x\n",
+                  printfInfo("  regFileAddrIn:   0x%x\n",
                     table(tIdx).regFileAddrInFixed + niclOffset)
                 }.otherwise{
                   table(tIdx).regFileAddrDW := table(tIdx).regFileAddrIn
                   table(tIdx).regFileAddrIn := table(tIdx).regFileAddrIn + niclOffset
                   table(tIdx).biasAddr := table(tIdx).biasAddr + niplOffset
-                  printf("[INFO]   regFileAddrDw:   0x%x\n",
+                  printfInfo("  regFileAddrDw:   0x%x\n",
                     table(tIdx).regFileAddrIn)
-                  printf("[INFO]   regFileAddrIn:   0x%x\n",
+                  printfInfo("  regFileAddrIn:   0x%x\n",
                     table(tIdx).regFileAddrInFixed + niclOffset)
-                  printf("[INFO]   biasAddr:        0x%x\n",
+                  printfInfo("  biasAddr:        0x%x\n",
                     table(tIdx).biasAddr + niplOffset)
                 }
               }.otherwise{
@@ -1013,7 +1017,7 @@ class TransactionTableLearn(implicit p: Parameters)
               }
             }
           }
-          printf("[INFO]   inFirst/inLast/inLastEarly: 0x%x/0x%x/0x%x\n",
+          printfInfo("  inFirst/inLast/inLastEarly: 0x%x/0x%x/0x%x\n",
             table(tIdx).inFirst, table(tIdx).inLast, table(tIdx).inLastEarly)
         }
       }
@@ -1056,7 +1060,7 @@ class TransactionTableLearn(implicit p: Parameters)
           }
         }
       }
-      printf("[INFO]   inFirst/inLast/inLastEarly/state: 0x%x/0x%x->0x%x/0x%x/0x%x\n",
+      printfInfo("  inFirst/inLast/inLastEarly/state: 0x%x/0x%x->0x%x/0x%x/0x%x\n",
         table(tIdx).inFirst, inLastOld, inLastNew, table(tIdx).inLastEarly,
         table(tIdx).stateLearn)
     }

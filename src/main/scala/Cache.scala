@@ -319,7 +319,7 @@ class CacheBase[SramIfType <: SRAMVariantInterface,
     // that it's being passed correctly.
     mem(io.pe.req.bits.cacheIndex).addr(0) :=
       io.pe.req.bits.cacheAddr >> (UInt(2 + log2Up(elementsPerBlock)))
-    printf("[INFO] cache: block address from byte address 0x%x/0x%x\n",
+    printfInfo("cache: block address from byte address 0x%x/0x%x\n",
       io.pe.req.bits.cacheAddr,
       io.pe.req.bits.cacheAddr >> (UInt(2 + log2Up(elementsPerBlock))) )
     // Fill the first stage of the PE pipeline
@@ -328,7 +328,7 @@ class CacheBase[SramIfType <: SRAMVariantInterface,
         peRespPipe(0).valid := Bool(true)
       }
       is (e_CACHE_WEIGHT) {
-        printf("[INFO] Cache: PE 0x%x req for weight @ addr 0x%x\n",
+        printfInfo("Cache: PE 0x%x req for weight @ addr 0x%x\n",
           io.pe.req.bits.peIndex, io.pe.req.bits.cacheAddr)
         peRespPipe(0).valid := Bool(true)
       }
@@ -349,7 +349,7 @@ class CacheBase[SramIfType <: SRAMVariantInterface,
 
   // Handle responses from memory (ANTW or similar)
   when (io.mem.resp.valid) {
-    printf("[INFO] Cache: saw write to SRAM_%x(%x) <= %x\n",
+    printfInfo("Cache: saw write to SRAM_%x(%x) <= %x\n",
       io.mem.resp.bits.cacheIndex,
       io.mem.resp.bits.addr,
       io.mem.resp.bits.data)
@@ -360,7 +360,7 @@ class CacheBase[SramIfType <: SRAMVariantInterface,
     // when block above to generate a response when the cache isn't
     // dealing with other requests
     when (io.mem.resp.bits.done) {
-      printf("[INFO] Cache: SRAM_%x received DONE response\n",
+      printfInfo("Cache: SRAM_%x received DONE response\n",
         io.mem.resp.bits.cacheIndex)
       table(io.mem.resp.bits.cacheIndex).notifyFlag := Bool(true)
     }
@@ -435,14 +435,14 @@ class CacheLearn(implicit p: Parameters)
   when (io.pe.req.valid) {
     switch (io.pe.req.bits.field) {
       is (e_CACHE_WEIGHT_ONLY) {
-        printf("[INFO] Cache: PE 0x%x req for weight @ addr 0x%x\n",
+        printfInfo("Cache: PE 0x%x req for weight @ addr 0x%x\n",
           io.pe.req.bits.peIndex, io.pe.req.bits.cacheAddr)
         peRespPipe(0).valid := Bool(true)
       }
       is (e_CACHE_WEIGHT_WB) {
-        printf("[INFO] Cache: PE 0x%x req to inc weight @addr 0x%x\n",
+        printfInfo("Cache: PE 0x%x req to inc weight @addr 0x%x\n",
           io.pe.req.bits.peIndex, io.pe.req.bits.cacheAddr)
-        printf("[INFO]        block: 0x%x\n", io.pe.req.bits.data)
+        printfInfo("       block: 0x%x\n", io.pe.req.bits.data)
         mem(io.pe.req.bits.cacheIndex).we(0) := Bool(true)
         mem(io.pe.req.bits.cacheIndex).inc(0) := Bool(true)
         mem(io.pe.req.bits.cacheIndex).din(0) := io.pe.req.bits.data

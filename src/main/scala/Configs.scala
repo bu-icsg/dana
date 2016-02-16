@@ -38,6 +38,7 @@ class DefaultXFilesDanaConfig extends Config (
       case RegisterFileNumElements => Dump(Knob("REGISTER_FILE_NUM_ELEMENTS"))
       // Enables support for in-hardware learning
       case LearningEnabled => true
+      case DebugEnabled => false
       case BitsPerBlock => site(ElementsPerBlock) * site(ElementWidth)
       case RegFileNumBlocks => divUp(site(RegisterFileNumElements),
         site(ElementsPerBlock))
@@ -58,6 +59,13 @@ class DefaultXFilesDanaConfig extends Config (
     case "CACHE_NUM_ENTRIES" => 2
     case "REGISTER_FILE_NUM_ELEMENTS" => 10240
   }
+)
+
+class  XFilesDanaDebugConfig extends Config (
+  topDefinitions = { (pname,site,here) =>
+    pname match {
+      case DebugEnabled => true
+    }}
 )
 
 class DefaultXFilesDanaFPGAConfig extends Config(new DefaultXFilesDanaConfig)

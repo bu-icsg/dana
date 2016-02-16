@@ -142,7 +142,7 @@ class ActivationFunction(implicit p: Parameters) extends DanaModule()(p) {
   }
 
   when (ioVal_d1) {
-    printf("[INFO] PE: AF(0x%x) = 0x%x\n", dataIn, out)
+    printfInfo("PE: AF(0x%x) = 0x%x\n", dataIn, out)
   }
 
   def applySteepness(x: SInt, steepness: UInt): SInt = {

@@ -164,14 +164,14 @@ class AsidNnidTableWalker(implicit p: Parameters) extends XFilesModule()(p) {
     antpReg.valid := Bool(true)
     antpReg.antp := io.asidUnit(indexReq).req.bits.antp
     antpReg.size := io.asidUnit(indexReq).req.bits.size
-    printf("[INFO] ANTW changing ANTP to 0x%x with size 0x%x\n",
+    printfInfo("ANTW changing ANTP to 0x%x with size 0x%x\n",
       io.asidUnit(indexReq).req.bits.antp,
       io.asidUnit(indexReq).req.bits.size)
   }
 
   // New cache requests get entered on the queue
   when (io.cache.req.fire()) {
-    printf("[INFO] ANTW: Enqueing new mem request for Core/ASID/NNID/Idx 0x%x/0x%x/0x%x/0x%x\n",
+    printfInfo("ANTW: Enqueing new mem request for Core/ASID/NNID/Idx 0x%x/0x%x/0x%x/0x%x\n",
       io.cache.req.bits.coreIndex, io.cache.req.bits.asid,
       io.cache.req.bits.nnid, io.cache.req.bits.cacheIndex)
     cacheReqQueue.io.enq.valid := Bool(true)
@@ -193,7 +193,7 @@ class AsidNnidTableWalker(implicit p: Parameters) extends XFilesModule()(p) {
       memReqQueue.io.deq.bits.req.addr(coreDCacheReqTagBits - 1, 0)
     io.mem(core).req.bits.cmd := memReqQueue.io.deq.bits.req.cmd
     io.mem(core).req.bits.typ := memReqQueue.io.deq.bits.req.typ
-    printf("[INFO] ANTW: Mem read req core/addr/tag(%x,%x) 0x%x/0x%x/0x%x\n",
+    printfInfo("ANTW: Mem read req core/addr/tag(%x,%x) 0x%x/0x%x/0x%x\n",
       UInt(coreDCacheReqTagBits - 1), UInt(0),
       UInt(core), memReqQueue.io.deq.bits.req.addr,
       memReqQueue.io.deq.bits.req.addr(coreDCacheReqTagBits - 1, 0))
@@ -221,7 +221,7 @@ class AsidNnidTableWalker(implicit p: Parameters) extends XFilesModule()(p) {
         cacheReqQueue.io.deq.ready := Bool(true)
         memRead(cacheReqQueue.io.deq.bits.coreIndex, reqAddr)
         state := s_CHECK_NNID_WAIT
-        printf("[INFO] ANTW: Dequeuing mem request for Core/ASID/NNID/Idx 0x%x/0x%x/0x%x/0x%x\n",
+        printfInfo("ANTW: Dequeuing mem request for Core/ASID/NNID/Idx 0x%x/0x%x/0x%x/0x%x\n",
           cacheReqQueue.io.deq.bits.coreIndex, cacheReqQueue.io.deq.bits.asid,
           cacheReqQueue.io.deq.bits.nnid, cacheReqQueue.io.deq.bits.cacheIndex)
       }
@@ -231,7 +231,7 @@ class AsidNnidTableWalker(implicit p: Parameters) extends XFilesModule()(p) {
         // [TODO] Fragile on XLen
         val numConfigs = io.mem(indexResp).resp.bits.data_word_bypass(31, 0)
         val numValid = io.mem(indexResp).resp.bits.data_word_bypass(63, 32)
-        printf("[INFO] ANTW: Saw CHECK_NNID resp w/ #configs 0x%x, #valid 0x%x\n",
+        printfInfo("ANTW: Saw CHECK_NNID resp w/ #configs 0x%x, #valid 0x%x\n",
           numConfigs, numValid)
         when (cacheReqCurrent.nnid < numValid) {
           val reqAddr = antpReg.antp + cacheReqCurrent.asid * UInt(24) + UInt(8)
@@ -247,7 +247,7 @@ class AsidNnidTableWalker(implicit p: Parameters) extends XFilesModule()(p) {
       when (io.mem.exists(respValid)) {
         val reqAddr = io.mem(indexResp).resp.bits.data_word_bypass +
           cacheReqCurrent.nnid * UInt(16)
-        printf("[INFO] ANTW: Saw READ_NNID_POINTER resp w/ configPtr 0x%x\n",
+        printfInfo("ANTW: Saw READ_NNID_POINTER resp w/ configPtr 0x%x\n",
           reqAddr + UInt(8))
         configPtr := reqAddr + UInt(8)
         memRead(io.cache.req.bits.coreIndex, reqAddr)
@@ -256,7 +256,7 @@ class AsidNnidTableWalker(implicit p: Parameters) extends XFilesModule()(p) {
     }
     is (s_READ_CONFIGSIZE) {
       when (io.mem.exists(respValid)) {
-        printf("[INFO] ANTW: Saw READ_NNID_POINTER resp w/ configPtr 0x%x\n",
+        printfInfo("ANTW: Saw READ_NNID_POINTER resp w/ configPtr 0x%x\n",
           io.mem(indexResp).resp.bits.data_word_bypass)
         configSize := io.mem(indexResp).resp.bits.data_word_bypass
         val reqAddr = configPtr
@@ -317,7 +317,7 @@ class AsidNnidTableWalker(implicit p: Parameters) extends XFilesModule()(p) {
       configRob(configRobIdx).data.toBits,
       cacheReqCurrent.cacheIndex,
       configRob(configRobIdx).cacheAddr)
-    printf("[INFO] ANTW: configWbCount: 0x%x of 0x%x\n", configWbCount,
+    printfInfo("ANTW: configWbCount: 0x%x of 0x%x\n", configWbCount,
       configSize >> UInt(log2Up(configBufSize)))
     configRob(configRobIdx).valid := UInt(0)
     configWbCount := configWbCount + UInt(1)

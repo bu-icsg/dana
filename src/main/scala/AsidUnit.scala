@@ -49,7 +49,7 @@ class AsidUnit(implicit p: Parameters) extends DanaModule()(p) with XFilesParame
     asidReg.valid := Bool(true)
     asidReg.asid := io.core.cmd.bits.rs1(asidWidth - 1, 0)
     asidReg.tid := UInt(0)
-    printf("[INFO] Saw supervisor request to update ASID to 0x%x\n",
+    printfInfo("Saw supervisor request to update ASID to 0x%x\n",
       io.core.cmd.bits.rs1(asidWidth - 1, 0));
     // [TODO] This needs to respond to the core with the ASID and TID
     // so that the OS can save the ASID/TID for reloading later.
@@ -60,13 +60,13 @@ class AsidUnit(implicit p: Parameters) extends DanaModule()(p) with XFilesParame
     io.antw.req.valid := Bool(true);
     io.antw.req.bits.antp := io.core.cmd.bits.rs1;
     io.antw.req.bits.size := io.core.cmd.bits.rs2;
-    printf("[INFO] Saw supervisor request to change ANTP to 0x%x of size 0x%x\n",
+    printfInfo("Saw supervisor request to change ANTP to 0x%x of size 0x%x\n",
       io.core.cmd.bits.rs1,
       io.core.cmd.bits.rs2);
   }
   when (io.core.cmd.fire() && newRequest) {
     asidReg.tid := asidReg.tid + UInt(1)
-    printf("[INFO] AsidUnit: Saw new request funct/rs1/rs2 0x%x/0x%x/0x%x\n",
+    printfInfo("AsidUnit: Saw new request funct/rs1/rs2 0x%x/0x%x/0x%x\n",
       io.core.cmd.bits.inst.funct, io.core.cmd.bits.rs1, io.core.cmd.bits.rs2)
   }
   io.asid := asidReg.asid

@@ -170,7 +170,7 @@ class ProcessingElement(implicit p: Parameters) extends DanaModule()(p) {
       DSP(io.req.bits.iBlock(eleIndex), io.req.bits.wBlock(eleIndex), decimal)
       acc := acc + dsp.d
       index := index + UInt(1)
-      printf("[INFO] PE: run 0x%x + (0x%x * 0x%x) >> 0x%x = 0x%x\n",
+      printfInfo("PE: run 0x%x + (0x%x * 0x%x) >> 0x%x = 0x%x\n",
         acc, io.req.bits.iBlock(eleIndex), io.req.bits.wBlock(eleIndex),
         decimal, acc + dsp.d)
     }
@@ -270,7 +270,7 @@ class ProcessingElementLearn(implicit p: Parameters)
       //        io.req.bits.wBlock(eleIndex)) >>
       //   decimal)(elementWidth-1,0)
       index := index + UInt(1)
-      printf("[INFO] PE: run 0x%x + (0x%x * 0x%x) >> 0x%x = 0x%x\n",
+      printfInfo("PE: run 0x%x + (0x%x * 0x%x) >> 0x%x = 0x%x\n",
         acc, io.req.bits.iBlock(eleIndex), io.req.bits.wBlock(eleIndex),
         decimal, acc + dsp.d)
     }
@@ -305,14 +305,14 @@ class ProcessingElementLearn(implicit p: Parameters)
         printf("[WARN] Linear activation function untested\n")
         when (steepness < UInt(steepnessOffset)) {
           derivative := one >> (UInt(steepnessOffset) - steepness)
-          printf("[INFO] PE: derivative linear: 0x%x\n",
+          printfInfo("PE: derivative linear: 0x%x\n",
             one >> (UInt(steepnessOffset) - steepness))
         } .elsewhen (steepness === UInt(steepnessOffset)) {
           derivative := one
-          printf("[INFO] PE: derivative linear: 0x%x\n", one)
+          printfInfo("PE: derivative linear: 0x%x\n", one)
         } .otherwise {
           derivative := one << (steepness - UInt(steepnessOffset))
-          printf("[INFO] PE: derivative linear: 0x%x\n",
+          printfInfo("PE: derivative linear: 0x%x\n",
             one << (steepness - UInt(steepnessOffset)))
         }
       } .elsewhen (af === e_FANN_SIGMOID || af === e_FANN_SIGMOID_STEPWISE) {
@@ -320,22 +320,22 @@ class ProcessingElementLearn(implicit p: Parameters)
         derivative := dsp.d
         // derivative := (dataOut * (one - dataOut)) >>
         //   (decimal + steepness - UInt(1))
-        printf("[INFO] PE: derivative sigmoid: 0x%x\n", dsp.d)
+        printfInfo("PE: derivative sigmoid: 0x%x\n", dsp.d)
       } .elsewhen (af === e_FANN_SIGMOID_SYMMETRIC ||
         af === e_FANN_SIGMOID_SYMMETRIC_STEPWISE) {
         val steepness = io.req.bits.steepness
         DSP(dataOut, dataOut, decimal)
         when (steepness < UInt(steepnessOffset)) {
           derivative := (one - dsp.d) >> (UInt(steepnessOffset) - steepness)
-          printf("[INFO] PE: derivative sigmoid symmetric: 0x%x\n",
+          printfInfo("PE: derivative sigmoid symmetric: 0x%x\n",
             (one - dsp.d) >> (UInt(steepnessOffset) - steepness))
         } .elsewhen (steepness === UInt(steepnessOffset)) {
           derivative := one - dsp.d
-          printf("[INFO] PE: derivative sigmoid symmetric: 0x%x\n",
+          printfInfo("PE: derivative sigmoid symmetric: 0x%x\n",
             one - dsp.d)
         } .otherwise {
           derivative := (one - dsp.d) << (steepness - UInt(steepnessOffset))
-          printf("[INFO] PE: derivative sigmoid symmetric: 0x%x\n",
+          printfInfo("PE: derivative sigmoid symmetric: 0x%x\n",
             (one - dsp.d) << (steepness - UInt(steepnessOffset)))
         }
       }
@@ -359,14 +359,14 @@ class ProcessingElementLearn(implicit p: Parameters)
         DSP(errorSym, errorSym, decimal)
         mse := dsp.d
         // mse := (errorSym * errorSym) >> decimal
-        printf("[INFO] PE: errorOut and Error square set to 0x%x and  0x%x\n",
+        printfInfo("PE: errorOut and Error square set to 0x%x and  0x%x\n",
           errorSym, dsp.d)
       } .otherwise {
         errorOut := error
         DSP(error, error, decimal)
         mse := dsp.d
         // mse := (error * error) >> decimal
-        printf("[INFO] PE: errorOut and Error square set to 0x%x and  0x%x\n",
+        printfInfo("PE: errorOut and Error square set to 0x%x and  0x%x\n",
           error, dsp.d)
       }
       state := PE_states('e_PE_ERROR_FUNCTION)
@@ -378,7 +378,7 @@ class ProcessingElementLearn(implicit p: Parameters)
       errorOut := Mux(af.io.resp.valid, af.io.resp.bits.out, errorOut)
       when (af.io.resp.valid) {
         state := PE_states('e_PE_COMPUTE_DELTA)
-        printf("[INFO] PE: errFn(0x%x) = 0x%x\n", errorOut, af.io.resp.bits.out)
+        printfInfo("PE: errFn(0x%x) = 0x%x\n", errorOut, af.io.resp.bits.out)
       }
     }
     is (PE_states('e_PE_COMPUTE_DELTA)){
@@ -392,7 +392,7 @@ class ProcessingElementLearn(implicit p: Parameters)
           DSP(der, errorOut, decimal)
           errorOut := dsp.d
           // errorOut := (der * errorOut) >> decimal
-          printf("[INFO] PE: delta (output) 0x%x * 0x%x = 0x%x\n",
+          printfInfo("PE: delta (output) 0x%x * 0x%x = 0x%x\n",
             der, errorOut, dsp.d)
           state := PE_states('e_PE_ERROR_BACKPROP_REQUEST_WEIGHTS)
         }
@@ -400,7 +400,7 @@ class ProcessingElementLearn(implicit p: Parameters)
           DSP(der, io.req.bits.dw_in, decimal)
           errorOut := dsp.d
           // errorOut := (der * io.req.bits.dw_in) >> decimal
-          printf("[INFO] PE sees errFn*derivative 0x%x\n", dsp.d)
+          printfInfo("PE sees errFn*derivative 0x%x\n", dsp.d)
           when(io.req.bits.inFirst) {
             state := PE_states('e_PE_REQUEST_INPUTS_AND_WEIGHTS)
           }.otherwise {
@@ -429,7 +429,7 @@ class ProcessingElementLearn(implicit p: Parameters)
       weightWB(eleIndex) := dsp.d
       // weightWB(eleIndex) := (errorOut * io.req.bits.wBlock(eleIndex)) >>
       //   decimal
-      printf("[INFO] PE: d*weight (0x%x * 0x%x) >> 0x%x = 0x%x\n",
+      printfInfo("PE: d*weight (0x%x * 0x%x) >> 0x%x = 0x%x\n",
         errorOut, io.req.bits.wBlock(eleIndex), decimal,
         dsp.d)
       index := index + UInt(1)
@@ -487,7 +487,7 @@ class ProcessingElementLearn(implicit p: Parameters)
       }
       DSP(delta, io.req.bits.iBlock(eleIndex), decimal)
       weightWB(eleIndex) := dsp.d
-      printf("[INFO] PE: update slope 0x%x * 0x%x = 0x%x\n",
+      printfInfo("PE: update slope 0x%x * 0x%x = 0x%x\n",
         delta, io.req.bits.iBlock(eleIndex),
         dsp.d)
     }
@@ -500,8 +500,8 @@ class ProcessingElementLearn(implicit p: Parameters)
       when (io.req.valid) { state := nextState }
       io.resp.valid := Bool(true)
       // Setup the bias to be written back
-      printf("[INFO] PE: bias wb: 0x%x\n", delta)
-      printf("[INFO]     index: 0x%x\n", index)
+      printfInfo("PE: bias wb: 0x%x\n", delta)
+      printfInfo("    index: 0x%x\n", index)
       dataOut := delta
     }
     is (PE_states('e_PE_SLOPE_BIAS_WB)) {
@@ -515,7 +515,7 @@ class ProcessingElementLearn(implicit p: Parameters)
       }
       val weightDecay = (-io.req.bits.wBlock(eleIndex) * io.req.bits.lambda) >>
         decimal
-      printf("[INFO] PE: weight decay %d: -1 * 0x%x * 0x%x = 0x%x\n",
+      printfInfo("PE: weight decay %d: -1 * 0x%x * 0x%x = 0x%x\n",
         eleIndex,
         io.req.bits.wBlock(eleIndex), io.req.bits.lambda, weightDecay)
 
@@ -523,7 +523,7 @@ class ProcessingElementLearn(implicit p: Parameters)
         DSP(io.req.bits.iBlock(eleIndex), io.req.bits.learningRate.toSInt,
           decimal)
         weightWB(eleIndex) := dsp.d + weightDecay
-        printf("[INFO] PE: weight update %d: 0x%x * 0x%x + 0x%x = 0x%x\n",
+        printfInfo("PE: weight update %d: 0x%x * 0x%x + 0x%x = 0x%x\n",
           eleIndex,
           io.req.bits.iBlock(eleIndex), io.req.bits.learningRate.toSInt,
           weightDecay, dsp.d + weightDecay)
@@ -532,7 +532,7 @@ class ProcessingElementLearn(implicit p: Parameters)
         // source is coming from weightWB
         DSP(weightWB(eleIndex), io.req.bits.learningRate.toSInt, decimal)
         weightWB(eleIndex) := dsp.d + weightDecay
-        printf("[INFO] PE: weight update %d: 0x%x * 0x%x + 0x%x = 0x%x\n",
+        printfInfo("PE: weight update %d: 0x%x * 0x%x + 0x%x = 0x%x\n",
           eleIndex,
           weightWB(eleIndex), io.req.bits.learningRate, weightDecay,
           dsp.d + weightDecay)
@@ -541,7 +541,7 @@ class ProcessingElementLearn(implicit p: Parameters)
     }
     is (PE_states('e_PE_WEIGHT_UPDATE_WRITE_BACK)){
       when (io.req.valid) {
-        printf("[INFO] PE: weight update writeback index/numWeights 0x%x/0x%x\n",
+        printfInfo("PE: weight update writeback index/numWeights 0x%x/0x%x\n",
           index, io.req.bits.numWeights)
         // [TODO] #54: cleanup all this mux nonsense to make it
         // readable. Also, the transition here for the bias update is
@@ -574,7 +574,7 @@ class ProcessingElementLearn(implicit p: Parameters)
         io.req.bits.dw_in, errorOut)
       DSP(biasSlope, io.req.bits.learningRate.toSInt, decimal)
       dataOut := dsp.d
-      printf("[INFO] PE: biasSlope scale 0x%x * 0x%x = 0x%x\n",
+      printfInfo("PE: biasSlope scale 0x%x * 0x%x = 0x%x\n",
         biasSlope, io.req.bits.learningRate.toSInt, dsp.d)
     }
     is (PE_states('e_PE_WEIGHT_UPDATE_WRITE_BIAS)) {

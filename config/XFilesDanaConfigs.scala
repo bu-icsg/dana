@@ -28,8 +28,9 @@ class XFilesDanaNoLearningConfig extends Config (
       case LearningEnabled => false }}
 )
 
-class XFilesDanaCPPConfig extends Config(new XFilesDanaConfig ++
-  new DefaultXFilesDanaFPGAConfig ++ new DefaultCPPConfig)
+class XFilesDanaCPPConfig extends Config(new XFilesDanaDebugConfig ++
+  new XFilesDanaConfig ++ new DefaultXFilesDanaFPGAConfig ++
+  new DefaultCPPConfig)
 
 class XFilesDanaNoLearningCPPConfig extends Config(
   new XFilesDanaNoLearningConfig ++ new XFilesDanaCPPConfig)
