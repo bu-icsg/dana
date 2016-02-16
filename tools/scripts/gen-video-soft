@@ -1,0 +1,41 @@
+#!/bin/bash
+
+# This is intended to be run from the FPGA
+
+DIR_ROOT=/home/root
+DIR_BUILD=/home/se/research_local/rocket-chip/xfiles-dana/build
+DIR_NETS=$DIR_BUILD/nets
+DIR_VIDEO=$DIR_BUILD/video/soft
+
+MAX_EPOCHS=1000
+MSE_REPORTING=100
+
+FANN_SOFT=$DIR_BUILD/../usr/bin/fann-train
+
+TRAIN_SIN=(sin-scale-0.25 sin-scale-0.50 sin-scale-0.75 sin-scale-1.00 \
+	sin-scale-1.25 sin-scale-1.50 sin-scale-1.75 sin-scale-2.00 \
+	sin-scale-2.25 sin-scale-2.50 sin-scale-2.75 sin-scale-3.00 \
+	sin-scale-3.25 sin-scale-3.50 sin-scale-3.75 sin-scale-4.00)
+
+# TRAIN_SIN=(sin-scale-0.25 sin-scale-0.50)
+
+for net in ${TRAIN_SIN[*]}; do
+    $FESVR $PK $FANN_SOFT \
+        -n $DIR_NETS/sin-float.net \
+        -t $DIR_NETS/$net-float.train \
+        -e$MAX_EPOCHS \
+        -z \
+        -m$MSE_REPORTING \
+        -b$DIR_VIDEO/$net-gd.dat
+done
+
+for net in ${TRAIN_SIN[*]}; do
+    $FESVR $PK $FANN_SOFT \
+        -n $DIR_NETS/sin-float.net \
+        -t $DIR_NETS/$net-float.train \
+        -e$MAX_EPOCHS \
+        -z \
+        -x \
+        -m$MSE_REPORTING \
+        -b$DIR_VIDEO/$net-sgd.dat
+done
