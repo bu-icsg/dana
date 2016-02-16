@@ -203,6 +203,7 @@ class ProcessingElementLearn(implicit p: Parameters)
   val errorOut = Reg(SInt(width = elementWidth)) //ek
   val mse = Reg(UInt(width = elementWidth))
   val dwWritebackDone = Reg(Bool())
+  val stateLearn = io.req.bits.stateLearn
 
   // Defaults
   derivative := derivative
@@ -217,20 +218,14 @@ class ProcessingElementLearn(implicit p: Parameters)
       dwWritebackDone := Bool(false)
     }
     is (PE_states('e_PE_GET_INFO)) {
-      when (!reqSent) {
-        io.resp.valid := Bool(true)
-        reqSent := io.req.valid
-      } .elsewhen (io.req.valid) {
-        reqSent := Bool(false)
-        when ((io.req.bits.stateLearn === e_TTABLE_STATE_FEEDFORWARD ||
-          io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_FEEDFORWARD ||
-          ((io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_WEIGHT_UPDATE) &&
-            (io.req.bits.tType === e_TTYPE_BATCH)))) {
-          state := PE_states('e_PE_REQUEST_INPUTS_AND_WEIGHTS)
-        } .otherwise {
-          state := PE_states('e_PE_REQUEST_OUTPUTS_ERROR_BACKPROP)
-        }
-      }
+      val needInputsWeights = stateLearn === e_TTABLE_STATE_FEEDFORWARD ||
+        stateLearn === e_TTABLE_STATE_LEARN_FEEDFORWARD ||
+        ((stateLearn === e_TTABLE_STATE_LEARN_WEIGHT_UPDATE) &&
+          (io.req.bits.tType === e_TTYPE_BATCH))
+      val nextState = Mux(needInputsWeights,
+        PE_states('e_PE_REQUEST_INPUTS_AND_WEIGHTS),
+        PE_states('e_PE_REQUEST_OUTPUTS_ERROR_BACKPROP))
+      reqWaitForResp(nextState)
     }
     is (PE_states('e_PE_REQUEST_INPUTS_AND_WEIGHTS)) {
       when (!reqSent) {
@@ -241,13 +236,13 @@ class ProcessingElementLearn(implicit p: Parameters)
 
         state := PE_states('e_PE_RUN)
         when (io.req.bits.tType === e_TTYPE_BATCH) {
-          when (io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_ERROR_BACKPROP ||
+          when (stateLearn === e_TTABLE_STATE_LEARN_ERROR_BACKPROP ||
             dwWritebackDone) {
             state := PE_states('e_PE_RUN_UPDATE_SLOPE)
-          } .elsewhen (io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_WEIGHT_UPDATE) {
+          } .elsewhen (stateLearn === e_TTABLE_STATE_LEARN_WEIGHT_UPDATE) {
             state := PE_states('e_PE_RUN_WEIGHT_UPDATE) }
         } .elsewhen (io.req.bits.tType === e_TTYPE_INCREMENTAL) {
-          when (io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_ERROR_BACKPROP ||
+          when (stateLearn === e_TTABLE_STATE_LEARN_ERROR_BACKPROP ||
             dwWritebackDone) {
             state := PE_states('e_PE_RUN_UPDATE_SLOPE) }}}
     }
@@ -279,7 +274,7 @@ class ProcessingElementLearn(implicit p: Parameters)
     is (PE_states('e_PE_DONE)) {
       when (io.req.valid) {
         when (io.req.bits.inLast &&
-          io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_FEEDFORWARD) {
+          stateLearn === e_TTABLE_STATE_LEARN_FEEDFORWARD) {
           state := PE_states('e_PE_COMPUTE_DERIVATIVE)
         } .otherwise {
           state := PE_states('e_PE_UNALLOCATED)
@@ -290,7 +285,7 @@ class ProcessingElementLearn(implicit p: Parameters)
       io.resp.bits.resetWeightPtr := Bool(true)
     }
     is (PE_states('e_PE_COMPUTE_DERIVATIVE)){
-      state := Mux((io.req.bits.stateLearn === e_TTABLE_STATE_LEARN_ERROR_BACKPROP),
+      state := Mux((stateLearn === e_TTABLE_STATE_LEARN_ERROR_BACKPROP),
         PE_states('e_PE_COMPUTE_DELTA), PE_states('e_PE_REQUEST_EXPECTED_OUTPUT))
 
       val af = io.req.bits.activationFunction
@@ -380,7 +375,7 @@ class ProcessingElementLearn(implicit p: Parameters)
       val der = Mux(derivative === SInt(0), SInt(1), derivative)
       index := UInt(0)
 
-      switch(io.req.bits.stateLearn){
+      switch(stateLearn){
         is(e_TTABLE_STATE_LEARN_FEEDFORWARD){
           DSP(der, errorOut, decimal)
           errorOut := dsp.d
