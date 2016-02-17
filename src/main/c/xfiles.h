@@ -1,3 +1,5 @@
+// See LICENSE for license details.
+
 #ifndef __XFILES_H__
 #define __XFILES_H__
 

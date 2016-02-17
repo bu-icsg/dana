@@ -1,3 +1,5 @@
+// See LICENSE for license details.
+
 package dana
 
 // Grab junctions for the ParameterizedBundle class

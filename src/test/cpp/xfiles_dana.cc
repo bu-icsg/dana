@@ -1,3 +1,5 @@
+// See LICENSE for license details.
+
 #include "xfiles_dana.h"
 
 xfiles_dana_helper::xfiles_dana_helper() {

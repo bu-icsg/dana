@@ -1,3 +1,5 @@
+// See LICENSE for license details.
+
 #include "fann.h"
 
 // Transaction class that encapsulates a single transaction, i.e., a

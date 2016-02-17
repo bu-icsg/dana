@@ -1,3 +1,5 @@
+// See LICENSE for license details.
+
 #include "xfiles.h"
 
 uint64_t set_asid (asid_type asid) {

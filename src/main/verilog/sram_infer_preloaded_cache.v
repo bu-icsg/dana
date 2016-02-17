@@ -1,3 +1,5 @@
+// See LICENSE for license details.
+
 // A wrapper for ram_infer_preloaded_cache
 `include "ram_infer_preloaded_cache.v"
 

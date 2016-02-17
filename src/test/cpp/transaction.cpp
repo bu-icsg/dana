@@ -1,3 +1,5 @@
+// See LICENSE for license details.
+
 #include "transaction.h"
 
 transaction::transaction(fann * _ann, fann_type * _inputs,

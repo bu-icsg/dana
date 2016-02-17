@@ -1,3 +1,5 @@
+// See LICENSE for license details.
+
 `timescale 1ns/1ps
 `define RAM_INFER_OVERRIDE
 

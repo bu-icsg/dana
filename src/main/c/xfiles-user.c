@@ -1,3 +1,5 @@
+// See LICENSE for license details.
+
 #include "xfiles.h"
 
 // All RoCC communication occurs using the "custom0" RISC-V
