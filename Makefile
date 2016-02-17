@@ -87,14 +87,8 @@ HEADERS_V          = ../nnsim-hdl/src/ram_infer_preloaded_cache.v \
 
 # RISCV Tests Targets
 RV_TESTS             = hello.c \
-	rsa-rocc.c \
-	rsa-rocc-supervisor.c \
-	rsa-rocc-supervisor-incremental.c \
-	rsa-rocc-supervisor-batch.c \
-	rsa-rocc-supervisor-batch-fast.c \
 	xorSigmoid-batch.c \
 	xorSigmoidSymmetric-batch.c \
-	torture.c \
 	fann-xfiles.c \
 	fann-soft.c
 RV_TESTS_EXECUTABLES = $(RV_TESTS:%.c=$(DIR_BUILD)/%.rv)
@@ -133,8 +127,6 @@ XFILES_LIBRARIES_OBJECTS = $(DIR_BUILD)/xfiles-user.o $(DIR_BUILD)/xfiles-superv
 # randomly initialized networks which have to be generated with
 # `fann-random` and will have their floating point versions put in
 # build/nets.
-NETS=3sum collatz rsa ll edip blackscholes fft inversek2j jmeint jpeg kmeans sobel amos
-NETS_THRESHOLD=3sum collatz ll rsa amos
 NETS_GEN=xorSigmoid xorSigmoidSymmetric xorSigmoidSymmetricPair \
 	xorSigmoidSymmetricThreeLayer
 NETS_FANN=census-house mushroom diabetes gene kin32fm soybean thyroid two-spiral \
@@ -154,8 +146,7 @@ NETS+=$(NETS_GEN) $(NETS_FANN) $(NETS_PARITY) $(NETS_PARITY_SAME) $(NETS_XOR) \
 	$(NETS_SIN)
 NETS_FLOAT=$(addsuffix -float, $(NETS))
 # Only certain networks have valid training files
-NETS_TRAIN=blackscholes fft inversek2j jmeint jpeg kmeans rsa sobel \
-	xorSigmoid xorSigmoidSymmetric xorSigmoidSymmetricPair \
+NETS_TRAIN=xorSigmoid xorSigmoidSymmetric xorSigmoidSymmetricPair \
 	xorSigmoidSymmetricThreeLayer
 NETS_BIN=$(addprefix $(DIR_BUILD_NETS)/, $(addsuffix -fixed.16bin, $(NETS)) \
 	$(addsuffix -fixed.32bin, $(NETS)) \
