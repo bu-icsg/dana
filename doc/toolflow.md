@@ -127,7 +127,7 @@ There are a number of other tools that are currently provided but not used in th
 * [`gen-trace-video`](https://www.github.com/bu-icsg/xfiles-dana/tree/master/tools/scripts/gen-trace-video) -- Both [`fann-train`](https://www.github.com/bu-icsg/xfiles-dana/tree/master/tools/fann-train/src/fann-train.c) and [`fann-xfiles`](https://www.github.com/bu-icsg/xfiles-dana/tree/master/src/test/rv/fann-xfiles.c) have a `-b,--video-data` option to produce a log of all the outputs. This Python script will coalesce this data, for a provided training file, into a video animation of how the neural network approximates the actual data. Note, really only supports functions with one input and one output.
 * [`parse-data-generic`](https://www.github.com/bu-icsg/xfiles-dana/tree/master/tools/scripts/parse-data-generic) -- A Perl script used to coalesce a log of accuracies or run times into data suitable for plotting with LaTeX.
 
-### Tools to Communicate with an FPGA Pool
+### <a name="fpga-tools"></a> Tools to Communicate with an FPGA Pool
 Note: these tools will not work out of the box, but are provided as an example way of working with a pool of FPGA resources attached to a server.
 
 We currently maintain a pool of Zedboards attached to a server. These can be power cycled with an APC power strip if needed. These tools all depend on the existence of a `/opt/etc/info.txt` file with the following format:

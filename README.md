@@ -17,6 +17,12 @@ A set of user and supervisor extensions (X-FILES software), hardware management 
         - [3 - Generate Zynq Configuration](#boot-bin)
         - [4 - Load the SD Card](#load-sd-card)
         - [5 - Test on the FPGA](#test-on-the-fpga)
+- [Known Issues, WIP Features](#known-issues)
+    - [Configuration Size](#configuration-size)
+    - [Linux Support](#linux-support)
+    - [IO Queues](#io-queues)
+    - [Generality of X-FILES Software and Hardware](#generality-of-xfiles)
+    - [Ability to Offload Configurations](#configuration-offload)
 - [Additional Documentation](#documentation)
     - [Doc Directory](#doc-directory)
     - [Publications](#publications)
@@ -243,6 +249,49 @@ sudo rm -rf ramdisk
 ```
 
 5) <a name="test-on-the-fpga"></a> Test on the FPGA
+----------------------------------------
+This assumes that you are using the default configuration that the Berkeley [fpga-zynq repository](https://www.github.com/ucb-bar/fpga-zynq) provides. We currently use a more complicated implementation with three FPGAs attached to a server that we are in the process of documenting (see: [fpga-setup.md](https://www.github.com/bu-icsg/xfiles-dana/tree/master/doc/fpga-setup.md) and [toolflow.md](https://www.github.com/bu-icsg/xfiles-dana/tree/master/doc/toolflow.md#fpga-tools)).
+
+The ARM core running Linux has a default IP address of 192.168.1.5. Use `scp` to copy over whatever you need. You will likely need to update the front end server and the front end server shared library. Additionally, you'll need to replace to old proxy kernel with out patched version.
+
+From there, you can run your strict software or X-FILES/DANA accelerated neural network workloads, e.g., you can run the same C++ simulation example from above, just a whole lot faster:
+```
+$ ./fesvr-zynq pk build/fann-xfiles.rv \
+    -n build/nets/xorSigmoidSymmetric-fixed.16bin \
+    -t build/nets/xorSigmoidSymmetric-fixed.train \
+    -m10 -e100
+[INFO] Found binary point 14
+[INFO] Done reading input file
+[INFO] Computed learning rate is 0xb33
+[STAT] epoch 0 id 0 bp 14 mse 1.03157693
+[STAT] epoch 10 id 0 bp 14 mse 0.98926378
+[STAT] epoch 20 id 0 bp 14 mse 0.96295700
+[STAT] epoch 30 id 0 bp 14 mse 0.88830202
+[STAT] epoch 40 id 0 bp 14 mse 0.71772405
+[STAT] epoch 50 id 0 bp 14 mse 0.37129650
+[STAT] epoch 60 id 0 bp 14 mse 0.19943481
+[STAT] epoch 70 id 0 bp 14 mse 0.12536569
+[STAT] epoch 80 id 0 bp 14 mse 0.07838210
+[STAT] epoch 90 id 0 bp 14 mse 0.04855352
+```
+
+### <a name="known-issues"></a> Known Issues and WIP Features
+There are a few remaining things that we're working on closing out which limit the set of available features.
+
+#### <a name="configuration-size"></a> Configuration Size
+Currently, the neural network configuration must fit completely in one of DANA's configuration cache memories. We plan to enable the ability for weight data to be loaded as needed for large configurations that do not wholly fit in a cache memory.
+
+#### <a name="linux-support"></a> Linux Support
+We're working on a full integration of the X-FILES supervisor library with the Linux kernel. Supervisor features are currently supported via system calls added to the [RISC-V Proxy Kernel](https://www.github.com/riscv/riscv-pk) via an included [patch](https://www.github.com/bu-icsg/xfiles-dana/tree/master/riscv-pk-xfiles-syscalls.patch).
+
+#### <a name="io-queues"></a> IO Queues
+While neural network configurations are loaded from the memory of the microprocessor, all input and output data is transferred from Rocket to X-FILES/DANA hardware through the Rocket Custom Coprocessor (RoCC) register interface. We have plans to enable asynchronous transfer through in-memory queues.
+
+#### <a name="generality-of-xfiles"></a> Generality of X-FILES Software and Hardware
+The definition of X-FILES software and hardware is generic in terms of the backend accelerator. However, the current implementation of the [Transaction Table](https://www.github.com/bu-icsg/xfiles-dana/tree/master/src/main/scala/TransactionTable.scala) performs DANA-specific state update logic for transactions. We're in the process of refactoring the Transaction Table to support arbitrary backends.
+
+#### <a name="configuration-offload"></a> Ability to Offload Configurations
+We don't currently support writeback of trained neural network configurations from DANA back to the memory of the microprocessor. Repeated user calls to use the same neural network configuration will, however, use the cached (and trained) neural network configuration on DANA.
 
 ### <a name="documentation"></a> Additional Documentation
 
