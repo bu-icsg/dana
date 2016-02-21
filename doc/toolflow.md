@@ -157,6 +157,6 @@ For working on the FPGAs we use `screen` as a soft way of locking each FPGA for 
 <a name="cite-fann"></a>[1] S. Nissen. "Implementation of a fast artificial neural network library (fann)".
 _Technical Report_, Department of Computer Science University of Copenhagen (DIKU), 31.
 
-<a name="cite-pact2015"</a>[2] [S. Eldridge, A. Waterland, M. Seltzer, J. Appavoo, and Joshi, A., _Towards General Purpose Neural Network Computing_, in Proceedings of the International Conference on Parallel Architectures and Compilation Techniques (PACT), 2015.](http://people.bu.edu/schuye/files/pact2015-eldridge-paper.pdf)
+<a name="cite-pact2015"</a>[2] [S. Eldridge, A. Waterland, M. Seltzer, J. Appavoo, and Joshi, A., "Towards General Purpose Neural Network Computing", _in Proceedings of the International Conference on Parallel Architectures and Compilation Techniques (PACT)_. 2015.](http://people.bu.edu/schuye/files/pact2015-eldridge-paper.pdf)
 
-<a name="cite-barc2015"></a>[3] [S. Eldridge and A. Joshi, Exploiting Hidden Layer Modular Redundancy for Fault-Tolerance in Neural Network Accelerators, Boston Area Architecture Workshop (BARC) 2015.](http://people.bu.edu/schuye/files/barc2015-eldridge-paper.pdf)
+<a name="cite-barc2015"></a>[3] [S. Eldridge and A. Joshi, "Exploiting Hidden Layer Modular Redundancy for Fault-Tolerance in Neural Network Accelerators", _Boston Area Architecture Workshop (BARC)_. 2015.](http://people.bu.edu/schuye/files/barc2015-eldridge-paper.pdf)

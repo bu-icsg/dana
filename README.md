@@ -310,12 +310,12 @@ Specific documentation includes:
 * [U-Boot](https://www.github.com/bu-icsg/xfiles-dana/tree/master/doc/u-boot.md)
 
 #### <a name="publications"></a> Publications
-<a name="cite-pact2015"></a> [1] S. Eldridge, A. Waterland, M. Seltzer, J. Appavoo, and Joshi, A., _Towards General Purpose Neural Network Computing_, in Proceedings of the International Conference on Parallel Architectures and Compilation Techniques (PACT), 2015.
+<a name="cite-pact2015"></a> [1] S. Eldridge, A. Waterland, M. Seltzer, J. Appavoo, and Joshi, A., "Towards General Purpose Neural Network Computing", _in Proceedings of the International Conference on Parallel Architectures and Compilation Techniques (PACT)_. 2015.
 * [Paper](http://people.bu.edu/schuye/files/pact2015-eldridge-paper.pdf)
 * [Presentation](http://people.bu.edu/schuye/files/pact2015-eldridge-presentation.pdf)
 
 #### <a name="presentations-posters"></a> Workshop Presentations and Posters
-[2] S. Eldridge., T. Unger, M. Sahaya Louis, A. Waterland, M. Seltzer, J. Appavoo, and A. Joshi, _Neural Networks as Function Primitives: Software/Hardware Support with X-FILES/DANA_, Boston Area Architecture Workshop (BARC) 2016.
+[2] S. Eldridge., T. Unger, M. Sahaya Louis, A. Waterland, M. Seltzer, J. Appavoo, and A. Joshi, "Neural Networks as Function Primitives: Software/Hardware Support with X-FILES/DANA", _Boston Area Architecture Workshop (BARC)_. 2016.
 * [Paper](http://people.bu.edu/schuye/files/barc2016-eldridge-paper.pdf)
 * [Presentation](http://people.bu.edu/schuye/files/barc2016-eldridge-presentation.pdf)
 * [Poster](http://people.bu.edu/schuye/files/barc2016-eldridge-poster.pdf)
