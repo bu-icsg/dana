@@ -59,13 +59,13 @@ class XFilesDanaPE3Config extends Config(new Dana(3, 4) ++
 class XFilesDanaPE4Config extends Config(new Dana(4, 4) ++
   new XFilesDanaFPGAConfig)
 
-class XFilesDanaCppPe1Config extends Config(new Dana(1, 4) ++
+class XFilesDanaCppPe1Epb4Config extends Config(new Dana(1, 4) ++
   new XFilesDanaCPPConfig)
-class XFilesDanaCppPe2Config extends Config(new Dana(2, 4) ++
+class XFilesDanaCppPe2Epb4Config extends Config(new Dana(2, 4) ++
   new XFilesDanaCPPConfig)
-class XFilesDanaCppPe3Config extends Config(new Dana(3, 4) ++
+class XFilesDanaCppPe3Epb4Config extends Config(new Dana(3, 4) ++
   new XFilesDanaCPPConfig)
-class XFilesDanaCppPe4Config extends Config(new Dana(4, 4) ++
+class XFilesDanaCppPe4Epb4Config extends Config(new Dana(4, 4) ++
   new XFilesDanaCPPConfig)
 
 class XFilesDanaCppPe1Epb8Config extends Config(new Dana(1, 8) ++

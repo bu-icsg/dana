@@ -1,7 +1,7 @@
 # Binary Encodings and Data Structures
 This documentation covers the binary encodings (for things like decimal point and steepness) as well as the NN configuration data structure.
 
-## NN Configuration Encoding
+## <a name="nn-configuration-encoding"></a>"NN Configuration Encoding
 RAM Organization. This is a modified layout of fann_small and its associated abbreviated structs compacted to fit in block-sized chunks. Certain fields are aligned on block boundaries while others are not. The format below is shown for a network with a topology of 5x2x1x[something] and a block size of 16 bytes (128 bits). The start of the layers and neurons and every weight are aligned on block boundaries. The steepness must be a power of 2 and is encoded using 3 bits (see table below this one). The table structure will differ slightly for different block sizes, i.e., 32, 64, or 128 bytes.
 ```
 |---------+----------+--------+------+-------------+---------------------------|
@@ -96,7 +96,7 @@ RAM Organization. This is a modified layout of fann_small and its associated abb
 |---------+----------+--------+------+-------------+---------------------------|
 ```
 
-## Decimal Point Encoding
+## <a name="decimal-point-encodings"></a>Decimal Point Encoding
 The actual decimal (really "binary") point is defined:
 
     decimal point = [decimal point encoded] + [decimal point offset]
