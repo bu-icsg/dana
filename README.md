@@ -27,6 +27,7 @@ A set of user and supervisor extensions (X-FILES software), hardware management 
     - [Doc Directory](#doc-directory)
     - [Publications](#publications)
     - [Workshop Presentations and Posters](#presentations-posters)
+- [Contributors and Acknowledgments](#contributors-acknowledgments)
 
 ### <a name="setup"></a> Setup
 
@@ -282,7 +283,7 @@ There are a few remaining things that we're working on closing out which limit t
 Currently, the neural network configuration must fit completely in one of DANA's configuration cache memories. We plan to enable the ability for weight data to be loaded as needed for large configurations that do not wholly fit in a cache memory.
 
 #### <a name="linux-support"></a> Linux Support
-We're working on a full integration of the X-FILES supervisor library with the Linux kernel. Supervisor features are currently supported via system calls added to the [RISC-V Proxy Kernel](https://www.github.com/riscv/riscv-pk) via an included [patch](https://www.github.com/bu-icsg/xfiles-dana/tree/master/riscv-pk-xfiles-syscalls.patch).
+We're working on a full integration of the X-FILES supervisor library with the Linux kernel. Supervisor features are currently supported via system calls added to the [RISC-V Proxy Kernel](https://www.github.com/riscv/riscv-pk) via an included [patch](https://www.github.com/bu-icsg/xfiles-dana/tree/master/patches/riscv-pk-xfiles-syscalls.patch).
 
 #### <a name="io-queues"></a> IO Queues
 While neural network configurations are loaded from the memory of the microprocessor, all input and output data is transferred from Rocket to X-FILES/DANA hardware through the Rocket Custom Coprocessor (RoCC) register interface. We have plans to enable asynchronous transfer through in-memory queues.
@@ -316,3 +317,12 @@ Specific documentation includes:
 * [Paper](http://people.bu.edu/schuye/files/barc2016-eldridge-paper.pdf)
 * [Presentation](http://people.bu.edu/schuye/files/barc2016-eldridge-presentation.pdf)
 * [Poster](http://people.bu.edu/schuye/files/barc2016-eldridge-poster.pdf)
+
+### <a name="contributors-acknowledgments"></a> Contributors and Acknowledgments
+The following people, while not mentioned in the commit log, have contributed directly or indirectly to the development of this work:
+* [Jonathan Appavoo](http://www.cs.bu.edu/~jappavoo/jappavoo.github.com/index.html)
+* [Tommy Unger](http://www.cs.bu.edu/~jappavoo/jappavoo.github.com/index.html)
+* [Han Dong](http://cs-people.bu.edu/handong/)
+* [Leila Delshad Tehrani](http:/www.bu.edu/icsg)
+
+This work was funded by a NASA Space Technology Research Fellowship.
