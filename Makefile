@@ -87,8 +87,6 @@ HEADERS_V          = ../nnsim-hdl/src/ram_infer_preloaded_cache.v \
 
 # RISCV Tests Targets
 RV_TESTS             = hello.c \
-	xorSigmoid-batch.c \
-	xorSigmoidSymmetric-batch.c \
 	fann-xfiles.c \
 	fann-soft.c
 RV_TESTS_EXECUTABLES = $(RV_TESTS:%.c=$(DIR_BUILD)/%.rv)
