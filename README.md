@@ -1,20 +1,31 @@
-# Overview
+Overview
+========================================
 A set of user and supervisor extensions (X-FILES software), hardware management of neural network "transactions" (X-FILES Hardware Arbiter), and a backend multi-transaction accelerator (DANA) to accelerate neural network computation. This system is intended to be used as an accelerator for a RISC-V microprocessor like [Rocket](https://www.github.com/ucb-bar/rocket-chip).
 
-## Publications
-[1] S. Eldridge, A. Waterland, M. Seltzer, J. Appavoo, and Joshi, A., _Towards General Purpose Neural Network Computing_, in Proceedings of the International Conference on Parallel Architectures and Compilation Techniques (PACT), 2015.
-* [Paper](http://people.bu.edu/schuye/files/pact2015-eldridge-paper.pdf)
-* [Presentation](http://people.bu.edu/schuye/files/pact2015-eldridge-presentation.pdf)
+### <a name="toc"></a> Table of Contents
+- [Setup](#setup)
+    - [1 - Clone the Rocket Chip Repository](#clone-the-rocket-chip-repo)
+    - [2 - Build a RISC-V Toolchain](#riscv-toolchain)
+- [Software Simulation](#simulation)
+    - [C++ Chisel Backend](#c++-simulation)
+        - [C++ Debugging](#c++-debugging)
+    - [Regression Testing](#regression-testing)
+- [Hardware Evaluation](#hardware)
+    - [FPGA Target](#fpga-target)
+        - [1 - Verilog Generation](#verilog-generation)
+        - [2 - Create a Vivado Project](#vivado-project)
+        - [3 - Generate Zynq Configuration](#boot-bin)
+        - [4 - Load the SD Card](#load-sd-card)
+        - [5 - Test on the FPGA](#test-on-the-fpga)
+- [Additional Documentation](#documentation)
+    - [Doc Directory](#doc-directory)
+    - [Publications](#publications)
+    - [Workshop Presentations and Posters](#presentations-posters)
 
-### Workshop Presentations and Posters
-[2] S. Eldridge., T. Unger, M. Sahaya Louis, A. Waterland, M. Seltzer, J. Appavoo, and A. Joshi, _Neural Networks as Function Primitives: Software/Hardware Support with X-FILES/DANA_, Boston Area Architecture Workshop (BARC) 2016.
-* [Paper](http://people.bu.edu/schuye/files/barc2016-eldridge-paper.pdf)
-* [Presentation](http://people.bu.edu/schuye/files/barc2016-eldridge-presentation.pdf)
-* [Poster](http://people.bu.edu/schuye/files/barc2016-eldridge-poster.pdf)
+### <a name="setup"></a> Setup
 
-# Setup
-
-## Grab a copy of rocket-chip
+1) <a name="clone-the-rocket-chip-repo"></a> Clone the Rocket Chip Repository
+----------------------------------------
 This is not, at present, a standalone repository due to dependencies on classes and parameters defined in [rocket](https://www.github.com/ucb-bar/rocket), [uncore](https://www.github.com/ucb-bar/uncore), [rocket-chip](https://www.github.com/ucb-bar/rocket-chip), and possibly others. Consequently, X-FILES/DANA cannot be tested outside of a rocket-chip environment.
 
 First, you need to grab a copy of rocket-chip. I'm going to use the variable `$ROCKETCHIP` as the directory where you've cloned rocket-chip:
@@ -24,7 +35,8 @@ cd $ROCKETCHIP
 git submodule update --init
 ```
 
-## Build the RISC-V toolchain
+2) <a name="riscv-toolchain"></a> Build the RISC-V Toolchain
+----------------------------------------
 You then need to build a copy of the RISC-V toolchain (if you don't already have one available). We currently track whatever version of the toolchain that the rocket-chip repo points to. You may experience difficulties if you track something else, e.g., HEAD.
 
 We deviate from a vanilla toolchain by defining new systemcalls inside the RISC-V [Proxy Kernel](https://www.github.com/riscv/riscv-pk) that allow user access to supervisor functions while we're in the process of finishing integration of X-FILES software with the Linux kernel. The `xfiles-dana` repo includes patches to enable these features in the Proxy Kernel.
@@ -70,7 +82,9 @@ The `install-symlinks` script adds a symlink into `$ROCKETCHIP/src/main/scala` w
 * XFilesDANACPPConfig -- Used for C++ emulation/testing
 * XFilesDANAFPGAConfig -- Builds X-FILES/DANA alongside a "larger" Rocket core (includes an FPU and larger caches)
 
-# C++ Emulation
+### <a name="simulation"></a> Simulation
+
+#### <a name="c++-simulation"></a> C++ Chisel Backend
 All our functional verification and testing occurs using C++ models of Rocket + X-FILES/DANA. Steps to build and run the C++ model as well as some debugging help follows.
 
 You can build a C++ emulator of Rocket + X-FILES/DANA using the rocket-chip make target inside the rocket-chip/emulator directory. The Makefile just needs to know what configuration we're using and that we have additional Chisel code located in the `xfiles-dana` directory. Below we build a Rocket + X-FILES/DANA configuration with a DANA unit having 4 processing elements and using a block width of 4 32-bit elements:
@@ -133,7 +147,7 @@ You'll then get an output like the following showing the MSE decreasing as a fun
 [STAT] epoch 90 id 0 bp 14 mse 0.04855352
 ```
 
-## C++ emulation debugging
+##### <a name="c++-debugging"></a> C++ Simulation Debugging
 At present, we don't have a good way to do full VCD debugging (i.e., dump every signal) due to the size of the combined Rocket + X-FILES/DANA system and the use of the Proxy Kernel (this takes some time to start up). As a result, the best way that we've found to do debugging of X-FILES/DANA is to use Chisel's builtin `printf()` function. You can use this to get the value of a signal on some condition or write whole "info" functions which show you the state of a module at every clock cycle. There are some gotchas here, though.
 
 Chisel's `printf` writes to STDERR, all `printf` statements are disabled by default, and enabling your statements also causes rocket-chip to dump state information every cycle. To get around this, we use a standard convention of prepending any `printf` with "[INFO]" or "[ERROR]" while assertions will always start with "Assertion". We can then grep for these in the output and ignore everything from rocket-chip.
@@ -149,17 +163,20 @@ cd $ROCKETCHIP/emulator
   -m10 2>&1 | grep "INFO\|ERROR\|WARN\|Assert"
 ```
 
-## Regression testing
-The tests directory contains infrastructure for running regression tests. This includes two new tests not discussed above: a "torture" test and a suite of tests that run XOR training using `fann-xfiles`.
+#### <a name="regression-testing"></a> Regression testing
+The tests directory contains infrastructure for running regression tests.
 
 The set of tests that use `fann-xfiles` run batch training for networks of different topology learning an XOR function. These tests check execution for correctness in two ways:
 * Exact replication of MSE over 100 training epochs when compared against a known "good" MSE output
 * Convergence (as defined by hitting either a bit fail limit or an MSE target)
 
-# FPGA target
+### <a name="hardware"></a> Hardware Evaluation
+
+#### <a name="fpga-target"></a> FPGA Target
 An FPGA is one possible target for the Verilog generated by Chisel. What follows is an abbreviated and modified version of what is described in `rocket-chip/fpga-zynq/README.md`.
 
-## Verilog generation
+1) <a name="verilog-generation"></a> Verilog generation
+----------------------------------------
 Our FPGA target relies on some modifications to the fsim memory generator script. You first need to apply this patch:
 ```bash
 cd $ROCKETCHIP
@@ -174,7 +191,8 @@ make rocket CONFIG=XFilesDANAFPGAConfig ROCKETCHIP_ADDONS=xfiles-dana
 
 Note that this is equivalent to running `make verilog` in $ROCKETCHIP/fsim and copying the generated Verilog into src/verilog. Also, beware that the `Makefile` in `fpga-zynq/zedboard` does not seem to properly handle certain options, like "unconditionally remake all targets"/`-B`, and that the dependency tracking seems broken to me. Consequently, I've found that I may need to explicitly blow away specific files to get this to build in changes.
 
-## Create a Vivado project
+2) <a name="vivado-project"></a> Create a Vivado project
+----------------------------------------
 This requires that you have an install of Vivado (e.g., a node-locked license that comes with a Zedboard or access to a license server). You should only have to do this once for each configuration that you care about.
 
 Note that Vivado requires ncurses-5. If you're running a rolling distribution (e.g., Arch), then you'll need to have ncurses-5 installed for Vivado to actually work. There's some discussion of this problem as it relates to Matlab here: [https://bbs.archlinux.org/viewtopic.php?id=203039](https://bbs.archlinux.org/viewtopic.php?id=203039). To get around this, there's an available Arch AUR package:
@@ -186,7 +204,8 @@ cd $ROCKETCHIP/fpga-zynq/zedboard
 make project CONFIG=XFilesDANAFPGAConfig
 ```
 
-## Generate a Zynq project configuration
+3) <a name="boot-bin"></a> Generate a Zynq project configuration
+----------------------------------------
 With the Verilog source available and a valid project, you can then generate a configuration (boot.bin) which can be used to get the Zynq FPGA configured and the ARM core booted.
 
 First, however, I've found that it's good to prevent Vivado from flattening the design hierarchy. Normally, Vivado will synthesize the whole design, flatten everything (basically, put the entire design in a single module), and then optimize it. While this should produce better performance and a more compact design, I've had problems with Vivado taking a very long time to finish and often failing to place the design due to space constraints when flattening is enabled. I have a patch which will disable all flattening that you can optionally apply with:
@@ -200,7 +219,8 @@ You can then generate a boot.bin with:
 make fpga-images-zybo/boot.bin CONFIG=XFilesDANAFPGAConfig
 ```
 
-## Load the SD card
+4) <a name="load-sd-card"></a> Load the SD Card
+----------------------------------------
 With a new boot.bin in place, you can then copy this onto the SD card. The general procedure here is mount the SD card and then use the provided Makefile target to copy everything over, and unmeant the SD card. Your SD card device will vary:
 ```bash
 sudo mount /dev/mmcblk0p1 /mnt
@@ -221,3 +241,29 @@ cd $ROCKETCHIP/fpga-zynq/zedboard
 make ramdisk-close
 sudo rm -rf ramdisk
 ```
+
+5) <a name="test-on-the-fpga"></a> Test on the FPGA
+
+### <a name="documentation"></a> Additional Documentation
+
+Additional documentation can be found in the `xfiles-dana/doc` directory or in some of our publications.
+
+#### <a name="doc-directory"></a> Doc Directory
+Specific documentation includes:
+* [Binary Encodings and Data Structures](https://www.github.com/bu-icsg/xfiles-dana/tree/master/doc/binary-encodings-data-structures.md)
+* [Debugging](https://www.github.com/bu-icsg/xfiles-dana/tree/master/doc/debugging.md)
+* [FPGA Setup](https://www.github.com/bu-icsg/xfiles-dana/tree/master/doc/fpga-setup.md)
+* [X-FILES Timing](https://www.github.com/bu-icsg/xfiles-dana/tree/master/doc/timing.md)
+* [Toolflow](https://www.github.com/bu-icsg/xfiles-dana/tree/master/doc/toolflow.md)
+* [U-Boot](https://www.github.com/bu-icsg/xfiles-dana/tree/master/doc/u-boot.md)
+
+#### <a name="publications"></a> Publications
+[1] S. Eldridge, A. Waterland, M. Seltzer, J. Appavoo, and Joshi, A., _Towards General Purpose Neural Network Computing_, in Proceedings of the International Conference on Parallel Architectures and Compilation Techniques (PACT), 2015.
+* [Paper](http://people.bu.edu/schuye/files/pact2015-eldridge-paper.pdf)
+* [Presentation](http://people.bu.edu/schuye/files/pact2015-eldridge-presentation.pdf)
+
+#### <a name="presentations-posters"></a> Workshop Presentations and Posters
+[2] S. Eldridge., T. Unger, M. Sahaya Louis, A. Waterland, M. Seltzer, J. Appavoo, and A. Joshi, _Neural Networks as Function Primitives: Software/Hardware Support with X-FILES/DANA_, Boston Area Architecture Workshop (BARC) 2016.
+* [Paper](http://people.bu.edu/schuye/files/barc2016-eldridge-paper.pdf)
+* [Presentation](http://people.bu.edu/schuye/files/barc2016-eldridge-presentation.pdf)
+* [Poster](http://people.bu.edu/schuye/files/barc2016-eldridge-poster.pdf)
