@@ -1,6 +1,6 @@
 Overview
 ========================================
-A set of user and supervisor extensions (X-FILES software), hardware management of neural network "transactions" (X-FILES Hardware Arbiter), and a backend multi-transaction accelerator (DANA) to accelerate neural network computation. This system is intended to be used as an accelerator for a RISC-V microprocessor like [Rocket](https://www.github.com/ucb-bar/rocket-chip).
+A set of user and supervisor extensions (X-FILES software), hardware management of neural network "transactions" (X-FILES Hardware Arbiter), and a backend multi-transaction accelerator (DANA) to accelerate neural network computation [[1]](#cite-pact2015). This system is intended to be used as an accelerator for a RISC-V microprocessor like [Rocket](https://www.github.com/ucb-bar/rocket-chip).
 
 ### <a name="toc"></a> Table of Contents
 - [Setup](#setup)
@@ -308,7 +308,7 @@ Specific documentation includes:
 * [U-Boot](https://www.github.com/bu-icsg/xfiles-dana/tree/master/doc/u-boot.md)
 
 #### <a name="publications"></a> Publications
-[1] S. Eldridge, A. Waterland, M. Seltzer, J. Appavoo, and Joshi, A., _Towards General Purpose Neural Network Computing_, in Proceedings of the International Conference on Parallel Architectures and Compilation Techniques (PACT), 2015.
+<a name="cite-pact2015"></a> [1] S. Eldridge, A. Waterland, M. Seltzer, J. Appavoo, and Joshi, A., _Towards General Purpose Neural Network Computing_, in Proceedings of the International Conference on Parallel Architectures and Compilation Techniques (PACT), 2015.
 * [Paper](http://people.bu.edu/schuye/files/pact2015-eldridge-paper.pdf)
 * [Presentation](http://people.bu.edu/schuye/files/pact2015-eldridge-presentation.pdf)
 
