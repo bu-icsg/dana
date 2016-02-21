@@ -1,24 +1,5 @@
 // See LICENSE for license details.
 
-//-----------------------------------------------------------------------------
-// Title         : Preloaded SRAM for Cache
-// Project       : nnsim-hdl
-//-----------------------------------------------------------------------------
-// File          : ram_infer_preloaded.v
-// Author        : Eldridge  <schuye@celnode06.ad.bu.edu>
-// Created       : 2015/02/16
-// Last modified : 2015/02/16
-//-----------------------------------------------------------------------------
-// Description :
-//
-//-----------------------------------------------------------------------------
-// Copyright (c) 2015 by Boston University This model is the confidential and
-// proprietary property of Boston University and the possession or use of this
-// file requires a written license from Boston University.
-//------------------------------------------------------------------------------
-// Modification history :
-// 2015/02/16 : created
-//-----------------------------------------------------------------------------
 module ram_infer_preloaded_cache
   #(
     parameter
