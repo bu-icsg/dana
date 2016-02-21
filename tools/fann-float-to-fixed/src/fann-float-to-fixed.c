@@ -3,7 +3,7 @@
 #include "fann.h"
 
 void usage() {
-  printf("usage: fann-faloat-to-fixed [OPTIONS] <floating point net> <fixed point net>\n"
+  printf("usage: fann-float-to-fixed [OPTIONS] <floating point net> <fixed point net>\n"
          "\n"
          "Options:\n"
          "  -h, --help                 print this help and exit\n"
