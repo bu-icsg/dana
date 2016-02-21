@@ -323,6 +323,7 @@ Specific documentation includes:
 ### <a name="contributors-acknowledgments"></a> Contributors and Acknowledgments
 The following people, while not mentioned in the commit log, have contributed directly or indirectly to the development of this work:
 * [Jonathan Appavoo](http://www.cs.bu.edu/~jappavoo/jappavoo.github.com/index.html)
+* [Amos Waterland](http://people.seas.harvard.edu/~apw/)
 * [Tommy Unger](http://www.cs.bu.edu/~jappavoo/jappavoo.github.com/index.html)
 * [Han Dong](http://cs-people.bu.edu/handong/)
 * [Leila Delshad Tehrani](http:/www.bu.edu/icsg)
