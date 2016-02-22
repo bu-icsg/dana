@@ -1,8 +1,15 @@
 Overview
 ========================================
-A set of user and supervisor extensions (X-FILES software), hardware management of neural network "transactions" (X-FILES Hardware Arbiter), and a backend multi-transaction accelerator (DANA) to accelerate neural network computation [[1]](#cite-pact2015). X-FILES/DANA provide hardware acceleration for a subset of neural networks supported by the Fast Artificial Neural Network (FANN) library. DANA attempts to dynamically interleave the execution of neural network transactions to improve throughput.
+A set of user and supervisor extensions (X-FILES software), hardware management of neural network "transactions" (X-FILES Hardware Arbiter), and a backend
+multi-transaction accelerator (DANA) to accelerate neural network computation [[1]](#cite-pact2015).
+X-FILES/DANA provide hardware acceleration for a subset of neural networks supported by the Fast Artificial Neural Network (FANN) library.
+DANA attempts to dynamically interleave the execution of neural network transactions to improve throughput.
 
 This system is intended to be used as an accelerator for a RISC-V microprocessor like [Rocket](https://www.github.com/ucb-bar/rocket-chip).
+
+The name choices aren't arbitrary, but are heavily cherry-picked:
+* **X-FILES** -- software/hardware e**X**tensions **F**or the **I**ntegration of machine **L**earning in **E**verday **S**ystems
+* **DANA** -- **D**ynamically **A**llocated **N**eural network **A**ccelerator
 
 ### <a name="toc"></a> Table of Contents
 - [Setup](#setup)
