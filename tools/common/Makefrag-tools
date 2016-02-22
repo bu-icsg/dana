@@ -1,0 +1,23 @@
+#-*- mode: makefile-*-
+
+FLOAT_TO_FIXED=$(DIR_USR_BIN)/fann-float-to-fixed
+WRITE_FANN_CONFIG=$(DIR_USR_BIN)/write-fann-config-for-accelerator
+BIN_TO_C_HEADER=$(DIR_USR_BIN)/bin-config-to-c-header
+TRAIN_TO_C_HEADER=$(DIR_USR_BIN)/fann-train-to-c-header
+TRAIN_TO_C_HEADER_FIXED=$(DIR_USR_BIN)/fann-train-to-c-header-fixed
+FANN_RANDOM=$(DIR_USR_BIN)/fann-random
+FANN_CHANGE_FIXED_POINT=$(DIR_USR_BIN)/fann-change-fixed-point
+FANN_TRAIN_TO_FIXED=$(DIR_USR_BIN)/fann-data-to-fixed
+GEN_BOOLEAN_DATA=$(DIR_USR_BIN)/gen-boolean-data
+GEN_MATH_DATA=$(DIR_USR_BIN)/gen-math-data
+FANN_TRAIN=$(DIR_USR_BIN)/fann-train
+GEN_VIDEO=$(DIR_USR_BIN)/gen-trace-video
+NETS_TOOLS = $(FLOAT_TO_FIXED) \
+	$(WRITE_FANN_CONFIG) \
+	$(BIN_TO_C_HEADER) \
+	$(TRAIN_TO_C_HEADER) \
+	$(FANN_RANDOM) \
+	$(FANN_TRAIN)
+
+$(DIR_USR_BIN)/%: $(DIR_BUILD)/fann/libfann.so $(DIR_BUILD)/fann-rv/libfann.a
+	$(MAKE) -C $(DIR_TOOLS)/$*

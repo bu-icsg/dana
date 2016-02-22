@@ -1,0 +1,15 @@
+#!/bin/bash
+
+net=$1
+nets_txt=$2
+
+entry=$(grep ^$1, $2)
+
+if [ $? -eq 1 ]; then
+    echo "[ERROR] Unable to locate $net in $nets_txt" 1>&2
+    exit 1
+fi
+
+config=${entry#*,}
+
+echo $config

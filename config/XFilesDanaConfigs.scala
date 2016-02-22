@@ -101,6 +101,8 @@ class XFilesDanaCppPe7Epb16Config extends Config(new Dana(7, 16) ++
   new XFilesDanaCPPConfig)
 class XFilesDanaCppPe8Epb16Config extends Config(new Dana(8, 16) ++
   new XFilesDanaCPPConfig)
+class XFilesDanaCppPe16Epb16Config extends Config(new Dana(8, 16) ++
+  new XFilesDanaCPPConfig)
 
 class XFilesDanaCppPe1Epb32Config extends Config(new Dana(1, 32) ++
   new XFilesDanaCPPConfig)

@@ -1,0 +1,20 @@
+#!/bin/bash -x
+
+echo "RISCV:      $RISCV"
+echo "ROCKETCHIP: $ROCKETCHIP"
+echo "XFILES:     $XFILES"
+echo "CPP_CONFIG: $CPP_CONFIG"
+
+# build emulator before RISC-V (to catch failures more quickly)
+# cd $ROCKETCHIP/emulator
+# make CONFIG=$CPP_CONFIG ROCKETCHIP_ADDONS=xfiles-dana
+
+# build riscv-tools
+# cd $ROCKETCHIP/riscv-tools
+# ./build.sh
+
+# Run regression tests
+# cd $XFILES
+# make rv
+cd $XFILES/tests
+./regress.sh

@@ -11,6 +11,19 @@ The name choices aren't arbitrary, but are heavily cherry-picked:
 * **X-FILES** -- software/hardware e**X**tensions **F**or the **I**ntegration of machine **L**earning in **E**verday **S**ystems
 * **DANA** -- **D**ynamically **A**llocated **N**eural network **A**ccelerator
 
+### Build Status [![Build Status](https://travis-ci.org/bu-icsg/xfiles-dana.svg?branch=master)](https://travis-ci.org/bu-icsg/xfiles-dana)
+Builds are currently tested against the following configurations:
+```
+|-------------------------------+--------------------|
+| Number of Processing Elements | Elements Per Block |
+|-------------------------------+--------------------|
+|                             1 |                  4 |
+|                             4 |                  4 |
+|                             8 |                  8 |
+|                             8 |                 16 |
+|-------------------------------+--------------------|
+```
+
 ### <a name="toc"></a> Table of Contents
 - [Setup](#setup)
     - [1 - Clone the Rocket Chip Repository](#clone-the-rocket-chip-repo)

@@ -4,3 +4,5 @@ run.log
 *.net
 *.train
 *bin
+/install
+/stamps
