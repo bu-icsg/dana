@@ -317,7 +317,7 @@ Specific documentation includes:
 * [U-Boot](https://www.github.com/bu-icsg/xfiles-dana/tree/master/doc/u-boot.md)
 
 #### <a name="publications"></a> Publications
-<a name="cite-pact2015"></a> [1] S. Eldridge, A. Waterland, M. Seltzer, J. Appavoo, and Joshi, A., "Towards General Purpose Neural Network Computing", _in Proceedings of the International Conference on Parallel Architectures and Compilation Techniques (PACT)_. 2015.
+<a name="cite-pact2015"></a> [1] S. Eldridge, A. Waterland, M. Seltzer, J. Appavoo, and A. Joshi, "Towards General Purpose Neural Network Computing", _in Proceedings of the International Conference on Parallel Architectures and Compilation Techniques (PACT)_. 2015.
 * [Paper](http://people.bu.edu/schuye/files/pact2015-eldridge-paper.pdf)
 * [Presentation](http://people.bu.edu/schuye/files/pact2015-eldridge-presentation.pdf)
 
