@@ -1,0 +1,77 @@
+# Shared NN configurations used by fann-random to generate networks
+xorSigmoid,-r0.7 -l2 -l4 -l1 -a5 -o3
+xorSigmoidSymmetric,-l2 -l8 -l1 -a5 -o5 -r0.7
+xorSigmoidSymmetricPair,-l2 -l3 -l2 -a5 -o5 -r0.7
+xorSigmoidSymmetricThreeLayer,-l2 -l8 -l9 -l1 -a5 -o5 -r0.7
+# XOR variants
+xor-sigmoid-4i,-l4 -l4 -l1 -a5 -o3 -r0.7
+xor-sigmoid-8i,-l8 -l4 -l1 -a5 -o3 -r.07
+xor-sigmoid-16i,-l16 -l4 -l1 -a5 -o3 -r.07
+xor-sigmoid-32i,-l32 -l4 -l1 -a5 -o3 -r.07
+xor-sigmoid-64i,-l64 -l4 -l1 -a5 -o3 -r.07
+xor-sigmoid-128i,-l128 -l4 -l1 -a5 -o3 -r.07
+xor-sigmoid-256i,-l256 -l4 -l1 -a5 -o3 -r.07
+xor-sigmoid-512i,-l512 -l4 -l1 -a5 -o3 -r.07
+xor-sigmoid-1024i,-l1024 -l4 -l1 -a5 -o3 -r.07
+xor-sigmoid-4o,-l2 -l4 -l4 -a5 -o3 -r0.7
+xor-sigmoid-8o,-l2 -l4 -l8 -a5 -o3 -r.07
+xor-sigmoid-16o,-l2 -l4 -l16 -a5 -o3 -r.07
+xor-sigmoid-32o,-l2 -l4 -l32 -a5 -o3 -r.07
+xor-sigmoid-64o,-l2 -l4 -l64 -a5 -o3 -r.07
+xor-sigmoid-128o,-l2 -l4 -l128 -a5 -o3 -r.07
+xor-sigmoid-256o,-l2 -l4 -l256 -a5 -o3 -r.07
+xor-sigmoid-512o,-l2 -l4 -l512 -a5 -o3 -r.07
+xor-sigmoid-1024o,-l2 -l4 -l1024 -a5 -o3 -r.07
+# FANN dataset NNs
+abelone,-l10 -l8 -l1 -a5 -o3 -r0.7
+bank32fm,-l32 -l16 -l1 -a5 -o3 -r0.7
+bank32nh,-l32 -l16 -l1 -a5 -o3 -r0.7
+building,-l14 -l8 -l3 -a5 -o3 -r0.7
+census-house,-l16 -l8 -l4 -l1 -a5 -o3 -r0.7
+diabetes,-l8 -l10 -l2 -a5 -o3 -r0.7
+gene,-l120 -l20 -l3 -a5 -o3 -r0.7
+kin32fm,-l32 -l20 -l1 -a5 -o3
+mushroom,-l125 -l32 -l2 -a5 -o3
+pumadyn-32fm,-l32 -l16 -l8 -l4 -l1 -a5 -o3 -r0.7
+robot,-l48 -l16 -l3 -a5 -o3 -r0.7
+soybean,-l82 -l32 -l19 -a5 -o3 -r0.7
+thyroid,-l21 -l10 -l3 -a5 -o3
+two-spiral,-l2 -l10 -l30 -l3 -l1 -a5 -o3
+# Parity configurations
+parity-1,-l1 -l1 -a5 -o5
+parity-2,-l2 -l4 -l1 -a5 -o5 -r0.2
+parity-3,-l3 -l8 -l1 -a5 -o5 -r0.2
+parity-4,-l4 -l9 -l1 -a5 -o5 -r0.7
+parity-5,-l5 -l9 -l1 -a5 -o5 -r0.7
+parity-6,-l6 -l10 -l1 -a5 -o5 -r0.7
+parity-7,-l7 -l12 -l1 -a5 -o5 -r0.7
+parity-8,-l8 -l14 -l1 -a5 -o5 -r0.7
+parity-9,-l9 -l16 -l1 -a5 -o5 -r0.7
+# Parity configurations with the same hidden topology (-f0.5)
+parity-same-1,-l1 -l8 -l1 -a5 -o5 -r0.7
+parity-same-2,-l2 -l8 -l1 -a5 -o5 -r0.7
+parity-same-3,-l3 -l8 -l1 -a5 -o5 -r0.7
+parity-same-4,-l4 -l8 -l1 -a5 -o5 -r0.7
+parity-same-5,-l5 -l8 -l1 -a5 -o5 -r0.7
+parity-same-6,-l6 -l8 -l1 -a5 -o5 -r0.7
+parity-same-7,-l7 -l8 -l1 -a5 -o5 -r0.7
+parity-same-8,-l8 -l8 -l1 -a5 -o5 -r0.7
+parity-same-9,-l9 -l8 -l1 -a5 -o5 -r0.7
+# Sine tests
+sin,-l1 -l8 -l1 -a3 -o5 -r0.7
+sin-scale-0.25,-l1 -l8 -l1 -a3 -o5 -r0.7
+sin-scale-0.50,-l1 -l8 -l1 -a3 -o5 -r0.7
+sin-scale-0.75,-l1 -l8 -l1 -a3 -o5 -r0.7
+sin-scale-1.00,-l1 -l8 -l1 -a3 -o5 -r0.7
+sin-scale-1.25,-l1 -l8 -l1 -a3 -o5 -r0.7
+sin-scale-1.50,-l1 -l8 -l1 -a3 -o5 -r0.7
+sin-scale-1.75,-l1 -l8 -l1 -a3 -o5 -r0.7
+sin-scale-2.00,-l1 -l8 -l1 -a3 -o5 -r0.7
+sin-scale-2.25,-l1 -l8 -l1 -a3 -o5 -r0.7
+sin-scale-2.50,-l1 -l8 -l1 -a3 -o5 -r0.7
+sin-scale-2.75,-l1 -l8 -l1 -a3 -o5 -r0.7
+sin-scale-3.00,-l1 -l8 -l1 -a3 -o5 -r0.7
+sin-scale-3.25,-l1 -l8 -l1 -a3 -o5 -r0.7
+sin-scale-3.50,-l1 -l8 -l1 -a3 -o5 -r0.7
+sin-scale-3.75,-l1 -l8 -l1 -a3 -o5 -r0.7
+sin-scale-4.00,-l1 -l8 -l1 -a3 -o5 -r0.7

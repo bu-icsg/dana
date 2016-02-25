@@ -1,8 +1,13 @@
 #-*- mode: makefile-*-
+
 DIR_TOP  = ../../..
-DIR_FANN = $(DIR_TOP)/submodules/fann
-GCC      ?= riscv64-unknown-elf-gcc
-EMULATOR ?= ../$(DIR_TOP)/emulator/emulator-Top-XFilesDanaCPPConfig
+
+PES ?= 1
+EPB ?= 4
+CONFIG ?= XFilesDanaCppPe${PES}Epb${EPB}Config
+BIN_SUFFIX = $(shell echo "$(EPB) 4*p" | dc)bin
+
+EMULATOR ?= ../$(DIR_TOP)/emulator/emulator-Top-$(CONFIG)
 C_FLAGS  ?= -Wall \
 	-Werror \
 	-O3 \
@@ -23,20 +28,12 @@ DECIMAL_POINT_OFFSET=7
 DECIMAL_POINT_BITS=3
 MAX_DECIMAL_POINT=`echo "2 $(DECIMAL_POINT_BITS)^1-$(DECIMAL_POINT_OFFSET)+p"|dc`
 
-# Common tools
-FANN_RANDOM=$(DIR_TOP)/usr/bin/fann-random
-FLOAT_TO_FIXED=$(DIR_TOP)/usr/bin/fann-float-to-fixed
-WRITE_FANN_CONFIG=$(DIR_TOP)/usr/bin/write-fann-config-for-accelerator
-FANN_TRAIN_TO_FIXED=$(DIR_TOP)/usr/bin/fann-data-to-fixed
-FANN_CHANGE_FIXED_POINT=$(DIR_TOP)/usr/bin/fann-change-fixed-point
-GEN_BOOLEAN_DATA=$(DIR_TOP)/usr/bin/gen-boolean-data
-
 PHONY += all default clean
 
 default: all
 
-%.rv: %.c
-	@ $(GCC) $(C_FLAGS) $< -o $@ $(L_FLAGS)
+%.rv: %.c $(DIR_TOP)/build/libxfiles.a $(DIR_TOP)/build/fann-rv/libfann.a
+	@ $(RV_CC) $(C_FLAGS) $< -o $@ $(L_FLAGS)
 
 # Common utilities
 TOOL_COMPARE = ../../common/compare.sh
@@ -46,3 +43,5 @@ JUNK = *.emulator *.rv
 
 clean:
 	rm -f $(JUNK)
+
+include $(DIR_TOP)/Makefile

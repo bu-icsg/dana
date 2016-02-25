@@ -1,0 +1,91 @@
+#-*- mode: makefile-*-
+
+# Makefile that defines neural network configurations and defines how
+# to build floating point and fixed point neural networks.
+
+vpath %.train $(DIR_TOP)/src/main/resources
+vpath %.train $(DIR_TOP)/submodules/fann/datasets
+
+.PRECIOUS: $(DIR_BUILD)/nets/%-fixed.net \
+	$(DIR_BUILD)/nets/%-fixed.net \
+	$(DIR_BUILD)/nets/%-float.train \
+	$(DIR_BUILD)/nets/parity-%-float.net \
+	$(DIR_BUILD)/nets/xor-sigmoid-%-float.net \
+	$(DIR_BUILD)/nets/xor-sigmoid-%i-float.train \
+	$(DIR_BUILD)/nets/xor-sigmoid-%o-float.train \
+	$(DIR_BUILD)/nets/parity-%-float.train \
+	$(DIR_BUILD)/nets/parity-same-%-float.net \
+	$(DIR_BUILD)/nets/sin-%-float.train \
+	$(DIR_BUILD)/nets/sin-scale-%-float.train
+
+#--------------------------------------- Build floating point NNs
+$(DIR_BUILD)/nets/%-float.net: $(DIR_BUILD)/nets $(FANN_RANDOM)
+	$(FANN_RANDOM) -s$(SEED) \
+	`$(DIR_USR_BIN)/find-net $* $(DIR_TOOLS)/common/nets.txt` $@
+
+#--------------------------------------- Generate special training files
+$(DIR_BUILD)/nets/parity-%-float.train: $(DIR_BUILD)/nets
+	$(GEN_BOOLEAN_DATA) -n $* -f xor -s > $@
+
+$(DIR_BUILD)/nets/xor-sigmoid-%i-float.train: $(DIR_BUILD)/nets
+	$(GEN_BOOLEAN_DATA) -n 2 -f xor --replicate-input `echo $* 2/p | dc` > $@
+
+$(DIR_BUILD)/nets/xor-sigmoid-%o-float.train: $(DIR_BUILD)/nets
+	$(GEN_BOOLEAN_DATA) -n 2 -f xor --replicate-output $* > $@
+
+$(DIR_BUILD)/nets/sin-scale-%-float.train: $(DIR_BUILD)/nets
+	$(GEN_MATH_DATA) -f sin -s0 -d -1 1 -n 128 --x-scaling=$**1*math.pi \
+	--file-train=$@ --file-plot=$(DIR_BUILD)/nets/sin-scale-$*.png
+
+#--------------------------------------- Fixed point net generationg
+$(DIR_BUILD)/nets/%-fixed.net: $(DIR_BUILD)/nets/%-float.net $(NETS_TOOLS)
+	$(FLOAT_TO_FIXED) $< $@
+	@ if [ `grep decimal $@ | sed 's/.\+=//'` -gt $(MAX_DECIMAL_POINT) ]; then \
+	echo "[WARN] Fixed point precision unexpectedly high, attempting to fix..."; \
+	mv $@ $@.tooBig; \
+	$(FANN_CHANGE_FIXED_POINT) $@.tooBig $(MAX_DECIMAL_POINT) > $@; \
+	rm $@.tooBig; \
+	elif [ `grep decimal $@ | sed 's/.\+=//'` -lt $(DECIMAL_POINT_OFFSET) ]; \
+	then echo "[WARN] Fixed point precision too low, attempting to fix..."; \
+	mv $@ $@.tooSmall; \
+	$(FANN_CHANGE_FIXED_POINT) $@.tooSmall $(DECIMAL_POINT_OFFSET) > $@; \
+	rm $@.tooSmall; fi
+
+$(DIR_BUILD)/nets/%-fixed.net: %-float.net $(NETS_TOOLS)
+	$(FLOAT_TO_FIXED) $< $@
+	@ if [ `grep decimal $@ | sed 's/.\+=//'` -gt $(MAX_DECIMAL_POINT) ]; then \
+	echo "[WARN] Fixed point precision unexpectedly high, attempting to fix..."; \
+	mv $@ $@.tooBig; \
+	$(FANN_CHANGE_FIXED_POINT) $@.tooBig $(MAX_DECIMAL_POINT) > $@; \
+	rm $@.tooBig; \
+	elif [ `grep decimal $@ | sed 's/.\+=//'` -lt $(DECIMAL_POINT_OFFSET) ]; \
+	then echo "[WARN] Fixed point precision too low, attempting to fix..."; \
+	mv $@ $@.tooSmall; \
+	$(FANN_CHANGE_FIXED_POINT) $@.tooSmall $(DECIMAL_POINT_OFFSET) > $@; \
+	rm $@.tooSmall; fi
+
+#--------------------------------------- Binary configurations
+$(DIR_BUILD)/nets/%.16bin: $(DIR_BUILD)/nets/%.net $(WRITE_FANN_CONFIG)
+	$(WRITE_FANN_CONFIG) 16 $< $@ $(DECIMAL_POINT_OFFSET)
+
+$(DIR_BUILD)/nets/%.32bin: $(DIR_BUILD)/nets/%.net $(WRITE_FANN_CONFIG)
+	$(WRITE_FANN_CONFIG) 32 $< $@ $(DECIMAL_POINT_OFFSET)
+
+$(DIR_BUILD)/nets/%.64bin: $(DIR_BUILD)/nets/%.net $(WRITE_FANN_CONFIG)
+	$(WRITE_FANN_CONFIG) 64 $< $@ $(DECIMAL_POINT_OFFSET)
+
+$(DIR_BUILD)/nets/%.128bin: $(DIR_BUILD)/nets/%.net $(WRITE_FANN_CONFIG)
+	$(WRITE_FANN_CONFIG) 128 $< $@ $(DECIMAL_POINT_OFFSET)
+
+#--------------------------------------- Training Files
+$(DIR_BUILD)/nets/%-fixed.train: src/main/resources/%.train $(DIR_BUILD)/nets/%-fixed.net $(NETS_TOOLS)
+	$(FANN_TRAIN_TO_FIXED) $< $@ `grep decimal_point $(word 2,$^) | sed 's/^.\+=//'`
+
+$(DIR_BUILD)/nets/%-fixed.train: %.train $(DIR_BUILD)/nets/%-fixed.net $(NETS_TOOLS)
+	$(FANN_TRAIN_TO_FIXED) $< $@ `grep decimal_point $(word 2,$^) | sed 's/^.\+=//'`
+
+# $(DIR_BUILD)/nets/sin-%-fixed.train: $(DIR_BUILD)/nets/sin-%-float.train $(DIR_BUILD)/nets/sin-fixed.net $(NETS_TOOLS)
+# 	$(FANN_TRAIN_TO_FIXED) $< $@ `grep decimal_point $(word 2,$^) | sed 's/^.\+=//'`
+
+$(DIR_BUILD)/nets/%-fixed.train: $(DIR_BUILD)/nets/%-float.train $(DIR_BUILD)/nets/%-fixed.net $(NETS_TOOLS)
+	$(FANN_TRAIN_TO_FIXED) $< $@ `grep decimal_point $(word 2,$^) | sed 's/^.\+=//'`

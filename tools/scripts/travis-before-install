@@ -1,0 +1,30 @@
+#!/bin/bash -x
+
+echo "RISCV:      $RISCV"
+echo "ROCKETCHIP: $ROCKETCHIP"
+echo "XFILES:     $XFILES"
+echo "CPP_CONFIG: $CPP_CONFIG"
+
+# rocket-chip repo setup
+git clone --depth 1 https://github.com/ucb-bar/rocket-chip $ROCKETCHIP
+cd $ROCKETCHIP
+rm .travis.yml
+git submodule update --init
+
+# riscv-tools setup
+cd $ROCKETCHIP/riscv-tools
+rm .travis.yml
+git submodule update --init --recursive riscv-gnu-toolchain
+git submodule update --init --recursive riscv-isa-sim
+git submodule update --init --recursive riscv-fesvr
+git submodule update --init --recursive riscv-opcodes
+git submodule update --init --recursive riscv-pk
+git submodule update --init --recursive riscv-tests
+cd $ROCKETCHIP/riscv-tools/riscv-pk
+git checkout .
+git apply $XFILES/patches/riscv-pk-xfiles-syscalls.patch
+
+# Grab the submodules for xfiles-dana and create the symlinks
+cd $XFILES
+git submodule update --init
+./install-symlinks $ROCKETCHIP

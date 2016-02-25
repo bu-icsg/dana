@@ -1,3 +1,24 @@
 #!/usr/bin/env bash
 
-(cd ../src/main/scala && ln -sf ../../../xfiles-dana/config/XFilesDanaConfigs.scala)
+if [ $# -gt 1 ]; then
+   echo "[ERROR] Too many command line arguments"
+   exit 1
+fi
+
+XFILES_DANA_DIR=`pwd`
+
+if [ $# -eq 1 ]; then
+    ROCKETCHIP_DIR=$1
+else
+    ROCKETCHIP_DIR=$XFILES_DANA_DIR/..
+fi
+
+echo $ROCKETCHIP_DIR
+
+(cd $ROCKETCHIP_DIR/src/main/scala && \
+        ln -sf $XFILES_DANA_DIR/config/XFilesDanaConfigs.scala && \
+        cd $ROCKETCHIP_DIR &&
+        if [ ! -d xfiles-dana ]; then \
+            ln -sf $XFILES_DANA_DIR; \
+        fi
+)
