@@ -18,7 +18,15 @@ abstract trait XFilesParameters extends DanaParameters {
 }
 
 abstract class XFilesModule(implicit p: Parameters) extends DanaModule()(p)
-    with XFilesParameters
+    with XFilesParameters {
+  val (t_READ_DATA :: t_WRITE_DATA :: t_UNUSED_2 :: t_NEW_REQUEST ::
+    t_UNUSED_4 :: t_WRITE_DATA_LAST :: t_UNUSED_6 :: t_WRITE_REGISTER ::
+    t_UNUSED_8 :: t_UNUSED_9 :: t_UNUSED_10 :: t_UNUSED_11 :: t_UNUSED_12 ::
+    t_UNUSED_13 :: t_UNUSED_14 :: t_UNUSED_15 :: t_XFILES_ID ::
+    Nil) = Enum(UInt(), 17)
+  val (t_UPDATE_ASID :: t_UPDATE_ANTP :: Nil) = Enum(UInt(), 2)
+}
+
 abstract class XFilesBundle(implicit p: Parameters) extends DanaBundle()(p)
     with XFilesParameters
 
@@ -55,65 +63,78 @@ class XFilesArbiter(implicit p: Parameters) extends XFilesModule()(p) {
   val asidRegs = Vec.fill(numCores){ Module(new AsidUnit()(p)).io }
   val coreQueue = Vec.fill(numCores){ Module(new Queue(new RoCCCommand, 4)).io }
 
-  // Default values
-  for (i <- 0 until numCores) {
-    io.core(i).interrupt := Bool(false)
-    io.core(i).resp.valid := tTable.io.arbiter.rocc.resp.valid &&
-      tTable.io.arbiter.indexOut === UInt(i)
-    // When we see a valid response from the Transaction Table, we let
-    // it through. [TODO] This needs to include the assignment of output
-    // values to the correct core.
-    when (tTable.io.arbiter.rocc.resp.valid &&
-      tTable.io.arbiter.indexOut === UInt(i)) {
-      io.core(i).resp.bits := tTable.io.arbiter.rocc.resp.bits
-    } .otherwise {
-      io.core(i).resp.bits.rd := UInt(0)
-      io.core(i).resp.bits.data := UInt(0)
-    }
-  }
   tTable.io.arbiter.rocc.resp.ready := Bool(true)
-  // when (tTable.io.arbiter.rocc.resp.valid) {
-  //   io.core(tTable.io.arbiter.indexOut).resp.valid := tTable.io.arbiter.rocc.resp.valid
-  //   io.core(tTable.io.arbiter.indexOut).resp.bits := tTable.io.arbiter.rocc.resp.bits
-  // }
 
   // Non-supervisory requests from cores are fed into a round robin
   // arbiter.
-  val coreArbiter = Module(new RRArbiter(new RoCCCommand,
-    numCores))
+  val coreArbiter = Module(new RRArbiter(new RoCCCommand, numCores))
   for (i <- 0 until numCores) {
+    val cmd = io.core(i).cmd
+    val funct = cmd.bits.inst.funct
+
+    // Special requests
+    val reqInfo = cmd.fire() & !io.core(i).s & funct === t_XFILES_ID
+    val badRequest = cmd.fire() & !io.core(i).s & !asidRegs(i).data.valid
+    val squash = !asidRegs(i).data.valid || reqInfo
+
     // Core to core-specific queue connections. The ASID/TID are setup
     // here if needed.
-    coreQueue(i).enq.valid := io.core(i).cmd.valid & !io.core(i).s
+    val userRequest = cmd.fire() & !io.core(i).s & !squash
+    val supervisorRequest = cmd.fire() & io.core(i).s
+    coreQueue(i).enq.valid := userRequest
     // If this is a write and is new, then we need to add the TID
     // specified by the ASID unit. Otherwise, we only need to stamp
     // the ASID as the core provided the TID. We also need to respond
     // to the specific core that initiated this request telling it
     // what the TID is.
-    when (io.core(i).cmd.bits.inst.funct(0) && io.core(i).cmd.bits.inst.funct(1) &&
-      !io.core(i).cmd.bits.inst.funct(2)) {
-      coreQueue(i).enq.bits := io.core(i).cmd.bits
+    val newWriteRequest = funct === t_NEW_REQUEST
+    val asid = asidRegs(i).data.bits.asid
+    val tid = asidRegs(i).data.bits.tid
+    coreQueue(i).enq.bits := cmd.bits
+    when (newWriteRequest) {
       coreQueue(i).enq.bits.rs1 :=
-        io.core(i).cmd.bits.rs1(feedbackWidth - 1, 0) ##
-        asidRegs(i).asid ##
-        asidRegs(i).tid
+        cmd.bits.rs1(feedbackWidth - 1, 0) ## asid ## tid
     } .otherwise {
-      coreQueue(i).enq.bits := io.core(i).cmd.bits
-      coreQueue(i).enq.bits.rs1 :=
-        asidRegs(i).asid ##
-        io.core(i).cmd.bits.rs1(tidWidth - 1, 0)
+      coreQueue(i).enq.bits.rs1 := asid ## cmd.bits.rs1(tidWidth - 1, 0)
     }
-    io.core(i).cmd.ready := coreQueue(i).enq.ready
+    cmd.ready := coreQueue(i).enq.ready
     // Queue to RRArbiter connections
     coreQueue(i).deq.ready := coreArbiter.io.in(i).ready
     coreArbiter.io.in(i).valid := coreQueue(i).deq.valid
     coreArbiter.io.in(i).bits := coreQueue(i).deq.bits
-    io.core(i).cmd.ready := coreArbiter.io.in(i).ready
+    cmd.ready := coreArbiter.io.in(i).ready
     // Inbound reqeusts are also fed into the ASID registers
-    asidRegs(i).core.cmd.valid := io.core(i).cmd.valid
-    asidRegs(i).core.cmd.bits := io.core(i).cmd.bits
+    asidRegs(i).core.cmd.valid := cmd.valid
+    asidRegs(i).core.cmd.bits := cmd.bits
     asidRegs(i).core.s := io.core(i).s
     asidRegs(i).antw <> antw.io.asidUnit(i)
+
+    // Connections back to the cores
+    io.core(i).interrupt := Bool(false)
+    io.core(i).resp.valid := tTable.io.arbiter.rocc.resp.valid &&
+      tTable.io.arbiter.indexOut === UInt(i) || reqInfo || badRequest
+
+    // Return -1 on a bad request
+    io.core(i).resp.bits.rd := cmd.bits.inst.rd
+    io.core(i).resp.bits.data := SInt(-1)
+
+    // When we see a valid response from the Transaction Table, we let
+    // it through.
+    when (tTable.io.arbiter.rocc.resp.valid &&
+      tTable.io.arbiter.indexOut === UInt(i)) {
+      io.core(i).resp.bits := tTable.io.arbiter.rocc.resp.bits
+    }
+
+    when (reqInfo) {
+      val info = UInt(elementsPerBlock, width = 6) ##
+        UInt(peTableNumEntries, width = 6) ##
+        UInt(transactionTableNumEntries, width = 4) ##
+        UInt(cacheNumEntries, width = 4)
+      io.core(i).resp.bits.rd := cmd.bits.inst.rd
+      io.core(i).resp.bits.data := info
+    }
+
+    when (squash) { tTable.io.arbiter.rocc.resp.ready := Bool(false) }
   }
 
   // Interface connections

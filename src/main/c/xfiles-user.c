@@ -18,6 +18,30 @@
 //   |       [6:3]|       2|      1|            0|
 //   | **unused** | isLast | isNew | readOrWrite |
 
+x_len xfiles_dana_id(int flag_print) {
+  x_len out;
+
+  asm volatile ("custom0 %[out], 0, 0, %[type]"
+                : [out] "=r" (out)
+                : [type] "i" (XFILES_DANA_ID));
+
+  if (flag_print) {
+    uint32_t elements_per_block = (out >> 14) & ~((~0) << 6);
+    uint32_t pe_table_num_entries = (out >> 8) & ~((~0) << 6);
+    uint32_t transaction_table_num_entries = (out >> 4) & ~((~0) << 4);
+    uint32_t cache_num_entries = out & ~((~0) << 4);
+    printf("X-FILES/DANA Info:\n"
+           "  Elements per Block:        %d\n"
+           "  PEs:                       %d\n"
+           "  Transaction Table Entries: %d\n"
+           "  Cache Entries:             %d\n",
+           elements_per_block, pe_table_num_entries,
+           transaction_table_num_entries, cache_num_entries);
+  }
+
+  return out;
+}
+
 tid_type new_write_request(nnid_type nnid, int learning_type,
                            element_type num_train_outputs) {
   uint64_t out, rs2;
@@ -30,9 +54,9 @@ tid_type new_write_request(nnid_type nnid, int learning_type,
   // read == 0 / write == 1) and "isNew" (bit 1) flags of "funct",
   // i.e., funct == 3. The nnid goes in rs2. The output will show up
   // in the varaible "out".
-  asm volatile ("custom0 %[out], %[rs1], %[rs2], 3"
+  asm volatile ("custom0 %[out], %[rs1], %[rs2], %[type]"
                 : [out] "=r" (out)
-                : [rs1] "r" (0), [rs2] "r" (rs2));
+                : [rs1] "r" (0), [rs2] "r" (rs2), [type] "i" (NEW_REQUEST));
 
   // The TID is in bits [47:32] of what we get back. Pull out this
   // portion and return it. [TODO] This is fragile on tid and element
@@ -45,8 +69,9 @@ void write_register(tid_type tid, xfiles_reg reg, uint32_t value) {
   uint64_t rs2;
   rs2 = (uint64_t) value | ((uint64_t) reg << 32);
 
-  asm volatile ("custom0 0, %[rs1], %[rs2], 7"
-                :: [rs1] "r" (tid), [rs2] "r" (rs2));
+  asm volatile ("custom0 0, %[rs1], %[rs2], %[type]"
+                :: [rs1] "r" (tid), [rs2] "r" (rs2),
+                 [type] "i" (WRITE_REGISTER));
 }
 
 void write_data(tid_type tid, element_type * data, size_t count) {
@@ -57,14 +82,16 @@ void write_data(tid_type tid, element_type * data, size_t count) {
   // data value with "isLast" deasserted (funct == 1). The tid goes in
   // rs1 and data goes in rs2.
   for (i = 0; i < count - 1; i++)
-    asm volatile ("custom0 0, %[rs1], %[rs2], 1"
-                  :: [rs1] "r" (tid), [rs2] "r" (data[i]));
+    asm volatile ("custom0 0, %[rs1], %[rs2], %[type]"
+                  :: [rs1] "r" (tid), [rs2] "r" (data[i]),
+                   [type] "i" (WRITE_DATA));
 
   // Finally, we write the last data value with "isLast" set (funct ==
   // 5). When the X-Files Arbiter sees this "isLast" bit, it enables
   // execution of the transaction.
-  asm volatile ("custom0 0, %[rs1], %[rs2], 5"
-                :: [rs1] "r" (tid), [rs2] "r" (data[i]));
+  asm volatile ("custom0 0, %[rs1], %[rs2], %[type]"
+                :: [rs1] "r" (tid), [rs2] "r" (data[i]),
+                 [type] "i" (WRITE_DATA_LAST));
 }
 
 void write_data_train_incremental(tid_type tid, element_type * input,
@@ -91,9 +118,9 @@ uint64_t read_data_spinlock(tid_type tid, element_type * data, size_t count) {
   //      can be used for debugging)
   // We then naively spinlock until we get some valid data.
   while (1) {
-    asm volatile ("custom0 %[out], %[rs1], 0, 0"
+    asm volatile ("custom0 %[out], %[rs1], 0, %[type]"
                   : [out] "=r" (out)
-                  : [rs1] "r" (tid));
+                  : [rs1] "r" (tid), [type] "i" (READ_DATA));
     switch (out >> (32 + 16 + 14)) {
     case 2:  continue;
     case 1:  goto success;
@@ -111,8 +138,8 @@ uint64_t read_data_spinlock(tid_type tid, element_type * data, size_t count) {
   // our transaction once all data values have been read, hence, there
   // is no need for setting the "isLast" bit.
   for (i = 1; i < count; i++)
-    asm volatile ("custom0 %[out], %[rs1], 0, 0"
+    asm volatile ("custom0 %[out], %[rs1], 0, %[type]"
                   : [out] "=r" (data[i])
-                  : [rs1] "r" (tid));
+                  : [rs1] "r" (tid), [type] "i" (READ_DATA));
   return 0;
 }
