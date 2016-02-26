@@ -1,6 +1,14 @@
 #!/bin/bash
 
-if [ `diff -q $1 $2` ]; then
+COMPARE_BYTES=`ls -la $2 | awk '{print $5}'`
+if [ $COMPARE_BYTES -lt 140 ]; then
+    echo "[FAIL] File to compare looks too short:"
+    cat $2
+    exit 1
+fi
+
+cmp -n $COMPARE_BYTES -s $1 $2
+if [ $? -eq 1 ]; then
     echo "[FAIL] $3 test failed"
     exit 1
 else

@@ -1,0 +1,13 @@
+[INFO] Found binary point 14
+[INFO] Done reading input file
+[INFO] Computed learning rate is 0xb33
+[STAT] epoch 0 id 0 bp 14 mse 0.25006495
+[STAT] epoch 1 id 0 bp 14 mse 0.25004840
+[STAT] epoch 2 id 0 bp 14 mse 0.25003629
+[STAT] epoch 3 id 0 bp 14 mse 0.25002783
+[STAT] epoch 4 id 0 bp 14 mse 0.25002249
+[STAT] epoch 5 id 0 bp 14 mse 0.25001654
+[STAT] epoch 6 id 0 bp 14 mse 0.25001297
+[STAT] epoch 7 id 0 bp 14 mse 0.25001102
+[STAT] epoch 8 id 0 bp 14 mse 0.25000966
+[STAT] epoch 9 id 0 bp 14 mse 0.25000586

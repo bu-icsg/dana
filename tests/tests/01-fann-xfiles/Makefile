@@ -8,22 +8,23 @@ TEST=fann-xfiles
 NETS_PATTERN=xorSigmoid \
 	xorSigmoidSymmetric \
 	xorSigmoidSymmetricPair \
-	xorSigmoidSymmetricThreeLayer
-NETS_CONVERGE=xor-sigmoid-4i \
-	xor-sigmoid-8i \
-	xor-sigmoid-4o \
-	xor-sigmoid-8o
+	xorSigmoidSymmetricThreeLayer \
+	xor-sigmoid-4i \
+	xor-sigmoid-256i \
+	xor-sigmoid-8o \
+	xor-sigmoid-128o
+NETS_CONVERGE=
 NETS_ALL=$(NETS_PATTERN) $(NETS_CONVERGE)
-NETS_SKIP=xor-sigmoid-16i \
+NETS_SKIP=xor-sigmoid-8i \
+	xor-sigmoid-4o \
+	xor-sigmoid-16i \
 	xor-sigmoid-32i \
 	xor-sigmoid-64i \
 	xor-sigmoid-128i \
-	xor-sigmoid-256i \
 	xor-sigmoid-256o \
 	xor-sigmoid-16o \
 	xor-sigmoid-32o \
-	xor-sigmoid-64o \
-	xor-sigmoid-128o
+	xor-sigmoid-64o
 NETS_FLOAT=$(addsuffix -float.net, $(NETS_ALL))
 NETS_TRAIN=$(addsuffix -fixed.train, $(NETS_ALL))
 SOURCES=$(TEST).c
@@ -56,10 +57,10 @@ all: $(RUNS)
 # compared to a known good example "*.mse-good".
 %.msePattern: $(DIR_BUILD_NETS)/%-fixed.$(BIN_SUFFIX) $(DIR_BUILD_NETS)/%-fixed.train $(DIR_BUILD_NETS)/%-fixed.net $(TEST).rv %.mse-good
 	@ echo [INFO] $(TEST_NAME)-$@ seed/asid/nnid $(SEED)/$(ASID)/$(NNID)
-	@ $(EMULATOR) +maxcycles=$(MAX_CYCLES) pk $(TEST).rv \
+	$(EMULATOR) +maxcycles=$(MAX_CYCLES) pk $(TEST).rv \
 	-n $(DIR_BUILD_NETS)/$*-fixed.$(BIN_SUFFIX) \
 	-t $(DIR_BUILD_NETS)/$*-fixed.train \
-	-m -e100 -j$(ASID) -k$(NNID) > $*.mse
+	-m -e10 -j$(ASID) -k$(NNID) > $*.mse
 	@ $(TOOL_COMPARE) $*.mse-good \
 	$*.mse \
 	$(TEST_NAME)-$@
