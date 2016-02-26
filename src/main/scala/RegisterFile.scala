@@ -59,7 +59,7 @@ abstract class RegisterFileBase[SramIf <: SRAMElementInterface](
     val sIdx = io.pe.req.bits.tIdx ## io.pe.req.bits.location
     when (io.pe.req.bits.isWrite) { // This is a Write
       mem(tIdx).we(0) := Bool(true)
-      mem(tIdx).addr(0) := io.pe.req.bits.addr
+      mem(tIdx).addr(0) := io.pe.req.bits.addr + tIdx * UInt(regFileNumBlocks)
       mem(tIdx).dinElement(0) := io.pe.req.bits.data
       printf("[INFO] RegFile: PE write element tIdx/Addr/Data 0x%x/0x%x/0x%x\n",
         tIdx, io.pe.req.bits.addr, io.pe.req.bits.data)
@@ -76,7 +76,7 @@ abstract class RegisterFileBase[SramIf <: SRAMElementInterface](
       }
     } .otherwise {                  // This is a read
       mem(tIdx).we(0) := Bool(false)
-      mem(tIdx).addr(0) := io.pe.req.bits.addr
+      mem(tIdx).addr(0) := io.pe.req.bits.addr + tIdx * UInt(regFileNumBlocks)
       printf("[INFO] RegFile: PE read tIdx/Addr 0x%x/0x%x\n", tIdx,
         io.pe.req.bits.addr)
     }
@@ -103,13 +103,13 @@ abstract class RegisterFileBase[SramIf <: SRAMElementInterface](
           tIdx, io.tTable.req.bits.addr, io.tTable.req.bits.data)
         mem(tIdx).we(0) := Bool(true)
         mem(tIdx).dinElement(0) := io.tTable.req.bits.data
-        mem(tIdx).addr(0) := io.tTable.req.bits.addr
+        mem(tIdx).addr(0) := io.tTable.req.bits.addr + tIdx * UInt(regFileNumBlocks)
       }
       is (e_TTABLE_REGFILE_READ) {
         printf("[INFO] RegFile: Saw TTable read Addr 0x%x\n",
           io.tTable.req.bits.addr)
         mem(tIdx).dinElement(0) := io.tTable.req.bits.data
-        mem(tIdx).addr(0) := io.tTable.req.bits.addr
+        mem(tIdx).addr(0) := io.tTable.req.bits.addr + tIdx * UInt(regFileNumBlocks)
       }
     }
   }
@@ -164,14 +164,21 @@ abstract class RegisterFileBase[SramIf <: SRAMElementInterface](
       state(io.control.req.bits.tIdx << UInt(1) |
         io.control.req.bits.location).totalWrites)),
     "RegFile totalWrites being changed when valid && (countWrites != totalWrites)")
+
+  // We shouldn't be trying to write data outside of the bounds of the
+  // memory
+  (0 until transactionTableNumEntries).map(i =>
+    assert(!(mem(i).we(0) &&
+      mem(i).addr(0) >= UInt(regFileNumBlocks * transactionTableNumEntries)),
+      "RegFile received out of bounds write address"))
+
 }
 
 class RegisterFile(implicit p: Parameters)
     extends RegisterFileBase(Vec(p(TransactionTableNumEntries),
       Module(new SRAMElement(
         dataWidth = p(BitsPerBlock),
-        sramDepth = pow(2, log2Up(p(RegFileNumBlocks))).toInt *
-          p(TransactionTableNumEntries) * 2,
+        sramDepth = pow(2, log2Up(p(RegFileNumBlocks))).toInt,
         numPorts = 1,
         elementWidth = p(ElementWidth))).io))(p)
 
@@ -179,8 +186,7 @@ class RegisterFileLearn(implicit p: Parameters)
     extends RegisterFileBase(Vec(p(TransactionTableNumEntries),
       Module(new SRAMElementIncrement(
         dataWidth = p(BitsPerBlock),
-        sramDepth = pow(2, log2Up(p(RegFileNumBlocks))).toInt *
-          p(TransactionTableNumEntries) * 2,
+        sramDepth = pow(2, log2Up(p(RegFileNumBlocks))).toInt,
         numPorts = 1,
         elementWidth = p(ElementWidth))).io))(p) {
   override lazy val io = new RegisterFileInterfaceLearn
@@ -200,7 +206,7 @@ class RegisterFileLearn(implicit p: Parameters)
     val sIdx = io.pe.req.bits.tIdx ## io.pe.req.bits.location
     when (io.pe.req.bits.isWrite) { // This is a Write
       switch (io.pe.req.bits.reqType) {
-        mem(tIdx).addr(0) := io.pe.req.bits.addr
+        mem(tIdx).addr(0) := io.pe.req.bits.addr + tIdx * UInt(regFileNumElements)
         is (e_PE_WRITE_ELEMENT) {
           mem(tIdx).wType(0) := UInt(0)
           mem(tIdx).dinElement(0) := io.pe.req.bits.data
