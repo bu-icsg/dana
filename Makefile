@@ -96,7 +96,7 @@ RV_TESTS             = hello.c \
 	fann-xfiles.c \
 	fann-soft.c \
 	write-on-invalid-asid.c \
-	read-xfiles-dana-info.c
+	read-xfiles-dana-id.c
 RV_TESTS_EXECUTABLES = $(RV_TESTS:%.c=$(DIR_BUILD)/%.rv)
 RV_TESTS_DISASM      = $(RV_TESTS:%.c=$(DIR_BUILD)/%.rvS)
 
