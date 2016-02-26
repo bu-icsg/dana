@@ -94,7 +94,9 @@ HEADERS_V          = ../nnsim-hdl/src/ram_infer_preloaded_cache.v \
 # RISCV Tests Targets
 RV_TESTS             = hello.c \
 	fann-xfiles.c \
-	fann-soft.c
+	fann-soft.c \
+	write-on-invalid-asid.c \
+	read-xfiles-dana-info.c
 RV_TESTS_EXECUTABLES = $(RV_TESTS:%.c=$(DIR_BUILD)/%.rv)
 RV_TESTS_DISASM      = $(RV_TESTS:%.c=$(DIR_BUILD)/%.rvS)
 

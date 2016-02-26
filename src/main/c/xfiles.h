@@ -23,7 +23,27 @@ typedef enum {
   xfiles_reg_weight_decay_lambda
 } xfiles_reg;
 
+typedef enum {
+  READ_DATA = 0,
+  WRITE_DATA = 1,
+  NEW_REQUEST = 3,
+  WRITE_DATA_LAST = 5,
+  WRITE_REGISTER = 7,
+  XFILES_DANA_ID = 16
+} request_t;
+
+typedef enum {
+  UPDATE_ASID = 0,
+  UPDATE_ANTP = 1
+} request_super_t;
+
+
 //-------------------------------------- Userland
+
+// Request information about the specific X-FILES/DANA configuration
+// and return it in an XLen sized packed representation. Optionally,
+// this will print the output directly to stdout.
+x_len xfiles_dana_id(int flag_print);
 
 // Initiate a new Transaction for a specific NNID. The X-Files Arbiter
 // will then assign and return a TID necessary for other userland
