@@ -60,7 +60,7 @@ all: $(RUNS)
 	$(EMULATOR) +maxcycles=$(MAX_CYCLES) pk $(TEST).rv \
 	-n $(DIR_BUILD_NETS)/$*-fixed.$(BIN_SUFFIX) \
 	-t $(DIR_BUILD_NETS)/$*-fixed.train \
-	-m -e10 -j$(ASID) -k$(NNID) > $*.mse
+	-m -e10 -j$(ASID) -k$(NNID) | tee $*.mse
 	@ $(TOOL_COMPARE) $*.mse-good \
 	$*.mse \
 	$(TEST_NAME)-$@
