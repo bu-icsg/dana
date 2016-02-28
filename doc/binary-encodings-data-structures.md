@@ -9,7 +9,8 @@ RAM Organization. This is a modified layout of fann_small and its associated abb
 |---------+----------+--------+------+-------------+---------------------------|
 | Info    | 0        |      0 |    3 | net info    | decimal point             |
 |         |          |      3 |    1 |             | error function            |
-|         |          |      4 |   12 |             | *** unused ***            |
+|         |          |      4 |    2 |             | binary format (epb)       |
+|         |          |      6 |   10 |             | *** unused ***            |
 |         |          |     16 |   16 |             | total weight blocks       |
 |         |          |     32 |   16 |             | total neurons             |
 |         |          |     48 |   16 |             | total layers [N]          |

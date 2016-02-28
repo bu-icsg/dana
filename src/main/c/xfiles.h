@@ -139,10 +139,11 @@ typedef struct {                 // |----------------|   |    |
   queue * output;                // | * output queue |--------|
 } io;                            // |----------------| <-----------------|
                                  //                                      |
-typedef struct {                 // |----------------|                   |
-  size_t size;                   // | size of config |                   |
-  x_len * config;                // | * config       |-> [Raw NN Config] |
-} nn_configuration;              // |----------------| <-------|         |
+typedef struct {                 // |--------------------|               |
+  size_t size;                   // | size of config     |               |
+  size_t elements_per_block;     // | elements per block |               |
+  x_len * config;                // | * config           |-> [NN Config] |
+} nn_configuration;              // |--------------------| <---|         |
                                  //                            |         |
 typedef struct {                 // |-------------------|      |         |
   int num_configs;               // | num configs       |      |         |

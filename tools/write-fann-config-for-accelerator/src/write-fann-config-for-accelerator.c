@@ -141,6 +141,27 @@ int main(int argc, char *argv[])
     printf("Encoded decimal point is now: 0x%x\n", decimal_point_encoded);
   }
 
+  // Encode the block width and append this to the encoded decimal
+  // point. The block width must be [16, 32, 64, 128] which is encoded
+  // as [0, 1, 2, 3].
+  unsigned int block_width_encoded;
+  switch (size_of_block) {
+    case (16):  block_width_encoded = 0; break;
+    case (32):  block_width_encoded = 1; break;
+    case (64):  block_width_encoded = 2; break;
+    case (128): block_width_encoded = 3; break;
+    default:
+      fprintf(stderr, "Unsupported block width %d\n", size_of_block);
+      exit_code = 2;
+      goto bail;
+  }
+  decimal_point_encoded |= block_width_encoded << 4;
+  if (flag_verbose) {
+    printf("Block width encoded: 0x%x (%d)\n", block_width_encoded,
+           block_width_encoded);
+    printf("Encoded decimal point is now: 0x%x\n", decimal_point_encoded);
+  }
+
   // Compute the number of edges and nodes. This is the actual number
   // and not the FANN number. Consequently, I need to remove any bias
   // connections, input nodes, and hidden nodes.

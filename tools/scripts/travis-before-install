@@ -6,7 +6,7 @@ echo "XFILES:     $XFILES"
 echo "CPP_CONFIG: $CPP_CONFIG"
 
 # rocket-chip repo setup
-git clone --depth 1 https://github.com/ucb-bar/rocket-chip $ROCKETCHIP
+git clone --depth 1 --branch xfiles-dana https://github.com/ucb-bar/rocket-chip $ROCKETCHIP
 cd $ROCKETCHIP
 rm .travis.yml
 git submodule update --init
