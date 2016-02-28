@@ -250,7 +250,7 @@ class AsidNnidTableWalker(implicit p: Parameters) extends XFilesModule()(p) {
     is (s_READ_NNID_POINTER) {
       when (io.mem.exists(respValid)) {
         val reqAddr = io.mem(indexResp).resp.bits.data_word_bypass +
-          cacheReqCurrent.nnid * UInt(16)
+          cacheReqCurrent.nnid * UInt(24)
         printfInfo("ANTW: Saw READ_NNID_POINTER resp w/ configPtr 0x%x\n",
           reqAddr + UInt(8))
         configPtr := reqAddr + UInt(16)
