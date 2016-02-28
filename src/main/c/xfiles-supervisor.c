@@ -180,7 +180,7 @@ int attach_nn_configuration(asid_nnid_table ** table, uint16_t asid,
   fread(&block_64, sizeof(block_64), 1, fp);
   fseek(fp, 0L, SEEK_SET);
   block_64 = (block_64 >> 4) & 3;
-  (*table)->entry[asid].asid_nnid[nnid].elements_per_block = (block_64 + 1) * 4;
+  (*table)->entry[asid].asid_nnid[nnid].elements_per_block = 1 << (block_64 + 2);
 
   // Allocate space for this configuraiton
   (*table)->entry[asid].asid_nnid[nnid].config =

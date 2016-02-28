@@ -272,7 +272,7 @@ class AsidNnidTableWalker(implicit p: Parameters) extends XFilesModule()(p) {
       when (io.mem.exists(respValid)) {
         val epb = io.mem(indexResp).resp.bits.data_word_bypass
         printfInfo("ANTW: Saw READ_CONFIGEPB resp w/ EPB 0x%x\n", epb)
-        when (epb === elementsPerBlock) {
+        when (epb === UInt(elementsPerBlock)) {
           memRead(io.cache.req.bits.coreIndex, configPtr)
           state := s_READ_CONFIGPTR
         } .otherwise {
