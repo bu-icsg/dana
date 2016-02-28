@@ -402,7 +402,7 @@ class CacheBase[SramIfType <: SRAMVariantInterface,
     tTableReqQueue.deq.bits.request === e_CACHE_LOAD &&
     !foundNnid &&
     (!hasFree && !hasUnused)),
-  "Cache missed on ASID/NNID req, but has no free/unused entries")
+    "Cache missed on ASID/NNID req, but has no free/unused entries")
 }
 
 class Cache(implicit p: Parameters)
@@ -430,9 +430,9 @@ class CacheLearn(implicit p: Parameters)
   }
 
   controlRespPipe(0).bits.totalWritesMul := UInt(0)
-  controlRespPipe(0).bits.globalWtptr := dataDecode.weightsPointer
   controlRespPipe(0).bits.totalWritesMul :=
     tTableReqQueue.deq.bits.totalWritesMul
+  controlRespPipe(1).bits.globalWtptr := dataDecode.weightsPointer
 
   when (io.pe.req.valid) {
     switch (io.pe.req.bits.field) {

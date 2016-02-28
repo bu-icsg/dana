@@ -164,14 +164,20 @@ abstract class RegisterFileBase[SramIf <: SRAMElementInterface](
       state(io.control.req.bits.tIdx << UInt(1) |
         io.control.req.bits.location).totalWrites)),
     "RegFile totalWrites being changed when valid && (countWrites != totalWrites)")
+
+  // We shouldn't be trying to write data outside of the bounds of the
+  // memory
+  (0 until transactionTableNumEntries).map(i =>
+    assert(!(mem(i).addr(0) >= UInt(regFileNumElements)),
+      "RegFile address (read or write) is out of bounds"))
+
 }
 
 class RegisterFile(implicit p: Parameters)
     extends RegisterFileBase(Vec(p(TransactionTableNumEntries),
       Module(new SRAMElement(
         dataWidth = p(BitsPerBlock),
-        sramDepth = pow(2, log2Up(p(RegFileNumBlocks))).toInt *
-          p(TransactionTableNumEntries) * 2,
+        sramDepth = pow(2, log2Up(p(RegFileNumBlocks))).toInt,
         numPorts = 1,
         elementWidth = p(ElementWidth))).io))(p)
 
@@ -179,8 +185,7 @@ class RegisterFileLearn(implicit p: Parameters)
     extends RegisterFileBase(Vec(p(TransactionTableNumEntries),
       Module(new SRAMElementIncrement(
         dataWidth = p(BitsPerBlock),
-        sramDepth = pow(2, log2Up(p(RegFileNumBlocks))).toInt *
-          p(TransactionTableNumEntries) * 2,
+        sramDepth = pow(2, log2Up(p(RegFileNumBlocks))).toInt,
         numPorts = 1,
         elementWidth = p(ElementWidth))).io))(p) {
   override lazy val io = new RegisterFileInterfaceLearn

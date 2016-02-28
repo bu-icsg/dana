@@ -107,10 +107,13 @@ void asid_nnid_table_info(asid_nnid_table * table) {
            (uint64_t) table->entry[i].asid_nnid);
     // Dump the `nn_configuration`
     for (j = 0; j < table->entry[i].num_valid; j++) {
-      printf("[INFO]         |         |-> [%0d] 0x%lx: size:     0x%lx\n", j,
+      printf("[INFO]         |         |-> [%0d] 0x%lx: size:             0x%lx\n", j,
              (uint64_t) &table->entry[i].asid_nnid[j].size,
              (uint64_t) table->entry[i].asid_nnid[j].size);
-      printf("[INFO]         |         |       0x%lx: * config: 0x%lx\n",
+      printf("[INFO]         |         |       0x%lx: elements_per_block: 0d%ld\n",
+             (uint64_t) &table->entry[i].asid_nnid[j].elements_per_block,
+             (uint64_t) table->entry[i].asid_nnid[j].elements_per_block);
+      printf("[INFO]         |         |       0x%lx: * config:           0x%lx\n",
              (uint64_t) &table->entry[i].asid_nnid[j].config,
              (uint64_t) table->entry[i].asid_nnid[j].config);
     }
@@ -170,6 +173,14 @@ int attach_nn_configuration(asid_nnid_table ** table, uint16_t asid,
   }
 
   (*table)->entry[asid].asid_nnid[nnid].size = file_size;
+
+  // Compute the elements per block as set in the neural network
+  // configuration and write this into the ASID--NNID Table Entry
+  uint64_t block_64;
+  fread(&block_64, sizeof(block_64), 1, fp);
+  fseek(fp, 0L, SEEK_SET);
+  block_64 = (block_64 >> 4) & 3;
+  (*table)->entry[asid].asid_nnid[nnid].elements_per_block = 1 << (block_64 + 2);
 
   // Allocate space for this configuraiton
   (*table)->entry[asid].asid_nnid[nnid].config =

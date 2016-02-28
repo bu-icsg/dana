@@ -42,11 +42,12 @@ class AsidNnidTableWalker(implicit p: Parameters) extends XFilesModule()(p) {
     s_CHECK_NNID_WAIT ::   // 1
     s_READ_NNID_POINTER :: // 2
     s_READ_CONFIGSIZE ::   // 3
-    s_READ_CONFIGPTR ::    // 4
-    s_READ_CONFIG ::       // 5
-    s_READ_CONFIG_WAIT ::  // 6
-    s_ERROR ::             // 7
-    Nil) = Enum(UInt(), 8)
+    s_READ_CONFIGEPB ::    // 4
+    s_READ_CONFIGPTR ::    // 5
+    s_READ_CONFIG ::       // 6
+    s_READ_CONFIG_WAIT ::  // 7
+    s_ERROR ::             // 8
+    Nil) = Enum(UInt(), 9)
   val state = Reg(UInt(), init = s_IDLE)
 
   // State used to read a configuration
@@ -241,6 +242,7 @@ class AsidNnidTableWalker(implicit p: Parameters) extends XFilesModule()(p) {
           state := s_READ_NNID_POINTER
         } .otherwise {
           printf("[ERROR] ANTW: NNID reference would be invalid\n")
+          // [TODO] exception handling, issue #4
           state := s_ERROR
         }
       }
@@ -248,22 +250,36 @@ class AsidNnidTableWalker(implicit p: Parameters) extends XFilesModule()(p) {
     is (s_READ_NNID_POINTER) {
       when (io.mem.exists(respValid)) {
         val reqAddr = io.mem(indexResp).resp.bits.data_word_bypass +
-          cacheReqCurrent.nnid * UInt(16)
+          cacheReqCurrent.nnid * UInt(24)
         printfInfo("ANTW: Saw READ_NNID_POINTER resp w/ configPtr 0x%x\n",
           reqAddr + UInt(8))
-        configPtr := reqAddr + UInt(8)
+        configPtr := reqAddr + UInt(16)
         memRead(io.cache.req.bits.coreIndex, reqAddr)
         state := s_READ_CONFIGSIZE
       }
     }
     is (s_READ_CONFIGSIZE) {
       when (io.mem.exists(respValid)) {
-        printfInfo("ANTW: Saw READ_NNID_POINTER resp w/ configPtr 0x%x\n",
+        printfInfo("ANTW: Saw READ_CONFIGSIZE resp w/ configSize 0x%x\n",
           io.mem(indexResp).resp.bits.data_word_bypass)
         configSize := io.mem(indexResp).resp.bits.data_word_bypass
-        val reqAddr = configPtr
+        val reqAddr = configPtr - UInt(8)
         memRead(io.cache.req.bits.coreIndex, reqAddr)
-        state := s_READ_CONFIGPTR
+        state := s_READ_CONFIGEPB
+      }
+    }
+    is (s_READ_CONFIGEPB) {
+      when (io.mem.exists(respValid)) {
+        val epb = io.mem(indexResp).resp.bits.data_word_bypass
+        printfInfo("ANTW: Saw READ_CONFIGEPB resp w/ EPB 0x%x\n", epb)
+        when (epb === UInt(elementsPerBlock)) {
+          memRead(io.cache.req.bits.coreIndex, configPtr)
+          state := s_READ_CONFIGPTR
+        } .otherwise {
+          printfError("ANTW: EPB of NN Config unsupported\n")
+          // [TODO] exception handling, issue #4
+          state := s_ERROR
+        }
       }
     }
     is (s_READ_CONFIGPTR) {
