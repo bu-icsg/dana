@@ -31,46 +31,50 @@ class Memory:
             print("")
 
     def __printExpectedOut(self):
-        print("E[out] ", end='')
+        print("E[out],", end='')
         self.__printNeurons(self.layerArray[len(self.layerArray)-1])
         self.__alignAddr()
 
     def __printNeurons(self, layer):
-        print("0x%x " % self.addr, end='')
+        print("0x%x," % self.addr, end='')
         for neuron in range(layer - 1):
-            print("%x " % self.addr, end='')
+            print("%x," % self.addr, end='')
             if (self.addr % self.epb == self.epb - 1):
                 print("")
+                if (neuron != layer - 2):
+                    print(",,", end='')
             self.addr += 1
         self.__alignAddr()
 
     def __printDW(self):
         for layer in self.layerArray[1:len(self.layerArray)-1]:
-            print("DW     ", end='')
+            print("DW,", end='')
             self.__printNeurons(layer)
 
     def __printBias(self):
         layerNumber = 1
         for layer in self.layerArray[1:len(self.layerArray)]:
             if (layerNumber == len(self.layerArray)-1):
-                print("Bias[Out]  ", end='')
+                print("Bias Out,", end='')
             else:
-                print("Bias[H[%2d]] " % (layerNumber - 1), end='')
+                print("Bias H[%d]," % (layerNumber - 1), end='')
             layerNumber += 1
             self.__printNeurons(layer)
 
     def __printSlopes(self):
         for layerIndex in range(1, len(self.layerArray)):
-            if (layerIndex == len(self.layerArray)-1):
-                print("Slope[Out] ", end='')
-            else:
-                print("Slope[H[%2d]] " % (layerIndex - 1), end='')
-            print("0x%x " % self.addr, end='')
             for neuron in range(self.layerArray[layerIndex] - 1):
-                for neuron in range(self.layerArray[layerIndex - 1] - 1):
-                    print("%x " % self.addr, end='')
+                if (layerIndex == len(self.layerArray)-1):
+                    print("Slope Out[%d]," % neuron, end='')
+                else:
+                    print("Slope H[%d][%d]," % ((layerIndex - 1), neuron), end='')
+                print("0x%x," % self.addr, end='')
+                for neuronPrevious in range(self.layerArray[layerIndex - 1] - 1):
+                    print("%x," % self.addr, end='')
                     if (self.addr % self.epb == self.epb - 1):
                         print("")
+                        if (neuronPrevious != self.layerArray[layerIndex - 1] - 2):
+                            print(",,", end='')
                     self.addr += 1
                 self.__alignAddr()
 
@@ -85,11 +89,11 @@ class Memory:
         layerNumber = 0
         for layer in self.layerArray:
             if (layerNumber == 0):
-                print("In     ", end='')
+                print("In,", end='')
             elif (layerNumber < len(self.layerArray) - 1):
-                print("H[%2d]   " % (layerNumber - 1), end='')
+                print("H[%d]," % (layerNumber - 1), end='')
             else:
-                print("Out    ", end='')
+                print("Out,", end='')
             layerNumber += 1
             self.__printNeurons(layer)
 

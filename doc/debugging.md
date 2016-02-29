@@ -81,5 +81,25 @@ Debugging with straight Chisel `printfs` of events is very difficult as it requi
     ../xfiles-dana/build/fann-xfiles.rv
     -n ../xfiles-dana/build/nets/xorSigmoidSymmetric-fixed.16bin \
     -t ../xfiles-dana/build/nets/xorSigmoidSymmetric-fixed.train \
-    -m -e2 -x 2>&1 | awk -f ../xfiles-dana/etc/debug-table.awk
+    -m -e2 -x 2>&1 | awk -f ../xfiles-dana/usr/etc/debug-table.awk
+```
+
+### Memory Tool for Debugging Help
+One of the common issues that comes up when debugging is checking that the address computations for the Register File/Intermediate Storage area are working correctly. I have a tool which helps with this that will dump out a CSV formatted table of what the Register File should look like internally. This can then be pushed through `column` to get something reasonable to look at. You can do this with a call like the following:
+```
+$ ./usr/bin/dana-memory-tool -b8 \
+    -n build/nets/xor-sigmoid-4i-fixed.net \
+    -l | column -s, -t -o" "
+E[out]        0x0  0
+In            0x8  8  9  a  b
+H[0]          0x10 10 11 12 13
+Out           0x18 18
+DW            0x20 20 21 22 23
+Bias H[0]     0x28 28 29 2a 2b
+Bias Out      0x30 30
+Slope H[0][0] 0x38 38 39 3a 3b
+Slope H[0][1] 0x40 40 41 42 43
+Slope H[0][2] 0x48 48 49 4a 4b
+Slope H[0][3] 0x50 50 51 52 53
+Slope Out[0]  0x58 58 59 5a 5b
 ```
