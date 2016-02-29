@@ -50,13 +50,30 @@ class Dana(numPes: Int, epb: Int) extends Config(
     case "NUM_PES" => numPes
     case "ELEMENTS_PER_BLOCK" => epb })
 
-class XFilesDanaPE1Config extends Config(new Dana(1, 4) ++
+class XFilesDanaPe1Epb4Config extends Config(new Dana(1, 4) ++
   new XFilesDanaFPGAConfig)
-class XFilesDanaPE2Config extends Config(new Dana(2, 4) ++
+class XFilesDanaPe2Epb4Config extends Config(new Dana(2, 4) ++
   new XFilesDanaFPGAConfig)
-class XFilesDanaPE3Config extends Config(new Dana(3, 4) ++
+class XFilesDanaPe3Epb4Config extends Config(new Dana(3, 4) ++
   new XFilesDanaFPGAConfig)
-class XFilesDanaPE4Config extends Config(new Dana(4, 4) ++
+class XFilesDanaPe4Epb4Config extends Config(new Dana(4, 4) ++
+  new XFilesDanaFPGAConfig)
+
+class XFilesDanaPe1Epb8Config extends Config(new Dana(1, 8) ++
+  new XFilesDanaFPGAConfig)
+class XFilesDanaPe2Epb8Config extends Config(new Dana(2, 8) ++
+  new XFilesDanaFPGAConfig)
+class XFilesDanaPe3Epb8Config extends Config(new Dana(3, 8) ++
+  new XFilesDanaFPGAConfig)
+class XFilesDanaPe4Epb8Config extends Config(new Dana(4, 8) ++
+  new XFilesDanaFPGAConfig)
+class XFilesDanaPe5Epb8Config extends Config(new Dana(1, 8) ++
+  new XFilesDanaFPGAConfig)
+class XFilesDanaPe6Epb8Config extends Config(new Dana(2, 8) ++
+  new XFilesDanaFPGAConfig)
+class XFilesDanaPe7Epb8Config extends Config(new Dana(3, 8) ++
+  new XFilesDanaFPGAConfig)
+class XFilesDanaPe8Epb8Config extends Config(new Dana(4, 8) ++
   new XFilesDanaFPGAConfig)
 
 class XFilesDanaCppPe1Epb4Config extends Config(new Dana(1, 4) ++
