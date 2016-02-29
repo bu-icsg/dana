@@ -23,6 +23,7 @@ class Memory:
         self.addr = 0
         self.currentLayer = 0
         self.layerArray = layerArray
+        self.totalLayers = len(layerArray)
         self.epb = epb
 
     def __alignAddr(self):
@@ -47,9 +48,11 @@ class Memory:
         self.__alignAddr()
 
     def __printDW(self):
-        for layer in self.layerArray[1:len(self.layerArray)-1]:
-            print("DW,", end='')
+        layerNumber = self.totalLayers - 3
+        for layer in self.layerArray[len(self.layerArray)-2:0:-1]:
+            print("DW H[%d]," % layerNumber, end='')
             self.__printNeurons(layer)
+            layerNumber -= 1
 
     def __printBias(self):
         layerNumber = 1
