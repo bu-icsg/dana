@@ -47,7 +47,7 @@ static char * usage_message =
   "Flags -n and -t are required.\n"
   "When gathering data related to connection updates per second, -p\n"
   "should always be used as this diables all unnecessary control statements.\n"
-  "Flags -u and -x are mutually exclusive.";
+  "Flags -u and -x are mutually exclusive.\n";
 
 void usage() {
   printf("Usage: %s", usage_message);

@@ -24,3 +24,16 @@ Each of the FPGAs comes with a built in MAC address of `00:0A:35:00:01:22`. If y
 setenv ethaddr 00:0A:35:00:01:[XX]
 saveenv
 ```
+
+### Updating the Programmable Logic from Linux
+The Programmable Logic is exposed as a device to Linux which you can `cat` in a new bit file. However, you need to get the explicit bit file and convert it to a binary using `bitgen` first, however. You can do this with:
+```
+bootgen -image <bootimage>.bif -split bin -o i BOOT.BIN
+```
+
+I'm unsure of how to massage the syntax here that will run this and not overwrite the old boot.bin. Consequently, you currently need to overwrite the old boot.bin with the `-w` flag.
+
+Following this, you can then `cat` this bit file to the `xdevcf` device from Linux running on the ARM core:
+```
+cat <bitstream>.bit.bin > /dev/xdevcfg
+```
