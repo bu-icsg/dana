@@ -5,7 +5,11 @@ import re
 
 def parse_arguments():
     parser = argparse.ArgumentParser(
-        description='Tool to show the expected layout of memory for DANA')
+        description='Tool to generate CSV that shows the memory layout of DANA',
+        epilog='''
+The CSV output can be formatted with `column`::
+    dana-memory-tool [ARGS] | column -s, -t -o" "''',
+        formatter_class=argparse.RawTextHelpFormatter)
     parser.add_argument(
         '-b', '--elements-per-block', dest='elementsPerBlock', type=int,
         required=True, help='The number of elements per block')
@@ -19,12 +23,11 @@ def parse_arguments():
 
 class Memory:
 
-    def __init__(self, layerArray, epb):
-        self.addr = 0
-        self.currentLayer = 0
+    def __init__(self, layerArray, epb, learning):
         self.layerArray = layerArray
         self.totalLayers = len(layerArray)
         self.epb = epb
+        self.learning = learning
 
     def __alignAddr(self):
         if (self.addr % self.epb != 0):
@@ -81,14 +84,14 @@ class Memory:
                     self.addr += 1
                 self.__alignAddr()
 
-    def printLearning(self):
+    def __printLearning(self):
         self.__printExpectedOut()
-        self.printFeedforward()
+        self.__printFeedforward()
         self.__printDW()
         self.__printBias()
         self.__printSlopes()
 
-    def printFeedforward(self):
+    def __printFeedforward(self):
         layerNumber = 0
         for layer in self.layerArray:
             if (layerNumber == 0):
@@ -99,6 +102,13 @@ class Memory:
                 print("Out,", end='')
             layerNumber += 1
             self.__printNeurons(layer)
+
+    def printMemory(self):
+        self.addr = 0
+        if (self.learning):
+            self.__printLearning()
+        else:
+            self.__printFeedforward()
 
 def main():
     args = parse_arguments()
@@ -117,11 +127,8 @@ def main():
     for i in range(len(layers)):
         layers[i] = int(layers[i])
 
-    memory = Memory(layers, args.elementsPerBlock)
-    if (args.learning_f):
-        memory.printLearning()
-    else:
-        memory.printFeedforward()
+    memory = Memory(layers, args.elementsPerBlock, args.learning_f)
+    memory.printMemory()
 
 if __name__ == '__main__':
     main()
