@@ -9,12 +9,10 @@ vpath %.train $(DIR_TOP)/submodules/fann/datasets
 .PRECIOUS: $(DIR_BUILD)/nets/%-fixed.net \
 	$(DIR_BUILD)/nets/%-fixed.net \
 	$(DIR_BUILD)/nets/%-float.train \
-	$(DIR_BUILD)/nets/parity-%-float.net \
-	$(DIR_BUILD)/nets/xor-sigmoid-%-float.net \
+	$(DIR_BUILD)/nets/%-float.net \
 	$(DIR_BUILD)/nets/xor-sigmoid-%i-float.train \
 	$(DIR_BUILD)/nets/xor-sigmoid-%o-float.train \
 	$(DIR_BUILD)/nets/parity-%-float.train \
-	$(DIR_BUILD)/nets/parity-same-%-float.net \
 	$(DIR_BUILD)/nets/sin-%-float.train \
 	$(DIR_BUILD)/nets/sin-scale-%-float.train
 
