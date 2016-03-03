@@ -1,0 +1,87 @@
+#!/usr/bin/python
+
+import numpy
+import math
+import matplotlib.pyplot as plt
+import pylab
+import argparse
+import re
+
+def parse_arguments():
+    parser = argparse.ArgumentParser(
+        description='Plot MSE graph for cross validation')
+    parser.add_argument(
+        '-l', '--mse-file', dest='file_mse', type=str, required=True,
+        #nargs='+',
+        help='The MSE files')
+    parser.add_argument(
+        '-m', '--stat-mse', dest='stat_mse', type=int, required=True,
+        help='The period for printing mse values')
+    parser.add_argument(
+        '-e', '--epochs', dest='epochs', type=int, required=True,
+        help='The number of epochs for plotting the mse')
+    parser.add_argument(
+        '-b', '--begin-index', dest='begin_index', type=int, required=True,
+        help='The begin index of mse values in the log file')
+
+    parser.add_argument(
+        '-s', '--save-file', dest='file_save', type=str,
+        help='The file to save the graph in')
+    return parser.parse_args()
+
+
+def file_len(filename):
+    with open(filename) as f:
+        for i, l in enumerate(f):
+            pass
+    return i+1
+
+def main():
+    args = parse_arguments()
+    re_num = re.compile('[-.e\d]+')
+    re_header = re.compile('(\d+) (\d+) (\d+)')
+
+    num_mses = 3
+    #num_mses = len(args.file_mse)
+    max_epochs = args.epochs
+    stat_mse = args.stat_mse
+    num_epochs = max_epochs / stat_mse
+    inputs = numpy.zeros(num_epochs)
+    outputs = numpy.zeros((num_mses, num_epochs))
+    begin_index = args.begin_index
+    list_graph_color = ['ro', 'bs', 'g^']
+    list_graph_label = ['mse_training', 'mse_validation', 'mse_test']
+
+    for i in range(num_epochs):
+        inputs[i] = i * stat_mse;
+
+    i = 0
+    with open(args.file_mse, 'r') as f:
+        for line in f:
+            word = line.split()
+            if (word[1] == 'epoch'):
+                outputs[0][i] = word[begin_index]
+                outputs[1][i] = word[begin_index+2]
+                outputs[2][i] = word[begin_index+4]
+                i += 1
+
+    #for mse in range(num_mses):
+        #with open(args.file_mse[mse], 'r') as f:
+            #for output in range(num_epochs):
+                #outputs[mse][output] = float (f.readline())
+
+    for mse in range(num_mses):
+        plt.semilogy(inputs, outputs[mse],list_graph_color[mse], label= list_graph_label[mse], linestyle ='-')
+    
+    legend = plt.legend(loc='best', shadow=True)
+    plt.ylabel("mse")
+    plt.xlabel("epochs")
+    plt.title("mse, "+ `max_epochs` + " epoch") 
+
+    if (args.file_save is not None):
+        pylab.savefig(args.file_save)
+    else:
+        plt.show()
+
+if __name__ == '__main__':
+    main()
