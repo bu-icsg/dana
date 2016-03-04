@@ -15,6 +15,7 @@ class AsidNnidTableWalkerInterface(implicit p: Parameters) extends XFilesBundle(
   val mem = Vec.fill(numCores){
     new HellaCacheIO()(p.alterPartial({ case CacheName => "L1D" }))
   }
+  val autl = Vec.fill(numCores){new ClientUncachedTileLinkIO}
 }
 
 class ConfigRobEntry(implicit p: Parameters) extends XFilesBundle()(p) {

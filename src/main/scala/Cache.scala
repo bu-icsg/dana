@@ -27,6 +27,7 @@ class CacheMemReq(implicit p: Parameters) extends XFilesBundle()(p) {
   val nnid = UInt(width = nnidWidth)
   val cacheIndex = UInt(width = log2Up(cacheNumEntries))
   val coreIndex = UInt(width = log2Up(numCores))
+  val write = Bool()
 }
 
 class CacheMemResp(implicit p: Parameters) extends DanaBundle()(p) {
@@ -143,6 +144,7 @@ class CacheBase[SramIfType <: SRAMVariantInterface,
   io.mem.req.bits.nnid := UInt(0)
   io.mem.req.bits.cacheIndex := UInt(0)
   io.mem.req.bits.coreIndex := UInt(0)
+  io.mem.req.bits.write := Bool(false)
 
   controlRespPipe(0).valid := Bool(false)
   controlRespPipe(0).bits.fetch := Bool(false)
