@@ -121,12 +121,12 @@ void select_test_set(struct fann_train_data * data, struct fann_train_data * dat
   char * value = "_test";
   char * file_output_test_string = NULL;
   FILE * file_output_test;
-  unsigned int seed = 1000;
+  //unsigned int seed = 1000;
   
-  /*struct timeval t1;
+  struct timeval t1;
   gettimeofday(&t1, NULL);
-  srand(t1.tv_usec * t1.tv_sec);*/
-  srand(seed);
+  srand(t1.tv_usec * t1.tv_sec);
+  //srand(seed);
 
   temp = malloc(strlen(file_train) + strlen(value) + 1);
     
@@ -138,7 +138,6 @@ void select_test_set(struct fann_train_data * data, struct fann_train_data * dat
   fprintf(file_output_test, "%d %d %d\n", test_set_size, num_input, num_output);
   for (i = 0; i < test_set_size; i++) {
     index_random = rand() % (test_set_size - i);
-    printf("%d\n", index_random);
     for (j = 0; j < num_input; j++) {
       data_test->input[i][j] = data->input[index_random][j];
       fprintf(file_output_test, "%f ", (double) data_test->input[i][j]);
@@ -263,9 +262,8 @@ int main (int argc, char * argv[]) {
   struct fann_train_data * data_test = NULL;
 
   char * file_nn = NULL, * file_train = NULL, * file_test_train = NULL;;
-  char * file_video_string = NULL, * file_video_validation_string = NULL, * file_video_test_string = NULL, * file_mse_training_string = NULL, * file_mse_validation_string = NULL, * file_mse_test_string = NULL;
+  char * file_video_string = NULL, * file_video_validation_string = NULL, * file_video_test_string = NULL;
   FILE * file_video = NULL, * file_video_validation = NULL, * file_video_test = NULL;
-  FILE * file_mse_training = NULL, * file_mse_validation = NULL, * file_mse_test = NULL;
   asid_nnid_table * table = NULL;
   element_type * outputs = NULL, * outputs_old = NULL;
   int binary_point = -1, c;
@@ -288,7 +286,7 @@ int main (int argc, char * argv[]) {
       {"stat-bit-fail",             optional_argument, 0, 'o'},
       {"performance-mode",          no_argument,       0, 'p'},
       {"stat-percent-correct",      optional_argument, 0, 'q'},
-      {"test-train-file",           required_argument, 0, 'a'},
+      {"test-train-file",           required_argument, 0, 's'},
       {"train-file",                required_argument, 0, 't'},
       {"verbose",                   no_argument,       0, 'v'},
       {"watch-for-errors",          no_argument,       0, 'w'},
@@ -307,8 +305,7 @@ int main (int argc, char * argv[]) {
       break;
     case 'b':
       file_video_string = optarg;
-      file_mse_training_string = optarg;
-      break;
+       break;
     case 'c':
       flag_cycles = 1;
       break;
@@ -473,27 +470,7 @@ int main (int argc, char * argv[]) {
     file_video_test = fopen(file_video_test_string, "w");   
   }
 
-  if (file_mse_training_string != NULL) {
-    strcat(file_mse_training_string, "-mse");
-    file_mse_training = fopen(file_mse_training_string, "w");
-
-    char * temp;
-    char * value = "_valdiation";
-    temp = malloc(strlen(file_mse_training_string) + strlen(value) + 1);
-    
-    strcpy(temp, file_mse_training_string);
-    strcat(temp, value);
-    file_mse_validation_string = temp;
-    file_mse_validation = fopen(file_mse_validation_string, "w");
-
-    value = "_test";
-    strcpy(temp, file_mse_training_string);
-    strcat(temp, value);
-    file_mse_test_string = temp;
-    file_mse_test = fopen(file_mse_test_string, "w");   
-  }
-
-
+  
   uint64_t connections_per_epoch = binary_config_num_connections(file_nn);
 
   // Read in data from the training file
@@ -762,12 +739,6 @@ int main (int argc, char * argv[]) {
 	mse_test /= batch_items_test * num_output;
 	if (flag_mse && (epoch % mse_reporting_period == 0)) {
 	  printf("[STAT] epoch %d id %s bp %d mse %8.8f mse_validation %8.8f mse_test %8.8f\n", epoch, id, binary_point, mse, mse_validation, mse_test);
-	if (file_mse_training)
-	  fprintf(file_mse_training, "%f\n", mse);
-	if (file_mse_validation)
-	  fprintf(file_mse_validation, "%f\n", mse_validation);
-	if (file_mse_test)
-	  fprintf(file_mse_test, "%f\n", mse_test);
 	}
       }
       if (flag_bit_fail && (epoch % bit_fail_reporting_period == 0))
@@ -909,9 +880,6 @@ int main (int argc, char * argv[]) {
 	for (i = 0; i < num_output; i++) {
 	  if (flag_verbose)
 	    printf("%8.5f ", ((double)outputs[i])/multiplier);
-	  //num_bits_failing +=
-	  //fabs((double)(outputs[i] - data_training->output[item][i]) / multiplier) >
-	  //bit_fail_limit;
 	  if (fabs((double)(outputs[i] - data_validation->output[item][i]) / multiplier) >
 	      bit_fail_limit)
 	    correct_validation = 0;
@@ -951,9 +919,6 @@ int main (int argc, char * argv[]) {
 	for (i = 0; i < num_output; i++) {
 	  if (flag_verbose)
 	    printf("%8.5f ", ((double)outputs[i])/multiplier);
-	  //num_bits_failing +=
-	  //fabs((double)(outputs[i] - data_training->output[item][i]) / multiplier) >
-	  //bit_fail_limit;
 	  if (fabs((double)(outputs[i] - data_test->output[item][i]) / multiplier) >
 	      bit_fail_limit)
 	    correct_test = 0;
@@ -982,12 +947,6 @@ int main (int argc, char * argv[]) {
 	mse_test /= batch_items_test * num_output;
 	if (flag_mse && (epoch % mse_reporting_period == 0)) {
 	  printf("[STAT] epoch %d id %s bp %d mse %8.8f mse_validation %8.8f mse_test %8.8f\n", epoch, id, binary_point, mse, mse_validation, mse_test);
-	  if (file_mse_training)
-	    fprintf(file_mse_training, "%f\n", mse);
-	  if (file_mse_validation)
-	    fprintf(file_mse_validation, "%f\n", mse_validation);
-	  if (file_mse_test)
-	    fprintf(file_mse_test, "%f\n", mse_test);
 	}
       }
       if (flag_bit_fail && (epoch % bit_fail_reporting_period == 0))
@@ -1077,11 +1036,5 @@ int main (int argc, char * argv[]) {
     fclose(file_video_validation);
   if (file_video_test != NULL)
     fclose(file_video_test);
-  if (file_mse_training != NULL)
-    fclose(file_mse_training);
-  if (file_mse_validation != NULL)
-    fclose(file_mse_validation);
-  if (file_mse_test != NULL)
-    fclose(file_mse_test);
   return exit_code;
 }
