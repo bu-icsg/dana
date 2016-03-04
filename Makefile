@@ -98,8 +98,10 @@ RV_TESTS             = hello.c \
 	fann-soft.c \
 	write-on-invalid-asid.c \
 	read-xfiles-dana-id.c
-RV_TESTS_EXECUTABLES = $(RV_TESTS:%.c=$(DIR_BUILD)/%.rv)
-RV_TESTS_DISASM      = $(RV_TESTS:%.c=$(DIR_BUILD)/%.rvS)
+RV_TESTS_EXECUTABLES = $(RV_TESTS:%.c=$(DIR_BUILD)/newlib/%.rv) \
+	$(RV_TESTS:%.c=$(DIR_BUILD)/linux/%.rv)
+RV_TESTS_DISASM      = $(RV_TESTS:%.c=$(DIR_BUILD)/newlib/%.rvS) \
+	$(RV_TESTS:%.c=$(DIR_BUILD)/linux/%.rvS)
 
 # Compiler related options
 CXX           ?= g++
@@ -128,10 +130,14 @@ LFLAGS        = $(addprefix -Wl$(COMMA)-R, $(shell readlink -f $(LIB_PATHS))) \
 	$(LIB_PATHS:%=-L %) $(LIB_LIBS:%=-l %)
 
 # X-FILES libraries related
-XFILES_LIBRARIES = $(DIR_BUILD)/libxfiles.a
+XFILES_LIBRARIES_NEWLIB = $(DIR_BUILD)/newlib/libxfiles.a
+XFILES_LIBRARIES_LINUX = $(DIR_BUILD)/linux/libxfiles.a
 #$(DIR_BUILD)/libxfiles.so
-XFILES_LIBRARIES_OBJECTS = $(DIR_BUILD)/xfiles-user.o \
-	$(DIR_BUILD)/xfiles-supervisor.o
+XFILES_LIBRARIES_OBJECTS_NEWLIB = $(DIR_BUILD)/newlib/xfiles-user.o \
+	$(DIR_BUILD)/newlib/xfiles-supervisor.o
+
+XFILES_LIBRARIES_OBJECTS_LINUX = $(DIR_BUILD)/linux/xfiles-user.o \
+	$(DIR_BUILD)/linux/xfiles-supervisor.o
 
 # Network Configurations -- the convenction here is floating point
 # nets look like "foo.net" while the fixed point equivalent of this is
@@ -319,21 +325,24 @@ vcd-verilog: $(DIR_BUILD)/t_XFilesDana$(FPGA_CONFIG_DOT)-vcd.vvp Makefile
 debug: $(TEST_EXECUTABLES) Makefile
 	$< -d $(<:$(DIR_BUILD)/t_%=$(DIR_BUILD)/%.prm)
 
-rv: $(XFILES_LIBRARIES) \
+rv: $(XFILES_LIBRARIES_NEWLIB) $(XFILES_LIBRARIES_LINUX) \
 	$(NETS_BIN) \
 	$(TRAIN_FIXED) \
 	$(RV_TESTS_EXECUTABLES) \
 	$(RV_TESTS_DISASM)
 
 #------------------- Library Targets
-$(DIR_BUILD)/xfiles-user.o: xfiles-user.c
+$(DIR_BUILD)/newlib/%.o: %.c $(DIR_BUILD)/newlib
 	$(RV_CC) -Wall -Werror -march=RV64IMAFDXcustom -c $< -o $@
 
-$(DIR_BUILD)/xfiles-supervisor.o: xfiles-supervisor.c
-	$(RV_CC) -Wall -Werror -march=RV64IMAFDXcustom -c $< -o $@
+$(DIR_BUILD)/newlib/libxfiles.a: $(XFILES_LIBRARIES_OBJECTS_NEWLIB) xfiles.h
+	$(RV_AR) rcs $@ $(XFILES_LIBRARIES_OBJECTS_NEWLIB)
 
-$(DIR_BUILD)/libxfiles.a: $(XFILES_LIBRARIES_OBJECTS) xfiles.h
-	$(RV_AR) rcs $@ $(XFILES_LIBRARIES_OBJECTS)
+$(DIR_BUILD)/linux/%.o: %.c $(DIR_BUILD)/linux
+	$(RV_CC_LINUX) -Wall -Werror -march=RV64IMAFDXcustom -c $< -o $@
+
+$(DIR_BUILD)/linux/libxfiles.a: $(XFILES_LIBRARIES_OBJECTS_LINUX) xfiles.h
+	$(RV_AR_LINUX) rcs $@ $(XFILES_LIBRARIES_OBJECTS_LINUX)
 
 #------------------- Chisel Build Targets
 $(DIR_BUILD)/%$(CHISEL_CONFIG_DOT).cpp: %.scala $(ALL_MODULES)
@@ -372,13 +381,22 @@ $(DIR_BUILD)/%$(FPGA_CONFIG_DOT)-vcd.vvp: %.v $(BACKEND_VERILOG) $(HEADERS_V)
 	iverilog $(FLAGS_V) -D DUMP_VCD=\"$@.vcd\" -o $@ $<
 
 #------------------- RISC-V Tests
-$(DIR_BUILD)/fann-soft.rv: fann-soft.c $(DIR_BUILD_NETS) $(XFILES_LIBRARIES) $(DIR_BUILD)/fann-rv-newlib/libfann.a
-	$(RV_CC) -Wall -Werror -static -march=RV64IMAFDXcustom -I$(DIR_SRC_C) -I$(DIR_BUILD_NETS) -I$(DIR_USR_INCLUDE) $< -o $@ -L$(DIR_USR_LIB_RV) -lxfiles -lfann -lm
+$(DIR_BUILD)/newlib/fann-soft.rv: fann-soft.c $(DIR_BUILD_NETS) $(XFILES_LIBRARIES_NEWLIB) $(DIR_BUILD)/newlib $(DIR_BUILD)/fann-rv-newlib/libfann.a
+	$(RV_CC) -Wall -Werror -static -march=RV64IMAFDXcustom -I$(DIR_SRC_C) -I$(DIR_BUILD_NETS) -I$(DIR_USR_INCLUDE) $< -o $@ -L$(DIR_USR)/lib-rv-newlib -lxfiles -lfann -lm
 
-$(DIR_BUILD)/%.rv: %.c $(DIR_BUILD_NETS) $(XFILES_LIBRARIES) $(DIR_BUILD)/fann-rv-newlib/libfann.a
-	$(RV_CC) -Wall -Werror -static -march=RV64IMAFDXcustom -I$(DIR_SRC_C) -I$(DIR_BUILD_NETS) -I$(DIR_USR_INCLUDE) $< -o $@ -L$(DIR_USR_LIB_RV) -lxfiles -lfixedfann -lm
+$(DIR_BUILD)/linux/fann-soft.rv: fann-soft.c $(DIR_BUILD_NETS) $(XFILES_LIBRARIES_LINUX) $(DIR_BUILD)/linux $(DIR_BUILD)/fann-rv-linux/libfann.a
+	$(RV_CC_LINUX) -Wall -Werror -static -march=RV64IMAFDXcustom -I$(DIR_SRC_C) -I$(DIR_BUILD_NETS) -I$(DIR_USR_INCLUDE) $< -o $@ -L$(DIR_USR)/lib-rv-linux -lxfiles -lfann -lm
 
-$(DIR_BUILD)/%.rvS: $(DIR_BUILD)/%.rv
+$(DIR_BUILD)/newlib/%.rv: %.c $(DIR_BUILD_NETS) $(XFILES_LIBRARIES_NEWLIB) $(DIR_BUILD)/newlib $(DIR_BUILD)/fann-rv-newlib/libfann.a
+	$(RV_CC) -Wall -Werror -static -march=RV64IMAFDXcustom -I$(DIR_SRC_C) -I$(DIR_BUILD_NETS) -I$(DIR_USR_INCLUDE) $< -o $@ -L$(DIR_USR)/lib-rv-newlib -lxfiles -lfixedfann -lm
+
+$(DIR_BUILD)/linux/%.rv: %.c $(DIR_BUILD_NETS) $(XFILES_LIBRARIES_LINUX) $(DIR_BUILD)/linux $(DIR_BUILD)/fann-rv-linux/libfann.a
+	$(RV_CC_LINUX) -Wall -Werror -static -march=RV64IMAFDXcustom -I$(DIR_SRC_C) -I$(DIR_BUILD_NETS) -I$(DIR_USR_INCLUDE) $< -o $@ -L$(DIR_USR)/lib-rv-linux -lxfiles -lfixedfann -lm
+
+$(DIR_BUILD)/newlib/%.rvS: $(DIR_BUILD)/newlib/%.rv
+	$(RV_OBJDUMP) -S $< > $@
+
+$(DIR_BUILD)/linux/%.rvS: $(DIR_BUILD)/linux/%.rv
 	$(RV_OBJDUMP) -S $< > $@
 
 #------------------- Nets
@@ -427,6 +445,12 @@ $(DIR_BUILD_NETS)/%_train.h: %.train $(NETS_TOOLS)
 	fi
 
 $(DIR_BUILD_NETS):
+	if [ ! -d $@ ]; then mkdir -p $@; fi
+
+$(DIR_BUILD)/linux:
+	if [ ! -d $@ ]; then mkdir -p $@; fi
+
+$(DIR_BUILD)/newlib:
 	if [ ! -d $@ ]; then mkdir -p $@; fi
 
 #--------- Generate videos
