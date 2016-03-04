@@ -23,7 +23,8 @@ DIR_MAIN_RES    = $(DIR_TOP)/src/main/resources
 DIR_USR         = $(DIR_TOP)/usr
 DIR_USR_BIN     = $(DIR_TOP)/usr/bin
 DIR_USR_LIB     = $(DIR_TOP)/usr/lib
-DIR_USR_LIB_RV  = $(DIR_TOP)/usr/lib-rv
+DIR_USR_LIB_RV  = $(DIR_TOP)/usr/lib-rv-newlib
+DIR_USR_LIB_RV_LINUX = $(DIR_TOP)/usr/lib-rv-linux
 DIR_USR_INCLUDE = $(DIR_TOP)/usr/include
 DIR_TOOLS       = $(DIR_TOP)/tools
 SEED            = $(shell echo "$$RANDOM")
@@ -109,11 +110,16 @@ INCLUDES      = $(addprefix -include $(DIR_BUILD)/, \
 CXX_FLAGS     = $(INCLUDES) $(INCLUDE_PATHS:%=-I %) -g -std=c++11
 
 # RISC-V related options
-RV_TARGET     = riscv64-unknown-elf
-RV_CC         = $(RV_TARGET)-gcc
-RV_CXX        = $(RV_TARGET)-g++
-RV_AR         = $(RV_TARGET)-ar
-RV_OBJDUMP    = $(RV_TARGET)-objdump
+RV_NEWLIB        = riscv64-unknown-elf
+RV_LINUX         = riscv64-unknown-linux-gnu
+RV_CC            = $(RV_NEWLIB)-gcc
+RV_CXX           = $(RV_NEWLIB)-g++
+RV_AR            = $(RV_NEWLIB)-ar
+RV_OBJDUMP       = $(RV_NEWLIB)-objdump
+RV_CC_LINUX      = $(RV_LINUX)-gcc
+RV_CXX_LINUX     = $(RV_LINUX)-g++
+RV_AR_LINUX      = $(RV_LINUX)-ar
+RV_OBJDUMP_LINUX = $(RV_LINUX)-objdump
 
 # Linker related options
 LIB_PATHS     = $(DIR_USR_LIB)
@@ -124,7 +130,8 @@ LFLAGS        = $(addprefix -Wl$(COMMA)-R, $(shell readlink -f $(LIB_PATHS))) \
 # X-FILES libraries related
 XFILES_LIBRARIES = $(DIR_BUILD)/libxfiles.a
 #$(DIR_BUILD)/libxfiles.so
-XFILES_LIBRARIES_OBJECTS = $(DIR_BUILD)/xfiles-user.o $(DIR_BUILD)/xfiles-supervisor.o
+XFILES_LIBRARIES_OBJECTS = $(DIR_BUILD)/xfiles-user.o \
+	$(DIR_BUILD)/xfiles-supervisor.o
 
 # Network Configurations -- the convenction here is floating point
 # nets look like "foo.net" while the fixed point equivalent of this is
@@ -135,8 +142,9 @@ XFILES_LIBRARIES_OBJECTS = $(DIR_BUILD)/xfiles-user.o $(DIR_BUILD)/xfiles-superv
 # build/nets.
 NETS_GEN=xorSigmoid xorSigmoidSymmetric xorSigmoidSymmetricPair \
 	xorSigmoidSymmetricThreeLayer
-NETS_FANN=census-house mushroom diabetes gene kin32fm soybean thyroid two-spiral \
-	abelone bank32fm bank32nh building census-house pumadyn-32fm robot soybean
+NETS_FANN=census-house mushroom diabetes gene kin32fm soybean thyroid \
+	two-spiral abelone bank32fm bank32nh building census-house \
+	pumadyn-32fm robot soybean
 NETS_PARITY=parity-1 parity-2 parity-3 parity-4 parity-5 parity-6 parity-7 \
 	parity-8 parity-9
 NETS_PARITY_SAME=parity-same-1 parity-same-2 parity-same-3 parity-same-4 \
@@ -204,6 +212,10 @@ DECIMAL_POINT_OFFSET=7
 DECIMAL_POINT_BITS=3
 MAX_DECIMAL_POINT=`echo "2 $(DECIMAL_POINT_BITS)^1-$(DECIMAL_POINT_OFFSET)+p"|dc`
 
+FANN_LIBS = $(DIR_BUILD)/fann/libfann.so \
+	$(DIR_BUILD)/fann-rv-newlib/libfann.a \
+	$(DIR_BUILD)/fann-rv-linux/libfann.a
+
 vpath %.scala $(DIR_SRC_SCALA)
 vpath %.cpp $(DIR_TEST_CPP)
 vpath %.cpp $(DIR_BUILD)
@@ -239,18 +251,46 @@ $(DIR_BUILD)/fann/libfann.so:
 	../../submodules/fann && \
 	$(MAKE)
 
-$(DIR_BUILD)/fann-rv/libfann.a:
-	if [ ! -d $(DIR_BUILD)/fann-rv ]; then mkdir -p $(DIR_BUILD)/fann-rv; fi
-	cd $(DIR_BUILD)/fann-rv && \
+$(DIR_BUILD)/fann-rv-newlib/libfann.a:
+	if [ ! -d $(DIR_BUILD)/fann-rv-newlib ]; \
+	  then mkdir -p $(DIR_BUILD)/fann-rv-newlib; fi
+	cd $(DIR_BUILD)/fann-rv-newlib && \
 	cmake -DCMAKE_ARCHIVE_OUTPUT_DIRECTORY=\
-	$(shell readlink -f $(DIR_BUILD)/fann-rv) \
-	-DPKGCONFIG_INSTALL_DIR=$(shell readlink -f $(DIR_BUILD)/fann-rv) \
-	-DINCLUDE_INSTALL_DIR=$(shell readlink -f $(DIR_BUILD)/fann-rv) \
-	-DLIB_INSTALL_DIR=$(shell readlink -f $(DIR_BUILD)/fann-rv) \
-	-DCMAKE_CONFIG_DIR=$(shell readlink -f $(DIR_BUILD)/fann-rv) \
-	-DCMAKE_CURRENT_BINARY_DIR=$(shell readlink -f $(DIR_BUILD)/fann-rv) \
+	$(shell readlink -f $(DIR_BUILD)/fann-rv-newlib) \
+	-DPKGCONFIG_INSTALL_DIR=$(shell readlink \
+	  -f $(DIR_BUILD)/fann-rv-newlib) \
+	-DINCLUDE_INSTALL_DIR=$(shell readlink \
+	  -f $(DIR_BUILD)/fann-rv-newlib) \
+	-DLIB_INSTALL_DIR=$(shell readlink \
+	  -f $(DIR_BUILD)/fann-rv-newlib) \
+	-DCMAKE_CONFIG_DIR=$(shell readlink -f $(DIR_BUILD)/fann-rv-newlib) \
+	-DCMAKE_CURRENT_BINARY_DIR=$(shell readlink \
+	  -f $(DIR_BUILD)/fann-rv-newlib) \
 	-DCMAKE_C_COMPILER=$(RV_CC) \
 	-DCMAKE_CXX_COMPILER=$(RV_CXX) \
+	-DCMAKE_SYSTEM_NAME=Generic \
+	-DBUILD_SHARED_LIBS=OFF \
+	-DCMAKE_C_FLAGS="-DFANN_NO_SEED" \
+	-DCMAKE_CXX_FLAGS="-DFANN_NO_SEED" \
+	../../submodules/fann && \
+	$(MAKE)
+
+$(DIR_BUILD)/fann-rv-linux/libfann.a:
+	if [ ! -d $(DIR_BUILD)/fann-rv-linux ]; \
+	  then mkdir -p $(DIR_BUILD)/fann-rv-linux; fi
+	cd $(DIR_BUILD)/fann-rv-linux && \
+	cmake -DCMAKE_ARCHIVE_OUTPUT_DIRECTORY=\
+	$(shell readlink -f $(DIR_BUILD)/fann-rv-linux) \
+	-DPKGCONFIG_INSTALL_DIR=$(shell readlink -f \
+	  $(DIR_BUILD)/fann-rv-linux) \
+	-DINCLUDE_INSTALL_DIR=$(shell readlink -f \
+	  $(DIR_BUILD)/fann-rv-linux) \
+	-DLIB_INSTALL_DIR=$(shell readlink -f $(DIR_BUILD)/fann-rv-linux) \
+	-DCMAKE_CONFIG_DIR=$(shell readlink -f $(DIR_BUILD)/fann-rv-linux) \
+	-DCMAKE_CURRENT_BINARY_DIR=$(shell readlink -f \
+	  $(DIR_BUILD)/fann-rv-linux) \
+	-DCMAKE_C_COMPILER=$(RV_CC_LINUX) \
+	-DCMAKE_CXX_COMPILER=$(RV_CXX_LINUX) \
 	-DCMAKE_SYSTEM_NAME=Generic \
 	-DBUILD_SHARED_LIBS=OFF \
 	-DCMAKE_C_FLAGS="-DFANN_NO_SEED" \
@@ -269,7 +309,7 @@ run: $(TEST_EXECUTABLES) Makefile
 run-verilog: $(TEST_V_EXECUTABLES) Makefile
 	vvp $<
 
-tools: $(DIR_BUILD)/fann/libfann.so
+tools: $(FANN_LIBS)
 	$(MAKE) -j$(JOBS) -C $(DIR_TOOLS)
 
 vcd-verilog: $(DIR_BUILD)/t_XFilesDana$(FPGA_CONFIG_DOT)-vcd.vvp Makefile
@@ -332,10 +372,10 @@ $(DIR_BUILD)/%$(FPGA_CONFIG_DOT)-vcd.vvp: %.v $(BACKEND_VERILOG) $(HEADERS_V)
 	iverilog $(FLAGS_V) -D DUMP_VCD=\"$@.vcd\" -o $@ $<
 
 #------------------- RISC-V Tests
-$(DIR_BUILD)/fann-soft.rv: fann-soft.c $(DIR_BUILD_NETS) $(XFILES_LIBRARIES) $(DIR_BUILD)/fann-rv/libfann.a
+$(DIR_BUILD)/fann-soft.rv: fann-soft.c $(DIR_BUILD_NETS) $(XFILES_LIBRARIES) $(DIR_BUILD)/fann-rv-newlib/libfann.a
 	$(RV_CC) -Wall -Werror -static -march=RV64IMAFDXcustom -I$(DIR_SRC_C) -I$(DIR_BUILD_NETS) -I$(DIR_USR_INCLUDE) $< -o $@ -L$(DIR_USR_LIB_RV) -lxfiles -lfann -lm
 
-$(DIR_BUILD)/%.rv: %.c $(DIR_BUILD_NETS) $(XFILES_LIBRARIES) $(DIR_BUILD)/fann-rv/libfann.a
+$(DIR_BUILD)/%.rv: %.c $(DIR_BUILD_NETS) $(XFILES_LIBRARIES) $(DIR_BUILD)/fann-rv-newlib/libfann.a
 	$(RV_CC) -Wall -Werror -static -march=RV64IMAFDXcustom -I$(DIR_SRC_C) -I$(DIR_BUILD_NETS) -I$(DIR_USR_INCLUDE) $< -o $@ -L$(DIR_USR_LIB_RV) -lxfiles -lfixedfann -lm
 
 $(DIR_BUILD)/%.rvS: $(DIR_BUILD)/%.rv

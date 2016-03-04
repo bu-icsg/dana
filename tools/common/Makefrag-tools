@@ -19,5 +19,5 @@ NETS_TOOLS = $(FLOAT_TO_FIXED) \
 	$(FANN_RANDOM) \
 	$(FANN_TRAIN)
 
-$(DIR_USR_BIN)/%: $(DIR_BUILD)/fann/libfann.so $(DIR_BUILD)/fann-rv/libfann.a
+$(DIR_USR_BIN)/%: $(FANN_LIBS)
 	$(MAKE) -C $(DIR_TOOLS)/$*

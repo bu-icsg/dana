@@ -32,7 +32,7 @@ PHONY += all default clean
 
 default: all
 
-%.rv: %.c $(DIR_TOP)/build/libxfiles.a $(DIR_TOP)/build/fann-rv/libfann.a
+%.rv: %.c $(DIR_TOP)/build/libxfiles.a $(DIR_TOP)/build/fann-rv-newlib/libfann.a
 	@ $(RV_CC) $(C_FLAGS) $< -o $@ $(L_FLAGS)
 
 # Common utilities
