@@ -26,22 +26,22 @@ static char * usage_message =
   "  -f, --bit-fail-limit       sets the bit fail limit (default 0.05)\n"
   "  -g, --mse-fail-limit       sets the maximum MSE (default -1, i.e., off)\n"
   "  -h, --help                 print this help and exit\n"
-  "  -i, --id                   string id to use for printing data (default 0)\n"
+  "  -i, --id                   string id for printing data (default 0)\n"
   "  -j, --set-asid             use a specific asic (default 0)\n"
   "  -k, --set-nnid             use a specific nnid (default 0)\n"
   "  -l, --stat-last            print last epoch number statistic\n"
-  "  -m, --stat-mse             print mse statistics (optional arg: MSE period)\n"
+  "  -m, --stat-mse             print mse stats (optional arg: MSE period)\n"
   "  -n, --nn-config            the binary NN configuration to use\n"
-  "  -o, --stat-bit-fail        print bit fail percent (optional arg: period)\n"
-  "  -p, --performance-mode     runs until an epoch limit, all checks disabled\n"
-  "  -q, --stat-percent-correct print the percent correct (optional arg: period)\n"
+  "  -o, --stat-bit-fail        print bit fail % (optional arg: period)\n"
+  "  -p, --performance-mode     runs until epoch limit, limited branches\n"
+  "  -q, --stat-percent-correct print the % correct (optional arg: period)\n"
   "  -r, --learning-rate        set the learning rate (default 0.7)\n"
   "  -t, --train-file           the fixed point FANN training file to use\n"
-  "  -u, --fake-incremental     run incremental learning using batch learning\n"
+  "  -u, --fake-incremental     run incremental learning using batch\n"
   "  -v, --verbose              turn on per-item inputs/output printfs\n"
   "  -w, --watch-for-errors     turn on some checks for sane outputs\n"
-  "  -x, --incremental          run incremental updates instead of batch updates\n"
-  "  -y, --weight-decay-lambda  set the weight decay parameter, lambda (default 0)\n"
+  "  -x, --incremental          run incremental learning instead of batch\n"
+  "  -y, --weight-decay-lambda  set the weight decay parameter (default 0)\n"
   "  -z, --ignore-limits        continue blindly ignoring bit fail/mse limits"
   "\n"
   "Flags -n and -t are required.\n"
@@ -112,39 +112,84 @@ int binary_config_read_binary_point(char * file_nn, int binary_point_width) {
   return tmp;
 }
 
+typedef struct {
+  int cycles;
+  int last;
+  int mse;
+  int performance;
+  int ant_info;
+  int incremental;
+  int bit_fail;
+  int ignore_limits;
+  int percent_correct;
+  int watch_for_errors;
+  int incremental_fake;
+  int verbose;
+} flags_t;
 
+typedef struct {
+  flags_t flags;
+  uint64_t cycles, connections_per_epoch;
+  int32_t learn_rate, weight_decay;
+  asid_type asid;
+  nnid_type nnid;
+  int max_epochs, exit_code, num_bits_failing, batch_items, num_correct,
+    binary_point_width, binary_point_offset, binary_point,
+    mse_reporting_period, bit_fail_reporting_period,
+    percent_correct_reporting_period, epoch;
+  double bit_fail_limit, mse_fail_limit, learning_rate, weight_decay_lambda,
+    mse, error;
+  char * file_nn, * file_train, * file_video_string, id[100];
+  FILE * file_video;
+  asid_nnid_table * table;
+  element_type * outputs, * outputs_old;
+  struct fann_train_data * data;
+  size_t num_input, num_output;
+  double multiplier;
+  // Train on the provided data
+  tid_type tid;
+} test_t;
 
-int main (int argc, char * argv[]) {
-  int exit_code = 0, max_epochs = 10000, num_bits_failing = -1, batch_items = -1,
-    num_correct;
-  int flag_cycles = 0, flag_last = 0, flag_mse = 0, flag_performance = 0,
-    flag_ant_info = 0, flag_incremental = 0, flag_bit_fail = 0,
-    flag_ignore_limits = 0, flag_percent_correct = 0, flag_watch_for_errors = 0,
-    flag_incremental_fake = 0;
-  char id[100] = "0";
-  asid_type asid = 0;
-  nnid_type nnid = 0;
-  int binary_point_width = 3, binary_point_offset = 7;
-#ifdef VERBOSE_DEFAULT
-  int flag_verbose = 1;
-#else
-  int flag_verbose = 0;
-#endif
-  int mse_reporting_period = 1, bit_fail_reporting_period = 1,
-    percent_correct_reporting_period = 1;
-  uint64_t cycles;
-  double bit_fail_limit = 0.05, mse_fail_limit = -1.0,
-    learning_rate = 0.7, weight_decay_lambda = 0.0;
-  struct fann_train_data * data = NULL;
+void test_init(test_t * test, int bp_w, int bp_o) {
+  // Zero all the flags
+  for (int i = 0; i < sizeof(flags_t) / sizeof(int); ++i)
+    ((int *) &(test)->flags)[i] = 0;
+  test->asid = 0;
+  test->nnid = 0;
+  test->binary_point_width = bp_w;
+  test->binary_point_offset = bp_o;
+  test->exit_code = 0;
+  test->max_epochs = 10000;
+  test->num_bits_failing = -1;
+  test->batch_items = -1;
+  test->binary_point = -1;
+  test->mse_reporting_period = 1;
+  test->bit_fail_reporting_period = 1;
+  test->percent_correct_reporting_period = 1;
+  // Double inits
+  test->bit_fail_limit = 0.05;
+  test->mse_fail_limit = -1.0;
+  test->learning_rate = 0.7;
+  test->weight_decay_lambda = 0.0;
+  test->mse = 0.0;
+  // Files
+  test->file_video_string = NULL;
+  // Strings
+  test->file_nn = NULL;
+  test->file_train = NULL;
+  test->file_video = NULL;
+  test->id[0] = '0';
+  // Other
+  test->table = NULL;
+  test->outputs = NULL;
+  test->outputs_old = NULL;
+  test->data = NULL;
+}
 
-  char * file_nn = NULL, * file_train = NULL;
-  char * file_video_string = NULL;
-  FILE * file_video = NULL;
-  asid_nnid_table * table = NULL;
-  element_type * outputs = NULL, * outputs_old = NULL;
-  int binary_point = -1, c;
+void parse_options(test_t * t, int argc, char ** argv) {
+  int c;
   while (1) {
-    static struct option long_options[] = {
+    static struct option long_test[] = {
       {"ant-info",             no_argument,       0, 'a'},
       {"video-data",           required_argument, 0, 'b'},
       {"stat-cycles",          no_argument,       0, 'c'},
@@ -171,93 +216,44 @@ int main (int argc, char * argv[]) {
     };
     int option_index = 0;
     c = getopt_long (argc, argv, "ab:cd:e:f:g:hi:j:k:lm::n:o::pq::r:t:uvwxy:z",
-                     long_options, &option_index);
+                     long_test, &option_index);
     if (c == -1)
       break;
     switch (c) {
-    case 'a':
-      flag_ant_info = 1;
-      break;
-    case 'b':
-      file_video_string = optarg;
-      break;
-    case 'c':
-      flag_cycles = 1;
-      break;
-    case 'd':
-      batch_items = atoi(optarg);
-      break;
-    case 'e':
-      max_epochs = atoi(optarg);
-      break;
-    case 'f':
-      bit_fail_limit = atof(optarg);
-      break;
-    case 'g':
-      mse_fail_limit = atof(optarg);
-      break;
-    case 'h':
-      usage();
-      exit_code = 0;
-      goto bail;
-      break;
-    case 'i':
-      strcpy(id, optarg);
-      break;
-    case 'j':
-      asid = atoi(optarg);
-      break;
-    case 'k':
-      nnid = atoi(optarg);
-      break;
-    case 'l':
-      flag_last = 1;
-      break;
-    case 'm':
+    case 'a': t->flags.ant_info = 1; break;
+    case 'b': t->file_video_string = optarg; break;
+    case 'c': t->flags.cycles = 1; break;
+    case 'd': t->batch_items = atoi(optarg); break;
+    case 'e': t->max_epochs = atoi(optarg); break;
+    case 'f': t->bit_fail_limit = atof(optarg); break;
+    case 'g': t->mse_fail_limit = atof(optarg); break;
+    case 'h': usage(); t->exit_code = 1; return;
+    case 'i': strcpy(t->id, optarg); break;
+    case 'j': t->asid = atoi(optarg); break;
+    case 'k': t->nnid = atoi(optarg); break;
+    case 'l': t->flags.last = 1; break;
+    case 'm': t->flags.mse = 1;
       if (optarg)
-        mse_reporting_period = atoi(optarg);
-      flag_mse = 1;
+        t->mse_reporting_period = atoi(optarg);
       break;
-    case 'n':
-      file_nn = optarg;
-      break;
-    case 'o':
+    case 'n': t->file_nn = optarg; break;
+    case 'o': t->flags.bit_fail = 1;
       if (optarg)
-        bit_fail_reporting_period = atoi(optarg);
-      flag_bit_fail = 1;
+        t->bit_fail_reporting_period = atoi(optarg);
       break;
-    case 'p':
-      flag_performance = 1;
-      break;
-    case 'r':
-      learning_rate = atof(optarg);
-      break;
-    case 'q':
+    case 'p': t->flags.performance = 1; break;
+    case 'r': t->learning_rate = atof(optarg); break;
+    case 'q': t->flags.percent_correct = 1;
       if (optarg)
-        percent_correct_reporting_period = atoi(optarg);
-      flag_percent_correct = 1;
+        t->percent_correct_reporting_period = atoi(optarg);
       break;
-    case 't':
-      file_train = optarg;
-      break;
-    case 'u':
-      flag_incremental_fake = 1;
-      break;
-    case 'v':
-      flag_verbose = 1;
-      break;
-    case 'w':
-      flag_watch_for_errors = 1;
-      break;
-    case 'x':
-      flag_incremental = 1;
-      break;
-    case 'y':
-      weight_decay_lambda = atof(optarg);
-      break;
-    case 'z':
-      flag_ignore_limits = 1;
-      break;
+    case 't': t->file_train = optarg; break;
+    case 'u': t->flags.incremental_fake = 1; break;
+    case 'v': t->flags.verbose = 1; break;
+    case 'w': t->flags.watch_for_errors = 1; break;
+    case 'x': t->flags.incremental = 1; break;
+    case 'y': t->weight_decay_lambda = atof(optarg); break;
+    case 'z': t->flags.ignore_limits = 1; break;
     }
   };
 
@@ -265,101 +261,334 @@ int main (int argc, char * argv[]) {
   if (optind != argc) {
     fprintf(stderr, "[ERROR] Bad argument\n\n");
     usage();
-    exit_code = -1;
-    goto bail;
+    t->exit_code = -1;
+    return;
   }
 
   // Make sure we have all required inputs
-  if (file_nn == NULL || file_train == NULL) {
+  if (t->file_nn == NULL || t->file_train == NULL) {
     fprintf(stderr, "[ERROR] Missing required input argument\n\n");
     usage();
-    exit_code = -1;
-    goto bail;
+    t->exit_code = -1;
+    return;
   }
 
-  // Incremental and fake incremental are conflicting options
-  if (flag_incremental && flag_incremental_fake) {
+  // Incremental and fake incremental are conflicting test
+  if (t->flags.incremental && t->flags.incremental_fake) {
     fprintf(stderr, "[ERROR] Only one of '-x' or '-u' may be specified\n\n");
     usage();
-    exit_code = -1;
-    goto bail;
+    t->exit_code = -1;
+    return;
   }
 
   // Read the binary point and make sure its sane
-  binary_point = binary_config_read_binary_point(file_nn, binary_point_width) +
-    binary_point_offset;
-  if (binary_point < binary_point_offset) {
+  t->binary_point = binary_config_read_binary_point(t->file_nn, t->binary_point_width) +
+    t->binary_point_offset;
+  if (t->binary_point < t->binary_point_offset) {
     fprintf(stderr, "[ERROR] Binary point (%d) looks bad, exiting\n\n",
-            binary_point);
-    exit_code = -1;
-    goto bail;
+            t->binary_point);
+    t->exit_code = -1;
+    return;
   }
-  printf("[INFO] Found binary point %d\n", binary_point);
+  printf("[INFO] Found binary point %d\n", t->binary_point);
+}
+
+void xfiles_batch_verbose(test_t * t) {
+  t->cycles = read_csr(0xc00);
+  for (t->epoch = 0; t->epoch < t->max_epochs; t->epoch++) {
+    // Run one training t->epoch
+    t->tid = new_write_request(t->nnid, 2, 0);
+    write_register(t->tid, xfiles_reg_batch_items, t->batch_items);
+    write_register(t->tid, xfiles_reg_learning_rate, t->learn_rate);
+    write_register(t->tid, xfiles_reg_weight_decay_lambda, t->weight_decay);
+
+    for (int item = 0; item < t->batch_items; item++) {
+      // Write the output and input data
+      write_data_train_incremental
+        (t->tid, (element_type *) t->data->input[item],
+         (element_type *) t->data->output[item], t->num_input, t->num_output);
+
+      // Blocking read
+      read_data_spinlock(t->tid, t->outputs, t->num_output);
+    }
+
+    // Check the outputs
+    t->num_bits_failing = 0;
+    t->num_correct = 0;
+    t->mse = 0;
+    for (int item = 0; item < t->batch_items; item++) {
+      t->tid = new_write_request(t->nnid, 0, 0);
+      write_data(t->tid, (element_type *) t->data->input[item], t->num_input);
+      read_data_spinlock(t->tid, t->outputs, t->num_output);
+
+      if (t->flags.verbose) {
+        printf("[INFO] ");
+        for (int i = 0; i < t->num_input; i++)
+          printf("%8.5f ", ((double) t->data->input[item][i]) / t->multiplier);
+      }
+
+      int correct = 1;
+      for (int i = 0; i < t->num_output; i++) {
+        if (t->flags.verbose)
+          printf("%8.5f ", ((double)t->outputs[i])/t->multiplier);
+        t->num_bits_failing +=
+          fabs((double)(t->outputs[i] - t->data->output[item][i]) /
+               t->multiplier) > t->bit_fail_limit;
+        if (fabs((double)(t->outputs[i] - t->data->output[item][i]) /
+                 t->multiplier) > t->bit_fail_limit)
+          correct = 0;
+        if (t->flags.mse || t->mse_fail_limit != -1) {
+          t->error = (double)(t->outputs[i] - t->data->output[item][i]) /
+            t->multiplier;
+          t->mse += t->error * t->error;
+        }
+        if (t->flags.watch_for_errors && t->epoch > 0) {
+          double change =
+            fabs(((double) t->outputs[i] / t->multiplier) -
+                 ((double) t->outputs_old[item * t->num_output + i] /
+                  t->multiplier));
+          if (change > 0.1)
+            printf("\n[ERROR] T->Epoch %d: Output changed by > 0.1 (%0.5f)",
+                   t->epoch, change);
+        }
+        if (t->file_video)
+          fprintf(t->file_video, "%f ", (double) t->outputs[i]/t->multiplier);
+        t->outputs_old[item * t->num_output + i] = t->outputs[i];
+      }
+      t->num_correct += correct;
+      if (t->file_video)
+        fprintf(t->file_video, "\n");
+      if (t->flags.verbose) {
+        if (item < t->batch_items - 1)
+          printf("\n");
+      }
+    }
+
+    if (t->flags.verbose)
+      printf("%5d\n\n", t->epoch);
+    if (t->flags.mse || t->mse_fail_limit != -1) {
+      t->mse /= t->batch_items * t->num_output;
+      if (t->flags.mse && (t->epoch % t->mse_reporting_period == 0))
+        printf("[STAT] epoch %d id %s bp %d mse %8.8f\n", t->epoch, t->id,
+               t->binary_point, t->mse);
+    }
+    if (t->flags.bit_fail && (t->epoch % t->bit_fail_reporting_period == 0))
+      printf("[STAT] epoch %d id %s bp %d bfp %8.8f\n", t->epoch, t->id,
+             t->binary_point, 1 - (double) t->num_bits_failing /
+             t->num_output / t->batch_items);
+    if (t->flags.percent_correct &&
+        (t->epoch % t->percent_correct_reporting_period == 0))
+      printf("[STAT] epoch %d id %s bp %d perc %8.8f\n", t->epoch, t->id,
+             t->binary_point,
+             (double) t->num_correct / t->batch_items);
+    if (!t->flags.ignore_limits &&
+        (t->num_bits_failing == 0 || t->mse < t->mse_fail_limit))
+      return;
+  }
+  return;
+}
+
+void xfiles_incremental_verbose(test_t * t) {
+  t->cycles = read_csr(0xc00);
+  for (t->epoch = 0; t->epoch < t->max_epochs; t->epoch++) {
+    for (int item = 0; item < t->batch_items; item++) {
+      // Run one training t->epoch
+      t->tid = new_write_request(t->nnid, 1, 0);
+      write_register(t->tid, xfiles_reg_learning_rate, t->learn_rate);
+      write_register(t->tid, xfiles_reg_weight_decay_lambda, t->weight_decay);
+      // Write the output and input data
+      write_data_train_incremental
+        (t->tid, (element_type *) t->data->input[item],
+         (element_type *) t->data->output[item], t->num_input, t->num_output);
+
+      // Blocking read
+      read_data_spinlock(t->tid, t->outputs, t->num_output);
+    }
+
+    // Check the outputs
+    t->num_bits_failing = 0;
+    t->mse = 0;
+    t->num_correct = 0;
+    for (int item = 0; item < t->batch_items; item++) {
+      t->tid = new_write_request(t->nnid, 0, 0);
+      write_data(t->tid, (element_type *) t->data->input[item], t->num_input);
+      read_data_spinlock(t->tid, t->outputs, t->num_output);
+
+      if (t->flags.verbose) {
+        printf("[INFO] ");
+        for (int i = 0; i < t->num_input; i++) {
+          printf("%8.5f ", ((double)t->data->input[item][i]) / t->multiplier);
+        }
+      }
+
+      int correct = 1;
+      for (int i = 0; i < t->num_output; i++) {
+        if (t->flags.verbose)
+          printf("%8.5f ", ((double)t->outputs[i])/t->multiplier);
+        t->num_bits_failing +=
+          fabs((double)(t->outputs[i] - t->data->output[item][i]) /
+               t->multiplier) > t->bit_fail_limit;
+        if (fabs((double)(t->outputs[i] - t->data->output[item][i]) /
+                 t->multiplier) > t->bit_fail_limit)
+          correct = 0;
+        if (t->flags.mse || t->mse_fail_limit != -1) {
+          t->error = (double)(t->outputs[i] - t->data->output[item][i]) /
+            t->multiplier;
+          t->mse += t->error * t->error;
+        }
+        if (t->file_video)
+          fprintf(t->file_video, "%f ", (double) t->outputs[i]/t->multiplier);
+      }
+      t->num_correct += correct;
+      if (t->file_video)
+        fprintf(t->file_video, "\n");
+      if (t->flags.verbose) {
+        if (item < t->batch_items - 1)
+          printf("\n");
+      }
+    }
+
+
+    if (t->flags.verbose)
+      printf("%5d\n\n", t->epoch);
+    if (t->flags.mse || t->mse_fail_limit != -1) {
+      t->mse /= t->batch_items * t->num_output;
+      if (t->flags.mse && (t->epoch % t->mse_reporting_period == 0))
+        printf("[STAT] epoch %d id %s bp %d mse %8.8f\n", t->epoch, t->id,
+               t->binary_point, t->mse);
+    }
+    if (t->flags.bit_fail && (t->epoch % t->bit_fail_reporting_period == 0))
+      printf("[STAT] epoch %d id %s bp %d bfp %8.8f\n", t->epoch, t->id,
+             t->binary_point, 1 - (double) t->num_bits_failing /
+             t->num_output / t->batch_items);
+    if (t->flags.percent_correct &&
+        (t->epoch % t->percent_correct_reporting_period == 0))
+      printf("[STAT] epoch %d id %s bp %d perc %8.8f\n", t->epoch, t->id,
+             t->binary_point,
+             (double) t->num_correct / t->batch_items);
+    if (!t->flags.ignore_limits &&
+        (t->num_bits_failing == 0 || t->mse < t->mse_fail_limit))
+      return;
+  }
+  return;
+}
+
+void xfiles_batch_performance(test_t * t) {
+  t->cycles = read_csr(0xc00);
+  for (t->epoch = 0; t->epoch < t->max_epochs; t->epoch++) {
+    // Run one training t->epoch
+    t->tid = new_write_request(t->nnid, 2, 0);
+    write_register(t->tid, xfiles_reg_batch_items, t->batch_items);
+    write_register(t->tid, xfiles_reg_learning_rate, t->learn_rate);
+    write_register(t->tid, xfiles_reg_weight_decay_lambda, t->weight_decay);
+
+    for (int item = 0; item < t->batch_items; item++) {
+      // Write the output and input data
+      write_data_train_incremental(t->tid, t->data->input[item],
+                                   t->data->output[item],
+                                   t->num_input, t->num_output);
+
+      // Blocking read
+      read_data_spinlock(t->tid, t->outputs, t->num_output);
+    }
+  }
+  return;
+}
+
+void xfiles_incremental_performance(test_t * t) {
+  t->cycles = read_csr(0xc00);
+  for (t->epoch = 0; t->epoch < t->max_epochs; t->epoch++) {
+    for (int item = 0; item < t->batch_items; item++) {
+      // Run one training t->epoch
+      t->tid = new_write_request(t->nnid, 1, 0);
+      write_register(t->tid, xfiles_reg_learning_rate, t->learn_rate);
+      write_register(t->tid, xfiles_reg_weight_decay_lambda, t->weight_decay);
+      // Write the output and input data
+      write_data_train_incremental
+        (t->tid, (element_type *) t->data->input[item],
+         (element_type *) t->data->output[item], t->num_input, t->num_output);
+
+      // Blocking read
+      read_data_spinlock(t->tid, t->outputs, t->num_output);
+    }
+  }
+  return;
+}
+
+int main (int argc, char * argv[]) {
+  test_t t;
+  test_init(&t, 3, 7);
+
+#ifdef VERBOSE_DEFAULT
+  t.flags.verbose = 1;
+#else
+  t.flags.verbose = 0;
+#endif
+
+  parse_options(&t, argc, argv);
+  if (t.exit_code)
+    goto bail;
 
   // Create the ASID--NNID Table
-  asid_nnid_table_create(&table, asid * 2 + 1, nnid * 2 + 1);
-  set_antp(table);
+  asid_nnid_table_create(&t.table, t.asid * 2 + 1, t.nnid * 2 + 1);
+  set_antp(t.table);
 
   // Populate the ASID--NNID Table
   int i;
-  for (i = 0; i < nnid * 2 + 1; i++) {
-    if (i == nnid) {
-      if (attach_nn_configuration(&table, asid, file_nn) != nnid + 1) {
-        printf("[ERROR] Failed to attach NN configuration 0x%x\n", nnid);
-        exit_code = -1;
+  for (i = 0; i < t.nnid * 2 + 1; i++) {
+    if (i == t.nnid) {
+      if (attach_nn_configuration(&t.table, t.asid, t.file_nn) != t.nnid + 1) {
+        printf("[ERROR] Failed to attach NN configuration 0x%x\n", t.nnid);
+        t.exit_code = -1;
         goto bail;
       }
     }
     else
-      attach_garbage(&table, asid);
+      attach_garbage(&t.table, t.asid);
   }
-  set_asid(asid);
+  set_asid(t.asid);
 
-  if (flag_ant_info)
-    asid_nnid_table_info(table);
+  if (t.flags.ant_info)
+    asid_nnid_table_info(t.table);
 
-  if (file_video_string != NULL)
-    file_video = fopen(file_video_string, "w");
+  if (t.file_video_string != NULL)
+    t.file_video = fopen(t.file_video_string, "w");
 
-  uint64_t connections_per_epoch = binary_config_num_connections(file_nn);
+  t.connections_per_epoch = binary_config_num_connections(t.file_nn);
 
   // Read in data from the training file
-  data = fann_read_train_from_file(file_train);
-  if (data == NULL) {
-    exit_code = -2;
+  t.data = fann_read_train_from_file(t.file_train);
+  if (t.data == NULL) {
+    t.exit_code = -2;
     goto bail;
   }
-  size_t num_input = data->num_input;
-  size_t num_output = data->num_output;
+  t.num_input = t.data->num_input;
+  t.num_output = t.data->num_output;
   printf("[INFO] Done reading input file\n");
 
-  double multiplier = pow(2, binary_point);
+  t.multiplier = pow(2, t.binary_point);
 
-  // Train on the provided data
-  int epoch, item;
-  tid_type tid;
-  double mse = 0.0, error;
-
-  outputs = (element_type *) malloc(num_output * sizeof(element_type));
-  if (batch_items == -1)
-    batch_items = fann_length_train_data(data);
-  if (batch_items > fann_length_train_data(data))
-    batch_items = fann_length_train_data(data);
-  outputs_old = (element_type *) malloc(num_output * batch_items *
+  t.outputs = (element_type *) malloc(t.num_output * sizeof(element_type));
+  if (t.batch_items == -1)
+    t.batch_items = fann_length_train_data(t.data);
+  if (t.batch_items > fann_length_train_data(t.data))
+    t.batch_items = fann_length_train_data(t.data);
+  t.outputs_old = (element_type *)
+    malloc(t.num_output * t.batch_items *
                                         sizeof(element_type));
-  int32_t learn_rate = (int32_t) (learning_rate * multiplier);
-  int32_t weight_decay = (int32_t) (weight_decay_lambda * multiplier);
-  if (!flag_incremental) {
-    learn_rate /= batch_items;
-    weight_decay /= batch_items;
+  t.learn_rate = (int32_t) (t.learning_rate * t.multiplier);
+  t.weight_decay = (int32_t) (t.weight_decay_lambda * t.multiplier);
+  if (!t.flags.incremental) {
+    t.learn_rate /= t.batch_items;
+    t.weight_decay /= t.batch_items;
   }
   // weight_decay = 1;
-  if (learn_rate == 0) {
+  if (t.learn_rate == 0) {
     printf("[ERROR] Number of batch items forces learning rate increase\n");
-    exit_code = -3;
+    t.exit_code = -3;
     goto bail;
   }
-  printf("[INFO] Computed learning rate is 0x%x\n", learn_rate);
+  printf("[INFO] Computed learning rate is 0x%x\n", t.learn_rate);
 
   // Execution is broken down into two different modes "performance"
   // and "verbose". "Verbose" allows for early training exits based on
@@ -369,246 +598,31 @@ int main (int argc, char * argv[]) {
   // for a hard number of epochs. This mode is intended to be used
   // with the '-c' option to get an accurate number of connection
   // updates per cycle.
-  switch((flag_performance << 1) | flag_incremental) {
-  case 0: goto xfiles_batch_verbose;
-  case 1: goto xfiles_incremental_verbose;
-  case 2: goto xfiles_batch_performance;
-  case 3: goto xfiles_incremental_performance;
+  switch((t.flags.performance << 1) | t.flags.incremental) {
+  case 0: xfiles_batch_verbose(&t);           break;
+  case 1: xfiles_incremental_verbose(&t);     break;
+  case 2: xfiles_batch_performance(&t);       break;
+  case 3: xfiles_incremental_performance(&t); break;
   }
-  if (flag_performance) goto xfiles_batch_performance;
-  else goto xfiles_batch_verbose;
-
- xfiles_batch_verbose:
-  cycles = read_csr(0xc00);
-  for (epoch = 0; epoch < max_epochs; epoch++) {
-    // Run one training epoch
-    tid = new_write_request(nnid, 2, 0);
-    write_register(tid, xfiles_reg_batch_items, batch_items);
-    write_register(tid, xfiles_reg_learning_rate, learn_rate);
-    write_register(tid, xfiles_reg_weight_decay_lambda, weight_decay);
-
-    for (item = 0; item < batch_items; item++) {
-      // Write the output and input data
-      write_data_train_incremental(tid, (element_type *) data->input[item],
-                                   (element_type *) data->output[item],
-                                   num_input, num_output);
-
-      // Blocking read
-      read_data_spinlock(tid, outputs, num_output);
-    }
-
-    // Check the outputs
-    num_bits_failing = 0;
-    num_correct = 0;
-    mse = 0;
-    for (item = 0; item < batch_items; item++) {
-      tid = new_write_request(nnid, 0, 0);
-      write_data(tid, (element_type *) data->input[item], num_input);
-      read_data_spinlock(tid, outputs, num_output);
-
-      if (flag_verbose) {
-        printf("[INFO] ");
-        for (i = 0; i < num_input; i++) {
-          printf("%8.5f ", ((double)data->input[item][i]) / multiplier);
-        }
-      }
-
-      int correct = 1;
-      for (i = 0; i < num_output; i++) {
-        if (flag_verbose)
-          printf("%8.5f ", ((double)outputs[i])/multiplier);
-        num_bits_failing +=
-          fabs((double)(outputs[i] - data->output[item][i]) / multiplier) >
-          bit_fail_limit;
-        if (fabs((double)(outputs[i] - data->output[item][i]) / multiplier) >
-            bit_fail_limit)
-          correct = 0;
-        if (flag_mse || mse_fail_limit != -1) {
-          error = (double)(outputs[i] - data->output[item][i]) / multiplier;
-          mse += error * error;
-        }
-        if (flag_watch_for_errors && epoch > 0) {
-          double change =
-            fabs(((double) outputs[i] / multiplier) -
-                 ((double) outputs_old[item * num_output + i] / multiplier));
-          if (change > 0.1)
-            printf("\n[ERROR] Epoch %d: Output changed by > 0.1 (%0.5f)",
-                   epoch, change);
-        }
-        if (file_video)
-          fprintf(file_video, "%f ", (double) outputs[i] / multiplier);
-        outputs_old[item * num_output + i] = outputs[i];
-      }
-      num_correct += correct;
-      if (file_video)
-        fprintf(file_video, "\n");
-      if (flag_verbose) {
-        if (item < batch_items - 1)
-          printf("\n");
-      }
-    }
-
-    if (flag_verbose)
-      printf("%5d\n\n", epoch);
-    if (flag_mse || mse_fail_limit != -1) {
-      mse /= batch_items * num_output;
-      if (flag_mse && (epoch % mse_reporting_period == 0))
-        printf("[STAT] epoch %d id %s bp %d mse %8.8f\n", epoch, id, binary_point, mse);
-    }
-    if (flag_bit_fail && (epoch % bit_fail_reporting_period == 0))
-      printf("[STAT] epoch %d id %s bp %d bfp %8.8f\n", epoch, id,
-             binary_point, 1 - (double) num_bits_failing / num_output /
-             batch_items);
-    if (flag_percent_correct && (epoch % percent_correct_reporting_period == 0))
-      printf("[STAT] epoch %d id %s bp %d perc %8.8f\n", epoch, id,
-             binary_point,
-             (double) num_correct / batch_items);
-    if (!flag_ignore_limits && (num_bits_failing == 0 || mse < mse_fail_limit))
-      goto finish;
-  }
-  goto finish;
-
- xfiles_batch_performance:
-  cycles = read_csr(0xc00);
-  for (epoch = 0; epoch < max_epochs; epoch++) {
-    // Run one training epoch
-    tid = new_write_request(nnid, 2, 0);
-    write_register(tid, xfiles_reg_batch_items, batch_items);
-    write_register(tid, xfiles_reg_learning_rate, learn_rate);
-    write_register(tid, xfiles_reg_weight_decay_lambda, weight_decay);
-
-    for (item = 0; item < batch_items; item++) {
-      // Write the output and input data
-      write_data_train_incremental(tid, data->input[item], data->output[item],
-                                   num_input, num_output);
-
-      // Blocking read
-      read_data_spinlock(tid, outputs, num_output);
-    }
-  }
-  goto finish;
-
- xfiles_incremental_verbose:
-  cycles = read_csr(0xc00);
-  for (epoch = 0; epoch < max_epochs; epoch++) {
-    for (item = 0; item < batch_items; item++) {
-      // Run one training epoch
-      tid = new_write_request(nnid, 1, 0);
-      write_register(tid, xfiles_reg_learning_rate, learn_rate);
-      write_register(tid, xfiles_reg_weight_decay_lambda, weight_decay);
-      // Write the output and input data
-      write_data_train_incremental(tid, (element_type *) data->input[item],
-                                   (element_type *) data->output[item],
-                                   num_input, num_output);
-
-      // Blocking read
-      read_data_spinlock(tid, outputs, num_output);
-    }
-
-    // Check the outputs
-    num_bits_failing = 0;
-    mse = 0;
-    num_correct = 0;
-    for (item = 0; item < batch_items; item++) {
-      tid = new_write_request(nnid, 0, 0);
-      write_data(tid, (element_type *) data->input[item], num_input);
-      read_data_spinlock(tid, outputs, num_output);
-
-      if (flag_verbose) {
-        printf("[INFO] ");
-        for (i = 0; i < num_input; i++) {
-          printf("%8.5f ", ((double)data->input[item][i]) / multiplier);
-        }
-      }
-
-      int correct = 1;
-      for (i = 0; i < num_output; i++) {
-        if (flag_verbose)
-          printf("%8.5f ", ((double)outputs[i])/multiplier);
-        num_bits_failing +=
-          fabs((double)(outputs[i] - data->output[item][i]) / multiplier) >
-          bit_fail_limit;
-        if (fabs((double)(outputs[i] - data->output[item][i]) / multiplier) >
-            bit_fail_limit)
-          correct = 0;
-        if (flag_mse || mse_fail_limit != -1) {
-          error = (double)(outputs[i] - data->output[item][i]) / multiplier;
-          mse += error * error;
-        }
-        if (file_video)
-          fprintf(file_video, "%f ", (double) outputs[i] / multiplier);
-      }
-      num_correct += correct;
-      if (file_video)
-        fprintf(file_video, "\n");
-      if (flag_verbose) {
-        if (item < batch_items - 1)
-          printf("\n");
-      }
-    }
-
-
-    if (flag_verbose)
-      printf("%5d\n\n", epoch);
-    if (flag_mse || mse_fail_limit != -1) {
-      mse /= batch_items * num_output;
-      if (flag_mse && (epoch % mse_reporting_period == 0))
-        printf("[STAT] epoch %d id %s bp %d mse %8.8f\n", epoch, id, binary_point, mse);
-    }
-    if (flag_bit_fail && (epoch % bit_fail_reporting_period == 0))
-      printf("[STAT] epoch %d id %s bp %d bfp %8.8f\n", epoch, id,
-             binary_point, 1 - (double) num_bits_failing / num_output /
-             batch_items);
-    if (flag_percent_correct && (epoch % percent_correct_reporting_period == 0))
-      printf("[STAT] epoch %d id %s bp %d perc %8.8f\n", epoch, id,
-             binary_point,
-             (double) num_correct / batch_items);
-    if (!flag_ignore_limits && (num_bits_failing == 0 || mse < mse_fail_limit))
-      goto finish;
-  }
-  goto finish;
-
- xfiles_incremental_performance:
-  cycles = read_csr(0xc00);
-  for (epoch = 0; epoch < max_epochs; epoch++) {
-    for (item = 0; item < batch_items; item++) {
-      // Run one training epoch
-      tid = new_write_request(nnid, 1, 0);
-      write_register(tid, xfiles_reg_learning_rate, learn_rate);
-      write_register(tid, xfiles_reg_weight_decay_lambda, weight_decay);
-      // Write the output and input data
-      write_data_train_incremental(tid, (element_type *) data->input[item],
-                                   (element_type *) data->output[item],
-                                   num_input, num_output);
-
-      // Blocking read
-      read_data_spinlock(tid, outputs, num_output);
-    }
-  }
-  goto finish;
 
   // Print overall statistics in a parser-friendly way
- finish:
-  cycles = read_csr(0xc00) - cycles;
-  if (flag_last)
-    printf("[STAT] bp %d id %s epoch %d\n", binary_point, id, epoch);
-  if (flag_cycles) {
-    printf("[STAT] x 0 id %s bp %d cycles %ld\n", id, binary_point, cycles);
-    printf("[STAT] x 0 id %s bp %d CUPC %0.8f\n", id, binary_point,
-           (connections_per_epoch * epoch * batch_items) / (double) cycles);
+  t.cycles = read_csr(0xc00) - t.cycles;
+  if (t.flags.last)
+    printf("[STAT] bp %d id %s t.epoch %d\n", t.binary_point, t.id, t.epoch);
+  if (t.flags.cycles) {
+    printf("[STAT] x 0 id %s bp %d cycles %ld\n", t.id, t.binary_point,
+           t.cycles);
+    printf("[STAT] x 0 id %s bp %d CUPC %0.8f\n", t.id, t.binary_point,
+           (t.connections_per_epoch * t.epoch * t.batch_items) /
+           (double) t.cycles);
   }
 
   // Free memory
  bail:
-  if (data != NULL)
-    fann_destroy_train(data);
-  if (table != NULL)
-    asid_nnid_table_destroy(&table);
-  if (outputs != NULL)
-    free(outputs);
-  if (outputs_old != NULL)
-    free(outputs_old);
-  if (file_video != NULL)
-    fclose(file_video);
-  return exit_code;
+  if (t.data != NULL)        fann_destroy_train(t.data);
+  if (t.table != NULL)       asid_nnid_table_destroy(&t.table);
+  if (t.outputs != NULL)     free(t.outputs);
+  if (t.outputs_old != NULL) free(t.outputs_old);
+  if (t.file_video != NULL)  fclose(t.file_video);
+  return t.exit_code;
 }
