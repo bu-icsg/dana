@@ -99,7 +99,6 @@ int main (int argc, char * argv[]) {
   }
 
   // Print overall statistics in a parser-friendly way
-  t.cycles = read_csr(0xc00) - t.cycles;
   if (t.flags.last)
     printf("[STAT] bp %d id %s t.epoch %d\n", t.binary_point, t.id, t.epoch);
   if (t.flags.cycles) {
