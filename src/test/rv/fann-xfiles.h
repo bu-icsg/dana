@@ -278,7 +278,8 @@ void parse_options(test_t * t, int argc, char ** argv) {
   }
 
   // Read the binary point and make sure its sane
-  t->binary_point = binary_config_read_binary_point(t->file_nn, t->binary_point_width) +
+  t->binary_point =
+    binary_config_read_binary_point(t->file_nn, t->binary_point_width) +
     t->binary_point_offset;
   if (t->binary_point < t->binary_point_offset) {
     fprintf(stderr, "[ERROR] Binary point (%d) looks bad, exiting\n\n",
@@ -332,6 +333,25 @@ int xfiles_train_incremental(test_t * t, int item_start, int item_stop) {
   return 0;
 }
 
+double to_float(test_t * t, element_type value) {
+  return value / t->multiplier;
+}
+
+int bit_fail(test_t * t, size_t item, size_t idx) {
+  double diff = to_float(t, t->outputs[idx] - t->data->output[item][idx]);
+  return fabs(diff > t->bit_fail_limit);
+}
+
+double compute_err(test_t * t, size_t item, size_t idx) {
+  return to_float(t, t->outputs[idx] - t->data->output[item][idx]);
+}
+
+double compute_mse_change(test_t * t, size_t item, size_t idx) {
+  double new_value = to_float(t, t->outputs[idx]);
+  double old_value = to_float(t, t->outputs[item * t->num_output + idx]);
+  return fabs(new_value - old_value);
+}
+
 // Do feedforward passes through the network for a specific set of
 // items
 int xfiles_eval_batch(test_t * t, int item_start, int item_stop) {
@@ -350,35 +370,33 @@ int xfiles_eval_batch(test_t * t, int item_start, int item_stop) {
     if (t->flags.verbose) {
       printf("[INFO] ");
       for (int i = 0; i < t->num_input; i++)
-        printf("%8.5f ", ((double) t->data->input[item][i]) / t->multiplier);
+        printf("%8.5f ", to_float(t, t->data->input[item][i]));
     }
 
     int correct = 1;
     for (int i = 0; i < t->num_output; i++) {
+      double output_float = to_float(t, t->outputs[i]);
       if (t->flags.verbose)
-        printf("%8.5f ", ((double)t->outputs[i])/t->multiplier);
-      t->num_bits_failing +=
-        fabs((double)(t->outputs[i] - t->data->output[item][i]) /
-             t->multiplier) > t->bit_fail_limit;
-      if (fabs((double)(t->outputs[i] - t->data->output[item][i]) /
-               t->multiplier) > t->bit_fail_limit)
+        printf("%8.5f ", output_float);
+
+      int bit_failure = bit_fail(t, item, i);
+      t->num_bits_failing += bit_failure;
+      if (bit_failure)
         correct = 0;
+
       if (t->flags.mse || t->mse_fail_limit != -1) {
-        t->error = (double)(t->outputs[i] - t->data->output[item][i]) /
-          t->multiplier;
+        t->error = compute_err(t, item, i);
         t->mse += t->error * t->error;
       }
+
       if (t->flags.watch_for_errors && t->epoch > 0) {
-        double change =
-          fabs(((double) t->outputs[i] / t->multiplier) -
-               ((double) t->outputs_old[item * t->num_output + i] /
-                t->multiplier));
+        double change = compute_mse_change(t, item, i);
         if (change > 0.1)
           printf("\n[ERROR] T->Epoch %d: Output changed by > 0.1 (%0.5f)",
                  t->epoch, change);
       }
       if (t->file_video)
-        fprintf(t->file_video, "%f ", (double) t->outputs[i]/t->multiplier);
+        fprintf(t->file_video, "%f ", output_float);
       t->outputs_old[item * t->num_output + i] = t->outputs[i];
     }
     t->num_correct += correct;
@@ -392,24 +410,29 @@ int xfiles_eval_batch(test_t * t, int item_start, int item_stop) {
 
   if (t->flags.verbose)
     printf("%5d\n\n", t->epoch);
+
   if (t->flags.mse || t->mse_fail_limit != -1) {
     t->mse /= t->batch_items * t->num_output;
     if (t->flags.mse && (t->epoch % t->mse_reporting_period == 0))
       printf("[STAT] epoch %d id %s bp %d mse %8.8f\n", t->epoch, t->id,
              t->binary_point, t->mse);
   }
+
   if (t->flags.bit_fail && (t->epoch % t->bit_fail_reporting_period == 0))
     printf("[STAT] epoch %d id %s bp %d bfp %8.8f\n", t->epoch, t->id,
            t->binary_point, 1 - (double) t->num_bits_failing /
            t->num_output / t->batch_items);
+
   if (t->flags.percent_correct &&
       (t->epoch % t->percent_correct_reporting_period == 0))
     printf("[STAT] epoch %d id %s bp %d perc %8.8f\n", t->epoch, t->id,
            t->binary_point,
            (double) t->num_correct / t->batch_items);
+
   if (!t->flags.ignore_limits &&
       (t->num_bits_failing == 0 || t->mse < t->mse_fail_limit))
     return 1;
+
   return 0;
 }
 
