@@ -14,8 +14,9 @@ C_FLAGS  ?= -Wall \
 	-static \
 	-march=RV64IMAFDXcustom \
 	-I$(DIR_TOP)/usr/include \
-	-I$(DIR_TOP)/build/nets
-L_FLAGS  ?= -L$(DIR_TOP)/usr/lib-rv \
+	-I$(DIR_TOP)/build/nets \
+	-I$(DIR_TOP)
+L_FLAGS  ?= -L$(DIR_TOP)/usr/lib-rv-newlib \
 	-lxfiles \
 	-lfixedfann \
 	-lm
@@ -32,7 +33,7 @@ PHONY += all default clean
 
 default: all
 
-%.rv: %.c $(DIR_TOP)/build/libxfiles.a $(DIR_TOP)/build/fann-rv-newlib/libfann.a
+%.rv: %.c $(DIR_TOP)/build/newlib/libxfiles.a $(DIR_TOP)/build/fann-rv-newlib/libfann.a
 	@ $(RV_CC) $(C_FLAGS) $< -o $@ $(L_FLAGS)
 
 # Common utilities
