@@ -80,43 +80,21 @@ int main (int argc, char * argv[]) {
     if (c == -1)
       break;
     switch (c) {
-    case 'b':
-      file_video_string = optarg;
-      break;
-    case 'c':
-      flag_cups = 1;
-      break;
-    case 'd':
-      batch_items = atoi(optarg);
-      break;
-    case 'e':
-      max_epochs = atoi(optarg);
-      break;
-    case 'f':
-      bit_fail_limit = atof(optarg);
-      break;
-    case 'g':
-      mse_fail_limit = atof(optarg);
-      break;
-    case 'h':
-      usage();
-      exit_code = 0;
-      goto bail;
-      break;
-    case 'i':
-      strcpy(id, optarg);
-      break;
-    case 'l':
-      flag_last = 1;
-      break;
+    case 'b': file_video_string = optarg; break;
+    case 'c': flag_cups = 1; break;
+    case 'd': batch_items = atoi(optarg); break;
+    case 'e': max_epochs = atoi(optarg); break;
+    case 'f': bit_fail_limit = atof(optarg); break;
+    case 'g': mse_fail_limit = atof(optarg); break;
+    case 'h': usage(); exit_code = 0; goto bail;
+    case 'i': strcpy(id, optarg); break;
+    case 'l': flag_last = 1; break;
     case 'm':
       if (optarg)
         mse_reporting_period = atoi(optarg);
       flag_mse = 1;
       break;
-    case 'n':
-      file_nn = optarg;
-      break;
+    case 'n': file_nn = optarg; break;
     case 'o':
       if (optarg)
         bit_fail_reporting_period = atoi(optarg);
@@ -127,21 +105,11 @@ int main (int argc, char * argv[]) {
         percent_correct_reporting_period = atoi(optarg);
       flag_percent_correct = 1;
       break;
-    case 'r':
-      learning_rate = atof(optarg);
-      break;
-    case 't':
-      file_train = optarg;
-      break;
-    case 'v':
-      flag_verbose = 1;
-      break;
-    case 'x':
-      type_training = (optarg) ? atoi(optarg) : FANN_TRAIN_INCREMENTAL;
-      break;
-    case 'z':
-      flag_ignore_limits = 1;
-      break;
+    case 'r': learning_rate = atof(optarg); break;
+    case 't': file_train = optarg; break;
+    case 'v': flag_verbose = 1; break;
+    case 'x': type_training=(optarg)?atoi(optarg):FANN_TRAIN_INCREMENTAL; break;
+    case 'z': flag_ignore_limits = 1; break;
     }
   };
 

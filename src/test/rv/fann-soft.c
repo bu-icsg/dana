@@ -70,46 +70,22 @@ int main (int argc, char * argv[]) {
     if (c == -1)
       break;
     switch (c) {
-    case 'c':
-      flag_cycles = 1;
-      break;
-    case 'e':
-      max_epochs = atoi(optarg);
-      break;
-    case 'f':
-      bit_fail_limit = atof(optarg);
-      break;
-    case 'g':
-      mse_fail_limit = atof(optarg);
-      break;
-    case 'h':
-      usage();
-      exit_code = 0;
-      goto bail;
-      break;
-    case 'i':
-      id = atoi(optarg);
-      break;
-    case 'l':
-      flag_last = 1;
-      break;
+    case 'c': flag_cycles = 1; break;
+    case 'e': max_epochs = atoi(optarg); break;
+    case 'f': bit_fail_limit = atof(optarg); break;
+    case 'g': mse_fail_limit = atof(optarg); break;
+    case 'h': usage(); exit_code = 0; goto bail;
+    case 'i': id = atoi(optarg); break;
+    case 'l': flag_last = 1; break;
     case 'm':
       if (optarg)
         mse_reporting_period = atoi(optarg);
       flag_mse = 1;
       break;
-    case 'n':
-      file_nn = optarg;
-      break;
-    case 'p':
-      flag_performance = 1;
-      break;
-    case 't':
-      file_train = optarg;
-      break;
-    case 'v':
-      flag_verbose = 1;
-      break;
+    case 'n': file_nn = optarg; break;
+    case 'p': flag_performance = 1; break;
+    case 't': file_train = optarg; break;
+    case 'v': flag_verbose = 1; break;
     }
   };
 
@@ -140,71 +116,67 @@ int main (int argc, char * argv[]) {
   fann_type * calc_out;
   double mse;
 
-  if (flag_performance) goto fann_performance;
-  else goto fann_verbose;
-
- fann_verbose:
-  cycles = read_csr(0xc00);
-  for (epoch = 0; epoch < max_epochs; epoch++) {
-    fann_train_epoch(ann, data);
-    fann_reset_MSE(ann);
-    for (item = 0; item < fann_length_train_data(data); item++) {
-      calc_out = fann_test(ann, data->input[item], data->output[item]);
-      if (flag_verbose) {
-        printf("[INFO] ");
-        for (k = 0; k < data->num_input; k++) {
-          printf("%8.5f ", data->input[item][k]);
+  if (!flag_performance) {
+    cycles = read_csr(0xc00);
+    for (epoch = 0; epoch < max_epochs; epoch++) {
+      fann_train_epoch(ann, data);
+      fann_reset_MSE(ann);
+      for (item = 0; item < fann_length_train_data(data); item++) {
+        calc_out = fann_test(ann, data->input[item], data->output[item]);
+        if (flag_verbose) {
+          printf("[INFO] ");
+          for (k = 0; k < data->num_input; k++) {
+            printf("%8.5f ", data->input[item][k]);
+          }
+        }
+        for (k = 0; k < data->num_output; k++) {
+          if (flag_verbose)
+            printf("%8.5f ", calc_out[k]);
+          bits_failing += fabs(calc_out[k] - data->output[item][k]) > bit_fail_limit;
+        }
+        if (flag_verbose) {
+          if (item < fann_length_train_data(data) - 1)
+            printf("\n");
         }
       }
-      for (k = 0; k < data->num_output; k++) {
-        if (flag_verbose)
-          printf("%8.5f ", calc_out[k]);
-        bits_failing += fabs(calc_out[k] - data->output[item][k]) > bit_fail_limit;
+      if (flag_verbose)
+        printf("%5d\n\n", epoch);
+      if (flag_mse  && (epoch % mse_reporting_period == 0)) {
+        mse = fann_get_MSE(ann);
+        switch(af) {
+          case FANN_LINEAR_PIECE_SYMMETRIC:
+          case FANN_THRESHOLD_SYMMETRIC:
+          case FANN_SIGMOID_SYMMETRIC:
+          case FANN_SIGMOID_SYMMETRIC_STEPWISE:
+          case FANN_ELLIOT_SYMMETRIC:
+          case FANN_GAUSSIAN_SYMMETRIC:
+          case FANN_SIN_SYMMETRIC:
+          case FANN_COS_SYMMETRIC:
+            mse *= 4.0;
+          default:
+            break;
+        }
+        printf("[STAT] epoch %d id %d mse %8.8f\n", epoch, id, mse);
       }
-      if (flag_verbose) {
-        if (item < fann_length_train_data(data) - 1)
-          printf("\n");
-      }
-    }
-    if (flag_verbose)
-      printf("%5d\n\n", epoch);
-    if (flag_mse  && (epoch % mse_reporting_period == 0)) {
-      mse = fann_get_MSE(ann);
-      switch(af) {
-      case FANN_LINEAR_PIECE_SYMMETRIC:
-      case FANN_THRESHOLD_SYMMETRIC:
-      case FANN_SIGMOID_SYMMETRIC:
-      case FANN_SIGMOID_SYMMETRIC_STEPWISE:
-      case FANN_ELLIOT_SYMMETRIC:
-      case FANN_GAUSSIAN_SYMMETRIC:
-      case FANN_SIN_SYMMETRIC:
-      case FANN_COS_SYMMETRIC:
-        mse *= 4.0;
-      default:
+      if (bits_failing == 0 || mse < mse_fail_limit)
         break;
-      }
-      printf("[STAT] epoch %d id %d mse %8.8f\n", epoch, id, mse);
     }
-    if (bits_failing == 0 || mse < mse_fail_limit)
-      goto finish;
   }
-  goto finish;
-
- fann_performance:
-  cycles = read_csr(0xc00);
-  for (epoch = 0; epoch < max_epochs; epoch++)
-    fann_train_epoch(ann, data);
-  goto finish;
+  else {
+    cycles = read_csr(0xc00);
+    for (epoch = 0; epoch < max_epochs; epoch++)
+      fann_train_epoch(ann, data);
+  }
 
   // Print overall statistics in a parser-friendly way
- finish:
   cycles = read_csr(0xc00) - cycles;
   if (flag_last)
     printf("[STAT] id %d epoch %d\n", id, epoch);
   if (flag_cycles) {
     printf("[STAT] x 0 id %d cycles %ld\n", id, cycles);
     printf("[STAT] x 0 id %d CUPC %0.8f\n", id,
-           (fann_get_total_connections(ann) * epoch * batch_items) / (double) cycles);
+           (fann_get_total_connections(ann) * epoch * batch_items) /
+           (double) cycles);
   }
 
   // Free memory
