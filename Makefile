@@ -257,6 +257,10 @@ $(DIR_BUILD)/fann/libfann.so:
 	../../submodules/fann && \
 	$(MAKE)
 
+# Newer versions of FANN includes additional tests which newlib cannot
+# build. Hence, this target is set to ignore all build errors. This is
+# dangerous, but I don't see a way around it without me putting a fix
+# in FANN.
 $(DIR_BUILD)/fann-rv-newlib/libfann.a:
 	if [ ! -d $(DIR_BUILD)/fann-rv-newlib ]; \
 	  then mkdir -p $(DIR_BUILD)/fann-rv-newlib; fi
@@ -275,11 +279,10 @@ $(DIR_BUILD)/fann-rv-newlib/libfann.a:
 	-DCMAKE_C_COMPILER=$(RV_CC) \
 	-DCMAKE_CXX_COMPILER=$(RV_CXX) \
 	-DCMAKE_SYSTEM_NAME=Generic \
+	-DDISABLE_PARALLEL_FANN=1 \
 	-DBUILD_SHARED_LIBS=OFF \
-	-DCMAKE_C_FLAGS="-DFANN_NO_SEED" \
-	-DCMAKE_CXX_FLAGS="-DFANN_NO_SEED" \
 	../../submodules/fann && \
-	$(MAKE)
+	$(MAKE) -k || true
 
 $(DIR_BUILD)/fann-rv-linux/libfann.a:
 	if [ ! -d $(DIR_BUILD)/fann-rv-linux ]; \
@@ -297,10 +300,7 @@ $(DIR_BUILD)/fann-rv-linux/libfann.a:
 	  $(DIR_BUILD)/fann-rv-linux) \
 	-DCMAKE_C_COMPILER=$(RV_CC_LINUX) \
 	-DCMAKE_CXX_COMPILER=$(RV_CXX_LINUX) \
-	-DCMAKE_SYSTEM_NAME=Generic \
-	-DBUILD_SHARED_LIBS=OFF \
-	-DCMAKE_C_FLAGS="-DFANN_NO_SEED" \
-	-DCMAKE_CXX_FLAGS="-DFANN_NO_SEED" \
+	-DDISABLE_PARALLEL_FANN=1 \
 	../../submodules/fann && \
 	$(MAKE)
 
