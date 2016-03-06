@@ -42,7 +42,7 @@ x_len xfiles_dana_id(int flag_print) {
   return out;
 }
 
-tid_type new_write_request(nnid_type nnid, int learning_type,
+tid_type new_write_request(nnid_type nnid, learning_type_t learning_type,
                            element_type num_train_outputs) {
   uint64_t out, rs2;
 

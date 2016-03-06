@@ -37,6 +37,11 @@ typedef enum {
   UPDATE_ANTP = 1
 } request_super_t;
 
+typedef enum {
+  FEEDFORWARD = 0,
+  TRAIN_INCREMENTAL = 1,
+  TRAIN_BATCH = 2
+} learning_type_t;
 
 //-------------------------------------- Userland
 
@@ -50,7 +55,7 @@ x_len xfiles_dana_id(int flag_print);
 // functions. The second parameter, "num_train_outputs", when set to
 // zero indicates that this is a feedforward computation. If non-zero,
 // this is a learning request.
-tid_type new_write_request(nnid_type nnid, int learning_type,
+tid_type new_write_request(nnid_type nnid, learning_type_t learning_type,
                            element_type num_train_outputs);
 
 // Function to write a specific register inside of the X-Files
