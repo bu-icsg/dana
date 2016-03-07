@@ -144,5 +144,8 @@ class XFilesArbiter(implicit p: Parameters) extends XFilesModule()(p) {
   // io.dana.peTable <> tTable.io.peTable
   io.dana.regFile <> tTable.io.regFile
   io.dana.cache <> antw.io.cache
-  (0 until numCores).map(i => io.core(i).mem <> antw.io.mem(i))
+
+  (0 until numCores).map(i => {
+    io.core(i).mem <> antw.io.mem(i)
+    io.core(i).autl <> antw.io.autl(i) })
 }
