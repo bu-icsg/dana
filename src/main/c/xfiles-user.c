@@ -1,6 +1,9 @@
 // See LICENSE for license details.
 
-#include "xfiles.h"
+#ifndef SRC_MAIN_C_XFILES_USER_H
+#define SRC_MAIN_C_XFILES_USER_H
+
+#include "src/main/c/xfiles-user.h"
 
 // All RoCC communication occurs using the "custom0" RISC-V
 // instruction of the following format:
@@ -42,13 +45,13 @@ x_len xfiles_dana_id(int flag_print) {
   return out;
 }
 
-tid_type new_write_request(nnid_type nnid, learning_type_t learning_type,
-                           element_type num_train_outputs) {
+tid_t new_write_request(nnid_t nnid, learning_t_t learning_t,
+                           element_t num_train_outputs) {
   uint64_t out, rs2;
 
   rs2 = (uint64_t) nnid |
     ((uint64_t) num_train_outputs << 32) |
-    ((uint64_t) learning_type << 48);
+    ((uint64_t) learning_t << 48);
 
   // Initiate a new transaction by setting the "readOrWrite" (bit 0,
   // read == 0 / write == 1) and "isNew" (bit 1) flags of "funct",
@@ -64,7 +67,7 @@ tid_type new_write_request(nnid_type nnid, learning_type_t learning_type,
   return (out >> 32) & ~((~0) << 16);
 }
 
-void write_register(tid_type tid, xfiles_reg reg, uint32_t value) {
+void write_register(tid_t tid, xfiles_reg reg, uint32_t value) {
 
   uint64_t rs2;
   rs2 = (uint64_t) value | ((uint64_t) reg << 32);
@@ -74,7 +77,7 @@ void write_register(tid_type tid, xfiles_reg reg, uint32_t value) {
                  [type] "i" (WRITE_REGISTER));
 }
 
-void write_data(tid_type tid, element_type * data, size_t count) {
+void write_data(tid_t tid, element_t * data, size_t count) {
   int i;
 
   // There are two types of writes available to users determined by
@@ -94,15 +97,15 @@ void write_data(tid_type tid, element_type * data, size_t count) {
                  [type] "i" (WRITE_DATA_LAST));
 }
 
-void write_data_train_incremental(tid_type tid, element_type * input,
-                                  element_type * output, size_t count_input,
+void write_data_train_incremental(tid_t tid, element_t * input,
+                                  element_t * output, size_t count_input,
                                   size_t count_output) {
   // Simply write the exepcted outputs followed by the inputs.
   write_data(tid, output, count_output);
   write_data(tid, input, count_input);
 }
 
-uint64_t read_data_spinlock(tid_type tid, element_type * data, size_t count) {
+uint64_t read_data_spinlock(tid_t tid, element_t * data, size_t count) {
   int i;
   uint64_t out;
 
@@ -143,3 +146,38 @@ uint64_t read_data_spinlock(tid_type tid, element_type * data, size_t count) {
                   : [rs1] "r" (tid), [type] "i" (READ_DATA));
   return 0;
 }
+
+//-------------------------------------- Systemcall Support in the Proxy Kernel
+uint64_t syscall_set_asid(asid_t asid) {
+  asm volatile ("mv a0, %[asid]\n\t"
+                "li a7, 512\n\t"
+                "ecall"
+                :: [asid] "r" (asid)
+                : "a0", "a7");
+  return 0;
+}
+
+// nnid_t syscall_attach_nn_configuration(asid_t asid,
+//                                          const char * file_name) {
+//   int file_size, nnid;
+//   FILE *fp;
+
+//   // Open the file and find out how big it is so that we can allocate
+//   // the correct amount of space
+//   if (!(fp = fopen(file_name, "rb"))) {
+//     printk("[ERROR] Unable to open %s\n", file_name);
+//     return -1;
+//   }
+
+//   asm volatile ("mv a0, %[asid]\n\t"
+//                 "mv a1, %[file_name]\n\t"
+//                 "li a7, 513\n\t"
+//                 "ecall\n\t"
+//                 "mv %[nnid], v0"
+//                 : [nnid] "=r" (nnid)
+//                 : [asid] "r" (asid), [file_name] "r" (file_name)
+//                 : "a0", "a1", "a7", "v0");
+//   return nnid;
+// }
+
+#endif  // SRC_MAIN_C_XFILES_USER_H

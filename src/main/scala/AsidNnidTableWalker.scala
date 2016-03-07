@@ -211,7 +211,8 @@ class AsidNnidTableWalker(implicit p: Parameters) extends XFilesModule()(p) {
         cacheReqCurrent.cacheIndex := cacheReqQueue.io.deq.bits.cacheIndex
         cacheReqCurrent.coreIndex := cacheReqQueue.io.deq.bits.coreIndex
         memRead(cacheReqQueue.io.deq.bits.coreIndex, reqAddr)
-        state := s_CHECK_NNID_WAIT
+        // state := s_CHECK_NNID_WAIT
+        state := s_ERROR
         printfInfo("ANTW: Dequeuing mem request for Core/ASID/NNID/Idx 0x%x/0x%x/0x%x/0x%x\n",
           cacheReqQueue.io.deq.bits.coreIndex, cacheReqQueue.io.deq.bits.asid,
           cacheReqQueue.io.deq.bits.nnid, cacheReqQueue.io.deq.bits.cacheIndex)

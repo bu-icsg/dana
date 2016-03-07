@@ -23,8 +23,8 @@ int main (int argc, char * argv[]) {
     goto bail;
 
   // Create the ASID--NNID Table
-  asid_nnid_table_create(&t.table, t.asid * 2 + 1, t.nnid * 2 + 1);
-  set_antp(t.table);
+  // asid_nnid_table_create(&t.table, t.asid * 2 + 1, t.nnid * 2 + 1);
+  // set_antp(t.table);
 
   // Populate the ASID--NNID Table
   int i;

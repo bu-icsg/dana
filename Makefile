@@ -130,8 +130,10 @@ LFLAGS        = $(addprefix -Wl$(COMMA)-R, $(shell readlink -f $(LIB_PATHS))) \
 	$(LIB_PATHS:%=-L %) $(LIB_LIBS:%=-l %)
 
 # X-FILES libraries related
-XFILES_LIBRARIES_NEWLIB = $(DIR_BUILD)/newlib/libxfiles.a
-XFILES_LIBRARIES_LINUX = $(DIR_BUILD)/linux/libxfiles.a
+XFILES_LIBRARIES_NEWLIB = $(DIR_BUILD)/newlib/libxfiles-user.a \
+	$(DIR_BUILD)/newlib/libxfiles-supervisor.a
+XFILES_LIBRARIES_LINUX = $(DIR_BUILD)/linux/libxfiles-user.a \
+	$(DIR_BUILD)/linux/libxfiles-supervisor.a
 #$(DIR_BUILD)/libxfiles.so
 XFILES_LIBRARIES_OBJECTS_NEWLIB = $(DIR_BUILD)/newlib/xfiles-user.o \
 	$(DIR_BUILD)/newlib/xfiles-supervisor.o
@@ -335,14 +337,14 @@ rv: $(XFILES_LIBRARIES_NEWLIB) $(XFILES_LIBRARIES_LINUX) \
 $(DIR_BUILD)/newlib/%.o: %.c $(DIR_BUILD)/newlib
 	$(RV_CC) -Wall -Werror -march=RV64IMAFDXcustom -I. -c $< -o $@
 
-$(DIR_BUILD)/newlib/libxfiles.a: $(XFILES_LIBRARIES_OBJECTS_NEWLIB) xfiles.h
-	$(RV_AR) rcs $@ $(XFILES_LIBRARIES_OBJECTS_NEWLIB)
+$(DIR_BUILD)/newlib/lib%.a: $(DIR_BUILD)/newlib/%.o %.h
+	$(RV_AR) rcs $@ $<
 
 $(DIR_BUILD)/linux/%.o: %.c $(DIR_BUILD)/linux
 	$(RV_CC_LINUX) -Wall -Werror -march=RV64IMAFDXcustom -I. -c $< -o $@
 
-$(DIR_BUILD)/linux/libxfiles.a: $(XFILES_LIBRARIES_OBJECTS_LINUX) xfiles.h
-	$(RV_AR_LINUX) rcs $@ $(XFILES_LIBRARIES_OBJECTS_LINUX)
+$(DIR_BUILD)/linux/lib%.a: $(DIR_BUILD)/linux/%.o %.h
+	$(RV_AR) rcs $@ $<
 
 #------------------- Chisel Build Targets
 $(DIR_BUILD)/%$(CHISEL_CONFIG_DOT).cpp: %.scala $(ALL_MODULES)
@@ -382,16 +384,16 @@ $(DIR_BUILD)/%$(FPGA_CONFIG_DOT)-vcd.vvp: %.v $(BACKEND_VERILOG) $(HEADERS_V)
 
 #------------------- RISC-V Tests
 $(DIR_BUILD)/newlib/fann-soft.rv: fann-soft.c $(DIR_BUILD_NETS) $(XFILES_LIBRARIES_NEWLIB) $(DIR_BUILD)/newlib $(DIR_BUILD)/fann-rv-newlib/libfann.a
-	$(RV_CC) -Wall -Werror -static -march=RV64IMAFDXcustom -I$(DIR_SRC_C) -I$(DIR_BUILD_NETS) -I$(DIR_USR_INCLUDE) -I. $< -o $@ -L$(DIR_USR)/lib-rv-newlib -lxfiles -lfann -lm
+	$(RV_CC) -Wall -Werror -static -march=RV64IMAFDXcustom -I$(DIR_SRC_C) -I$(DIR_BUILD_NETS) -I$(DIR_USR_INCLUDE) -I. $< -o $@ -L$(DIR_USR)/lib-rv-newlib -lxfiles-user -lfann -lm
 
 $(DIR_BUILD)/linux/fann-soft.rv: fann-soft.c $(DIR_BUILD_NETS) $(XFILES_LIBRARIES_LINUX) $(DIR_BUILD)/linux $(DIR_BUILD)/fann-rv-linux/libfann.a
-	$(RV_CC_LINUX) -Wall -Werror -static -march=RV64IMAFDXcustom -I$(DIR_SRC_C) -I$(DIR_BUILD_NETS) -I$(DIR_USR_INCLUDE) -I. $< -o $@ -L$(DIR_USR)/lib-rv-linux -lxfiles -lfann -lm
+	$(RV_CC_LINUX) -Wall -Werror -static -march=RV64IMAFDXcustom -I$(DIR_SRC_C) -I$(DIR_BUILD_NETS) -I$(DIR_USR_INCLUDE) -I. $< -o $@ -L$(DIR_USR)/lib-rv-linux -lxfiles-user -lfann -lm
 
 $(DIR_BUILD)/newlib/%.rv: %.c $(DIR_BUILD_NETS) $(XFILES_LIBRARIES_NEWLIB) $(DIR_BUILD)/newlib $(DIR_BUILD)/fann-rv-newlib/libfann.a
-	$(RV_CC) -Wall -Werror -static -march=RV64IMAFDXcustom -I$(DIR_SRC_C) -I$(DIR_BUILD_NETS) -I$(DIR_USR_INCLUDE) -I. $< -o $@ -L$(DIR_USR)/lib-rv-newlib -lxfiles -lfixedfann -lm
+	$(RV_CC) -Wall -Werror -static -march=RV64IMAFDXcustom -I$(DIR_SRC_C) -I$(DIR_BUILD_NETS) -I$(DIR_USR_INCLUDE) -I. $< -o $@ -L$(DIR_USR)/lib-rv-newlib -lxfiles-user -lfixedfann -lm
 
 $(DIR_BUILD)/linux/%.rv: %.c $(DIR_BUILD_NETS) $(XFILES_LIBRARIES_LINUX) $(DIR_BUILD)/linux $(DIR_BUILD)/fann-rv-linux/libfann.a
-	$(RV_CC_LINUX) -Wall -Werror -static -march=RV64IMAFDXcustom -I$(DIR_SRC_C) -I$(DIR_BUILD_NETS) -I$(DIR_USR_INCLUDE) -I. $< -o $@ -L$(DIR_USR)/lib-rv-linux -lxfiles -lfixedfann -lm
+	$(RV_CC_LINUX) -Wall -Werror -static -march=RV64IMAFDXcustom -I$(DIR_SRC_C) -I$(DIR_BUILD_NETS) -I$(DIR_USR_INCLUDE) -I. $< -o $@ -L$(DIR_USR)/lib-rv-linux -lxfiles-user -lfixedfann -lm
 
 $(DIR_BUILD)/newlib/%.rvS: $(DIR_BUILD)/newlib/%.rv
 	$(RV_OBJDUMP) -S $< > $@

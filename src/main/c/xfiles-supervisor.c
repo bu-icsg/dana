@@ -1,28 +1,16 @@
 // See LICENSE for license details.
 
-#include "xfiles.h"
+#include "src/main/c/xfiles-supervisor.h"
 
-uint64_t set_asid (asid_type asid) {
-  // This currently depends on a backing OS system call supported by
-  // the Proxy Kernel (a basic RISC-V OS). Using the RISC-V function
-  // calling convention, the asid is placed into register a0, the
-  // syscall ID (#512) in register a7, and we generate a syscall. The
-  // Proxy Kernel will then generate a special custom0 instruction
-  // that sets the ASID. No output is expected, so we just return
-  // whenever the OS returns control.
-  asm volatile ("mv a0, %[asid]; li a7, 512; ecall"
-                :: [asid] "r" (asid)
-                : "a0", "a7");
+uint64_t set_asid (asid_t asid) {
+  asm volatile ("custom0 0, %[rs1], 0, 0"
+                :: [rs1] "r" (asid));
   return 0;
 }
 
-uint64_t set_antp (asid_nnid_table * os_antp) {
-  // As with `set_asid`, this relies on the Proxy Kernel to handle
-  // this system call. This passes a pointer to the first ASID--NNID
-  // table entry and the size (i.e., the number of ASIDs).
-  asm volatile ("mv a0, %[antp]; mv a1, %[size]; li a7, 513; ecall"
-                :: [antp] "r" (os_antp->entry), [size] "r" (os_antp->size)
-                : "a0", "a7");
+uint64_t set_antp (asid_nnid_table_t * os_antp) {
+  asm volatile ("custom0 0, %[rs1], %[rs2], 1"
+                :: [rs1] "r" (os_antp->entry), [rs2] "r" (os_antp->size));
   return 0;
 }
 
@@ -38,20 +26,20 @@ void destroy_queue(queue ** old_queue) {
   free(*old_queue);
 }
 
-void asid_nnid_table_create(asid_nnid_table ** new_table, size_t table_size,
+void asid_nnid_table_create(asid_nnid_table_t ** new_table, size_t table_size,
                             size_t configs_per_entry) {
   int i;
 
   // Allocate space for the table
-  *new_table = (asid_nnid_table *) malloc(sizeof(asid_nnid_table));
+  *new_table = (asid_nnid_table_t *) malloc(sizeof(asid_nnid_table_t));
   (*new_table)->entry =
-    (asid_nnid_table_entry *) malloc(sizeof(asid_nnid_table_entry) * table_size);
+      (asid_nnid_table_entry *) malloc(sizeof(asid_nnid_table_entry) * table_size);
   (*new_table)->size = table_size;
 
   for (i = 0; i < table_size; i++) {
     // Create the configuration region
     (*new_table)->entry[i].asid_nnid =
-      (nn_configuration *) malloc(configs_per_entry * sizeof(nn_configuration));
+        (nn_configuration *) malloc(configs_per_entry * sizeof(nn_configuration));
     (*new_table)->entry[i].asid_nnid->config = NULL;
     (*new_table)->entry[i].num_configs = configs_per_entry;
     (*new_table)->entry[i].num_valid = 0;
@@ -67,7 +55,7 @@ void asid_nnid_table_create(asid_nnid_table ** new_table, size_t table_size,
 
 }
 
-void asid_nnid_table_destroy(asid_nnid_table ** old_table) {
+void asid_nnid_table_destroy(asid_nnid_table_t ** old_table) {
   int i, j;
   for (i = 0; i < (*old_table)->size; i++) {
     // Destroy the configuration region
@@ -86,156 +74,147 @@ void asid_nnid_table_destroy(asid_nnid_table ** old_table) {
   free(*old_table);
 }
 
-void asid_nnid_table_info(asid_nnid_table * table) {
+void asid_nnid_table_info(asid_nnid_table_t * table) {
   int i, j;
-  printf("[INFO] 0x%lx <- Table Head\n", (uint64_t) table);
-  printf("[INFO]   |-> 0x%lx: size:                     0x%lx\n",
+  printk("[INFO] 0x%lx <- Table Head\n", (uint64_t) table);
+  printk("[INFO]   |-> 0x%lx: size:                     0x%lx\n",
          (uint64_t) &table->size,
          (uint64_t) table->size);
-  printf("[INFO]       0x%lx: * entry:                  0x%lx\n",
+  printk("[INFO]       0x%lx: * entry:                  0x%lx\n",
          (uint64_t) &table->entry,
          (uint64_t) table->entry);
   for (i = 0; i < table->size; i++) {
-    printf("[INFO]         |-> [%0d] 0x%lx: num_configs:    0x%lx\n", i,
+    printk("[INFO]         |-> [%0d] 0x%lx: num_configs:    0x%lx\n", i,
            (uint64_t) &table->entry[i].num_configs,
            (uint64_t) table->entry[i].num_configs);
-    printf("[INFO]         |       0x%lx: num_valid:      0x%lx\n",
+    printk("[INFO]         |       0x%lx: num_valid:      0x%lx\n",
            (uint64_t) &table->entry[i].num_valid,
            (uint64_t) table->entry[i].num_valid);
-    printf("[INFO]         |       0x%lx: asid_nnid:      0x%lx\n",
+    printk("[INFO]         |       0x%lx: asid_nnid:      0x%lx\n",
            (uint64_t) &table->entry[i].asid_nnid,
            (uint64_t) table->entry[i].asid_nnid);
     // Dump the `nn_configuration`
     for (j = 0; j < table->entry[i].num_valid; j++) {
-      printf("[INFO]         |         |-> [%0d] 0x%lx: size:             0x%lx\n", j,
+      printk("[INFO]         |         |-> [%0d] 0x%lx: size:             0x%lx\n", j,
              (uint64_t) &table->entry[i].asid_nnid[j].size,
              (uint64_t) table->entry[i].asid_nnid[j].size);
-      printf("[INFO]         |         |       0x%lx: elements_per_block: 0d%ld\n",
+      printk("[INFO]         |         |       0x%lx: elements_per_block: 0d%ld\n",
              (uint64_t) &table->entry[i].asid_nnid[j].elements_per_block,
              (uint64_t) table->entry[i].asid_nnid[j].elements_per_block);
-      printf("[INFO]         |         |       0x%lx: * config:           0x%lx\n",
+      printk("[INFO]         |         |       0x%lx: * config:           0x%lx\n",
              (uint64_t) &table->entry[i].asid_nnid[j].config,
              (uint64_t) table->entry[i].asid_nnid[j].config);
     }
     // Back to `asid_nnid_table_entry`
-    printf("[INFO]         |       0x%lx: transaction_io: 0x%lx\n",
+    printk("[INFO]         |       0x%lx: transaction_io: 0x%lx\n",
            (uint64_t) &table->entry[i].transaction_io,
            (uint64_t) table->entry[i].transaction_io);
     // Dump the `io`
-    printf("[INFO]         |         |-> 0x%lx: header:   0x%lx\n",
+    printk("[INFO]         |         |-> 0x%lx: header:   0x%lx\n",
            (uint64_t) &table->entry[i].transaction_io->header,
            (uint64_t) table->entry[i].transaction_io->header);
-    printf("[INFO]         |         |   0x%lx: * input:  0x%lx\n",
+    printk("[INFO]         |         |   0x%lx: * input:  0x%lx\n",
            (uint64_t) &table->entry[i].transaction_io->input,
            (uint64_t) table->entry[i].transaction_io->input);
-    printf("[INFO]         |         |   0x%lx: * output: 0x%lx\n",
+    printk("[INFO]         |         |   0x%lx: * output: 0x%lx\n",
            (uint64_t) &table->entry[i].transaction_io->output,
            (uint64_t) table->entry[i].transaction_io->output);
   }
 }
 
-int attach_nn_configuration(asid_nnid_table ** table, uint16_t asid,
-                            const char * file_name) {
-  int file_size, nnid;
-  FILE *fp;
+// int attach_nn_configuration(asid_nnid_table_t ** table, asid_t asid,
+//                             const char * file_name) {
 
-  if (asid >= (*table)->size) {
-    printf("[ERROR] Cannot append NN because ASID is too large\n");
-    return -1;
-  }
-  if ((*table)->entry[asid].num_valid == (*table)->entry[asid].num_configs) {
-    printf("[ERROR] Cannot append configuration because all slots allocated\n");
-    return -1;
-  }
+//   if (asid >= (*table)->size) {
+//     printk("[ERROR] Cannot append NN because ASID is too large\n");
+//     return -1;
+//   }
+//   if ((*table)->entry[asid].num_valid == (*table)->entry[asid].num_configs) {
+//     printk("[ERROR] Cannot append configuration because all slots allocated\n");
+//     return -1;
+//   }
 
-  // Open the file and find out how big it is so that we can allocate
-  // the correct amount of space
-  if (!(fp = fopen(file_name, "rb"))) {
-    printf("[ERROR] Unable to open %s\n", file_name);
-    return -1;
-  }
+//   nnid = (*table)->entry[asid].num_valid;
 
-  nnid = (*table)->entry[asid].num_valid;
+//   // Kludge until fseek works again
+//   // fseek(fp, 0L, SEEK_END);
+//   char c = 'a';
+//   while (fread(&c, 1, 1, fp)) {}
 
-  // Kludge until fseek works again
-  // fseek(fp, 0L, SEEK_END);
-  char c = 'a';
-  while (fread(&c, 1, 1, fp)) {}
+//   file_size = ftell(fp) / sizeof(x_len);
+//   file_size += (ftell(fp) % sizeof(x_len)) ? 1 : 0;
+//   fseek(fp, 0L, SEEK_SET);
 
-  file_size = ftell(fp) / sizeof(x_len);
-  file_size += (ftell(fp) % sizeof(x_len)) ? 1 : 0;
-  fseek(fp, 0L, SEEK_SET);
+//   if (file_size <= 0) {
+//     printk("[ERROR] Found nonsensical file size (%d) for file %s\n",
+//            file_size, file_name);
+//     return -1;
+//   }
 
-  if (file_size <= 0) {
-    printf("[ERROR] Found nonsensical file size (%d) for file %s\n",
-           file_size, file_name);
-    return -1;
-  }
+//   (*table)->entry[asid].asid_nnid[nnid].size = file_size;
 
-  (*table)->entry[asid].asid_nnid[nnid].size = file_size;
+//   // Compute the elements per block as set in the neural network
+//   // configuration and write this into the ASID--NNID Table Entry
+//   uint64_t block_64;
+//   fread(&block_64, sizeof(block_64), 1, fp);
+//   fseek(fp, 0L, SEEK_SET);
+//   block_64 = (block_64 >> 4) & 3;
+//   (*table)->entry[asid].asid_nnid[nnid].elements_per_block = 1 << (block_64 + 2);
 
-  // Compute the elements per block as set in the neural network
-  // configuration and write this into the ASID--NNID Table Entry
-  uint64_t block_64;
-  fread(&block_64, sizeof(block_64), 1, fp);
-  fseek(fp, 0L, SEEK_SET);
-  block_64 = (block_64 >> 4) & 3;
-  (*table)->entry[asid].asid_nnid[nnid].elements_per_block = 1 << (block_64 + 2);
+//   // Allocate space for this configuraiton
+//   (*table)->entry[asid].asid_nnid[nnid].config =
+//       (x_len *) malloc(file_size * sizeof(x_len));
+//   // Write the configuration
+//   fread((*table)->entry[asid].asid_nnid[nnid].config, sizeof(x_len),
+//         file_size, fp);
 
-  // Allocate space for this configuraiton
-  (*table)->entry[asid].asid_nnid[nnid].config =
-    (x_len *) malloc(file_size * sizeof(x_len));
-  // Write the configuration
-  fread((*table)->entry[asid].asid_nnid[nnid].config, sizeof(x_len),
-        file_size, fp);
+//   fclose(fp);
+//   return ++(*table)->entry[asid].num_valid;
+// }
 
-  fclose(fp);
-  return ++(*table)->entry[asid].num_valid;
-}
+// int attach_garbage(asid_nnid_table_t ** table, uint16_t asid) {
 
-int attach_garbage(asid_nnid_table ** table, uint16_t asid) {
+//   int nnid;
 
-  int nnid;
+//   if (asid >= (*table)->size) {
+//     printk("[ERROR] Cannot append NN because ASID is too large\n");
+//     return -1;
+//   }
+//   if ((*table)->entry[asid].num_valid == (*table)->entry[asid].num_configs) {
+//     printk("[ERROR] Cannot append configuration because all slots allocated\n");
+//     return -1;
+//   }
 
-  if (asid >= (*table)->size) {
-    printf("[ERROR] Cannot append NN because ASID is too large\n");
-    return -1;
-  }
-  if ((*table)->entry[asid].num_valid == (*table)->entry[asid].num_configs) {
-    printf("[ERROR] Cannot append configuration because all slots allocated\n");
-    return -1;
-  }
+//   nnid = (*table)->entry[asid].num_valid;
+//   (*table)->entry[asid].asid_nnid[nnid].size = 0;
+//   (*table)->entry[asid].asid_nnid[nnid].config = NULL;
 
-  nnid = (*table)->entry[asid].num_valid;
-  (*table)->entry[asid].asid_nnid[nnid].size = 0;
-  (*table)->entry[asid].asid_nnid[nnid].config = NULL;
+//   return ++(*table)->entry[asid].num_valid;
+// }
 
-  return ++(*table)->entry[asid].num_valid;
-}
+// int attach_nn_configuration_array(uint16_t asid, const x_len * array,
+//                                   size_t size) {
+//   int nnid;
 
-int attach_nn_configuration_array(asid_nnid_table ** table, uint16_t asid,
-                                  const x_len * array, size_t size) {
-  int nnid;
+//   // Fail if we've run out of space
+//   if ((*table)->entry[asid].num_valid == (*table)->entry[asid].num_configs) {
+//     printk("[ERROR] Cannot append configuration because all slots allocated\n");
+//     return -1;
+//   }
 
-  // Fail if we've run out of space
-  if ((*table)->entry[asid].num_valid == (*table)->entry[asid].num_configs) {
-    printf("[ERROR] Cannot append configuration because all slots allocated\n");
-    return -1;
-  }
+//   // The NNID is the index into the ASID--NNID array. The NNID is
+//   // implict here as it is the _next_ unallocated entry in the
+//   // ASID--NNID array.
+//   nnid = (*table)->entry[asid].num_valid;
 
-  // The NNID is the index into the ASID--NNID array. The NNID is
-  // implict here as it is the _next_ unallocated entry in the
-  // ASID--NNID array.
-  nnid = (*table)->entry[asid].num_valid;
+//   // Allocate memory for the array and copy in the input array. Update
+//   // the size following.
+//   (*table)->entry[asid].asid_nnid[nnid].config =
+//       (x_len *) malloc(size * sizeof(x_len));
+//   memcpy((*table)->entry[asid].asid_nnid[nnid].config, array,
+//          size * sizeof(x_len));
+//   (*table)->entry[asid].asid_nnid[nnid].size = size;
 
-  // Allocate memory for the array and copy in the input array. Update
-  // the size following.
-  (*table)->entry[asid].asid_nnid[nnid].config =
-    (x_len *) malloc(size * sizeof(x_len));
-  memcpy((*table)->entry[asid].asid_nnid[nnid].config, array,
-         size * sizeof(x_len));
-  (*table)->entry[asid].asid_nnid[nnid].size = size;
-
-  // Return the new number of valid entries
-  return ++(*table)->entry[asid].num_valid;
-}
+//   // Return the new number of valid entries
+//   return ++(*table)->entry[asid].num_valid;
+// }
