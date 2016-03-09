@@ -220,7 +220,9 @@ class TTableRegisterFileInterface(implicit p: Parameters) extends XFilesBundle()
 }
 
 class TTableArbiter(implicit p: Parameters) extends XFilesBundle()(p) {
-  val rocc = new RoCCInterface
+  val rocc = new Bundle {
+    val cmd = Decoupled(new RoCCCommand).flip
+    val resp = Decoupled(new RoCCResponse) }
   val coreIdx = UInt(INPUT, width = log2Up(numCores))
   val indexOut = UInt(OUTPUT, width = log2Up(numCores))
 }
