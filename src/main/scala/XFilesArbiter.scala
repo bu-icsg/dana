@@ -30,38 +30,21 @@ abstract class XFilesBundle(implicit p: Parameters) extends DanaBundle()(p)
     with XFilesParameters
 
 class XFilesDanaInterface(implicit p: Parameters) extends XFilesBundle()(p) {
-  lazy val control = new TTableControlInterface
-  // val peTable = (new PETransactionTableInterface).flip
-  val regFile = new TTableRegisterFileInterface
-  val antw = (new ANTWXFilesInterface).flip
-}
-
-class XFilesDanaInterfaceLearn(implicit p: Parameters)
-    extends XFilesDanaInterface()(p) {
-  override lazy val control = new TTableControlInterfaceLearn
+  val antw = new ANTWXFilesInterface
+  val tTable = new TTableArbiter
 }
 
 class XFilesInterface(implicit p: Parameters) extends Bundle {
   val core = Vec(p(NumCores), new RoCCInterface)
-  lazy val dana = new XFilesDanaInterface
-}
-
-class XFilesInterfaceLearn(implicit p: Parameters)
-    extends XFilesInterface()(p) {
-  override lazy val dana = new XFilesDanaInterfaceLearn
+  val dana = (new XFilesDanaInterface).flip
 }
 
 class XFilesArbiter(implicit p: Parameters) extends XFilesModule()(p) {
-  val io = if (learningEnabled) new XFilesInterfaceLearn else
-    new XFilesInterface
+  val io = new XFilesInterface
 
   // Module instatiation
-  val tTable = if (learningEnabled) Module(new TransactionTableLearn) else
-    Module(new TransactionTable)
   val asidRegs = Vec.fill(numCores){ Module(new AsidUnit()(p)).io }
   val coreQueue = Vec.fill(numCores){ Module(new Queue(new RoCCCommand, 4)).io }
-
-  tTable.io.arbiter.rocc.resp.ready := Bool(true)
 
   // Non-supervisory requests from cores are fed into a round robin
   // arbiter.
@@ -108,8 +91,8 @@ class XFilesArbiter(implicit p: Parameters) extends XFilesModule()(p) {
 
     // Connections back to the cores
     io.core(i).interrupt := Bool(false)
-    io.core(i).resp.valid := tTable.io.arbiter.rocc.resp.valid &&
-      tTable.io.arbiter.indexOut === UInt(i) || reqInfo || badRequest
+    io.core(i).resp.valid := io.dana.tTable.rocc.resp.valid &&
+      io.dana.tTable.indexOut === UInt(i) || reqInfo || badRequest
 
     // Return -1 on a bad request
     io.core(i).resp.bits.rd := cmd.bits.inst.rd
@@ -117,9 +100,9 @@ class XFilesArbiter(implicit p: Parameters) extends XFilesModule()(p) {
 
     // When we see a valid response from the Transaction Table, we let
     // it through.
-    when (tTable.io.arbiter.rocc.resp.valid &&
-      tTable.io.arbiter.indexOut === UInt(i)) {
-      io.core(i).resp.bits := tTable.io.arbiter.rocc.resp.bits
+    when (io.dana.tTable.rocc.resp.valid &&
+      io.dana.tTable.indexOut === UInt(i)) {
+      io.core(i).resp.bits := io.dana.tTable.rocc.resp.bits
     }
 
     when (reqInfo) {
@@ -131,15 +114,13 @@ class XFilesArbiter(implicit p: Parameters) extends XFilesModule()(p) {
       io.core(i).resp.bits.data := info
     }
 
-    when (squash) { tTable.io.arbiter.rocc.resp.ready := Bool(false) }
+    when (squash) { io.dana.tTable.rocc.resp.ready := Bool(false) }
   }
 
   // Interface connections
-  coreArbiter.io.out <> tTable.io.arbiter.rocc.cmd
-  tTable.io.arbiter.coreIdx := coreArbiter.io.chosen
-  io.dana.control <> tTable.io.control
-  // io.dana.peTable <> tTable.io.peTable
-  io.dana.regFile <> tTable.io.regFile
+  coreArbiter.io.out <> io.dana.tTable.rocc.cmd
+  io.dana.tTable.coreIdx := coreArbiter.io.chosen
+  io.dana.tTable.rocc.resp.ready := Bool(true)
 
   (0 until numCores).map(i => {
     io.dana.antw.asidUnit(i) <> asidRegs(i).antw

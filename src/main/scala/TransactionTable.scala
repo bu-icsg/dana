@@ -219,12 +219,14 @@ class TTableRegisterFileInterface(implicit p: Parameters) extends XFilesBundle()
   val resp = Valid(new TTableRegisterFileResp).flip
 }
 
+class TTableArbiter(implicit p: Parameters) extends XFilesBundle()(p) {
+  val rocc = new RoCCInterface
+  val coreIdx = UInt(INPUT, width = log2Up(numCores))
+  val indexOut = UInt(OUTPUT, width = log2Up(numCores))
+}
+
 class TransactionTableInterface(implicit p: Parameters) extends XFilesBundle()(p) {
-  val arbiter = new XFilesBundle {
-    val rocc = new RoCCInterface
-    val coreIdx = UInt(INPUT, width = log2Up(numCores))
-    val indexOut = UInt(OUTPUT, width = log2Up(numCores))
-  }
+  val arbiter = new TTableArbiter
   lazy val control = new TTableControlInterface
   val regFile = new TTableRegisterFileInterface
 }

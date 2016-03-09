@@ -279,8 +279,7 @@ abstract class DanaBundle(implicit val p: Parameters)
 }
 
 class Dana(implicit p: Parameters) extends DanaModule {
-  val io = if (learningEnabled) (new XFilesDanaInterfaceLearn).flip else
-    (new XFilesDanaInterface).flip
+  val io = new XFilesDanaInterface
 
   // Module instantiation
   val control = if (learningEnabled) Module(new ControlLearn) else
@@ -293,17 +292,24 @@ class Dana(implicit p: Parameters) extends DanaModule {
     Module(new RegisterFile)
   val antw = Module(new AsidNnidTableWalker)
 
+  val tTable = if (learningEnabled) Module(new TransactionTableLearn) else
+    Module(new TransactionTable)
+
   // Wire everything up. Ordering shouldn't matter here.
-  io.control <> control.io.tTable
   cache.io.control <> control.io.cache
   control.io.peTable <> peTable.io.control
   control.io.regFile <> regFile.io.control
   peTable.io.cache <> cache.io.pe
-  regFile.io.tTable <> io.regFile
   peTable.io.regFile <> regFile.io.pe
 
+  // ASID--NNID Table Walker
   antw.io.cache <> cache.io.mem
   antw.io.xfiles <> io.antw
+
+  // Transaction Table
+  tTable.io.arbiter <> io.tTable
+  tTable.io.control <> control.io.tTable
+  tTable.io.regFile <> regFile.io.tTable
 }
 
 class DanaTests(uut: Dana, isTrace: Boolean = true)
