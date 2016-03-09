@@ -9,12 +9,16 @@ import uncore._
 import Util._
 import cde.{Parameters, Field}
 
-class AsidNnidTableWalkerInterface(implicit p: Parameters) extends XFilesBundle()(p) {
+class ANTWXFilesInterface(implicit p: Parameters) extends XFilesBundle()(p) {
   val asidUnit = Vec.fill(numCores){ (new AsidUnitANTWInterface).flip }
-  val cache = (new CacheMemInterface).flip
   val mem = Vec.fill(numCores){
     new HellaCacheIO()(p.alterPartial({ case CacheName => "L1D" }))
   }
+}
+
+class AsidNnidTableWalkerInterface(implicit p: Parameters) extends XFilesBundle()(p) {
+  val cache = (new CacheMemInterface).flip
+  val xfiles = new ANTWXFilesInterface
 }
 
 class ConfigRobEntry(implicit p: Parameters) extends XFilesBundle()(p) {
@@ -69,7 +73,7 @@ class AsidNnidTableWalker(implicit p: Parameters) extends XFilesModule()(p) {
   val cacheReqCurrent = Reg(new CacheMemReq)
 
   // Default values
-  (0 until numCores).map(i => io.asidUnit(i).req.ready := Bool(true))
+  (0 until numCores).map(i => io.xfiles.asidUnit(i).req.ready := Bool(true))
   // We can accept new cache requests only if the Cache Request Queue
   // is ready, i.e., the queue isn't full
   io.cache.req.ready := cacheReqQueue.io.enq.ready
@@ -79,15 +83,15 @@ class AsidNnidTableWalker(implicit p: Parameters) extends XFilesModule()(p) {
   io.cache.resp.bits.cacheIndex := UInt(0)
   io.cache.resp.bits.addr := UInt(0)
   for (i <- 0 until numCores) {
-    io.mem(i).req.valid := Bool(false)
-    io.mem(i).req.bits.kill := Bool(false) // testing
-    io.mem(i).req.bits.phys := Bool(true) // testing
-    io.mem(i).req.bits.data := Bool(false) // testing
-    io.mem(i).req.bits.addr := UInt(0)
-    io.mem(i).req.bits.tag := UInt(0)
-    io.mem(i).req.bits.cmd := UInt(0)
-    io.mem(i).req.bits.typ := UInt(0)
-    io.mem(i).invalidate_lr := Bool(false)
+    io.xfiles.mem(i).req.valid := Bool(false)
+    io.xfiles.mem(i).req.bits.kill := Bool(false) // testing
+    io.xfiles.mem(i).req.bits.phys := Bool(true) // testing
+    io.xfiles.mem(i).req.bits.data := Bool(false) // testing
+    io.xfiles.mem(i).req.bits.addr := UInt(0)
+    io.xfiles.mem(i).req.bits.tag := UInt(0)
+    io.xfiles.mem(i).req.bits.cmd := UInt(0)
+    io.xfiles.mem(i).req.bits.typ := UInt(0)
+    io.xfiles.mem(i).invalidate_lr := Bool(false)
   }
   cacheReqQueue.io.enq.valid := Bool(false)
   cacheReqQueue.io.enq.bits.asid := UInt(0)
@@ -108,8 +112,8 @@ class AsidNnidTableWalker(implicit p: Parameters) extends XFilesModule()(p) {
 
   def reqValid(x: AsidUnitANTWInterface): Bool = { x.req.valid }
   def respValid(x: HellaCacheIO): Bool = { x.resp.valid }
-  val indexReq = io.asidUnit.indexWhere(reqValid(_))
-  val indexResp = io.mem.indexWhere(respValid(_))
+  val indexReq = io.xfiles.asidUnit.indexWhere(reqValid(_))
+  val indexResp = io.xfiles.mem.indexWhere(respValid(_))
 
   def memRead(core: UInt, addr: UInt) {
     memReqQueue.io.enq.valid := Bool(true)
@@ -129,7 +133,7 @@ class AsidNnidTableWalker(implicit p: Parameters) extends XFilesModule()(p) {
   def feedCacheRob() {
     // Compute the response index in terms of a logical index into
     // the array that we're reading
-    val respIdx = (io.mem(indexResp).resp.bits.addr - configPtr) >>
+    val respIdx = (io.xfiles.mem(indexResp).resp.bits.addr - configPtr) >>
     UInt(log2Up(xLen/8))
     // Based on this response index, compute the slot and offset
     // in the Config ROB buffer
@@ -149,7 +153,7 @@ class AsidNnidTableWalker(implicit p: Parameters) extends XFilesModule()(p) {
     configRob(configRobSlot).cacheAddr :=
       respIdx >> UInt(log2Up(configBufSize))
     configRob(configRobSlot).data(configRobOffset) :=
-      io.mem(indexResp).resp.bits.data_word_bypass
+      io.xfiles.mem(indexResp).resp.bits.data_word_bypass
 
     // Assertions
 
@@ -163,13 +167,13 @@ class AsidNnidTableWalker(implicit p: Parameters) extends XFilesModule()(p) {
   }
 
   // Communication with the ASID Unit
-  when (io.asidUnit.exists(reqValid)) {
+  when (io.xfiles.asidUnit.exists(reqValid)) {
     antpReg.valid := Bool(true)
-    antpReg.antp := io.asidUnit(indexReq).req.bits.antp
-    antpReg.size := io.asidUnit(indexReq).req.bits.size
+    antpReg.antp := io.xfiles.asidUnit(indexReq).req.bits.antp
+    antpReg.size := io.xfiles.asidUnit(indexReq).req.bits.size
     printfInfo("ANTW changing ANTP to 0x%x with size 0x%x\n",
-      io.asidUnit(indexReq).req.bits.antp,
-      io.asidUnit(indexReq).req.bits.size)
+      io.xfiles.asidUnit(indexReq).req.bits.antp,
+      io.xfiles.asidUnit(indexReq).req.bits.size)
   }
 
   // New cache requests get entered on the queue
@@ -183,19 +187,19 @@ class AsidNnidTableWalker(implicit p: Parameters) extends XFilesModule()(p) {
 
   // Pull memory requests out of the Memory Request Queue
   when (memReqQueue.io.deq.valid &&
-    io.mem(memReqQueue.io.deq.bits.core).req.ready
+    io.xfiles.mem(memReqQueue.io.deq.bits.core).req.ready
     // [TODO] This _shouldn't_ be necessary, here, but I'm having
     // problems with dropped requests without it.
-    && Reg(next = !io.mem(memReqQueue.io.deq.bits.core).req.valid)
+    && Reg(next = !io.xfiles.mem(memReqQueue.io.deq.bits.core).req.valid)
   ) {
     val core = memReqQueue.io.deq.bits.core
     memReqQueue.io.deq.ready := Bool(true)
-    io.mem(core).req.valid := Bool(true)
-    io.mem(core).req.bits.addr := memReqQueue.io.deq.bits.req.addr
-    io.mem(core).req.bits.tag :=
+    io.xfiles.mem(core).req.valid := Bool(true)
+    io.xfiles.mem(core).req.bits.addr := memReqQueue.io.deq.bits.req.addr
+    io.xfiles.mem(core).req.bits.tag :=
       memReqQueue.io.deq.bits.req.addr(coreDCacheReqTagBits - 1, 0)
-    io.mem(core).req.bits.cmd := memReqQueue.io.deq.bits.req.cmd
-    io.mem(core).req.bits.typ := memReqQueue.io.deq.bits.req.typ
+    io.xfiles.mem(core).req.bits.cmd := memReqQueue.io.deq.bits.req.cmd
+    io.xfiles.mem(core).req.bits.typ := memReqQueue.io.deq.bits.req.typ
     printfInfo("ANTW: Mem read req core/addr/tag(%x,%x) 0x%x/0x%x/0x%x\n",
       UInt(coreDCacheReqTagBits - 1), UInt(0),
       UInt(core), memReqQueue.io.deq.bits.req.addr,
@@ -212,7 +216,7 @@ class AsidNnidTableWalker(implicit p: Parameters) extends XFilesModule()(p) {
   switch (state) {
     is (s_IDLE) {
       when (hasCacheRequests &&
-        io.mem(cacheReqQueue.io.deq.bits.coreIndex).req.ready) {
+        io.xfiles.mem(cacheReqQueue.io.deq.bits.coreIndex).req.ready) {
         // The base request offset is the ANTP plus the ASID *
         // size_of(asid_nnid_table_entry) which is 24 bytes
         val reqAddr = antpReg.antp + cacheReqQueue.io.deq.bits.asid * UInt(24)
@@ -230,10 +234,10 @@ class AsidNnidTableWalker(implicit p: Parameters) extends XFilesModule()(p) {
       }
     }
     is (s_CHECK_NNID_WAIT) {
-      when(io.mem.exists(respValid)) {
+      when(io.xfiles.mem.exists(respValid)) {
         // [TODO] Fragile on XLen
-        val numConfigs = io.mem(indexResp).resp.bits.data_word_bypass(31, 0)
-        val numValid = io.mem(indexResp).resp.bits.data_word_bypass(63, 32)
+        val numConfigs = io.xfiles.mem(indexResp).resp.bits.data_word_bypass(31, 0)
+        val numValid = io.xfiles.mem(indexResp).resp.bits.data_word_bypass(63, 32)
         printfInfo("ANTW: Saw CHECK_NNID resp w/ #configs 0x%x, #valid 0x%x\n",
           numConfigs, numValid)
         when (cacheReqCurrent.nnid < numValid) {
@@ -248,8 +252,8 @@ class AsidNnidTableWalker(implicit p: Parameters) extends XFilesModule()(p) {
       }
     }
     is (s_READ_NNID_POINTER) {
-      when (io.mem.exists(respValid)) {
-        val reqAddr = io.mem(indexResp).resp.bits.data_word_bypass +
+      when (io.xfiles.mem.exists(respValid)) {
+        val reqAddr = io.xfiles.mem(indexResp).resp.bits.data_word_bypass +
           cacheReqCurrent.nnid * UInt(24)
         printfInfo("ANTW: Saw READ_NNID_POINTER resp w/ configPtr 0x%x\n",
           reqAddr + UInt(8))
@@ -259,18 +263,18 @@ class AsidNnidTableWalker(implicit p: Parameters) extends XFilesModule()(p) {
       }
     }
     is (s_READ_CONFIGSIZE) {
-      when (io.mem.exists(respValid)) {
+      when (io.xfiles.mem.exists(respValid)) {
         printfInfo("ANTW: Saw READ_CONFIGSIZE resp w/ configSize 0x%x\n",
-          io.mem(indexResp).resp.bits.data_word_bypass)
-        configSize := io.mem(indexResp).resp.bits.data_word_bypass
+          io.xfiles.mem(indexResp).resp.bits.data_word_bypass)
+        configSize := io.xfiles.mem(indexResp).resp.bits.data_word_bypass
         val reqAddr = configPtr - UInt(8)
         memRead(io.cache.req.bits.coreIndex, reqAddr)
         state := s_READ_CONFIGEPB
       }
     }
     is (s_READ_CONFIGEPB) {
-      when (io.mem.exists(respValid)) {
-        val epb = io.mem(indexResp).resp.bits.data_word_bypass
+      when (io.xfiles.mem.exists(respValid)) {
+        val epb = io.xfiles.mem(indexResp).resp.bits.data_word_bypass
         printfInfo("ANTW: Saw READ_CONFIGEPB resp w/ EPB 0x%x\n", epb)
         when (epb === UInt(elementsPerBlock)) {
           memRead(io.cache.req.bits.coreIndex, configPtr)
@@ -283,12 +287,12 @@ class AsidNnidTableWalker(implicit p: Parameters) extends XFilesModule()(p) {
       }
     }
     is (s_READ_CONFIGPTR) {
-      when (io.mem.exists(respValid)) {
-        configPtr := io.mem(indexResp).resp.bits.data_word_bypass
+      when (io.xfiles.mem.exists(respValid)) {
+        configPtr := io.xfiles.mem(indexResp).resp.bits.data_word_bypass
         configReqCount := UInt(1)
         configRespCount := UInt(0)
         configWbCount := UInt(0)
-        val reqAddr = io.mem(indexResp).resp.bits.data_word_bypass
+        val reqAddr = io.xfiles.mem(indexResp).resp.bits.data_word_bypass
         memRead(io.cache.req.bits.coreIndex, reqAddr)
         state := s_READ_CONFIG
       }
@@ -305,12 +309,12 @@ class AsidNnidTableWalker(implicit p: Parameters) extends XFilesModule()(p) {
       }
       // If a new response shows up, write it into a buffer and send
       // it along to the Cache if we've filled a buffer
-      when (io.mem.exists(respValid)) {
+      when (io.xfiles.mem.exists(respValid)) {
         feedCacheRob()
       }
     }
     is (s_READ_CONFIG_WAIT) {
-      when (io.mem.exists(respValid)) {
+      when (io.xfiles.mem.exists(respValid)) {
         feedCacheRob()
       }
       when (configRespCount === configSize) {
@@ -350,9 +354,9 @@ class AsidNnidTableWalker(implicit p: Parameters) extends XFilesModule()(p) {
   // Assertions
   // There should only be at most one valid ANTP update request from
   // all ASID Units
-  assert(!(io.asidUnit.count(reqValid(_)) > UInt(1)),
+  assert(!(io.xfiles.asidUnit.count(reqValid(_)) > UInt(1)),
     "Saw more than one simultaneous ANTP request")
-  assert(!(io.mem.count(respValid(_)) > UInt(1)),
+  assert(!(io.xfiles.mem.count(respValid(_)) > UInt(1)),
     "Saw more than one simultaneous ANTP response, dropping all but one...")
   assert(!(io.cache.req.fire() && !io.cache.req.ready),
     "ANTW saw a cache request, but it's cache queue is full")
@@ -369,10 +373,11 @@ class AsidNnidTableWalker(implicit p: Parameters) extends XFilesModule()(p) {
     "ANTW derived parameter configBufSize must be a power of 2")
   // Outbound memory requests shouldn't happen when memory not ready
   (0 until numCores).map(core =>
-    assert(!(io.mem(core).req.valid && !io.mem(core).req.ready),
+    assert(!(io.xfiles.mem(core).req.valid && !io.xfiles.mem(core).req.ready),
       "ANTW just sent memory to a core when memory was not ready"))
   // Outbound memory requests should try to read NULL
   (0 until numCores).map(core =>
-    assert(!(io.mem(core).req.valid && io.mem(core).req.bits.addr === UInt(0)),
+    assert(!(io.xfiles.mem(core).req.valid &&
+      io.xfiles.mem(core).req.bits.addr === UInt(0)),
       "ANTW tried to read from NULL"))
 }

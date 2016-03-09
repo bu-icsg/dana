@@ -13,7 +13,6 @@ case object NumCores extends Field[Int]
 case object AntwRobEntries extends Field[Int]
 
 abstract trait XFilesParameters extends DanaParameters {
-  val numCores = p(NumCores)
   val antwRobEntries = p(AntwRobEntries)
 }
 
@@ -34,7 +33,7 @@ class XFilesDanaInterface(implicit p: Parameters) extends XFilesBundle()(p) {
   lazy val control = new TTableControlInterface
   // val peTable = (new PETransactionTableInterface).flip
   val regFile = new TTableRegisterFileInterface
-  val cache = (new CacheMemInterface).flip
+  val antw = (new ANTWXFilesInterface).flip
 }
 
 class XFilesDanaInterfaceLearn(implicit p: Parameters)
@@ -59,7 +58,6 @@ class XFilesArbiter(implicit p: Parameters) extends XFilesModule()(p) {
   // Module instatiation
   val tTable = if (learningEnabled) Module(new TransactionTableLearn) else
     Module(new TransactionTable)
-  val antw = Module(new AsidNnidTableWalker)
   val asidRegs = Vec.fill(numCores){ Module(new AsidUnit()(p)).io }
   val coreQueue = Vec.fill(numCores){ Module(new Queue(new RoCCCommand, 4)).io }
 
@@ -107,7 +105,6 @@ class XFilesArbiter(implicit p: Parameters) extends XFilesModule()(p) {
     asidRegs(i).core.cmd.valid := cmd.valid
     asidRegs(i).core.cmd.bits := cmd.bits
     asidRegs(i).core.s := io.core(i).s
-    asidRegs(i).antw <> antw.io.asidUnit(i)
 
     // Connections back to the cores
     io.core(i).interrupt := Bool(false)
@@ -143,6 +140,8 @@ class XFilesArbiter(implicit p: Parameters) extends XFilesModule()(p) {
   io.dana.control <> tTable.io.control
   // io.dana.peTable <> tTable.io.peTable
   io.dana.regFile <> tTable.io.regFile
-  io.dana.cache <> antw.io.cache
-  (0 until numCores).map(i => io.core(i).mem <> antw.io.mem(i))
+
+  (0 until numCores).map(i => {
+    io.dana.antw.asidUnit(i) <> asidRegs(i).antw
+    io.dana.antw.mem(i) <> io.core(i).mem})
 }

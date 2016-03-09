@@ -72,6 +72,9 @@ trait DanaParameters extends HasCoreParameters {
   // Related to the neural network configuration format
   val nnConfigNeuronWidth = p(NNConfigNeuronWidth)
 
+  // X-FILES specific [TODO] This can be removed eventually
+  val numCores = p(NumCores)
+
   def divUp (dividend: Int, divisor: Int): Int = {
     (dividend + divisor - 1) / divisor}
 }
@@ -288,6 +291,7 @@ class Dana(implicit p: Parameters) extends DanaModule {
     Module(new ProcessingElementTable)
   val regFile = if (learningEnabled) Module(new RegisterFileLearn) else
     Module(new RegisterFile)
+  val antw = Module(new AsidNnidTableWalker)
 
   // Wire everything up. Ordering shouldn't matter here.
   io.control <> control.io.tTable
@@ -297,7 +301,9 @@ class Dana(implicit p: Parameters) extends DanaModule {
   peTable.io.cache <> cache.io.pe
   regFile.io.tTable <> io.regFile
   peTable.io.regFile <> regFile.io.pe
-  cache.io.mem <> io.cache
+
+  antw.io.cache <> cache.io.mem
+  antw.io.xfiles <> io.antw
 }
 
 class DanaTests(uut: Dana, isTrace: Boolean = true)
