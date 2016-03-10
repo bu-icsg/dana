@@ -26,11 +26,12 @@ case object CacheNumEntries extends Field[Int]
 case object CacheDataSize extends Field[Int]
 case object RegisterFileNumElements extends Field[Int]
 case object LearningEnabled extends Field[Boolean]
-case object DebugEnabled extends Field[Boolean]
 case object BitsPerBlock extends Field[Int]
 case object RegFileNumBlocks extends Field[Int]
 case object CacheNumBlocks extends Field[Int]
 case object NNConfigNeuronWidth extends Field[Int]
+case object DebugEnabled extends Field[Boolean]
+case object TableDebug extends Field[Boolean]
 
 trait DanaParameters extends HasCoreParameters {
   val elementWidth = p(ElementWidth)
@@ -68,6 +69,7 @@ trait DanaParameters extends HasCoreParameters {
   val bitsPerBlock = p(BitsPerBlock)
   val learningEnabled = p(LearningEnabled)
   val debugEnabled = p(DebugEnabled)
+  val tableDebug = p(TableDebug)
 
   // Related to the neural network configuration format
   val nnConfigNeuronWidth = p(NNConfigNeuronWidth)
@@ -77,6 +79,8 @@ trait DanaParameters extends HasCoreParameters {
 
   def divUp (dividend: Int, divisor: Int): Int = {
     (dividend + divisor - 1) / divisor}
+
+  val err_DANA_NOANTP = 1
 }
 
 // An abstract base class for anything associated with DANA (and the
@@ -89,11 +93,12 @@ abstract class DanaModule(implicit val p: Parameters) extends Module
 
   // Info method that will dump the state of a table
   def info[T <: DanaBundle](x: Vec[T], prepend: String = "") = {
-    printf(x(0).printElements(prepend))
-    (0 until x.length).map(i => printft(x(i).printAll(","))) }
+    if (tableDebug) {
+      printf(x(0).printElements(prepend))
+      (0 until x.length).map(i => printft(x(i).printAll(","))) }}
 
   def printfInfo(message: String, args: Node*): Unit = {
-    if (debugEnabled) printff("[INFO] " + message, args) }
+    if (debugEnabled) { printff("[INFO] " + message, args) }}
 
   def printfWarn(message: String, args: Node*) {
     if (debugEnabled) { printff("[WARN] " + message, args) }}
@@ -103,6 +108,9 @@ abstract class DanaModule(implicit val p: Parameters) extends Module
 
   def printfDebug(message: String, args: Node*) {
     if (debugEnabled) { printff("[DEBUG] " + message, args) }}
+
+  def printfTodo(message: String, args: Node*) {
+    if (debugEnabled) { printff("[TODO] " + message, args) }}
 
   // Transaction Table State Entries. nnsim-hdl equivalent:
   //   controL_types::field_enum
@@ -310,6 +318,9 @@ class Dana(implicit p: Parameters) extends DanaModule {
   tTable.io.arbiter <> io.tTable
   tTable.io.control <> control.io.tTable
   tTable.io.regFile <> regFile.io.tTable
+
+  when (io.tTable.rocc.cmd.valid) {
+    printfInfo("Dana: io.tTable.rocc.cmd.valid asserted\n")}
 }
 
 class DanaTests(uut: Dana, isTrace: Boolean = true)

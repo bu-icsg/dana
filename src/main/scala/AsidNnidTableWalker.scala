@@ -4,13 +4,19 @@ package dana
 
 import Chisel._
 
-import rocket._
-import uncore._
-import Util._
+import rocket.{RoCCCommand, RoCCResponse, HellaCacheReq, HellaCacheIO}
+import uncore.{CacheName}
+import uncore.constants.MemoryOpConstants._
 import cde.{Parameters, Field}
 
 class ANTWXFilesInterface(implicit p: Parameters) extends XFilesBundle()(p) {
-  val asidUnit = Vec.fill(numCores){ (new AsidUnitANTWInterface).flip }
+  val rocc = new Bundle {
+    val cmd = Decoupled(new RoCCCommand).flip
+    val resp = Decoupled(new RoCCResponse)
+    val s = Bool(INPUT)
+    val coreIdxCmd = UInt(INPUT, width = log2Up(numCores))
+    val coreIdxResp = UInt(OUTPUT, width = log2Up(numCores))
+  }
   val mem = Vec.fill(numCores){
     new HellaCacheIO()(p.alterPartial({ case CacheName => "L1D" }))
   }
@@ -73,7 +79,7 @@ class AsidNnidTableWalker(implicit p: Parameters) extends XFilesModule()(p) {
   val cacheReqCurrent = Reg(new CacheMemReq)
 
   // Default values
-  (0 until numCores).map(i => io.xfiles.asidUnit(i).req.ready := Bool(true))
+  io.xfiles.rocc.cmd.ready := Bool(true)
   // We can accept new cache requests only if the Cache Request Queue
   // is ready, i.e., the queue isn't full
   io.cache.req.ready := cacheReqQueue.io.enq.ready
@@ -110,9 +116,7 @@ class AsidNnidTableWalker(implicit p: Parameters) extends XFilesModule()(p) {
   memReqQueue.io.enq.bits.core := UInt(0)
   memReqQueue.io.deq.ready := Bool(false)
 
-  def reqValid(x: AsidUnitANTWInterface): Bool = { x.req.valid }
   def respValid(x: HellaCacheIO): Bool = { x.resp.valid }
-  val indexReq = io.xfiles.asidUnit.indexWhere(reqValid(_))
   val indexResp = io.xfiles.mem.indexWhere(respValid(_))
 
   def memRead(core: UInt, addr: UInt) {
@@ -167,14 +171,28 @@ class AsidNnidTableWalker(implicit p: Parameters) extends XFilesModule()(p) {
   }
 
   // Communication with the ASID Unit
-  when (io.xfiles.asidUnit.exists(reqValid)) {
+  val funct = io.xfiles.rocc.cmd.bits.inst.funct
+  val updateAntp = io.xfiles.rocc.s && funct === t_SUP_WRITE_REG
+  when (io.xfiles.rocc.cmd.fire() && updateAntp) {
     antpReg.valid := Bool(true)
-    antpReg.antp := io.xfiles.asidUnit(indexReq).req.bits.antp
-    antpReg.size := io.xfiles.asidUnit(indexReq).req.bits.size
+    antpReg.antp := io.xfiles.rocc.cmd.bits.rs1
+    antpReg.size := io.xfiles.rocc.cmd.bits.rs2
     printfInfo("ANTW changing ANTP to 0x%x with size 0x%x\n",
-      io.xfiles.asidUnit(indexReq).req.bits.antp,
-      io.xfiles.asidUnit(indexReq).req.bits.size)
+      io.xfiles.rocc.cmd.bits.rs1, io.xfiles.rocc.cmd.bits.rs2)
   }
+
+  io.xfiles.rocc.resp.bits.rd := io.xfiles.rocc.cmd.bits.inst.rd
+  io.xfiles.rocc.resp.bits.data := Mux(antpReg.valid, antpReg.antp,
+    SInt(-err_DANA_NOANTP, width = xLen).toUInt)
+    // SInt(-err_NOANTP, width = xLen).toUInt)
+    // (-(err_NOANTP.toSInt)).toUInt)
+  io.xfiles.rocc.coreIdxResp := io.xfiles.rocc.coreIdxCmd
+  io.xfiles.rocc.resp.valid := io.xfiles.rocc.cmd.fire() && updateAntp
+
+  when (io.xfiles.rocc.resp.valid) {
+    printfInfo("ANTW: Responding to core %d, R%d with data 0x%x\n",
+      io.xfiles.rocc.coreIdxResp, io.xfiles.rocc.resp.bits.rd,
+      io.xfiles.rocc.resp.bits.data) }
 
   // New cache requests get entered on the queue
   when (io.cache.req.fire()) {
@@ -352,10 +370,6 @@ class AsidNnidTableWalker(implicit p: Parameters) extends XFilesModule()(p) {
   }
 
   // Assertions
-  // There should only be at most one valid ANTP update request from
-  // all ASID Units
-  assert(!(io.xfiles.asidUnit.count(reqValid(_)) > UInt(1)),
-    "Saw more than one simultaneous ANTP request")
   assert(!(io.xfiles.mem.count(respValid(_)) > UInt(1)),
     "Saw more than one simultaneous ANTP response, dropping all but one...")
   assert(!(io.cache.req.fire() && !io.cache.req.ready),
@@ -366,7 +380,7 @@ class AsidNnidTableWalker(implicit p: Parameters) extends XFilesModule()(p) {
     antpReg.size < io.cache.req.bits.asid),
     "ANTW saw cache request with out of bounds ASID")
   assert(!(io.cache.req.fire() && !antpReg.valid),
-    "ANTW saw cache request with invalid ASID")
+    "ANTW saw cache request with invalid ASID-NNID Table Pointer")
   assert(!(state === s_ERROR),
     "ANTW is in an error state")
   assert(Bool(isPow2(configBufSize)),

@@ -2,7 +2,7 @@
 
 #include "xfiles.h"
 
-uint64_t set_asid (asid_type asid) {
+xlen_t set_asid (asid_type asid) {
   // This currently depends on a backing OS system call supported by
   // the Proxy Kernel (a basic RISC-V OS). Using the RISC-V function
   // calling convention, the asid is placed into register a0, the
@@ -10,20 +10,31 @@ uint64_t set_asid (asid_type asid) {
   // Proxy Kernel will then generate a special custom0 instruction
   // that sets the ASID. No output is expected, so we just return
   // whenever the OS returns control.
-  asm volatile ("mv a0, %[asid]; li a7, 512; ecall"
-                :: [asid] "r" (asid)
+  xlen_t old_asid;
+  asm volatile ("mv a0, %[asid]\n\t"
+                "li a7, 512\n\t"
+                "ecall\n\t"
+                "mv %[old_asid], a0"
+                : [old_asid] "=r" (old_asid)
+                : [asid] "r" (asid)
                 : "a0", "a7");
-  return 0;
+  return old_asid;
 }
 
-uint64_t set_antp (asid_nnid_table * os_antp) {
+xlen_t set_antp (asid_nnid_table * os_antp) {
   // As with `set_asid`, this relies on the Proxy Kernel to handle
   // this system call. This passes a pointer to the first ASID--NNID
   // table entry and the size (i.e., the number of ASIDs).
-  asm volatile ("mv a0, %[antp]; mv a1, %[size]; li a7, 513; ecall"
-                :: [antp] "r" (os_antp->entry), [size] "r" (os_antp->size)
+  xlen_t old_antp;
+  asm volatile ("mv a0, %[antp]\n\t"
+                "mv a1, %[size]\n\t"
+                "li a7, 513\n\t"
+                "ecall\n\t"
+                "mv %[old_antp], a0"
+                : [old_antp] "=r" (old_antp)
+                : [antp] "r" (os_antp->entry), [size] "r" (os_antp->size)
                 : "a0", "a7");
-  return 0;
+  return old_antp;
 }
 
 void construct_queue(queue ** new_queue, int size) {
@@ -162,8 +173,8 @@ int attach_nn_configuration(asid_nnid_table ** table, uint16_t asid,
   char c = 'a';
   while (fread(&c, 1, 1, fp)) {}
 
-  file_size = ftell(fp) / sizeof(x_len);
-  file_size += (ftell(fp) % sizeof(x_len)) ? 1 : 0;
+  file_size = ftell(fp) / sizeof(xlen_t);
+  file_size += (ftell(fp) % sizeof(xlen_t)) ? 1 : 0;
   fseek(fp, 0L, SEEK_SET);
 
   if (file_size <= 0) {
@@ -184,9 +195,9 @@ int attach_nn_configuration(asid_nnid_table ** table, uint16_t asid,
 
   // Allocate space for this configuraiton
   (*table)->entry[asid].asid_nnid[nnid].config =
-    (x_len *) malloc(file_size * sizeof(x_len));
+    (xlen_t *) malloc(file_size * sizeof(xlen_t));
   // Write the configuration
-  fread((*table)->entry[asid].asid_nnid[nnid].config, sizeof(x_len),
+  fread((*table)->entry[asid].asid_nnid[nnid].config, sizeof(xlen_t),
         file_size, fp);
 
   fclose(fp);
@@ -214,7 +225,7 @@ int attach_garbage(asid_nnid_table ** table, uint16_t asid) {
 }
 
 int attach_nn_configuration_array(asid_nnid_table ** table, uint16_t asid,
-                                  const x_len * array, size_t size) {
+                                  const xlen_t * array, size_t size) {
   int nnid;
 
   // Fail if we've run out of space
@@ -231,9 +242,9 @@ int attach_nn_configuration_array(asid_nnid_table ** table, uint16_t asid,
   // Allocate memory for the array and copy in the input array. Update
   // the size following.
   (*table)->entry[asid].asid_nnid[nnid].config =
-    (x_len *) malloc(size * sizeof(x_len));
+    (xlen_t *) malloc(size * sizeof(xlen_t));
   memcpy((*table)->entry[asid].asid_nnid[nnid].config, array,
-         size * sizeof(x_len));
+         size * sizeof(xlen_t));
   (*table)->entry[asid].asid_nnid[nnid].size = size;
 
   // Return the new number of valid entries

@@ -18,8 +18,8 @@
 //   |       [6:3]|       2|      1|            0|
 //   | **unused** | isLast | isNew | readOrWrite |
 
-x_len xfiles_dana_id(int flag_print) {
-  x_len out;
+xlen_t xfiles_dana_id(int flag_print) {
+  xlen_t out;
 
   asm volatile ("custom0 %[out], 0, 0, %[type]"
                 : [out] "=r" (out)

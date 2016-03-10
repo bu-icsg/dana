@@ -222,7 +222,11 @@ class TTableRegisterFileInterface(implicit p: Parameters) extends XFilesBundle()
 class TTableArbiter(implicit p: Parameters) extends XFilesBundle()(p) {
   val rocc = new Bundle {
     val cmd = Decoupled(new RoCCCommand).flip
-    val resp = Decoupled(new RoCCResponse) }
+    val resp = Decoupled(new RoCCResponse)
+    val s = Bool(INPUT)
+    val asid = UInt(INPUT, width = asidWidth)
+    val tid = UInt(INPUT, width = tidWidth)
+  }
   val coreIdx = UInt(INPUT, width = log2Up(numCores))
   val indexOut = UInt(OUTPUT, width = log2Up(numCores))
 }
@@ -322,12 +326,13 @@ class TransactionTableBase[StateType <: TransactionState,
   io.arbiter.rocc.resp.bits.rd := arbiterRespPipe.bits.rd
   io.arbiter.indexOut := arbiterRespPipe.bits.coreIdx
 
-  when (io.arbiter.rocc.cmd.valid) {
+  val newRoccCmd = io.arbiter.rocc.cmd.fire() && !io.arbiter.rocc.s
+  when (newRoccCmd) {
     // This is a new packet
     when (cmd.readOrWrite) { // Write == True
       when (cmd.isNew) {
         when (cmd.isLast) {
-          printfInfo("X-Files saw reg write TID/Reg/Value 0x%x/0x%x/0x%x\n",
+          printfInfo("DANA TTable: saw reg write TID/Reg/Value 0x%x/0x%x/0x%x\n",
             cmd.tid, cmd.regId, cmd.regValue)
         } .otherwise {
           // [TODO] A lot of this can be removed as not everything has
@@ -355,8 +360,9 @@ class TransactionTableBase[StateType <: TransactionState,
           arbiterRespPipe.bits.tidIdx := derefTidIndex
           arbiterRespPipe.bits.coreIdx := cmd.coreIdx
           arbiterRespPipe.bits.rd := cmd.rd
-          printfInfo("X-Files saw new write request for NNID 0x%x/\n",
-            cmd.nnid)
+          printfInfo(
+            "DANA TTable: saw new write request for NNID/ASID/TID 0x%x/0x%x/0x%x\n",
+            cmd.nnid, cmd.asid, cmd.tid)
         }
       }
         .elsewhen(cmd.isLast) {
@@ -399,7 +405,7 @@ class TransactionTableBase[StateType <: TransactionState,
         // Update the table entry
         table(derefTidIndex).indexElement :=
           table(derefTidIndex).indexElement + UInt(1)
-        printfInfo("X-Files saw write request on TID %x with data[%d] %x\n",
+        printfInfo("DANA TTable: saw write request on TID %x with data[%d] %x\n",
           cmd.tid, table(derefTidIndex).indexElement, cmd.data);
         // table(derefTidIndex).data() :=
       }
@@ -424,8 +430,7 @@ class TransactionTableBase[StateType <: TransactionState,
         // some batch training state where we expect to see a new set
         // training input/output item.
         table(derefTidIndex).readIdx := table(derefTidIndex).readIdx + UInt(1)
-        printfInfo("X-Files saw read request on TID %x\n",
-          cmd.tid);
+        printfInfo("DANA TTable: saw read request on TID %x\n", cmd.tid);
       } .otherwise {
         arbiterRespPipe.valid := Bool(true)
         arbiterRespPipe.bits.tid := cmd.tid
@@ -444,7 +449,7 @@ class TransactionTableBase[StateType <: TransactionState,
           table(derefTidIndex).neuronPointer(7,0) ##
           table(derefTidIndex).currentNodeInLayer(7,0) ##
           table(derefTidIndex).numNodes(7,0)
-        printfInfo("X-Files saw read request on TID %x, but transaction not done!\n",
+        printfInfo("DANA TTable: saw read request on TID %x, but transaction not done!\n",
           cmd.tid);
       }
     }
@@ -618,27 +623,27 @@ class TransactionTableBase[StateType <: TransactionState,
 
   // The X-FILES arbiter should only receive a new transaction request
   // if it is asserting its ready signal (it has a free entry)
-  assert(!(io.arbiter.rocc.cmd.valid && cmd.readOrWrite && cmd.isNew &&
+  assert(!(newRoccCmd && cmd.readOrWrite && cmd.isNew &&
     !cmd.isLast && !hasFree),
     "TTable saw new write req, but doesn't have any free entries")
 
   // Only one inbound request or response on the same line can
   // currently be handled. Due to the split nature of cache and
   // register file responses, both have to be checked.
-  assert(!(io.arbiter.rocc.cmd.valid && cmd.readOrWrite && cmd.isNew &&
+  assert(!(newRoccCmd && cmd.readOrWrite && cmd.isNew &&
     io.control.resp.bits.cacheValid &&
     (io.control.resp.bits.tableIndex === nextFree)),
     "TTable saw new write req on same entry as control resp from Cache")
-  assert(!(io.arbiter.rocc.cmd.valid && cmd.readOrWrite && cmd.isNew &&
+  assert(!(newRoccCmd && cmd.readOrWrite && cmd.isNew &&
     io.control.resp.bits.layerValid &&
     (io.control.resp.bits.layerValidIndex === nextFree)),
     "TTable saw new write req on same entry as control resp from Reg File")
 
-  assert(!(io.arbiter.rocc.cmd.valid && cmd.readOrWrite && !cmd.isNew &&
+  assert(!(newRoccCmd && cmd.readOrWrite && !cmd.isNew &&
     io.control.resp.bits.cacheValid &&
     (io.control.resp.bits.tableIndex === derefTidIndex)),
     "TTable saw non-new write req on same entry as control resp from Cache")
-  assert(!(io.arbiter.rocc.cmd.valid && cmd.readOrWrite && !cmd.isNew &&
+  assert(!(newRoccCmd && cmd.readOrWrite && !cmd.isNew &&
     io.control.resp.bits.layerValid &&
     (io.control.resp.bits.layerValidIndex === derefTidIndex)),
     "TTable saw non-new write req on same entry as control resp from Reg File")
@@ -650,15 +655,15 @@ class TransactionTableBase[StateType <: TransactionState,
 
   // A read request or a non-new write request should hit a valid
   // entry
-  assert(!(!foundTid && io.arbiter.rocc.cmd.valid &&
+  assert(!(!foundTid && newRoccCmd &&
     (!cmd.readOrWrite || (cmd.readOrWrite && !cmd.isNew))),
     "TTable saw read or non-new write req on a non-existent ASID/TID")
   // A new write request should not hit a tid
-  assert(!(foundTid && io.arbiter.rocc.cmd.valid &&
+  assert(!(foundTid && newRoccCmd &&
     cmd.readOrWrite && cmd.isNew && !cmd.isLast),
     "TTable saw new write req on an existing ASID/TID")
   // A register write should hit a tid
-  assert(!(!foundTid && io.arbiter.rocc.cmd.valid &&
+  assert(!(!foundTid && newRoccCmd &&
     cmd.readOrWrite && cmd.isNew && cmd.isLast),
     "TTable saw write register on non-existent ASID/TID")
 
@@ -686,23 +691,22 @@ class TransactionTableBase[StateType <: TransactionState,
 
 
   // No writes should show up if the transaction is already valid
-  assert(!(io.arbiter.rocc.cmd.valid && cmd.readOrWrite &&
-    table(derefTidIndex).valid),
+  assert(!(newRoccCmd && cmd.readOrWrite && table(derefTidIndex).valid),
     "TTable saw write requests on valid TID")
 
   // If learning is disabled we should never see a learning request
   if (!learningEnabled) {
-    assert(!(io.arbiter.rocc.cmd.valid &&
+    assert(!(newRoccCmd &&
       (cmd.transactionType === e_TTYPE_INCREMENTAL ||
         cmd.transactionType === e_TTYPE_BATCH)),
-      "Built X-Files does not support learning") }
+      "Built DANA does not support learning") }
 }
 
 class TransactionTable(implicit p: Parameters)
     extends TransactionTableBase[TransactionState, ControlReq](
   Vec(p(TransactionTableNumEntries), new TransactionState),
       new ControlReq)(p) {
-  when (io.arbiter.rocc.cmd.valid) {
+  when (newRoccCmd) {
     when (cmd.readOrWrite) {
       when (cmd.isNew) {
         when (cmd.isLast) {
@@ -804,7 +808,7 @@ class TransactionTableLearn(implicit p: Parameters)
     new ControlReqLearn)(p) {
   override lazy val io = new TransactionTableInterfaceLearn()(p)
 
-  when (io.arbiter.rocc.cmd.valid) {
+  when (newRoccCmd) {
     when (cmd.readOrWrite) {
       when (cmd.isNew) {
         when (cmd.isLast) {
@@ -837,7 +841,7 @@ class TransactionTableLearn(implicit p: Parameters)
           table(nextFree).numBatchItems := UInt(1)
           table(nextFree).curBatchItem := UInt(0)
           table(nextFree).transactionType := cmd.transactionType
-          printfInfo("X-Files saw new write request for NNID/TType 0x%x/0x%x\n",
+          printfInfo("DANA TTable: saw new write request for NNID/TType 0x%x/0x%x\n",
             cmd.nnid, cmd.transactionType)
         }
       } .elsewhen(cmd.isLast) {

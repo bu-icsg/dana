@@ -41,6 +41,7 @@ class DefaultXFilesDanaConfig extends Config (
       // Enables support for in-hardware learning
       case LearningEnabled => true
       case DebugEnabled => false
+      case TableDebug => false
       case BitsPerBlock => site(ElementsPerBlock) * site(ElementWidth)
       case RegFileNumBlocks => divUp(site(RegisterFileNumElements),
         site(ElementsPerBlock))

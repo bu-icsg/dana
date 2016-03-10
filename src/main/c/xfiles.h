@@ -15,7 +15,7 @@ typedef uint32_t nnid_type;
 typedef uint16_t asid_type;
 typedef uint16_t tid_type;
 typedef int32_t element_type;
-typedef uint64_t x_len;
+typedef uint64_t xlen_t;
 
 typedef enum {
   xfiles_reg_batch_items = 0,
@@ -43,12 +43,21 @@ typedef enum {
   TRAIN_BATCH = 2
 } learning_type_t;
 
+typedef enum {
+  err_XFILES_BADREQ = 1,
+  err_XFILES_NOASID
+} xfiles_err_t;
+
+typedef enum {
+  err_DANA_NOANTP = 1
+} dana_err_t;
+
 //-------------------------------------- Userland
 
 // Request information about the specific X-FILES/DANA configuration
 // and return it in an XLen sized packed representation. Optionally,
 // this will print the output directly to stdout.
-x_len xfiles_dana_id(int flag_print);
+xlen_t xfiles_dana_id(int flag_print);
 
 // Initiate a new Transaction for a specific NNID. The X-Files Arbiter
 // will then assign and return a TID necessary for other userland
@@ -147,7 +156,7 @@ typedef struct {                 // |----------------|   |    |
 typedef struct {                 // |--------------------|               |
   size_t size;                   // | size of config     |               |
   size_t elements_per_block;     // | elements per block |               |
-  x_len * config;                // | * config           |-> [NN Config] |
+  xlen_t * config;               // | * config           |-> [NN Config] |
 } nn_configuration;              // |--------------------| <---|         |
                                  //                            |         |
 typedef struct {                 // |-------------------|      |         |
@@ -163,10 +172,10 @@ typedef struct {                 // |-----------|           |
 } asid_nnid_table;               // |-----------| <--------------------[OS ANTP]
 
 // Set the ASID to a new value
-uint64_t set_asid (asid_type asid);
+xlen_t set_asid (asid_type asid);
 
 // Set the ASID--NNID Table Poitner (ANTP)
-uint64_t set_antp (asid_nnid_table * os_antp);
+xlen_t set_antp (asid_nnid_table * os_antp);
 
 // Constructor and destructor for the ASID--NNID Table data structure
 void asid_nnid_table_create(asid_nnid_table ** table, size_t num_asids,
@@ -197,7 +206,7 @@ int attach_garbage(asid_nnid_table ** table, asid_type asid);
 // 32-bit depending on RISC-V architecture) array and of a certain
 // size to the ASID of a specific ASID--NNID Table.
 int attach_nn_configuration_array(asid_nnid_table ** table, uint16_t asid,
-                                  const x_len * nn_configuration_array,
+                                  const xlen_t * nn_configuration_array,
                                   size_t size);
 
 #endif

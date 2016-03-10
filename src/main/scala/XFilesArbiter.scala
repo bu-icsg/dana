@@ -21,9 +21,11 @@ abstract class XFilesModule(implicit p: Parameters) extends DanaModule()(p)
   val (t_READ_DATA :: t_WRITE_DATA :: t_UNUSED_2 :: t_NEW_REQUEST ::
     t_UNUSED_4 :: t_WRITE_DATA_LAST :: t_UNUSED_6 :: t_WRITE_REGISTER ::
     t_UNUSED_8 :: t_UNUSED_9 :: t_UNUSED_10 :: t_UNUSED_11 :: t_UNUSED_12 ::
-    t_UNUSED_13 :: t_UNUSED_14 :: t_UNUSED_15 :: t_XFILES_ID ::
+    t_UNUSED_13 :: t_UNUSED_14 :: t_WRITE_REG :: t_XFILES_ID ::
     Nil) = Enum(UInt(), 17)
-  val (t_UPDATE_ASID :: t_UPDATE_ANTP :: Nil) = Enum(UInt(), 2)
+  val (t_UPDATE_ASID :: t_SUP_WRITE_REG :: Nil) = Enum(UInt(), 2)
+  val err_XFILES_BADREQ = 1
+  val err_XFILES_NOASID = 2
 }
 
 abstract class XFilesBundle(implicit p: Parameters) extends DanaBundle()(p)
@@ -42,87 +44,179 @@ class XFilesInterface(implicit p: Parameters) extends Bundle {
 class XFilesArbiter(implicit p: Parameters) extends XFilesModule()(p) {
   val io = new XFilesInterface
 
-  // Module instatiation
-  val asidRegs = Vec.fill(numCores){ Module(new AsidUnit()(p)).io }
-  val coreQueue = Vec.fill(numCores){ Module(new Queue(new RoCCCommand, 4)).io }
+  // Each core gets its own ASID Unit
+  val asidUnits = Vec.tabulate(numCores)(id => Module(new AsidUnit(id)).io)
 
-  // Non-supervisory requests from cores are fed into a round robin
-  // arbiter.
-  val coreArbiter = Module(new RRArbiter(new RoCCCommand, numCores))
-  for (i <- 0 until numCores) {
+  // Each user request from a core gets entered into a queue. This is
+  // not used for any supervisory requests which are routed through
+  // the ASID Unit.
+  val coreQueue = Vec.fill(numCores){ Module(new Queue(new RoCCCommand, 2)).io }
+
+  // Use round robin arbitration for valid requests sitting in the
+  // core queues
+  val coreArbiter = Module(new RRArbiter(new RoCCCommand, numCores)).io
+
+  (0 until numCores).map(i => {
+    // Alias out some commonly used signals
     val cmd = io.core(i).cmd
     val funct = cmd.bits.inst.funct
 
-    // Special requests
+    when (cmd.fire()) {
+      printfInfo("""XFilesArbiter: core[%d] cmd fired
+[INFO] XFilesArbiter:   rd is R%d
+[INFO] XFilesArbiter:   inst: 0x%x
+""", UInt(i), io.core(i).cmd.bits.inst.rd, io.core(i).cmd.bits.inst.toBits) }
+
+    // Handle direct, short-circuit responses to the core of the
+    // following types:
+    //   * reqInfo -- This is an informational request about X-FILES
+    //     or the backend
+    //   * badRequest -- This covers receipt of a request when the
+    //     ASID isn't set
+    //   * writeReg -- Write a backend register
+    //   * writeRegS -- Write a backend supervisor register
+    // Either of these two types of requests means that we "squash"
+    // the requst and prevent it from getting entered in the Core
+    // Queue.
     val reqInfo = cmd.fire() & !io.core(i).s & funct === t_XFILES_ID
-    val badRequest = cmd.fire() & !io.core(i).s & !asidRegs(i).data.valid
-    val squash = !asidRegs(i).data.valid || reqInfo
+    val badRequest = cmd.fire() & !io.core(i).s & !asidUnits(i).data.valid
+    val writeReg = cmd.fire() & io.core(i).s
+    val newRequest = cmd.fire() & !io.core(i).s & funct === t_NEW_REQUEST
+    // Anything that is a short circuit response or involves a
+    // supervisor request gets squashed.
+    val squashSup = reqInfo | badRequest
+    val squashUser = squashSup | io.core(i).s
+    val info = UInt(elementsPerBlock, width = 6) ##
+      UInt(peTableNumEntries, width = 6) ##
+      UInt(transactionTableNumEntries, width = 4) ##
+    UInt(cacheNumEntries, width = 4)
+    when (reqInfo) { printfInfo("XFilesArbiter: reqInfo asserted\n") }
+    when (badRequest) { printfInfo("XFilesArbiter: badRequest asserted\n") }
+    when (asidUnits(i).resp.valid) {
+      printfInfo("XFilesArbiter: asidUnit[%d] resp asserted\n", UInt(i)) }
+    when (io.dana.tTable.rocc.resp.valid && io.dana.tTable.indexOut === UInt(i)) {
+      printfInfo("XFilesArbiter: tTable resp asserted on core %d\n", UInt(i)) }
+    when (io.dana.antw.rocc.resp.valid && io.dana.antw.rocc.coreIdxResp === UInt(i)) {
+      printfInfo("XFilesArbiter: antw resp asserted on core %d\n", UInt(i)) }
+    io.core(i).resp.valid := reqInfo | badRequest | asidUnits(i).resp.valid | (
+      io.dana.tTable.rocc.resp.valid && io.dana.tTable.indexOut === UInt(i)) | (
+      io.dana.antw.rocc.resp.valid && io.dana.antw.rocc.coreIdxResp === UInt(i))
 
-    // Core to core-specific queue connections. The ASID/TID are setup
-    // here if needed.
-    val userRequest = cmd.fire() & !io.core(i).s & !squash
-    val supervisorRequest = cmd.fire() & io.core(i).s
-    coreQueue(i).enq.valid := userRequest
-    // If this is a write and is new, then we need to add the TID
-    // specified by the ASID unit. Otherwise, we only need to stamp
-    // the ASID as the core provided the TID. We also need to respond
-    // to the specific core that initiated this request telling it
-    // what the TID is.
-    val newWriteRequest = funct === t_NEW_REQUEST
-    val asid = asidRegs(i).data.bits.asid
-    val tid = asidRegs(i).data.bits.tid
-    coreQueue(i).enq.bits := cmd.bits
-    when (newWriteRequest) {
-      coreQueue(i).enq.bits.rs1 :=
-        cmd.bits.rs1(feedbackWidth - 1, 0) ## asid ## tid
-    } .otherwise {
-      coreQueue(i).enq.bits.rs1 := asid ## cmd.bits.rs1(tidWidth - 1, 0)
-    }
-    cmd.ready := coreQueue(i).enq.ready
-    // Queue to RRArbiter connections
-    coreQueue(i).deq.ready := coreArbiter.io.in(i).ready
-    coreArbiter.io.in(i).valid := coreQueue(i).deq.valid
-    coreArbiter.io.in(i).bits := coreQueue(i).deq.bits
-    cmd.ready := coreArbiter.io.in(i).ready
-    // Inbound reqeusts are also fed into the ASID registers
-    asidRegs(i).core.cmd.valid := cmd.valid
-    asidRegs(i).core.cmd.bits := cmd.bits
-    asidRegs(i).core.s := io.core(i).s
-
-    // Connections back to the cores
-    io.core(i).interrupt := Bool(false)
-    io.core(i).resp.valid := io.dana.tTable.rocc.resp.valid &&
-      io.dana.tTable.indexOut === UInt(i) || reqInfo || badRequest
-
-    // Return -1 on a bad request
     io.core(i).resp.bits.rd := cmd.bits.inst.rd
-    io.core(i).resp.bits.data := SInt(-1)
+    // [TODO] The info returned should be about X-FILES or the
+    // backend. There shouldn't be anything DANA-specific here.
+    io.core(i).resp.bits.data := Mux(reqInfo, info,
+      SInt(-err_XFILES_BADREQ, width = xLen).toUInt)
 
-    // When we see a valid response from the Transaction Table, we let
-    // it through.
-    when (io.dana.tTable.rocc.resp.valid &&
+    // The ASID Units are provided with the full command, barring that
+    // a short-circuit response hasn't been generated
+    asidUnits(i).cmd.valid := cmd.fire() & !squashSup
+    asidUnits(i).cmd.bits := cmd.bits
+    asidUnits(i).s := io.core(i).s
+    asidUnits(i).resp.ready := Bool(true)
+
+    // Core queue connections. We enqueue any user requests, i.e.,
+    // anything that hasn't been squashed. The ASID and TID are
+    // supplied by this core's ASID unit if this is a new request.
+    coreQueue(i).enq.valid := cmd.fire() & !squashUser
+    io.core(i).cmd.ready := coreQueue(i).enq.ready
+    coreQueue(i).enq.bits := cmd.bits
+    when (newRequest) {
+      coreQueue(i).enq.bits.rs1 := cmd.bits.rs1(feedbackWidth - 1, 0) ##
+        asidUnits(i).data.bits.asid ## asidUnits(i).data.bits.tid
+    } .otherwise {
+      coreQueue(i).enq.bits.rs1 := asidUnits(i).data.bits.asid ##
+        cmd.bits.rs1(tidWidth - 1, 0)
+    }
+    when (coreQueue(i).enq.fire()) {
+      printf("XFilesArbiter: Enqueue[%d] inst: 0x%x\n", UInt(i),
+      coreQueue(i).enq.bits.inst.toBits) }
+
+    // Entries in the Core Queue are pulled out by the Core Arbiter
+    coreQueue(i).deq <> coreArbiter.in(i)
+    when (coreQueue(i).deq.valid) {
+      printf("XFilesArbiter: Dequeue[%d] inst: 0x%x\n", UInt(i),
+        coreQueue(i).deq.bits.inst.toBits) }
+
+    // Deal with responses in priority order
+    when (asidUnits(i).resp.fire()) {
+      io.core(i).resp.bits := asidUnits(i).resp.bits
+    } .elsewhen (io.dana.antw.rocc.resp.fire() &&
+      io.dana.antw.rocc.coreIdxResp === UInt(i)) {
+      io.core(i).resp.bits := io.dana.antw.rocc.resp.bits
+    } .elsewhen (io.dana.tTable.rocc.resp.fire() &&
       io.dana.tTable.indexOut === UInt(i)) {
       io.core(i).resp.bits := io.dana.tTable.rocc.resp.bits
     }
 
-    when (reqInfo) {
-      val info = UInt(elementsPerBlock, width = 6) ##
-        UInt(peTableNumEntries, width = 6) ##
-        UInt(transactionTableNumEntries, width = 4) ##
-        UInt(cacheNumEntries, width = 4)
-      io.core(i).resp.bits.rd := cmd.bits.inst.rd
-      io.core(i).resp.bits.data := info
-    }
+    when (io.core(i).resp.fire()) {
+      printfInfo("XFiles Arbiter: Responding to core %d R%d with data 0x%x\n",
+        UInt(i), io.core(i).resp.bits.rd, io.core(i).resp.bits.data) }
 
-    when (squash) { io.dana.tTable.rocc.resp.ready := Bool(false) }
-  }
+    // Other connections
+    io.core(i).interrupt := Bool(false)
+  })
 
-  // Interface connections
-  coreArbiter.io.out <> io.dana.tTable.rocc.cmd
-  io.dana.tTable.coreIdx := coreArbiter.io.chosen
+  // Connections to the backend. [TODO] Clean these up such that the
+  // backend gets a single RoCC interface and some special lines for
+  // dealing with Transactions.
+
+  // The supervisor requests forwarded from the ASID Units get
+  // processed in reverse order (i.e., Core 0 > Core 1 > ... Core N).
+  // Aliasing is consequently possible and the OS has to be
+  // intelligent about throwing around supervisor requests.
+  val supReqToBackend = Vec.tabulate(numCores)(
+    i => asidUnits(i).cmdFwd.valid).exists((x: Bool) => x)
+
+  // We can pull things out of the Core Arbiter if the backend is
+  // telling us it's okay and if the Core Arbiter isn't getting
+  // superseded by a forwarded supervisor request.
+  coreArbiter.out.ready := io.dana.antw.rocc.cmd.ready &
+    io.dana.tTable.rocc.cmd.ready & !supReqToBackend
+
+  val userReqToBackend = coreArbiter.out.valid | supReqToBackend
+  io.dana.tTable.rocc.cmd.valid := userReqToBackend
+  io.dana.tTable.rocc.cmd.bits := coreArbiter.out.bits
+  io.dana.tTable.coreIdx := coreArbiter.chosen
+  io.dana.tTable.rocc.s := supReqToBackend
   io.dana.tTable.rocc.resp.ready := Bool(true)
 
+  io.dana.antw.rocc.cmd.valid := userReqToBackend
+  io.dana.antw.rocc.cmd.bits := coreArbiter.out.bits
+  io.dana.antw.rocc.coreIdxCmd := coreArbiter.chosen
+  io.dana.antw.rocc.s := supReqToBackend
+  io.dana.antw.rocc.resp.ready := Bool(true)
+
+  when (coreArbiter.out.fire()) {
+    printfInfo("""XFiles Arbiter: coreArbiter.out.valid asserted
+[INFO] XFilesArbiter: Non-cmdFwd req sent to TTable:
+[INFO] XFilesArbiter:   inst: 0x%x
+[INFO] XFilesArbiter:   rs1:  0x%x
+[INFO] XFilesArbiter:   rs2:  0x%x
+""", coreArbiter.out.bits.inst.toBits, coreArbiter.out.bits.rs1,
+      coreArbiter.out.bits.rs2) }
+
+  (numCores -1 to 0 by -1).map(i => {
+    when (asidUnits(i).cmdFwd.valid) {
+      printfInfo("XFiles Arbiter: cmdFwd asserted\n")
+      io.dana.tTable.rocc.cmd.bits := asidUnits(i).cmdFwd.bits
+      io.dana.tTable.coreIdx := UInt(i)
+
+      io.dana.antw.rocc.cmd.bits := asidUnits(i).cmdFwd.bits
+      io.dana.antw.rocc.coreIdxCmd := UInt(i)
+    }})
+
+
   (0 until numCores).map(i => {
-    io.dana.antw.asidUnit(i) <> asidRegs(i).antw
     io.dana.antw.mem(i) <> io.core(i).mem})
+
+  // Assertions
+  (0 until numCores).map(i => {
+    val totalResponses =
+      Vec(io.dana.tTable.rocc.resp.valid && io.dana.tTable.indexOut === UInt(i),
+        asidUnits(i).resp.valid,
+        io.dana.antw.rocc.coreIdxResp === UInt(i) && io.dana.antw.rocc.resp.valid)
+    assert(!(totalResponses.count((x: Bool) => x) > UInt(1)),
+      "X-FILES Arbiter: AsidUnit just aliased a TTable response")
+    })
 }
