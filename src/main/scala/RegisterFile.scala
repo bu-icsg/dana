@@ -4,7 +4,7 @@ package dana
 
 import Chisel._
 import scala.math._
-import cde.{Parameters, Field}
+import cde.{Parameters}
 
 class RegisterFileInterface(implicit p: Parameters) extends DanaBundle()(p) {
   lazy val pe = (new PERegisterFileInterface).flip

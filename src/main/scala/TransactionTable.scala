@@ -4,8 +4,8 @@ package dana
 
 import Chisel._
 
-import rocket._
-import cde.{Parameters, Field}
+import rocket.{RoCCCommand, RoCCResponse}
+import cde.{Parameters}
 
 class TransactionState(implicit p: Parameters) extends XFilesBundle()(p) {
   //-------- Base class

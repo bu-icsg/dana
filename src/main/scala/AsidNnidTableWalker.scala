@@ -7,7 +7,7 @@ import Chisel._
 import rocket.{RoCCCommand, RoCCResponse, HellaCacheReq, HellaCacheIO}
 import uncore.{CacheName}
 import uncore.constants.MemoryOpConstants._
-import cde.{Parameters, Field}
+import cde.{Parameters}
 
 class ANTWXFilesInterface(implicit p: Parameters) extends XFilesBundle()(p) {
   val rocc = new Bundle {

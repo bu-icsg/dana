@@ -4,8 +4,8 @@ package dana
 
 import Chisel._
 
-import rocket._
-import cde.{Parameters, Field}
+import rocket.{RoCCCommand, RoCCResponse}
+import cde.{Parameters}
 
 class AsidTid(implicit p: Parameters) extends XFilesBundle()(p) {
   val asid = UInt(width = asidWidth)

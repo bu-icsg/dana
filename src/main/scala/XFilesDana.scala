@@ -4,8 +4,8 @@ package dana
 
 import Chisel._
 
-import rocket._
-import cde.{Parameters, Field}
+import rocket.{RoCC, RoccNMemChannels}
+import cde.{Parameters}
 
 class XFilesArbiterReq(implicit p: Parameters) extends DanaBundle()(p) {
   val tid = UInt(width = tidWidth)

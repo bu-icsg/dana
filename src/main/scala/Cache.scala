@@ -3,7 +3,7 @@
 package dana
 
 import Chisel._
-import cde.{Parameters, Field}
+import cde.{Parameters}
 
 // [TODO]
 //   * The notifyMask/tableMask isn't being set in the response, but

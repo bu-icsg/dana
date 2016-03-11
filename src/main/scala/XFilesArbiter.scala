@@ -4,9 +4,7 @@ package dana
 
 import Chisel._
 
-import junctions._
-import uncore._
-import rocket._
+import rocket.{RoCCInterface, RoCCCommand}
 import cde.{Parameters, Field}
 
 case object NumCores extends Field[Int]
@@ -61,12 +59,6 @@ class XFilesArbiter(implicit p: Parameters) extends XFilesModule()(p) {
     val cmd = io.core(i).cmd
     val funct = cmd.bits.inst.funct
 
-    when (cmd.fire()) {
-      printfInfo("""XFilesArbiter: core[%d] cmd fired
-[INFO] XFilesArbiter:   rd is R%d
-[INFO] XFilesArbiter:   inst: 0x%x
-""", UInt(i), io.core(i).cmd.bits.inst.rd, io.core(i).cmd.bits.inst.toBits) }
-
     // Handle direct, short-circuit responses to the core of the
     // following types:
     //   * reqInfo -- This is an informational request about X-FILES
@@ -90,14 +82,7 @@ class XFilesArbiter(implicit p: Parameters) extends XFilesModule()(p) {
       UInt(peTableNumEntries, width = 6) ##
       UInt(transactionTableNumEntries, width = 4) ##
     UInt(cacheNumEntries, width = 4)
-    when (reqInfo) { printfInfo("XFilesArbiter: reqInfo asserted\n") }
-    when (badRequest) { printfInfo("XFilesArbiter: badRequest asserted\n") }
-    when (asidUnits(i).resp.valid) {
-      printfInfo("XFilesArbiter: asidUnit[%d] resp asserted\n", UInt(i)) }
-    when (io.dana.tTable.rocc.resp.valid && io.dana.tTable.indexOut === UInt(i)) {
-      printfInfo("XFilesArbiter: tTable resp asserted on core %d\n", UInt(i)) }
-    when (io.dana.antw.rocc.resp.valid && io.dana.antw.rocc.coreIdxResp === UInt(i)) {
-      printfInfo("XFilesArbiter: antw resp asserted on core %d\n", UInt(i)) }
+
     io.core(i).resp.valid := reqInfo | badRequest | asidUnits(i).resp.valid | (
       io.dana.tTable.rocc.resp.valid && io.dana.tTable.indexOut === UInt(i)) | (
       io.dana.antw.rocc.resp.valid && io.dana.antw.rocc.coreIdxResp === UInt(i))
@@ -128,15 +113,9 @@ class XFilesArbiter(implicit p: Parameters) extends XFilesModule()(p) {
       coreQueue(i).enq.bits.rs1 := asidUnits(i).data.bits.asid ##
         cmd.bits.rs1(tidWidth - 1, 0)
     }
-    when (coreQueue(i).enq.fire()) {
-      printf("XFilesArbiter: Enqueue[%d] inst: 0x%x\n", UInt(i),
-      coreQueue(i).enq.bits.inst.toBits) }
 
     // Entries in the Core Queue are pulled out by the Core Arbiter
     coreQueue(i).deq <> coreArbiter.in(i)
-    when (coreQueue(i).deq.valid) {
-      printf("XFilesArbiter: Dequeue[%d] inst: 0x%x\n", UInt(i),
-        coreQueue(i).deq.bits.inst.toBits) }
 
     // Deal with responses in priority order
     when (asidUnits(i).resp.fire()) {
@@ -148,10 +127,6 @@ class XFilesArbiter(implicit p: Parameters) extends XFilesModule()(p) {
       io.dana.tTable.indexOut === UInt(i)) {
       io.core(i).resp.bits := io.dana.tTable.rocc.resp.bits
     }
-
-    when (io.core(i).resp.fire()) {
-      printfInfo("XFiles Arbiter: Responding to core %d R%d with data 0x%x\n",
-        UInt(i), io.core(i).resp.bits.rd, io.core(i).resp.bits.data) }
 
     // Other connections
     io.core(i).interrupt := Bool(false)
