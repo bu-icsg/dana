@@ -224,8 +224,6 @@ class TTableArbiter(implicit p: Parameters) extends XFilesBundle()(p) {
     val cmd = Decoupled(new RoCCCommand).flip
     val resp = Decoupled(new RoCCResponse)
     val s = Bool(INPUT)
-    val asid = UInt(INPUT, width = asidWidth)
-    val tid = UInt(INPUT, width = tidWidth)
   }
   val coreIdx = UInt(INPUT, width = log2Up(numCores))
   val indexOut = UInt(OUTPUT, width = log2Up(numCores))
