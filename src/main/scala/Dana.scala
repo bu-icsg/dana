@@ -286,8 +286,7 @@ abstract class DanaBundle(implicit val p: Parameters)
   }
 }
 
-class Dana(implicit p: Parameters) extends DanaModule {
-  val io = new XFilesDanaInterface
+class Dana(implicit p: Parameters) extends XFilesBackend()(p) {
 
   // Module instantiation
   val control = if (learningEnabled) Module(new ControlLearn) else

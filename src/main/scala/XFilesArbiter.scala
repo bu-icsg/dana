@@ -29,14 +29,9 @@ abstract class XFilesModule(implicit p: Parameters) extends DanaModule()(p)
 abstract class XFilesBundle(implicit p: Parameters) extends DanaBundle()(p)
     with XFilesParameters
 
-class XFilesDanaInterface(implicit p: Parameters) extends XFilesBundle()(p) {
-  val antw = new ANTWXFilesInterface
-  val tTable = new TTableArbiter
-}
-
 class XFilesInterface(implicit p: Parameters) extends Bundle {
   val core = Vec(p(NumCores), new RoCCInterface)
-  val dana = (new XFilesDanaInterface).flip
+  val backend = (new XFilesBackendInterface).flip
 }
 
 class XFilesArbiter(implicit p: Parameters) extends XFilesModule()(p) {
@@ -84,8 +79,8 @@ class XFilesArbiter(implicit p: Parameters) extends XFilesModule()(p) {
     UInt(cacheNumEntries, width = 4)
 
     io.core(i).resp.valid := reqInfo | badRequest | asidUnits(i).resp.valid | (
-      io.dana.tTable.rocc.resp.valid && io.dana.tTable.indexOut === UInt(i)) | (
-      io.dana.antw.rocc.resp.valid && io.dana.antw.rocc.coreIdxResp === UInt(i))
+      io.backend.tTable.rocc.resp.valid && io.backend.tTable.indexOut === UInt(i)) | (
+      io.backend.antw.rocc.resp.valid && io.backend.antw.rocc.coreIdxResp === UInt(i))
 
     io.core(i).resp.bits.rd := cmd.bits.inst.rd
     // [TODO] The info returned should be about X-FILES or the
@@ -120,12 +115,12 @@ class XFilesArbiter(implicit p: Parameters) extends XFilesModule()(p) {
     // Deal with responses in priority order
     when (asidUnits(i).resp.fire()) {
       io.core(i).resp.bits := asidUnits(i).resp.bits
-    } .elsewhen (io.dana.antw.rocc.resp.fire() &&
-      io.dana.antw.rocc.coreIdxResp === UInt(i)) {
-      io.core(i).resp.bits := io.dana.antw.rocc.resp.bits
-    } .elsewhen (io.dana.tTable.rocc.resp.fire() &&
-      io.dana.tTable.indexOut === UInt(i)) {
-      io.core(i).resp.bits := io.dana.tTable.rocc.resp.bits
+    } .elsewhen (io.backend.antw.rocc.resp.fire() &&
+      io.backend.antw.rocc.coreIdxResp === UInt(i)) {
+      io.core(i).resp.bits := io.backend.antw.rocc.resp.bits
+    } .elsewhen (io.backend.tTable.rocc.resp.fire() &&
+      io.backend.tTable.indexOut === UInt(i)) {
+      io.core(i).resp.bits := io.backend.tTable.rocc.resp.bits
     }
 
     // Other connections
@@ -146,21 +141,21 @@ class XFilesArbiter(implicit p: Parameters) extends XFilesModule()(p) {
   // We can pull things out of the Core Arbiter if the backend is
   // telling us it's okay and if the Core Arbiter isn't getting
   // superseded by a forwarded supervisor request.
-  coreArbiter.out.ready := io.dana.antw.rocc.cmd.ready &
-    io.dana.tTable.rocc.cmd.ready & !supReqToBackend
+  coreArbiter.out.ready := io.backend.antw.rocc.cmd.ready &
+    io.backend.tTable.rocc.cmd.ready & !supReqToBackend
 
   val userReqToBackend = coreArbiter.out.valid | supReqToBackend
-  io.dana.tTable.rocc.cmd.valid := userReqToBackend
-  io.dana.tTable.rocc.cmd.bits := coreArbiter.out.bits
-  io.dana.tTable.coreIdx := coreArbiter.chosen
-  io.dana.tTable.rocc.s := supReqToBackend
-  io.dana.tTable.rocc.resp.ready := Bool(true)
+  io.backend.tTable.rocc.cmd.valid := userReqToBackend
+  io.backend.tTable.rocc.cmd.bits := coreArbiter.out.bits
+  io.backend.tTable.coreIdx := coreArbiter.chosen
+  io.backend.tTable.rocc.s := supReqToBackend
+  io.backend.tTable.rocc.resp.ready := Bool(true)
 
-  io.dana.antw.rocc.cmd.valid := userReqToBackend
-  io.dana.antw.rocc.cmd.bits := coreArbiter.out.bits
-  io.dana.antw.rocc.coreIdxCmd := coreArbiter.chosen
-  io.dana.antw.rocc.s := supReqToBackend
-  io.dana.antw.rocc.resp.ready := Bool(true)
+  io.backend.antw.rocc.cmd.valid := userReqToBackend
+  io.backend.antw.rocc.cmd.bits := coreArbiter.out.bits
+  io.backend.antw.rocc.coreIdxCmd := coreArbiter.chosen
+  io.backend.antw.rocc.s := supReqToBackend
+  io.backend.antw.rocc.resp.ready := Bool(true)
 
   when (coreArbiter.out.fire()) {
     printfInfo("""XFiles Arbiter: coreArbiter.out.valid asserted
@@ -174,23 +169,24 @@ class XFilesArbiter(implicit p: Parameters) extends XFilesModule()(p) {
   (numCores -1 to 0 by -1).map(i => {
     when (asidUnits(i).cmdFwd.valid) {
       printfInfo("XFiles Arbiter: cmdFwd asserted\n")
-      io.dana.tTable.rocc.cmd.bits := asidUnits(i).cmdFwd.bits
-      io.dana.tTable.coreIdx := UInt(i)
+      io.backend.tTable.rocc.cmd.bits := asidUnits(i).cmdFwd.bits
+      io.backend.tTable.coreIdx := UInt(i)
 
-      io.dana.antw.rocc.cmd.bits := asidUnits(i).cmdFwd.bits
-      io.dana.antw.rocc.coreIdxCmd := UInt(i)
+      io.backend.antw.rocc.cmd.bits := asidUnits(i).cmdFwd.bits
+      io.backend.antw.rocc.coreIdxCmd := UInt(i)
     }})
 
 
   (0 until numCores).map(i => {
-    io.dana.antw.mem(i) <> io.core(i).mem})
+    io.backend.antw.mem(i) <> io.core(i).mem})
 
   // Assertions
   (0 until numCores).map(i => {
     val totalResponses =
-      Vec(io.dana.tTable.rocc.resp.valid && io.dana.tTable.indexOut === UInt(i),
+      Vec(io.backend.tTable.rocc.resp.valid && io.backend.tTable.indexOut === UInt(i),
         asidUnits(i).resp.valid,
-        io.dana.antw.rocc.coreIdxResp === UInt(i) && io.dana.antw.rocc.resp.valid)
+        io.backend.antw.rocc.coreIdxResp === UInt(i) &&
+          io.backend.antw.rocc.resp.valid)
     assert(!(totalResponses.count((x: Bool) => x) > UInt(1)),
       "X-FILES Arbiter: AsidUnit just aliased a TTable response")
     })

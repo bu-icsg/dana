@@ -69,7 +69,7 @@ class XFilesDana(implicit p: Parameters) extends RoCC()(p) {
     io.utl(i).acquire.valid := Bool(false)
     io.utl(i).grant.ready := Bool(true)}
 
-  xFilesArbiter.io.dana <> dana.io
+  xFilesArbiter.io.backend <> dana.io
 
   // Assertions
 
