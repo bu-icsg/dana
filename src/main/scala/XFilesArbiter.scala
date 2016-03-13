@@ -4,7 +4,7 @@ package dana
 
 import Chisel._
 
-import rocket.{RoCCInterface, RoCCCommand}
+import rocket.{RoCCInterface, RoCCCommand, HellaCacheResp}
 import cde.{Parameters, Field}
 
 case object NumCores extends Field[Int]
@@ -44,10 +44,12 @@ class XFilesArbiter(implicit p: Parameters) extends XFilesModule()(p) {
   // not used for any supervisory requests which are routed through
   // the ASID Unit.
   val coreQueue = Vec.fill(numCores){ Module(new Queue(new RoCCCommand, 2)).io }
+  val memQueue = Vec.fill(numCores){ Module(new Queue(new HellaCacheResp, 16)).io }
 
   // Use round robin arbitration for valid requests sitting in the
   // core queues
   val coreArbiter = Module(new RRArbiter(new RoCCCommand, numCores)).io
+  val memArbiter = Module(new RRArbiter(new HellaCacheResp, numCores)).io
 
   (0 until numCores).map(i => {
     // Alias out some commonly used signals
@@ -176,9 +178,61 @@ class XFilesArbiter(implicit p: Parameters) extends XFilesModule()(p) {
       io.backend.antw.rocc.coreIdxCmd := UInt(i)
     }})
 
+  // Handle memory request routing
+  val allMemReady = io.core.forall((rocc: RoCCInterface) => rocc.mem.req.ready)
+  (0 until numCores).map(i => {
+    io.core(i).mem.req.valid := io.backend.antw.dcache.mem.req.valid &&
+      io.backend.antw.dcache.coreIdxReq === UInt(i)
+    io.core(i).mem.req.bits := io.backend.antw.dcache.mem.req.bits
+    io.core(i).mem.invalidate_lr := io.backend.antw.dcache.mem.invalidate_lr
+    when (io.core(i).mem.req.fire()) {
+      printfInfo("XFilesArbiter: Mem request core %d with tag 0x%x for addr 0x%x\n",
+        UInt(i), io.core(i).mem.req.bits.tag, io.core(i).mem.req.bits.addr) }
+    when (io.core(i).mem.resp.fire()) {
+      printfInfo("""XFilesArbiter: Mem response core %d with tag 0x%x for addr 0x%x and data 0x%x
+""",
+        UInt(i), io.core(i).mem.resp.bits.tag, io.core(i).mem.resp.bits.addr,
+        io.core(i).mem.resp.bits.data_word_bypass) }})
+  io.backend.antw.dcache.mem.req.ready := allMemReady
+
+  // Handle memory responses. These are sent into a per-core memory
+  // response queue and then arbitrated out and passed to the backend.
+  // Note that the memory responses come back on a Valid
+  // interface, i.e., the memory queue cannot put backpressure on the
+  // data cache to get it to stop sending responses. We currently
+  // catch this missed write with an assertion. This is not a
+  // candidate for an exception (#4) as we can just make sure that the
+  // memory response queue is large enough to handle the maximum
+  // number of outstanding transactions.
+
+  // val oldAddr = Reg(Vec.fill(numCores)(UInt(width = xLen)))
 
   (0 until numCores).map(i => {
-    io.backend.antw.mem(i) <> io.core(i).mem})
+    // There seems to be a problem with the core returning double
+    // requests (#5). Repeated responses can be squashed here (with
+    // this commented out code) to avoid this. This is, admittedly, a
+    // kludge and has the potential causing other data loss. This
+    // needs more investigation as to why this is actually happening.
+    // oldAddr(i) := oldAddr(i)
+    // when (io.core(i).mem.resp.valid) {
+    //   oldAddr(i) := io.core(i).mem.resp.bits.addr }
+    // memQueue(i).enq.valid := io.core(i).mem.resp.valid &
+    //   io.core(i).mem.resp.bits.addr =/= oldAddr(i)
+
+    memQueue(i).enq.valid := io.core(i).mem.resp.valid
+    memQueue(i).enq.bits := io.core(i).mem.resp.bits
+    memQueue(i).deq <> memArbiter.in(i)
+    assert(!(io.core(i).mem.resp.valid & !memQueue(i).enq.ready),
+      "XFilesArbiter memory queue missed a memory response")})
+
+  // The backend uses a Valid interface, but the arbiter wants a
+  // Decoupled interface. We hack this in with a manual assignment and
+  // telling the arbiter that the backend can always accept data (we
+  // then just have guarantee that this is true on the backend).
+  io.backend.antw.dcache.mem.resp.valid := memArbiter.out.valid
+  io.backend.antw.dcache.mem.resp.bits := memArbiter.out.bits
+  memArbiter.out.ready := Bool(true)
+  io.backend.antw.dcache.coreIdxResp := memArbiter.chosen
 
   // Assertions
   (0 until numCores).map(i => {
@@ -188,6 +242,5 @@ class XFilesArbiter(implicit p: Parameters) extends XFilesModule()(p) {
         io.backend.antw.rocc.coreIdxResp === UInt(i) &&
           io.backend.antw.rocc.resp.valid)
     assert(!(totalResponses.count((x: Bool) => x) > UInt(1)),
-      "X-FILES Arbiter: AsidUnit just aliased a TTable response")
-    })
+      "X-FILES Arbiter: AsidUnit just aliased a TTable response")})
 }

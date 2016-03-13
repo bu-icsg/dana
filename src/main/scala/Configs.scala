@@ -13,7 +13,7 @@ class DefaultXFilesDanaConfig extends Config (
       // Core parameters
       case NumCores => Dump(Knob("NUM_CORES"))
       // ANTW Parameters
-      case AntwRobEntries => 16
+      case AntwRobEntries => 32
       // Field widths
       case ElementWidth => Dump("ELEMENT_WIDTH", 32)
       case ElementsPerBlock => Dump(Knob("ELEMENTS_PER_BLOCK"))

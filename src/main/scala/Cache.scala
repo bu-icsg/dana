@@ -38,7 +38,7 @@ class CacheMemResp(implicit p: Parameters) extends DanaBundle()(p) {
 
 class CacheMemInterface(implicit p: Parameters) extends DanaBundle()(p) {
   val req = Decoupled(new CacheMemReq)
-  val resp = Decoupled(new CacheMemResp).flip
+  val resp = Valid(new CacheMemResp).flip
 }
 
 class CacheInterface(implicit p: Parameters) extends Bundle {

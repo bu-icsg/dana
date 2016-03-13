@@ -11,7 +11,6 @@ class XFilesBackendInterface(implicit p: Parameters)
   val tTable = new TTableArbiter
 }
 
-
 class XFilesBackend(implicit p: Parameters) extends XFilesModule()(p) {
   val io = new XFilesBackendInterface
 }

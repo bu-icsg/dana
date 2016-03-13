@@ -30,7 +30,6 @@ int main (int argc, char * argv[]) {
     t.exit_code = -old_antp;
     goto bail;
   }
-  printf("[INFO] Old antp found as 0x%x\n", old_antp);
 
   // Populate the ASID--NNID Table
   int i;
@@ -51,7 +50,6 @@ int main (int argc, char * argv[]) {
     t.exit_code = -old_asid;
     goto bail;
   }
-  printf("[INFO] Old asid found as 0x%x\n", old_asid);
 
   if (t.flags.ant_info)
     asid_nnid_table_info(t.table);

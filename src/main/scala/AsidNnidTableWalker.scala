@@ -17,8 +17,10 @@ class ANTWXFilesInterface(implicit p: Parameters) extends XFilesBundle()(p) {
     val coreIdxCmd = UInt(INPUT, width = log2Up(numCores))
     val coreIdxResp = UInt(OUTPUT, width = log2Up(numCores))
   }
-  val mem = Vec.fill(numCores){
-    new HellaCacheIO()(p.alterPartial({ case CacheName => "L1D" }))
+  val dcache = new Bundle {
+    val mem = new HellaCacheIO()(p.alterPartial({ case CacheName => "L1D" }))
+    val coreIdxReq = UInt(OUTPUT, width = log2Up(numCores))
+    val coreIdxResp = UInt(INPUT, width = log2Up(numCores))
   }
 }
 
@@ -48,23 +50,17 @@ class AsidNnidTableWalker(implicit p: Parameters) extends XFilesModule()(p) {
   val io = new AsidNnidTableWalkerInterface
   val antpReg = Reg(new antp)
 
-  val (s_IDLE ::           // 0
-    s_CHECK_NNID_WAIT ::   // 1
-    s_READ_NNID_POINTER :: // 2
-    s_READ_CONFIGSIZE ::   // 3
-    s_READ_CONFIGEPB ::    // 4
-    s_READ_CONFIGPTR ::    // 5
-    s_READ_CONFIG ::       // 6
-    s_READ_CONFIG_WAIT ::  // 7
-    s_ERROR ::             // 8
-    Nil) = Enum(UInt(), 9)
+  val (s_IDLE :: s_CHECK_ASID :: s_GET_VALID_NNIDS :: s_GET_NN_POINTER ::
+    s_GET_NN_SIZE :: s_GET_NN_EPB :: s_GET_CONFIG_POINTER :: s_GET_NN_CONFIG ::
+    s_GET_NN_CONFIG_CLEANUP :: s_EXCEPTION :: s_ERROR :: Nil) = Enum(UInt(), 11)
+
+  val (err_UNKNOWN :: err_INVASID :: err_INVNNID :: err_INVEPB :: Nil) =
+    Enum(UInt(), 4)
+
   val state = Reg(UInt(), init = s_IDLE)
 
   // State used to read a configuration
-  val configSize = Reg(UInt(width = log2Up(cacheDataSize * 8 / xLen)))
   val configReqCount = Reg(UInt(width = log2Up(cacheDataSize * 8 / xLen)))
-  val configRespCount = Reg(UInt(width = log2Up(cacheDataSize * 8 / xLen)))
-  val configPtr = Reg(UInt(width = xLen))
   val configBufSize = bitsPerBlock / xLen
   val configWb = Reg(Bool())
   val configWbCount = Reg(UInt(width = log2Up(cacheDataSize * 8 / bitsPerBlock)))
@@ -75,8 +71,8 @@ class AsidNnidTableWalker(implicit p: Parameters) extends XFilesModule()(p) {
   // Queue requests from the cache
   // [TODO] Add parameters for these cache depths
   val cacheReqQueue = Module(new Queue(new CacheMemReq, 2))
-  val memReqQueue = Module(new Queue(new HellaCacheReqWithCore()(p), 4))
   val cacheReqCurrent = Reg(new CacheMemReq)
+  val reqsOutstanding = Reg(UInt(width = xLen), init = UInt(0))
 
   // Default values
   io.xfiles.rocc.cmd.ready := Bool(true)
@@ -89,15 +85,15 @@ class AsidNnidTableWalker(implicit p: Parameters) extends XFilesModule()(p) {
   io.cache.resp.bits.cacheIndex := UInt(0)
   io.cache.resp.bits.addr := UInt(0)
   for (i <- 0 until numCores) {
-    io.xfiles.mem(i).req.valid := Bool(false)
-    io.xfiles.mem(i).req.bits.kill := Bool(false) // testing
-    io.xfiles.mem(i).req.bits.phys := Bool(true) // testing
-    io.xfiles.mem(i).req.bits.data := Bool(false) // testing
-    io.xfiles.mem(i).req.bits.addr := UInt(0)
-    io.xfiles.mem(i).req.bits.tag := UInt(0)
-    io.xfiles.mem(i).req.bits.cmd := UInt(0)
-    io.xfiles.mem(i).req.bits.typ := UInt(0)
-    io.xfiles.mem(i).invalidate_lr := Bool(false)
+    io.xfiles.dcache.mem.req.valid := Bool(false)
+    io.xfiles.dcache.mem.req.bits.kill := Bool(false) // testing
+    io.xfiles.dcache.mem.req.bits.phys := Bool(true) // testing
+    io.xfiles.dcache.mem.req.bits.data := Bool(false) // testing
+    io.xfiles.dcache.mem.req.bits.addr := UInt(0)
+    io.xfiles.dcache.mem.req.bits.tag := UInt(0)
+    io.xfiles.dcache.mem.req.bits.cmd := UInt(0)
+    io.xfiles.dcache.mem.req.bits.typ := UInt(0)
+    io.xfiles.dcache.mem.invalidate_lr := Bool(false)
   }
   cacheReqQueue.io.enq.valid := Bool(false)
   cacheReqQueue.io.enq.bits.asid := UInt(0)
@@ -106,26 +102,16 @@ class AsidNnidTableWalker(implicit p: Parameters) extends XFilesModule()(p) {
   cacheReqQueue.io.enq.bits.coreIndex := UInt(0)
   cacheReqQueue.io.deq.ready := Bool(false)
   configWb := Bool(false)
-  // Memory Request Queue
-  memReqQueue.io.enq.valid := Bool(false)
-  memReqQueue.io.enq.bits.req.addr := UInt(0)
-  memReqQueue.io.enq.bits.req.tag := UInt(0)
-  memReqQueue.io.enq.bits.req.cmd := UInt(0)
-  memReqQueue.io.enq.bits.req.typ := UInt(0)
-  // memReqQueue.io.enq.bits.req.toBits := UInt(0)
-  memReqQueue.io.enq.bits.core := UInt(0)
-  memReqQueue.io.deq.ready := Bool(false)
 
-  def respValid(x: HellaCacheIO): Bool = { x.resp.valid }
-  val indexResp = io.xfiles.mem.indexWhere(respValid(_))
+  val indexResp = io.xfiles.dcache.coreIdxResp
+  val respData = io.xfiles.dcache.mem.resp.bits.data_word_bypass
 
-  def memRead(core: UInt, addr: UInt) {
-    memReqQueue.io.enq.valid := Bool(true)
-    memReqQueue.io.enq.bits.req.addr := addr
-    memReqQueue.io.enq.bits.req.tag := addr(coreDCacheReqTagBits - 1, 0)
-    memReqQueue.io.enq.bits.req.cmd := M_XRD
-    memReqQueue.io.enq.bits.req.typ := MT_D
-    memReqQueue.io.enq.bits.core := core
+  val configPointer = Reg(UInt())
+  def memRead(addr: UInt) {
+    io.xfiles.dcache.mem.req.bits.addr := addr
+    io.xfiles.dcache.mem.req.bits.tag := addr(coreDCacheReqTagBits - 1, 0)
+    io.xfiles.dcache.mem.req.bits.cmd := M_XRD
+    io.xfiles.dcache.mem.req.bits.typ := MT_D
   }
   def cacheResp(done: Bool, data: UInt, cacheIndex: UInt, addr: UInt) {
     io.cache.resp.valid := Bool(true)
@@ -137,37 +123,48 @@ class AsidNnidTableWalker(implicit p: Parameters) extends XFilesModule()(p) {
   def feedCacheRob() {
     // Compute the response index in terms of a logical index into
     // the array that we're reading
-    val respIdx = (io.xfiles.mem(indexResp).resp.bits.addr - configPtr) >>
+    val respIdx = (io.xfiles.dcache.mem.resp.bits.addr - configPointer) >>
     UInt(log2Up(xLen/8))
     // Based on this response index, compute the slot and offset
     // in the Config ROB buffer
     val configRobSlot = respIdx(log2Up(antwRobEntries) +
       log2Up(configBufSize) - 1, log2Up(configBufSize))
     val configRobOffset = respIdx(log2Up(configBufSize) - 1, 0)
-    // The configRespCount just keeps track of how many responses
-    // we've seen. This is used to determine when we've seen all
-    // the reads we expecte.
-    configRespCount := configRespCount + UInt(1)
 
     // Write the data to the appropriate slot and offset in the
     // Config ROB setting the valid flags appropriately
-    configRob(configRobSlot).valid :=
-      configRob(configRobSlot).valid |
+    configRob(configRobSlot).valid := configRob(configRobSlot).valid |
       UInt(1, width = configBufSize) << configRobOffset
-    configRob(configRobSlot).cacheAddr :=
-      respIdx >> UInt(log2Up(configBufSize))
-    configRob(configRobSlot).data(configRobOffset) :=
-      io.xfiles.mem(indexResp).resp.bits.data_word_bypass
+    val cacheAddr = respIdx >> UInt(log2Up(configBufSize))
+    configRob(configRobSlot).cacheAddr := cacheAddr
+    configRob(configRobSlot).data(configRobOffset) := respData
 
     // Assertions
 
+    val overwrite = (configRob(configRobSlot).valid &
+      UInt(1, width = configBufSize) << configRobOffset) =/= UInt(0)
     // The Config ROB bit that we're setting valid should not already
     // be valid. This indicates that we're overwritting some valid
     // data that has not been written back, likely due to a dropped
     // cache request.
-    assert(!((configRob(configRobSlot).valid &
-      UInt(1, width = configBufSize) << configRobOffset) >> configRobOffset),
-      "ANTW about to overwrite valid Config ROB entry. Possible dropped request?")
+    // assert(!(overwrite),
+    //   "ANTW about to overwrite valid Config ROB entry. Possible dropped request?")
+
+    when (overwrite) {
+      printfWarn("ANTW: saw overwrite on oldAddr/newAddr 0x%x 0x%x of oldData/newData 0x%x/0x%x\n",
+        configRob(configRobSlot).cacheAddr, cacheAddr,
+        configRob(configRobSlot).data(configRobOffset), respData) }
+
+    when (overwrite & (configRob(configRobSlot).cacheAddr === cacheAddr) &
+      (configRob(configRobSlot).data(configRobOffset) === respData)) {
+      printfWarn("ANTW: Overwriting existing entry with the same addr/data\n") }
+
+    assert(!(overwrite & (configRob(configRobSlot).cacheAddr =/= cacheAddr)),
+      "ANTW about to overwrite a valid Config ROB entry with different addr")
+
+    assert(!(overwrite &
+      (configRob(configRobSlot).data(configRobOffset) =/= respData)),
+      "ANTW about to overwrite a valid Config ROB entry with different data")
   }
 
   // Communication with the ASID Unit
@@ -184,8 +181,6 @@ class AsidNnidTableWalker(implicit p: Parameters) extends XFilesModule()(p) {
   io.xfiles.rocc.resp.bits.rd := io.xfiles.rocc.cmd.bits.inst.rd
   io.xfiles.rocc.resp.bits.data := Mux(antpReg.valid, antpReg.antp,
     SInt(-err_DANA_NOANTP, width = xLen).toUInt)
-    // SInt(-err_NOANTP, width = xLen).toUInt)
-    // (-(err_NOANTP.toSInt)).toUInt)
   io.xfiles.rocc.coreIdxResp := io.xfiles.rocc.coreIdxCmd
   io.xfiles.rocc.resp.valid := io.xfiles.rocc.cmd.fire() && updateAntp
 
@@ -203,27 +198,6 @@ class AsidNnidTableWalker(implicit p: Parameters) extends XFilesModule()(p) {
     cacheReqQueue.io.enq.bits := io.cache.req.bits
   }
 
-  // Pull memory requests out of the Memory Request Queue
-  when (memReqQueue.io.deq.valid &&
-    io.xfiles.mem(memReqQueue.io.deq.bits.core).req.ready
-    // [TODO] This _shouldn't_ be necessary, here, but I'm having
-    // problems with dropped requests without it.
-    && Reg(next = !io.xfiles.mem(memReqQueue.io.deq.bits.core).req.valid)
-  ) {
-    val core = memReqQueue.io.deq.bits.core
-    memReqQueue.io.deq.ready := Bool(true)
-    io.xfiles.mem(core).req.valid := Bool(true)
-    io.xfiles.mem(core).req.bits.addr := memReqQueue.io.deq.bits.req.addr
-    io.xfiles.mem(core).req.bits.tag :=
-      memReqQueue.io.deq.bits.req.addr(coreDCacheReqTagBits - 1, 0)
-    io.xfiles.mem(core).req.bits.cmd := memReqQueue.io.deq.bits.req.cmd
-    io.xfiles.mem(core).req.bits.typ := memReqQueue.io.deq.bits.req.typ
-    printfInfo("ANTW: Mem read req core/addr/tag(%x,%x) 0x%x/0x%x/0x%x\n",
-      UInt(coreDCacheReqTagBits - 1), UInt(0),
-      UInt(core), memReqQueue.io.deq.bits.req.addr,
-      memReqQueue.io.deq.bits.req.addr(coreDCacheReqTagBits - 1, 0))
-  }
-
   // [TODO] Need a small controller that determines what to do next.
   // This should support servicing a request on the queue or dealing
   // with a "one-off" request from a PE. I think this should be
@@ -231,115 +205,143 @@ class AsidNnidTableWalker(implicit p: Parameters) extends XFilesModule()(p) {
   val hasCacheRequests = cacheReqQueue.io.count > UInt(0) &&
     antpReg.valid
 
-  switch (state) {
-    is (s_IDLE) {
-      when (hasCacheRequests &&
-        io.xfiles.mem(cacheReqQueue.io.deq.bits.coreIndex).req.ready) {
-        // The base request offset is the ANTP plus the ASID *
-        // size_of(asid_nnid_table_entry) which is 24 bytes
-        val reqAddr = antpReg.antp + cacheReqQueue.io.deq.bits.asid * UInt(24)
-        // Copy the request into the currently processing storage area
-        cacheReqCurrent.asid := cacheReqQueue.io.deq.bits.asid
-        cacheReqCurrent.nnid := cacheReqQueue.io.deq.bits.nnid
-        cacheReqCurrent.cacheIndex := cacheReqQueue.io.deq.bits.cacheIndex
-        cacheReqCurrent.coreIndex := cacheReqQueue.io.deq.bits.coreIndex
-        cacheReqQueue.io.deq.ready := Bool(true)
-        memRead(cacheReqQueue.io.deq.bits.coreIndex, reqAddr)
-        state := s_CHECK_NNID_WAIT
-        printfInfo("ANTW: Dequeuing mem request for Core/ASID/NNID/Idx 0x%x/0x%x/0x%x/0x%x\n",
-          cacheReqQueue.io.deq.bits.coreIndex, cacheReqQueue.io.deq.bits.asid,
-          cacheReqQueue.io.deq.bits.nnid, cacheReqQueue.io.deq.bits.cacheIndex)
-      }
-    }
-    is (s_CHECK_NNID_WAIT) {
-      when(io.xfiles.mem.exists(respValid)) {
-        // [TODO] Fragile on XLen
-        val numConfigs = io.xfiles.mem(indexResp).resp.bits.data_word_bypass(31, 0)
-        val numValid = io.xfiles.mem(indexResp).resp.bits.data_word_bypass(63, 32)
-        printfInfo("ANTW: Saw CHECK_NNID resp w/ #configs 0x%x, #valid 0x%x\n",
-          numConfigs, numValid)
-        when (cacheReqCurrent.nnid < numValid) {
-          val reqAddr = antpReg.antp + cacheReqCurrent.asid * UInt(24) + UInt(8)
-          memRead(io.cache.req.bits.coreIndex, reqAddr)
-          state := s_READ_NNID_POINTER
-        } .otherwise {
-          printf("[ERROR] ANTW: NNID reference would be invalid\n")
-          // [TODO] exception handling, issue #4
-          state := s_ERROR
-        }
-      }
-    }
-    is (s_READ_NNID_POINTER) {
-      when (io.xfiles.mem.exists(respValid)) {
-        val reqAddr = io.xfiles.mem(indexResp).resp.bits.data_word_bypass +
-          cacheReqCurrent.nnid * UInt(24)
-        printfInfo("ANTW: Saw READ_NNID_POINTER resp w/ configPtr 0x%x\n",
-          reqAddr + UInt(8))
-        configPtr := reqAddr + UInt(16)
-        memRead(io.cache.req.bits.coreIndex, reqAddr)
-        state := s_READ_CONFIGSIZE
-      }
-    }
-    is (s_READ_CONFIGSIZE) {
-      when (io.xfiles.mem.exists(respValid)) {
-        printfInfo("ANTW: Saw READ_CONFIGSIZE resp w/ configSize 0x%x\n",
-          io.xfiles.mem(indexResp).resp.bits.data_word_bypass)
-        configSize := io.xfiles.mem(indexResp).resp.bits.data_word_bypass
-        val reqAddr = configPtr - UInt(8)
-        memRead(io.cache.req.bits.coreIndex, reqAddr)
-        state := s_READ_CONFIGEPB
-      }
-    }
-    is (s_READ_CONFIGEPB) {
-      when (io.xfiles.mem.exists(respValid)) {
-        val epb = io.xfiles.mem(indexResp).resp.bits.data_word_bypass
-        printfInfo("ANTW: Saw READ_CONFIGEPB resp w/ EPB 0x%x\n", epb)
-        when (epb === UInt(elementsPerBlock)) {
-          memRead(io.cache.req.bits.coreIndex, configPtr)
-          state := s_READ_CONFIGPTR
-        } .otherwise {
-          printfError("ANTW: EPB of NN Config unsupported\n")
-          // [TODO] exception handling, issue #4
-          state := s_ERROR
-        }
-      }
-    }
-    is (s_READ_CONFIGPTR) {
-      when (io.xfiles.mem.exists(respValid)) {
-        configPtr := io.xfiles.mem(indexResp).resp.bits.data_word_bypass
-        configReqCount := UInt(1)
-        configRespCount := UInt(0)
-        configWbCount := UInt(0)
-        val reqAddr = io.xfiles.mem(indexResp).resp.bits.data_word_bypass
-        memRead(io.cache.req.bits.coreIndex, reqAddr)
-        state := s_READ_CONFIG
-      }
-    }
-    is (s_READ_CONFIG) {
-      // Whenever the cache can accept a new request, send one
-      when (memReqQueue.io.enq.ready) {
-        configReqCount := configReqCount + UInt(1)
-        val reqAddr = configPtr + configReqCount * UInt(xLen / 8)
-        memRead(io.cache.req.bits.coreIndex, reqAddr)
-        when (configReqCount === configSize - UInt(1)) {
-          state := s_READ_CONFIG_WAIT
-        }
-      }
-      // If a new response shows up, write it into a buffer and send
-      // it along to the Cache if we've filled a buffer
-      when (io.xfiles.mem.exists(respValid)) {
-        feedCacheRob()
-      }
-    }
-    is (s_READ_CONFIG_WAIT) {
-      when (io.xfiles.mem.exists(respValid)) {
-        feedCacheRob()
-      }
-      when (configRespCount === configSize) {
-        state := s_IDLE
-      }
+  val exceptionCode = Reg(Valid(UInt()))
+  def setException(code: UInt) {
+    exceptionCode.valid := Bool(true);
+    exceptionCode.bits := code }
+  def clearException() {
+    exceptionCode.valid := Bool(false) }
+
+  val reqSent = Reg(Bool())
+  reqSent := reqSent
+  def reqNoResp(nextState: UInt) = {
+    io.xfiles.dcache.mem.req.valid := Bool(true)
+    when (io.xfiles.dcache.mem.req.ready) {
+      io.xfiles.dcache.mem.req.valid := Bool(false)
+      state := nextState }}
+  def reqWaitForResp(nextState: UInt, cond: => Bool = Bool(true),
+    code: UInt = err_UNKNOWN) = {
+    when (!reqSent) {
+      io.xfiles.dcache.mem.req.valid := Bool(true)
+      reqSent := io.xfiles.dcache.mem.req.ready
+    } .elsewhen (io.xfiles.dcache.mem.resp.valid) {
+      io.xfiles.dcache.mem.req.valid := Bool(false)
+      reqSent := Bool(false)
+      state := Mux(cond, nextState, s_EXCEPTION)
+      setException(code) }}
+
+  when (state === s_IDLE & hasCacheRequests) {
+    // Pull data out of the cache request queue and save it in the
+    // "current" buffer
+    cacheReqCurrent := cacheReqQueue.io.deq.bits
+    cacheReqQueue.io.deq.ready := Bool(true)
+    state := s_CHECK_ASID
+    reqSent := Bool(false)
+  }
+
+  when (state === s_CHECK_ASID) {
+    when (cacheReqCurrent.asid < antpReg.size) {
+      state := s_GET_VALID_NNIDS
+    } .otherwise {
+      state := s_EXCEPTION
+      setException(err_INVASID)
     }
   }
+
+  io.xfiles.dcache.coreIdxReq := cacheReqCurrent.coreIndex
+  when (state === s_GET_VALID_NNIDS) {
+    val reqAddr = antpReg.antp + cacheReqCurrent.asid * UInt(24)
+    val nnid = cacheReqCurrent.nnid
+    val numValidNnids = respData(63, 32)
+    memRead(reqAddr)
+    reqWaitForResp(s_GET_NN_POINTER, nnid < numValidNnids, err_INVNNID)
+  }
+
+  val nnidPointer = Reg(UInt())
+  nnidPointer := nnidPointer
+  when (state === s_GET_NN_POINTER) {
+    val reqAddr = antpReg.antp + cacheReqCurrent.asid * UInt(24) +
+      UInt(8)
+    nnidPointer := respData
+    memRead(reqAddr)
+    reqWaitForResp(s_GET_NN_SIZE)
+  }
+
+  val configSize = Reg(UInt())
+  configSize := configSize
+  when (state === s_GET_NN_SIZE) {
+    val reqAddr = nnidPointer
+    memRead(reqAddr)
+    configSize := respData
+    reqWaitForResp(s_GET_NN_EPB)
+  }
+
+  when (state === s_GET_NN_EPB) {
+    val reqAddr = nnidPointer + UInt(8)
+    memRead(reqAddr)
+    reqWaitForResp(s_GET_CONFIG_POINTER, respData === UInt(elementsPerBlock),
+      err_INVEPB)
+  }
+
+  configPointer := configPointer
+  when (state === s_GET_CONFIG_POINTER) {
+    val reqAddr = nnidPointer + UInt(16)
+    configReqCount := UInt(0)
+    configWbCount := UInt(0)
+    memRead(reqAddr)
+    configPointer := respData
+    reqWaitForResp(s_GET_NN_CONFIG)
+    reqsOutstanding := UInt(0)
+  }
+
+  when (state === s_GET_NN_CONFIG) {
+    // [TODO] This computation may be better served as an update to a
+    // register
+    memRead(configPointer + configReqCount * UInt(xLen / 8))
+    // Related to #5, if I don't slow down the rate of request
+    // generation, the core tends to generate repeated responses.
+    io.xfiles.dcache.mem.req.valid := Bool(true)
+    when (io.xfiles.dcache.mem.req.fire()) {
+      configReqCount := configReqCount + UInt(1)
+      when (configReqCount === configSize - UInt(1)) {
+        state := s_GET_NN_CONFIG_CLEANUP
+      }
+    }
+    when (io.xfiles.dcache.mem.resp.valid) { feedCacheRob() }
+  }
+
+  when (state === s_GET_NN_CONFIG_CLEANUP) {
+    when (configWbCount === configSize) { state := s_IDLE }
+    when (io.xfiles.dcache.mem.resp.valid) { feedCacheRob() }
+  }
+
+  when (state === s_EXCEPTION) {
+    printfError("ANTW: Excpetion code 0d%d\n", exceptionCode.bits);
+    state := s_ERROR;
+  }
+
+  when (io.xfiles.dcache.mem.req.fire()) {
+    printfInfo("ANTW: Mem req to Core %d with tag 0x%x for addr 0x%x\n",
+      io.xfiles.dcache.coreIdxReq, io.xfiles.dcache.mem.req.bits.tag,
+      io.xfiles.dcache.mem.req.bits.addr) }
+
+  when (io.xfiles.dcache.mem.resp.fire()) {
+    printfInfo("ANTW: Mem resp from Core %d with tag 0x%x data 0x%x\n",
+      io.xfiles.dcache.coreIdxResp, io.xfiles.dcache.mem.resp.bits.tag,
+      io.xfiles.dcache.mem.resp.bits.data_word_bypass) }
+
+  // Keep track of the number of outstanding requests. This should not
+  // exceed the number of entries that we have in the Config ROB
+  // buffer or we'll likely be overwriting something.
+  when (io.xfiles.dcache.mem.req.fire() | io.cache.resp.fire()) {
+    reqsOutstanding := reqsOutstanding + io.xfiles.dcache.mem.req.fire() -
+    io.cache.resp.fire() * UInt(configBufSize)
+    when (reqsOutstanding > UInt(antwRobEntries * configBufSize)) {
+      printfWarn("ANTW: Outstanding reqs (%d) > config buffer size (%d)!\n",
+        reqsOutstanding, UInt(configBufSize * antwRobEntries)) }
+  }
+  // assert(!(reqsOutstanding > antwRobEntries * configBufSize),
+  //   "ANTW: Number of outstanding reqs exceeded available Config ROB entries")
 
   // We need to look at the Config ROB and determine if anything is
   // valid to write back to the cache. A slot is valid if all its
@@ -370,8 +372,6 @@ class AsidNnidTableWalker(implicit p: Parameters) extends XFilesModule()(p) {
   }
 
   // Assertions
-  assert(!(io.xfiles.mem.count(respValid(_)) > UInt(1)),
-    "Saw more than one simultaneous ANTP response, dropping all but one...")
   assert(!(io.cache.req.fire() && !io.cache.req.ready),
     "ANTW saw a cache request, but it's cache queue is full")
   // If the ASID is larger than the stored size, then this is an
@@ -385,13 +385,14 @@ class AsidNnidTableWalker(implicit p: Parameters) extends XFilesModule()(p) {
     "ANTW is in an error state")
   assert(Bool(isPow2(configBufSize)),
     "ANTW derived parameter configBufSize must be a power of 2")
-  // Outbound memory requests shouldn't happen when memory not ready
-  (0 until numCores).map(core =>
-    assert(!(io.xfiles.mem(core).req.valid && !io.xfiles.mem(core).req.ready),
-      "ANTW just sent memory to a core when memory was not ready"))
+  // The new logic for this allows the request to go valid while the
+  // memory is not ready. However, the state stays there until the
+  // memory says that it's ready.
+  // // Outbound memory requests shouldn't happen when memory not ready
+  // assert(!(io.xfiles.dcache.mem.req.valid && !io.xfiles.dcache.mem.req.ready),
+  //     "ANTW just sent memory to a core when memory was not ready")
   // Outbound memory requests should try to read NULL
-  (0 until numCores).map(core =>
-    assert(!(io.xfiles.mem(core).req.valid &&
-      io.xfiles.mem(core).req.bits.addr === UInt(0)),
-      "ANTW tried to read from NULL"))
+  assert(!(io.xfiles.dcache.mem.req.valid &&
+    io.xfiles.dcache.mem.req.bits.addr === UInt(0)),
+    "ANTW tried to read from NULL")
 }
