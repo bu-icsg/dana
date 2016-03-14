@@ -69,7 +69,6 @@ class AsidNnidTableWalker(implicit p: Parameters) extends XFilesModule()(p) {
   // [TODO] Add parameters for these cache depths
   val cacheReqQueue = Module(new Queue(new CacheMemReq, 2))
   val cacheReqCurrent = Reg(new CacheMemReq)
-  val reqsOutstanding = Reg(UInt(width = xLen), init = UInt(0))
 
   // Default values
   io.xfiles.rocc.cmd.ready := Bool(true)
@@ -287,7 +286,6 @@ class AsidNnidTableWalker(implicit p: Parameters) extends XFilesModule()(p) {
     memRead(reqAddr)
     configPointer := respData
     reqWaitForResp(s_GET_NN_CONFIG)
-    reqsOutstanding := UInt(0)
   }
 
   when (state === s_GET_NN_CONFIG) {
@@ -325,19 +323,6 @@ class AsidNnidTableWalker(implicit p: Parameters) extends XFilesModule()(p) {
     printfInfo("ANTW: Mem resp from Core %d with tag 0x%x data 0x%x\n",
       io.xfiles.dcache.coreIdxResp, io.xfiles.dcache.mem.resp.bits.tag,
       io.xfiles.dcache.mem.resp.bits.data_word_bypass) }
-
-  // Keep track of the number of outstanding requests. This should not
-  // exceed the number of entries that we have in the Config ROB
-  // buffer or we'll likely be overwriting something.
-  when (io.xfiles.dcache.mem.req.fire() | io.cache.resp.fire()) {
-    reqsOutstanding := reqsOutstanding + io.xfiles.dcache.mem.req.fire() -
-    io.cache.resp.fire() * UInt(configBufSize)
-    when (reqsOutstanding > UInt(antwRobEntries * configBufSize)) {
-      printfWarn("ANTW: Outstanding reqs (%d) > config buffer size (%d)!\n",
-        reqsOutstanding, UInt(configBufSize * antwRobEntries)) }
-  }
-  // assert(!(reqsOutstanding > antwRobEntries * configBufSize),
-  //   "ANTW: Number of outstanding reqs exceeded available Config ROB entries")
 
   // We need to look at the Config ROB and determine if anything is
   // valid to write back to the cache. A slot is valid if all its
@@ -381,13 +366,7 @@ class AsidNnidTableWalker(implicit p: Parameters) extends XFilesModule()(p) {
     "ANTW is in an error state")
   assert(Bool(isPow2(configBufSize)),
     "ANTW derived parameter configBufSize must be a power of 2")
-  // The new logic for this allows the request to go valid while the
-  // memory is not ready. However, the state stays there until the
-  // memory says that it's ready.
-  // // Outbound memory requests shouldn't happen when memory not ready
-  // assert(!(io.xfiles.dcache.mem.req.valid && !io.xfiles.dcache.mem.req.ready),
-  //     "ANTW just sent memory to a core when memory was not ready")
-  // Outbound memory requests should try to read NULL
+  // Outbound memory requests shouldn't try to read NULL
   assert(!(io.xfiles.dcache.mem.req.valid &&
     io.xfiles.dcache.mem.req.bits.addr === UInt(0)),
     "ANTW tried to read from NULL")
