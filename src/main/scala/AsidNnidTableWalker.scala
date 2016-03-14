@@ -54,8 +54,8 @@ class AsidNnidTableWalker(implicit p: Parameters) extends XFilesModule()(p) {
     s_GET_NN_SIZE :: s_GET_NN_EPB :: s_GET_CONFIG_POINTER :: s_GET_NN_CONFIG ::
     s_GET_NN_CONFIG_CLEANUP :: s_EXCEPTION :: s_ERROR :: Nil) = Enum(UInt(), 11)
 
-  val (err_UNKNOWN :: err_INVASID :: err_INVNNID :: err_INVEPB :: Nil) =
-    Enum(UInt(), 4)
+  val (err_UNKNOWN :: err_INVASID :: err_INVNNID :: err_ZEROSIZE ::
+    err_INVEPB :: Nil) = Enum(UInt(), 5)
 
   val state = Reg(UInt(), init = s_IDLE)
 
@@ -239,10 +239,11 @@ class AsidNnidTableWalker(implicit p: Parameters) extends XFilesModule()(p) {
     reqSent := Bool(false)
   }
 
+  val asid = cacheReqCurrent.asid
+  val nnid = cacheReqCurrent.nnid
   when (state === s_CHECK_ASID) {
-    when (cacheReqCurrent.asid < antpReg.size) {
-      state := s_GET_VALID_NNIDS
-    } .otherwise {
+    state := s_GET_VALID_NNIDS
+    when (asid >= antpReg.size) {
       state := s_EXCEPTION
       setException(err_INVASID)
     }
@@ -251,7 +252,6 @@ class AsidNnidTableWalker(implicit p: Parameters) extends XFilesModule()(p) {
   io.xfiles.dcache.coreIdxReq := cacheReqCurrent.coreIndex
   when (state === s_GET_VALID_NNIDS) {
     val reqAddr = antpReg.antp + cacheReqCurrent.asid * UInt(24)
-    val nnid = cacheReqCurrent.nnid
     val numValidNnids = respData(63, 32)
     memRead(reqAddr)
     reqWaitForResp(s_GET_NN_POINTER, nnid < numValidNnids, err_INVNNID)
@@ -260,11 +260,10 @@ class AsidNnidTableWalker(implicit p: Parameters) extends XFilesModule()(p) {
   val nnidPointer = Reg(UInt())
   nnidPointer := nnidPointer
   when (state === s_GET_NN_POINTER) {
-    val reqAddr = antpReg.antp + cacheReqCurrent.asid * UInt(24) +
-      UInt(8)
-    nnidPointer := respData
+    val reqAddr = antpReg.antp + asid * UInt(24) + UInt(8)
+    nnidPointer := respData + nnid * UInt(24)
     memRead(reqAddr)
-    reqWaitForResp(s_GET_NN_SIZE)
+    reqWaitForResp(s_GET_NN_SIZE, respData =/= UInt(0), err_ZEROSIZE)
   }
 
   val configSize = Reg(UInt())
