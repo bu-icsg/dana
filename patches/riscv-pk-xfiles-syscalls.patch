@@ -67,7 +67,7 @@ index 108d19d..d851329 100644
  dist_files = \
    $(sprojs) \
 diff --git a/pk/syscall.c b/pk/syscall.c
-index 2d96282..7d86bcd 100644
+index 2d96282..7816333 100644
 --- a/pk/syscall.c
 +++ b/pk/syscall.c
 @@ -381,7 +381,7 @@ int sys_times(void* restrict loc)
@@ -88,28 +88,32 @@ index 2d96282..7d86bcd 100644
    return 0;
  }
  
-@@ -426,6 +426,20 @@ static int sys_stub_nosys()
+@@ -426,6 +426,24 @@ static int sys_stub_nosys()
    return -ENOSYS;
  }
  
 +int sys_xfiles_dana_set_asid(uint16_t asid)
 +{
-+  asm volatile ("custom0 0, %[rs1], 0, 0"
-+                :: [rs1] "r" (asid));
-+  return 0;
++  int old_asid;
++  asm volatile ("custom0 %[old_asid], %[rs1], 0, 0"
++                : [old_asid] "=r" (old_asid)
++                : [rs1] "r" (asid));
++  return old_asid;
 +}
 +
 +int sys_xfiles_dana_set_antp(uint64_t antp, size_t size)
 +{
-+  asm volatile ("custom0 0, %[rs1], %[rs2], 1"
-+                :: [rs1] "r" (antp), [rs2] "r" (size));
-+  return 0;
++  int old_antp;
++  asm volatile ("custom0 %[old_antp], %[rs1], %[rs2], 1"
++                : [old_antp] "=r" (old_antp)
++                : [rs1] "r" (antp), [rs2] "r" (size));
++  return old_antp;
 +}
 +
  long do_syscall(long a0, long a1, long a2, long a3, long a4, long a5, unsigned long n)
  {
    const static void* syscall_table[] = {
-@@ -470,6 +484,8 @@ long do_syscall(long a0, long a1, long a2, long a3, long a4, long a5, unsigned l
+@@ -470,6 +488,8 @@ long do_syscall(long a0, long a1, long a2, long a3, long a4, long a5, unsigned l
      [SYS_getrusage] = sys_stub_nosys,
      [SYS_getrlimit] = sys_stub_nosys,
      [SYS_setrlimit] = sys_stub_nosys,
