@@ -49,9 +49,12 @@ typedef enum {
 } xfiles_err_t;
 
 typedef enum {
-  err_INVASID = 1,
-  err_INVNNID,
-  err_INVEPB
+  err_UNKNOWN     = 0,
+  err_DANA_NOANTP = 1,
+  err_INVASID     = 2,
+  err_INVNNID     = 3,
+  err_ZEROSIZE    = 4,
+  err_INVEPB      = 5
 } dana_err_t;
 
 //-------------------------------------- Userland

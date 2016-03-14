@@ -80,7 +80,12 @@ trait DanaParameters extends HasCoreParameters {
   def divUp (dividend: Int, divisor: Int): Int = {
     (dividend + divisor - 1) / divisor}
 
+  val err_UNKNOWN     = 0
   val err_DANA_NOANTP = 1
+  val err_INVASID     = 2
+  val err_INVNNID     = 3
+  val err_ZEROSIZE    = 4
+  val err_INVEPB      = 5
 }
 
 // An abstract base class for anything associated with DANA (and the

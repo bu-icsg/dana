@@ -54,9 +54,6 @@ class AsidNnidTableWalker(implicit p: Parameters) extends XFilesModule()(p) {
     s_GET_NN_SIZE :: s_GET_NN_EPB :: s_GET_CONFIG_POINTER :: s_GET_NN_CONFIG ::
     s_GET_NN_CONFIG_CLEANUP :: s_EXCEPTION :: s_ERROR :: Nil) = Enum(UInt(), 11)
 
-  val (err_UNKNOWN :: err_INVASID :: err_INVNNID :: err_ZEROSIZE ::
-    err_INVEPB :: Nil) = Enum(UInt(), 5)
-
   val state = Reg(UInt(), init = s_IDLE)
 
   // State used to read a configuration
@@ -206,9 +203,9 @@ class AsidNnidTableWalker(implicit p: Parameters) extends XFilesModule()(p) {
     antpReg.valid
 
   val exceptionCode = Reg(Valid(UInt()))
-  def setException(code: UInt) {
+  def setException(code: Int) {
     exceptionCode.valid := Bool(true);
-    exceptionCode.bits := code }
+    exceptionCode.bits := UInt(code) }
   def clearException() {
     exceptionCode.valid := Bool(false) }
 
@@ -220,7 +217,7 @@ class AsidNnidTableWalker(implicit p: Parameters) extends XFilesModule()(p) {
       io.xfiles.dcache.mem.req.valid := Bool(false)
       state := nextState }}
   def reqWaitForResp(nextState: UInt, cond: => Bool = Bool(true),
-    code: UInt = err_UNKNOWN) = {
+    code: Int = err_UNKNOWN) = {
     when (!reqSent) {
       io.xfiles.dcache.mem.req.valid := Bool(true)
       reqSent := io.xfiles.dcache.mem.req.ready
