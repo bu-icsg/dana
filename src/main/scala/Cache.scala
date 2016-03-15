@@ -68,7 +68,7 @@ class CompressedNeuron(implicit p: Parameters) extends DanaBundle()(p) {
   }
 }
 
-class CacheBase[SramIfType <: SRAMVariantInterface,
+abstract class CacheBase[SramIfType <: SRAMVariantInterface,
   ControlCacheIfReqType <: ControlCacheInterfaceReq,
   ControlCacheIfRespType <: ControlCacheInterfaceResp,
   PECacheIfRespType <: PECacheInterfaceResp](
@@ -112,7 +112,15 @@ class CacheBase[SramIfType <: SRAMVariantInterface,
   def fIsFree(x: CacheState): Bool = {!x.valid}
   def fIsUnused(x: CacheState): Bool = {x.inUseCount === UInt(0)}
   def fDerefNnid(x: CacheState, y: UInt): Bool = {x.valid && x.nnid === y}
-  def fIsDoneFetching(x: CacheState): Bool = {x.notifyFlag}
+
+  // The check on whether or not an entry is done fetching depends, in
+  // the absolute worst case, on the number of cycles it takes for
+  // data to be written back to the call-by-name parameter
+  // genSram, i.e., the Cache memory. The worst case here means that
+  // the last entry to get written to the cache is the first block.
+  // Thus, to be totally safe here, the check needs to be defined
+  // based on the genSram used.
+  def fIsDoneFetching(x: CacheState): Bool
 
   // State that we need to derive from the cache
   val hasFree = table.exists(fIsFree(_))
@@ -412,7 +420,11 @@ class Cache(implicit p: Parameters)
         sramDepth = p(CacheNumBlocks),
         numPorts = 1)).io),
       new ControlCacheInterfaceReq, new ControlCacheInterfaceResp,
-      new PECacheInterfaceResp)(p)
+      new PECacheInterfaceResp)(p) {
+
+  // SRAMVariant writes back in one cycle and no waiting is necessary.
+  override def fIsDoneFetching(x: CacheState): Bool = {x.notifyFlag}
+}
 
 class CacheLearn(implicit p: Parameters)
     extends CacheBase(Vec(p(CacheNumEntries),
@@ -424,6 +436,12 @@ class CacheLearn(implicit p: Parameters)
       new ControlCacheInterfaceReqLearn, new ControlCacheInterfaceRespLearn,
       new PECacheInterfaceResp)(p) {
   override lazy val io = new CacheInterfaceLearn
+
+  // SRAMBlockIncrement takes two cycles to writeback, so we're done
+  // fetching one cycle after notifyFlag asserts.
+  override def fIsDoneFetching(x: CacheState): Bool = {
+    val notifyFlagOld = Reg(next = x.notifyFlag)
+    x.notifyFlag & notifyFlagOld }
 
   for (i <- 0 until cacheNumEntries) {
     mem(i).inc(0) := Bool(false)
