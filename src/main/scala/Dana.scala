@@ -2,16 +2,13 @@
 
 package dana
 
-// Grab junctions for the ParameterizedBundle class
-import junctions._
 import rocket._
+import xfiles._
 import Chisel._
 import cde.{Parameters, Field}
 
 case object ElementWidth extends Field[Int]
 case object ElementsPerBlock extends Field[Int]
-case object TidWidth extends Field[Int]
-case object AsidWidth extends Field[Int]
 case object ActivationFunctionWidth extends Field[Int]
 case object NnidWidth extends Field[Int]
 case object DecimalPointOffset extends Field[Int]
@@ -21,7 +18,6 @@ case object SteepnessOffset extends Field[Int]
 case object ErrorFunctionWidth extends Field[Int]
 case object FeedbackWidth extends Field[Int]
 case object PeTableNumEntries extends Field[Int]
-case object TransactionTableNumEntries extends Field[Int]
 case object CacheNumEntries extends Field[Int]
 case object CacheDataSize extends Field[Int]
 case object RegisterFileNumElements extends Field[Int]
@@ -30,14 +26,11 @@ case object BitsPerBlock extends Field[Int]
 case object RegFileNumBlocks extends Field[Int]
 case object CacheNumBlocks extends Field[Int]
 case object NNConfigNeuronWidth extends Field[Int]
-case object DebugEnabled extends Field[Boolean]
-case object TableDebug extends Field[Boolean]
+case object AntwRobEntries extends Field[Int]
 
-trait DanaParameters extends HasCoreParameters {
+trait DanaParameters extends HasCoreParameters with XFilesParameters {
   val elementWidth = p(ElementWidth)
   val elementsPerBlock = p(ElementsPerBlock)
-  val tidWidth = p(TidWidth)
-  val asidWidth = p(AsidWidth)
   // Activation Function width increases will break:
   //   * ProcessingElementTable logic for indexing into cache data
   val activationFunctionWidth = p(ActivationFunctionWidth)
@@ -50,11 +43,10 @@ trait DanaParameters extends HasCoreParameters {
   val steepnessOffset = p(SteepnessOffset)
   val errorFunctionWidth = p(ErrorFunctionWidth)
   val feedbackWidth = p(FeedbackWidth)
+  val antwRobEntries = p(AntwRobEntries)
 
   // Processing Element Table
   val peTableNumEntries = p(PeTableNumEntries)
-  // Transaction Table
-  val transactionTableNumEntries = p(TransactionTableNumEntries)
   // Configuration Cache
   val cacheNumEntries = p(CacheNumEntries)
   val cacheDataSize = p(CacheDataSize)
@@ -68,14 +60,9 @@ trait DanaParameters extends HasCoreParameters {
   val ioIdxWidth = log2Up(p(RegisterFileNumElements) * p(ElementWidth))
   val bitsPerBlock = p(BitsPerBlock)
   val learningEnabled = p(LearningEnabled)
-  val debugEnabled = p(DebugEnabled)
-  val tableDebug = p(TableDebug)
 
   // Related to the neural network configuration format
   val nnConfigNeuronWidth = p(NNConfigNeuronWidth)
-
-  // X-FILES specific [TODO] This can be removed eventually
-  val numCores = p(NumCores)
 
   def divUp (dividend: Int, divisor: Int): Int = {
     (dividend + divisor - 1) / divisor}
@@ -90,33 +77,8 @@ trait DanaParameters extends HasCoreParameters {
 
 // An abstract base class for anything associated with DANA (and the
 // X-FILES framework?). This defines all shared DANA parameters.
-abstract class DanaModule(implicit val p: Parameters) extends Module
+abstract class DanaModule(implicit p: Parameters) extends XFilesModule()(p)
     with DanaParameters {
-  // Create a tupled version of printf
-  val printff = printf _
-  val printft = printff.tupled
-
-  // Info method that will dump the state of a table
-  def info[T <: DanaBundle](x: Vec[T], prepend: String = "") = {
-    if (tableDebug) {
-      printf(x(0).printElements(prepend))
-      (0 until x.length).map(i => printft(x(i).printAll(","))) }}
-
-  def printfInfo(message: String, args: Node*): Unit = {
-    if (debugEnabled) { printff("[INFO] " + message, args) }}
-
-  def printfWarn(message: String, args: Node*) {
-    if (debugEnabled) { printff("[WARN] " + message, args) }}
-
-  def printfError(message: String, args: Node*) {
-    if (debugEnabled) { printff("[ERROR] " + message, args) }}
-
-  def printfDebug(message: String, args: Node*) {
-    if (debugEnabled) { printff("[DEBUG] " + message, args) }}
-
-  def printfTodo(message: String, args: Node*) {
-    if (debugEnabled) { printff("[TODO] " + message, args) }}
-
   // Transaction Table State Entries. nnsim-hdl equivalent:
   //   controL_types::field_enum
   val (e_TTABLE_VALID ::       // 0
@@ -250,48 +212,11 @@ abstract class DanaModule(implicit val p: Parameters) extends Module
 // Base class for all Bundle classes used in DANA. This sets all the
 // parameters that should be shared. All parameters defined here
 // should be the same as in DanaModule.
-abstract class DanaBundle(implicit val p: Parameters)
-    extends junctions.ParameterizedBundle()(p)
+abstract class DanaBundle(implicit p: Parameters) extends XFilesBundle()(p)
+    with DanaParameters
+
+class Dana(implicit p: Parameters) extends XFilesBackend()(p)
     with DanaParameters {
-
-  val aliasList = scala.collection.mutable.Map[String, String]()
-  def alias (name: String): String = {
-    if (aliasList.contains(name)) {
-      return aliasList(name)
-    } else {
-      return name
-    }
-  }
-
-  // Return a CSV list of all the elements in this bundle
-  def printElements(prepend: String = ""): String = {
-    var res = "[DEBUG]" + prepend
-    var sep = ""
-    for ((n, i) <- elements) {
-      res += sep + alias(n)
-      sep = ","
-    }
-    res += "\n"
-    res
-  }
-
-  // Return a (String, Seq[Node]) tuple suitable for passing to printf
-  // that contains the values of all the elements in the bundle
-  def printAll(prepend: String = ""): (String, Seq[Node]) = {
-    var format = "[DEBUG]" + prepend
-    var sep = ""
-    var argsIn = Seq[Node]()
-    for ((n, i) <- elements) {
-      format += sep + "%x"
-      sep = ","
-      argsIn = argsIn :+ i.toNode
-    }
-    format += "\n"
-    (format, argsIn)
-  }
-}
-
-class Dana(implicit p: Parameters) extends XFilesBackend()(p) {
 
   // Module instantiation
   val control = if (learningEnabled) Module(new ControlLearn) else
@@ -355,6 +280,133 @@ class Dana(implicit p: Parameters) extends XFilesBackend()(p) {
 
   when (io.rocc.cmd.valid) {
     printfInfo("Dana: io.tTable.rocc.cmd.valid asserted\n")}
+}
+
+object Testbench {
+  def main(args: Array[String]): Unit = {
+    val cliArgs = args.slice(1, args.length)
+    val res =
+      args(0) match {
+        // case "ProcessingElement" =>
+        //   chiselMainTest(cliArgs, () => Module(new ProcessingElement)) {
+        //     c => new ProcessingElementTests(c, false)}
+        // case "ActivationFunction" =>
+        //   chiselMain.run(cliArgs, () => new ActivationFunction)
+        //   // chiselMainTest(cliArgs, () => Module(new ActivationFunction)){
+        //   //   c => new ActivationFunctionTests(c, false)}
+        // case "TransactionTable" =>
+        //   chiselMainTest(cliArgs, () => Module(new TransactionTable)){
+        //     c => new TransactionTableTests(c, false)}
+        case "SRAM" =>
+          chiselMainTest(cliArgs, () => Module(new SRAM(
+            numReadPorts = 0,
+            numWritePorts = 0,
+            numReadWritePorts = 2,
+            dataWidth = 8,
+            sramDepth = 8))){
+            c => new SRAMTests(c, false)}
+        case "SRAMElement" =>
+          chiselMainTest(cliArgs, () => Module(new SRAMElement(
+            elementWidth = 16,
+            dataWidth = 32,
+            numPorts = 1,
+            sramDepth = 8))){
+            c => new SRAMElementTests(c, false)}
+        // case "XFilesDana" =>
+        //   chiselMain.run(cliArgs, () => new XFilesDana)
+      }
+  }
+}
+
+// [TODO] These are all unused legacy interfaces that were originally
+// used for testing. These need to be cleaned up.
+class XFilesArbiterReq(implicit p: Parameters) extends DanaBundle()(p) {
+  val tid = UInt(width = tidWidth)
+  val readOrWrite = Bool()
+  val isNew = Bool()
+  val isLast = Bool()
+  val data = UInt(width = elementWidth)
+}
+
+class XFilesArbiterResp(implicit p: Parameters) extends DanaBundle()(p) {
+  val tid = UInt(width = tidWidth)
+  val data = UInt(width = elementWidth)
+}
+
+class XFilesArbiterInterface(implicit p: Parameters) extends DanaBundle()(p) {
+  val req = Decoupled(new XFilesArbiterReq)
+  val resp = Decoupled(new XFilesArbiterResp).flip
+}
+
+// Contains things common to all DANA testbenches
+abstract class DanaTester[+T <: Module](c: T, isTrace: Boolean = true)
+    extends Tester(c, isTrace) {
+  // Generate a new request to a Transaction Table module for a
+  // specified TID and NNID.
+  def newWriteRequest(x: XFilesArbiterInterface, tid: Int, nnid: Int) {
+    poke(x.req.valid, 1)
+    poke(x.req.bits.isNew, 1)
+    poke(x.req.bits.readOrWrite, 1)
+    poke(x.req.bits.isLast, 0)
+    poke(x.req.bits.tid, tid)
+    poke(x.req.bits.data, nnid)
+    step(1)
+    poke(x.req.valid, 0)
+  }
+
+  // Send `num` amount of random data to a specific Transaction Table
+  // instance with the specified TID and NNID.
+  def writeRndData(x: XFilesArbiterInterface, tid: Int, nnid: Int, num: Int,
+    decimal: Int) {
+    // Send `num` data elements to DANA
+    for (i <- 0 until num) {
+      poke(x.req.valid, 1)
+      poke(x.req.bits.isNew, 0)
+      poke(x.req.bits.readOrWrite, 1)
+      if (i == num - 1)
+        poke(x.req.bits.isLast, 1)
+      else
+        poke(x.req.bits.isLast, 0)
+      val data = rnd.nextInt(Math.pow(2, decimal + 2).toInt) -
+        Math.pow(2, decimal + 1).toInt
+      printf("[INFO] Input data: %d\n", data)
+      poke(x.req.bits.data, data)
+      step(1)
+      poke(x.req.valid, 0)
+    }
+  }
+
+  // Generic info function. This prints out module-specific
+  // information based on the type of module that it sees. The intent
+  // here is that all modules will be defined as cases in this case
+  // statement and the function will print something different based
+  // on the type.
+  def info(dut : Any) {
+    dut match {
+      case _: TransactionTable =>
+        val c = dut.asInstanceOf[TransactionTable]
+        printf("|V|R|CV|WC|NL|NR|D|Tid|Nnid| <- TTable\n")
+        printf("----------------------------\n")
+        for (i <- 0 until c.table.length) {
+          printf("|%d|%d|%2d|%2d|%2d|%s|%3d|%4x|",
+            peek(c.table(i).valid),
+            peek(c.table(i).reserved),
+            peek(c.table(i).cacheValid),
+            peek(c.table(i).waiting),
+            peek(c.table(i).needsLayerInfo),
+            peek(c.table(i).done),
+            peek(c.table(i).tid),
+            peek(c.table(i).nnid)
+          )
+          printf("\n")
+        }
+        printf("| hasFree: %d | nextFree: %d |\n",
+          peek(c.hasFree),
+          peek(c.nextFree))
+        printf("\n");
+      case _ => printf("No info() function for specified DUT\n")
+    }
+  }
 }
 
 class DanaTests(uut: Dana, isTrace: Boolean = true)

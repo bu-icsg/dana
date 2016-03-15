@@ -1,30 +1,12 @@
 // See LICENSE for license details.
 
-package dana
+package xfiles
 
 import Chisel._
+import dana.Dana
 
 import rocket.{RoCC, RoccNMemChannels}
 import cde.{Parameters}
-
-class XFilesArbiterReq(implicit p: Parameters) extends DanaBundle()(p) {
-  val tid = UInt(width = tidWidth)
-  val readOrWrite = Bool()
-  val countFeedback = UInt(width = feedbackWidth)
-  val isNew = Bool()
-  val isLast = Bool()
-  val data = UInt(width = elementWidth)
-}
-
-class XFilesArbiterResp(implicit p: Parameters) extends DanaBundle()(p) {
-  val tid = UInt(width = tidWidth)
-  val data = UInt(width = elementWidth)
-}
-
-class XFilesArbiterInterface(implicit p: Parameters) extends DanaBundle()(p) {
-  val req = Decoupled(new XFilesArbiterReq)
-  val resp = Decoupled(new XFilesArbiterResp).flip
-}
 
 class XFilesDana(implicit p: Parameters) extends RoCC()(p) {
   // val io = new CoreXFilesInterface

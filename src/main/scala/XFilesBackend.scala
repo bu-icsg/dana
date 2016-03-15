@@ -1,6 +1,6 @@
 // See LICENSE for license details
 
-package dana
+package xfiles
 
 import Chisel._
 import rocket.{RoCCInterface}

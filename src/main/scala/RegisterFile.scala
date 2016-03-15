@@ -4,6 +4,7 @@ package dana
 
 import Chisel._
 import scala.math._
+import xfiles.{TransactionTableNumEntries}
 import cde.{Parameters}
 
 class RegisterFileInterface(implicit p: Parameters) extends DanaBundle()(p) {

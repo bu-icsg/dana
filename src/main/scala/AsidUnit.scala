@@ -1,6 +1,6 @@
 // See LICENSE for license details.
 
-package dana
+package xfiles
 
 import Chisel._
 
@@ -8,8 +8,8 @@ import rocket.{RoCCCommand, RoCCResponse}
 import cde.{Parameters}
 
 class AsidTid(implicit p: Parameters) extends XFilesBundle()(p) {
-  val asid = UInt(width = asidWidth)
-  val tid = UInt(width = tidWidth)
+  val asid = UInt(width = p(AsidWidth))
+  val tid = UInt(width = p(TidWidth))
 }
 
 class AsidUnit(id: Int)(implicit p: Parameters) extends XFilesModule()(p) {
@@ -17,7 +17,7 @@ class AsidUnit(id: Int)(implicit p: Parameters) extends XFilesModule()(p) {
     val cmd = Decoupled(new RoCCCommand).flip
     val s = Bool(INPUT)
     val resp = Decoupled(new RoCCResponse)
-    val data = Valid(new AsidTid)
+    val data = Valid(new AsidTid()(p))
     // In the event that we can't do anything with this request, we
     // just forward it along. This is implicitly a supervisor command.
     val cmdFwd = Valid(new RoCCCommand)
@@ -26,7 +26,7 @@ class AsidUnit(id: Int)(implicit p: Parameters) extends XFilesModule()(p) {
   val asidReg = Reg(Valid(new AsidTid))
 
   val funct = io.cmd.bits.inst.funct
-  val updateAsid = io.s & funct === t_UPDATE_ASID
+  val updateAsid = io.s & funct === UInt(t_UPDATE_ASID)
   val newRequest = !io.s & funct === t_NEW_REQUEST
 
   // Snoop on the input RoCCInterface. When you see a new supervisory

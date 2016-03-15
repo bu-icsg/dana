@@ -1,33 +1,118 @@
 // See LICENSE for license details.
 
-package dana
+package xfiles
 
 import Chisel._
+import junctions.ParameterizedBundle
 
-import rocket.{RoCCInterface, RoCCCommand, HellaCacheResp}
+import rocket.{RoCCInterface, RoCCCommand, HellaCacheResp, HasCoreParameters}
 import cde.{Parameters, Field}
 
-case object NumCores extends Field[Int]
-case object AntwRobEntries extends Field[Int]
+// [TODO] This is to get the parameter info from DANA. This should be
+// removed once DANA is responding to its own info requests
+import dana.{ElementsPerBlock, PeTableNumEntries, CacheNumEntries}
 
-abstract trait XFilesParameters extends DanaParameters {
-  val antwRobEntries = p(AntwRobEntries)
+case object NumCores extends Field[Int]
+case object TidWidth extends Field[Int]
+case object AsidWidth extends Field[Int]
+case object DebugEnabled extends Field[Boolean]
+case object TableDebug extends Field[Boolean]
+case object TransactionTableNumEntries extends Field[Int]
+
+trait XFilesErrorCodes {
+  val err_XFILES_BADREQ = 1
+  val err_XFILES_NOASID = 2
 }
 
-abstract class XFilesModule(implicit p: Parameters) extends DanaModule()(p)
+trait XFilesSupervisorRequests {
+  val t_UPDATE_ASID = 0
+  val t_SUP_WRITE_REG = 1
+}
+
+trait XFilesParameters extends HasCoreParameters with XFilesErrorCodes
+    with XFilesSupervisorRequests {
+  val numCores = p(NumCores)
+  val tidWidth = p(TidWidth)
+  val asidWidth = p(AsidWidth)
+  val transactionTableNumEntries = p(TransactionTableNumEntries)
+
+  val debugEnabled = p(DebugEnabled)
+  val tableDebug = p(TableDebug)
+}
+
+abstract class XFilesModule(implicit val p: Parameters) extends Module
     with XFilesParameters {
   val (t_READ_DATA :: t_WRITE_DATA :: t_UNUSED_2 :: t_NEW_REQUEST ::
     t_UNUSED_4 :: t_WRITE_DATA_LAST :: t_UNUSED_6 :: t_WRITE_REGISTER ::
     t_UNUSED_8 :: t_UNUSED_9 :: t_UNUSED_10 :: t_UNUSED_11 :: t_UNUSED_12 ::
     t_UNUSED_13 :: t_UNUSED_14 :: t_WRITE_REG :: t_XFILES_ID ::
     Nil) = Enum(UInt(), 17)
-  val (t_UPDATE_ASID :: t_SUP_WRITE_REG :: Nil) = Enum(UInt(), 2)
-  val err_XFILES_BADREQ = 1
-  val err_XFILES_NOASID = 2
+
+  // Create a tupled version of printf
+  val printff = printf _
+  val printft = printff.tupled
+
+  // Info method that will dump the state of a table
+  def info[T <: XFilesBundle](x: Vec[T], prepend: String = "") = {
+    if (tableDebug) {
+      printf(x(0).printElements(prepend))
+      (0 until x.length).map(i => printft(x(i).printAll(","))) }}
+
+  def printfInfo(message: String, args: Node*): Unit = {
+    if (debugEnabled) { printff("[INFO] " + message, args) }}
+
+  def printfWarn(message: String, args: Node*) {
+    if (debugEnabled) { printff("[WARN] " + message, args) }}
+
+  def printfError(message: String, args: Node*) {
+    if (debugEnabled) { printff("[ERROR] " + message, args) }}
+
+  def printfDebug(message: String, args: Node*) {
+    if (debugEnabled) { printff("[DEBUG] " + message, args) }}
+
+  def printfTodo(message: String, args: Node*) {
+    if (debugEnabled) { printff("[TODO] " + message, args) }}
 }
 
-abstract class XFilesBundle(implicit p: Parameters) extends DanaBundle()(p)
-    with XFilesParameters
+abstract class XFilesBundle(implicit val p: Parameters)
+    extends ParameterizedBundle()(p) with XFilesParameters {
+
+  val aliasList = scala.collection.mutable.Map[String, String]()
+  def alias (name: String): String = {
+    if (aliasList.contains(name)) {
+      return aliasList(name)
+    } else {
+      return name
+    }
+  }
+
+  // Return a CSV list of all the elements in this bundle
+  def printElements(prepend: String = ""): String = {
+    var res = "[DEBUG]" + prepend
+    var sep = ""
+    for ((n, i) <- elements) {
+      res += sep + alias(n)
+      sep = ","
+    }
+    res += "\n"
+    res
+  }
+
+  // Return a (String, Seq[Node]) tuple suitable for passing to printf
+  // that contains the values of all the elements in the bundle
+  def printAll(prepend: String = ""): (String, Seq[Node]) = {
+    var format = "[DEBUG]" + prepend
+    var sep = ""
+    var argsIn = Seq[Node]()
+    for ((n, i) <- elements) {
+      format += sep + "%x"
+      sep = ","
+      argsIn = argsIn :+ i.toNode
+    }
+    format += "\n"
+    (format, argsIn)
+  }
+}
 
 class XFilesInterface(implicit p: Parameters) extends Bundle {
   val core = Vec(p(NumCores), new RoCCInterface)
@@ -75,10 +160,10 @@ class XFilesArbiter(implicit p: Parameters) extends XFilesModule()(p) {
     // supervisor request gets squashed.
     val squashSup = reqInfo | badRequest
     val squashUser = squashSup | io.core(i).s
-    val info = UInt(elementsPerBlock, width = 6) ##
-      UInt(peTableNumEntries, width = 6) ##
-      UInt(transactionTableNumEntries, width = 4) ##
-    UInt(cacheNumEntries, width = 4)
+    val info = UInt(p(ElementsPerBlock), width = 6) ##
+      UInt(p(PeTableNumEntries), width = 6) ##
+      UInt(p(TransactionTableNumEntries), width = 4) ##
+    UInt(p(CacheNumEntries), width = 4)
 
     io.core(i).resp.valid := reqInfo | badRequest | asidUnits(i).resp.valid | (
       io.backend.rocc.resp.valid && io.backend.regIdx.resp === UInt(i))
@@ -105,7 +190,8 @@ class XFilesArbiter(implicit p: Parameters) extends XFilesModule()(p) {
     io.core(i).cmd.ready := coreQueue(i).enq.ready
     coreQueue(i).enq.bits := cmd.bits
     when (newRequest) {
-      coreQueue(i).enq.bits.rs1 := cmd.bits.rs1(feedbackWidth - 1, 0) ##
+      // Grab the LSBs of rs1, but get the ASID/TID from the ASID Unit
+      coreQueue(i).enq.bits.rs1 := cmd.bits.rs1(xLen-asidWidth-tidWidth-1, 0) ##
         asidUnits(i).data.bits.asid ## asidUnits(i).data.bits.tid
     } .otherwise {
       coreQueue(i).enq.bits.rs1 := asidUnits(i).data.bits.asid ##

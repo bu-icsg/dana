@@ -5,20 +5,16 @@ package dana
 import Chisel._
 import cde.{Parameters, Config, Dump, Knob}
 
-class DefaultXFilesDanaConfig extends Config (
+class DefaultDanaConfig extends Config (
   topDefinitions = { (pname,site,here) =>
     def divUp (dividend: Int, divisor: Int): Int = {
       (dividend + divisor - 1) / divisor}
     pname match {
-      // Core parameters
-      case NumCores => Dump(Knob("NUM_CORES"))
       // ANTW Parameters
       case AntwRobEntries => 32
       // Field widths
       case ElementWidth => Dump("ELEMENT_WIDTH", 32)
       case ElementsPerBlock => Dump(Knob("ELEMENTS_PER_BLOCK"))
-      case TidWidth => Dump("TID_WIDTH", 16)
-      case AsidWidth => Dump("ASID_WIDTH", 16)
       case ActivationFunctionWidth => 5
       case NnidWidth => Dump("NNID_WIDTH", 16)
       case DecimalPointOffset => Dump("DECIMAL_POINT_OFFSET", 7)
@@ -31,8 +27,6 @@ class DefaultXFilesDanaConfig extends Config (
       case FeedbackWidth => Dump("FEEDBACK_WIDTH", 12)
       // Processing Element Table
       case PeTableNumEntries => Dump(Knob("NUM_PES"))
-      // Transaction Table
-      case TransactionTableNumEntries => Dump(Knob("TRANSACTION_TABLE_NUM_ENTRIES"))
       // Configuration Cache
       case CacheNumEntries => Dump(Knob("CACHE_NUM_ENTRIES"))
       case CacheDataSize => 32 * 1024
@@ -40,8 +34,6 @@ class DefaultXFilesDanaConfig extends Config (
       case RegisterFileNumElements => Dump(Knob("REGISTER_FILE_NUM_ELEMENTS"))
       // Enables support for in-hardware learning
       case LearningEnabled => true
-      case DebugEnabled => false
-      case TableDebug => false
       case BitsPerBlock => site(ElementsPerBlock) * site(ElementWidth)
       case RegFileNumBlocks => divUp(site(RegisterFileNumElements),
         site(ElementsPerBlock))
@@ -55,20 +47,16 @@ class DefaultXFilesDanaConfig extends Config (
   //   { ex => ex(ActivationFunctionWidth) <= 5 }
   // ),
   knobValues = {
-    case "NUM_CORES" => 1
     case "ELEMENTS_PER_BLOCK" => 4
     case "NUM_PES" => 1
-    case "TRANSACTION_TABLE_NUM_ENTRIES" => 1
     case "CACHE_NUM_ENTRIES" => 2
     case "REGISTER_FILE_NUM_ELEMENTS" => 10240
   }
 )
 
-class  XFilesDanaDebugConfig extends Config (
+class DanaNoLearningConfig extends Config (
   topDefinitions = { (pname,site,here) =>
     pname match {
-      case DebugEnabled => true
+      case LearningEnabled => false
     }}
 )
-
-class DefaultXFilesDanaFPGAConfig extends Config(new DefaultXFilesDanaConfig)

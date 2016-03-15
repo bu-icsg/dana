@@ -6,8 +6,9 @@ import Chisel._
 
 import rocket.{RoCCCommand, RoCCResponse}
 import cde.{Parameters}
+import xfiles.{TransactionTableNumEntries}
 
-class TransactionState(implicit p: Parameters) extends XFilesBundle()(p) {
+class TransactionState(implicit p: Parameters) extends DanaBundle()(p) {
   //-------- Base class
   val valid = Bool()
   val reserved = Bool()
@@ -125,7 +126,7 @@ class TransactionStateLearn(implicit p: Parameters)
   )
 }
 
-class ControlReq(implicit p: Parameters) extends XFilesBundle()(p) {
+class ControlReq(implicit p: Parameters) extends DanaBundle()(p) {
   // Bools
   val cacheValid = Bool()
   val waiting = Bool()
@@ -166,7 +167,7 @@ class ControlReqLearn(implicit p: Parameters) extends ControlReq()(p) {
   val batchFirst = Bool()
 }
 
-class ControlResp(implicit p: Parameters) extends XFilesBundle()(p) {
+class ControlResp(implicit p: Parameters) extends DanaBundle()(p) {
   val readyCache = Bool()
   val readyPeTable = Bool()
   val cacheValid = Bool()
@@ -182,7 +183,7 @@ class ControlRespLearn(implicit p: Parameters) extends ControlResp()(p) {
   val globalWtptr = UInt(width = 16) //[TODO] fragile
 }
 
-class XFilesArbiterRespPipe(implicit p: Parameters) extends XFilesBundle()(p) {
+class XFilesArbiterRespPipe(implicit p: Parameters) extends DanaBundle()(p) {
   val respType = UInt(width = log2Up(3)) // [TODO] Fragile on Dana enum
   val tid = UInt(width = tidWidth)
   val tidIdx = UInt(width = log2Up(transactionTableNumEntries))
@@ -203,23 +204,23 @@ class TTableControlInterfaceLearn(implicit p: Parameters)
   override lazy val resp = Decoupled(new ControlRespLearn).flip
 }
 
-class TTableRegisterFileReq(implicit p: Parameters) extends XFilesBundle()(p) {
+class TTableRegisterFileReq(implicit p: Parameters) extends DanaBundle()(p) {
   val reqType = UInt(width = log2Up(2)) // [TODO] Frgaile on Dana enum
   val tidIdx = UInt(width = log2Up(transactionTableNumEntries))
   val addr = UInt(width = log2Up(regFileNumElements))
   val data = UInt(width = elementWidth)
 }
 
-class TTableRegisterFileResp(implicit p: Parameters) extends XFilesBundle()(p) {
+class TTableRegisterFileResp(implicit p: Parameters) extends DanaBundle()(p) {
   val data = UInt(width = elementWidth)
 }
 
-class TTableRegisterFileInterface(implicit p: Parameters) extends XFilesBundle()(p) {
+class TTableRegisterFileInterface(implicit p: Parameters) extends DanaBundle()(p) {
   val req = Valid(new TTableRegisterFileReq)
   val resp = Valid(new TTableRegisterFileResp).flip
 }
 
-class TTableArbiter(implicit p: Parameters) extends XFilesBundle()(p) {
+class TTableArbiter(implicit p: Parameters) extends DanaBundle()(p) {
   val rocc = new Bundle {
     val cmd = Decoupled(new RoCCCommand).flip
     val resp = Decoupled(new RoCCResponse)
@@ -229,7 +230,7 @@ class TTableArbiter(implicit p: Parameters) extends XFilesBundle()(p) {
   val indexOut = UInt(OUTPUT, width = log2Up(numCores))
 }
 
-class TransactionTableInterface(implicit p: Parameters) extends XFilesBundle()(p) {
+class TransactionTableInterface(implicit p: Parameters) extends DanaBundle()(p) {
   val arbiter = new TTableArbiter
   lazy val control = new TTableControlInterface
   val regFile = new TTableRegisterFileInterface
@@ -243,11 +244,11 @@ class TransactionTableInterfaceLearn(implicit p: Parameters)
 class TransactionTableBase[StateType <: TransactionState,
   ControlReqType <: ControlReq](
   genStateVec: => Vec[StateType], genControlReq: => ControlReqType)(
-  implicit p: Parameters) extends XFilesModule()(p) {
+  implicit p: Parameters) extends DanaModule()(p) {
   lazy val io = new TransactionTableInterface()(p)
 
   // IO aliases
-  lazy val cmd = new XFilesBundle {
+  lazy val cmd = new DanaBundle {
     val readOrWrite = io.arbiter.rocc.cmd.bits.inst.funct(0)
     val isNew = io.arbiter.rocc.cmd.bits.inst.funct(1)
     val isLast = io.arbiter.rocc.cmd.bits.inst.funct(2)

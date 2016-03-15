@@ -9,7 +9,7 @@ import uncore.{CacheName}
 import uncore.constants.MemoryOpConstants._
 import cde.{Parameters}
 
-class ANTWXFilesInterface(implicit p: Parameters) extends XFilesBundle()(p) {
+class ANTWXFilesInterface(implicit p: Parameters) extends DanaBundle()(p) {
   val rocc = new Bundle {
     val cmd = Decoupled(new RoCCCommand).flip
     val resp = Decoupled(new RoCCResponse)
@@ -24,29 +24,29 @@ class ANTWXFilesInterface(implicit p: Parameters) extends XFilesBundle()(p) {
   }
 }
 
-class AsidNnidTableWalkerInterface(implicit p: Parameters) extends XFilesBundle()(p) {
+class AsidNnidTableWalkerInterface(implicit p: Parameters) extends DanaBundle()(p) {
   val cache = (new CacheMemInterface).flip
   val xfiles = new ANTWXFilesInterface
 }
 
-class ConfigRobEntry(implicit p: Parameters) extends XFilesBundle()(p) {
+class ConfigRobEntry(implicit p: Parameters) extends DanaBundle()(p) {
   val valid = UInt(width = bitsPerBlock / xLen)
   val cacheAddr = UInt(width = log2Up(cacheDataSize * 8 / bitsPerBlock))
   val data = Vec.fill(bitsPerBlock / xLen){UInt(width = xLen)}
 }
 
-class HellaCacheReqWithCore(implicit p: Parameters) extends XFilesBundle()(p) {
+class HellaCacheReqWithCore(implicit p: Parameters) extends DanaBundle()(p) {
   val req = new HellaCacheReq()(p)
   val core = UInt(width = log2Up(numCores))
 }
 
-class antp(implicit p: Parameters) extends XFilesBundle()(p) {
+class antp(implicit p: Parameters) extends DanaBundle()(p) {
   val valid = Bool()
   val antp = UInt(width = xLen)
   val size = UInt(width = xLen)
 }
 
-class AsidNnidTableWalker(implicit p: Parameters) extends XFilesModule()(p) {
+class AsidNnidTableWalker(implicit p: Parameters) extends DanaModule()(p) {
   val io = new AsidNnidTableWalkerInterface
   val antpReg = Reg(new antp)
 
@@ -140,7 +140,7 @@ class AsidNnidTableWalker(implicit p: Parameters) extends XFilesModule()(p) {
   // of -err_DANA_NOANTP (defined in src/main/scala/Dana.scala) is
   // returned.
   val funct = io.xfiles.rocc.cmd.bits.inst.funct
-  val updateAntp = io.xfiles.rocc.s && funct === t_SUP_WRITE_REG
+  val updateAntp = io.xfiles.rocc.s && funct === UInt(t_SUP_WRITE_REG)
   when (io.xfiles.rocc.cmd.fire() && updateAntp) {
     antpReg.valid := Bool(true)
     antpReg.antp := io.xfiles.rocc.cmd.bits.rs1
