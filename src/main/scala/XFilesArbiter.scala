@@ -81,8 +81,9 @@ class XFilesArbiter(implicit p: Parameters) extends XFilesModule()(p) {
     UInt(cacheNumEntries, width = 4)
 
     io.core(i).resp.valid := reqInfo | badRequest | asidUnits(i).resp.valid | (
-      io.backend.tTable.rocc.resp.valid && io.backend.tTable.indexOut === UInt(i)) | (
-      io.backend.antw.rocc.resp.valid && io.backend.antw.rocc.coreIdxResp === UInt(i))
+      io.backend.rocc.resp.valid && io.backend.regIdx.resp === UInt(i))
+// io.backend.tTable.rocc.resp.valid && io.backend.tTable.indexOut === UInt(i)) | (
+// io.backend.antw.rocc.resp.valid && io.backend.antw.rocc.coreIdxResp === UInt(i))
 
     io.core(i).resp.bits.rd := cmd.bits.inst.rd
     // [TODO] The info returned should be about X-FILES or the
@@ -117,12 +118,9 @@ class XFilesArbiter(implicit p: Parameters) extends XFilesModule()(p) {
     // Deal with responses in priority order
     when (asidUnits(i).resp.fire()) {
       io.core(i).resp.bits := asidUnits(i).resp.bits
-    } .elsewhen (io.backend.antw.rocc.resp.fire() &&
-      io.backend.antw.rocc.coreIdxResp === UInt(i)) {
-      io.core(i).resp.bits := io.backend.antw.rocc.resp.bits
-    } .elsewhen (io.backend.tTable.rocc.resp.fire() &&
-      io.backend.tTable.indexOut === UInt(i)) {
-      io.core(i).resp.bits := io.backend.tTable.rocc.resp.bits
+    } .elsewhen (io.backend.rocc.resp.fire() &&
+      io.backend.regIdx.resp === UInt(i)) {
+      io.core(i).resp.bits := io.backend.rocc.resp.bits
     }
 
     // Other connections
@@ -143,21 +141,14 @@ class XFilesArbiter(implicit p: Parameters) extends XFilesModule()(p) {
   // We can pull things out of the Core Arbiter if the backend is
   // telling us it's okay and if the Core Arbiter isn't getting
   // superseded by a forwarded supervisor request.
-  coreArbiter.out.ready := io.backend.antw.rocc.cmd.ready &
-    io.backend.tTable.rocc.cmd.ready & !supReqToBackend
+  coreArbiter.out.ready := io.backend.rocc.cmd.ready & !supReqToBackend
 
   val userReqToBackend = coreArbiter.out.valid | supReqToBackend
-  io.backend.tTable.rocc.cmd.valid := userReqToBackend
-  io.backend.tTable.rocc.cmd.bits := coreArbiter.out.bits
-  io.backend.tTable.coreIdx := coreArbiter.chosen
-  io.backend.tTable.rocc.s := supReqToBackend
-  io.backend.tTable.rocc.resp.ready := Bool(true)
-
-  io.backend.antw.rocc.cmd.valid := userReqToBackend
-  io.backend.antw.rocc.cmd.bits := coreArbiter.out.bits
-  io.backend.antw.rocc.coreIdxCmd := coreArbiter.chosen
-  io.backend.antw.rocc.s := supReqToBackend
-  io.backend.antw.rocc.resp.ready := Bool(true)
+  io.backend.rocc.cmd.valid := userReqToBackend
+  io.backend.rocc.cmd.bits := coreArbiter.out.bits
+  io.backend.regIdx.cmd := coreArbiter.chosen
+  io.backend.rocc.s := supReqToBackend
+  io.backend.rocc.resp.ready := Bool(true)
 
   when (coreArbiter.out.fire()) {
     printfInfo("""XFiles Arbiter: coreArbiter.out.valid asserted
@@ -171,20 +162,17 @@ class XFilesArbiter(implicit p: Parameters) extends XFilesModule()(p) {
   (numCores -1 to 0 by -1).map(i => {
     when (asidUnits(i).cmdFwd.valid) {
       printfInfo("XFiles Arbiter: cmdFwd asserted\n")
-      io.backend.tTable.rocc.cmd.bits := asidUnits(i).cmdFwd.bits
-      io.backend.tTable.coreIdx := UInt(i)
-
-      io.backend.antw.rocc.cmd.bits := asidUnits(i).cmdFwd.bits
-      io.backend.antw.rocc.coreIdxCmd := UInt(i)
+      io.backend.rocc.cmd.bits := asidUnits(i).cmdFwd.bits
+      io.backend.regIdx.cmd := UInt(i)
     }})
 
   // Handle memory request routing
   val allMemReady = io.core.forall((rocc: RoCCInterface) => rocc.mem.req.ready)
   (0 until numCores).map(i => {
-    io.core(i).mem.req.valid := io.backend.antw.dcache.mem.req.valid &&
-      io.backend.antw.dcache.coreIdxReq === UInt(i)
-    io.core(i).mem.req.bits := io.backend.antw.dcache.mem.req.bits
-    io.core(i).mem.invalidate_lr := io.backend.antw.dcache.mem.invalidate_lr
+    io.core(i).mem.req.valid := io.backend.rocc.mem.req.valid &&
+      io.backend.memIdx.cmd === UInt(i)
+    io.core(i).mem.req.bits := io.backend.rocc.mem.req.bits
+    io.core(i).mem.invalidate_lr := io.backend.rocc.mem.invalidate_lr
     when (io.core(i).mem.req.fire()) {
       printfInfo("XFilesArbiter: Mem request core %d with tag 0x%x for addr 0x%x\n",
         UInt(i), io.core(i).mem.req.bits.tag, io.core(i).mem.req.bits.addr) }
@@ -193,7 +181,7 @@ class XFilesArbiter(implicit p: Parameters) extends XFilesModule()(p) {
 """,
         UInt(i), io.core(i).mem.resp.bits.tag, io.core(i).mem.resp.bits.addr,
         io.core(i).mem.resp.bits.data_word_bypass) }})
-  io.backend.antw.dcache.mem.req.ready := allMemReady
+  io.backend.rocc.mem.req.ready := allMemReady
 
   // Handle memory responses. These are sent into a per-core memory
   // response queue and then arbitrated out and passed to the backend.
@@ -229,18 +217,15 @@ class XFilesArbiter(implicit p: Parameters) extends XFilesModule()(p) {
   // Decoupled interface. We hack this in with a manual assignment and
   // telling the arbiter that the backend can always accept data (we
   // then just have guarantee that this is true on the backend).
-  io.backend.antw.dcache.mem.resp.valid := memArbiter.out.valid
-  io.backend.antw.dcache.mem.resp.bits := memArbiter.out.bits
+  io.backend.rocc.mem.resp.valid := memArbiter.out.valid
+  io.backend.rocc.mem.resp.bits := memArbiter.out.bits
   memArbiter.out.ready := Bool(true)
-  io.backend.antw.dcache.coreIdxResp := memArbiter.chosen
+  io.backend.memIdx.resp := memArbiter.chosen
 
   // Assertions
   (0 until numCores).map(i => {
-    val totalResponses =
-      Vec(io.backend.tTable.rocc.resp.valid && io.backend.tTable.indexOut === UInt(i),
-        asidUnits(i).resp.valid,
-        io.backend.antw.rocc.coreIdxResp === UInt(i) &&
-          io.backend.antw.rocc.resp.valid)
+    val totalResponses = Vec(asidUnits(i).resp.valid,
+      io.backend.rocc.resp.valid && io.backend.regIdx.cmd === UInt(i))
     assert(!(totalResponses.count((x: Bool) => x) > UInt(1)),
       "X-FILES Arbiter: AsidUnit just aliased a TTable response")})
 }

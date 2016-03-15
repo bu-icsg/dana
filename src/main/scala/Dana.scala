@@ -315,15 +315,45 @@ class Dana(implicit p: Parameters) extends XFilesBackend()(p) {
   peTable.io.regFile <> regFile.io.pe
 
   // ASID--NNID Table Walker
+  antw.io.xfiles.rocc.cmd.valid := io.rocc.cmd.valid
+  antw.io.xfiles.rocc.cmd.bits := io.rocc.cmd.bits
+  io.rocc.cmd.ready := antw.io.xfiles.rocc.cmd.ready
+  antw.io.xfiles.rocc.resp.ready := io.rocc.resp.ready
+  antw.io.xfiles.rocc.s := io.rocc.s
+  antw.io.xfiles.rocc.coreIdxCmd := io.regIdx.cmd
+
   antw.io.cache <> cache.io.mem
-  antw.io.xfiles <> io.antw
+  antw.io.xfiles.dcache.mem <> io.rocc.mem
+  io.memIdx.cmd := antw.io.xfiles.dcache.coreIdxReq
+  antw.io.xfiles.dcache.coreIdxResp := io.memIdx.resp
+
+  // Arbitration between TTable and ANTW
+  io.rocc.cmd.ready := antw.io.xfiles.rocc.cmd.ready &
+    tTable.io.arbiter.rocc.cmd.ready
+  io.rocc.resp.valid := tTable.io.arbiter.rocc.resp.valid
+  io.rocc.resp.bits := tTable.io.arbiter.rocc.resp.bits
+  tTable.io.arbiter.rocc.resp.ready := io.rocc.resp.ready
+  io.regIdx.resp := tTable.io.arbiter.indexOut
+  when (antw.io.xfiles.rocc.resp.valid) {
+    io.rocc.resp.valid := antw.io.xfiles.rocc.resp.valid
+    io.rocc.resp.bits := antw.io.xfiles.rocc.resp.bits
+    io.regIdx.resp := antw.io.xfiles.rocc.coreIdxResp
+  }
+  assert(!(tTable.io.arbiter.rocc.resp.valid & antw.io.xfiles.rocc.resp.valid),
+    "ANTW register response just aliased DANA's Transaction TAble")
 
   // Transaction Table
-  tTable.io.arbiter <> io.tTable
+  tTable.io.arbiter.rocc.cmd.valid := io.rocc.cmd.valid
+  tTable.io.arbiter.rocc.cmd.bits := io.rocc.cmd.bits
+  io.rocc.cmd.ready := tTable.io.arbiter.rocc.cmd.ready
+  tTable.io.arbiter.rocc.resp.ready := io.rocc.resp.ready
+  tTable.io.arbiter.rocc.s := io.rocc.s
+  tTable.io.arbiter.coreIdx := io.regIdx.cmd
+
   tTable.io.control <> control.io.tTable
   tTable.io.regFile <> regFile.io.tTable
 
-  when (io.tTable.rocc.cmd.valid) {
+  when (io.rocc.cmd.valid) {
     printfInfo("Dana: io.tTable.rocc.cmd.valid asserted\n")}
 }
 
