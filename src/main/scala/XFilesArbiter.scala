@@ -122,8 +122,8 @@ class XFilesInterface(implicit p: Parameters) extends Bundle {
 class XFilesArbiter(implicit p: Parameters) extends XFilesModule()(p) {
   val io = new XFilesInterface
 
-  // Each core gets its own ASID Unit
   val asidUnits = Vec.tabulate(numCores)(id => Module(new AsidUnit(id)).io)
+  val transactionTable = Module(new XFilesTransactionTable).io
 
   // Each user request from a core gets entered into a queue. This is
   // not used for any supervisory requests which are routed through
@@ -160,15 +160,16 @@ class XFilesArbiter(implicit p: Parameters) extends XFilesModule()(p) {
     // supervisor request gets squashed.
     val squashSup = reqInfo | badRequest
     val squashUser = squashSup | io.core(i).s
+
+    // This information should be a provided by the backend
     val info = UInt(p(ElementsPerBlock), width = 6) ##
       UInt(p(PeTableNumEntries), width = 6) ##
       UInt(p(TransactionTableNumEntries), width = 4) ##
-    UInt(p(CacheNumEntries), width = 4)
+      UInt(p(CacheNumEntries), width = 4)
 
     io.core(i).resp.valid := reqInfo | badRequest | asidUnits(i).resp.valid | (
-      io.backend.rocc.resp.valid && io.backend.regIdx.resp === UInt(i))
-// io.backend.tTable.rocc.resp.valid && io.backend.tTable.indexOut === UInt(i)) | (
-// io.backend.antw.rocc.resp.valid && io.backend.antw.rocc.coreIdxResp === UInt(i))
+      transactionTable.xfiles.resp.valid &&
+        transactionTable.xfiles.regIdx.resp === UInt(i))
 
     io.core(i).resp.bits.rd := cmd.bits.inst.rd
     // [TODO] The info returned should be about X-FILES or the
@@ -204,9 +205,9 @@ class XFilesArbiter(implicit p: Parameters) extends XFilesModule()(p) {
     // Deal with responses in priority order
     when (asidUnits(i).resp.fire()) {
       io.core(i).resp.bits := asidUnits(i).resp.bits
-    } .elsewhen (io.backend.rocc.resp.fire() &&
-      io.backend.regIdx.resp === UInt(i)) {
-      io.core(i).resp.bits := io.backend.rocc.resp.bits
+    } .elsewhen (transactionTable.xfiles.resp.fire() &&
+      transactionTable.xfiles.regIdx.resp === UInt(i)) {
+      io.core(i).resp.bits := transactionTable.xfiles.resp.bits
     }
 
     // Other connections
@@ -230,11 +231,24 @@ class XFilesArbiter(implicit p: Parameters) extends XFilesModule()(p) {
   coreArbiter.out.ready := io.backend.rocc.cmd.ready & !supReqToBackend
 
   val userReqToBackend = coreArbiter.out.valid | supReqToBackend
-  io.backend.rocc.cmd.valid := userReqToBackend
-  io.backend.rocc.cmd.bits := coreArbiter.out.bits
-  io.backend.regIdx.cmd := coreArbiter.chosen
-  io.backend.rocc.s := supReqToBackend
-  io.backend.rocc.resp.ready := Bool(true)
+
+  // io.backend.rocc.cmd.valid := userReqToBackend
+  // io.backend.rocc.cmd.bits := coreArbiter.out.bits
+  // io.backend.regIdx.cmd := coreArbiter.chosen
+  // io.backend.rocc.s := supReqToBackend
+  // io.backend.rocc.resp.ready := Bool(true)
+  transactionTable.xfiles.cmd.valid := userReqToBackend
+  transactionTable.xfiles.cmd.bits := coreArbiter.out.bits
+  transactionTable.xfiles.regIdx.cmd := coreArbiter.chosen
+  transactionTable.xfiles.s := supReqToBackend
+  transactionTable.xfiles.resp.ready := Bool(true)
+  transactionTable.backend.resp <> io.backend.rocc.resp
+
+  io.backend.rocc.cmd.valid := transactionTable.backend.cmd.valid
+  io.backend.rocc.cmd.bits := transactionTable.backend.cmd.bits
+  io.backend.rocc.s := transactionTable.backend.s
+  io.backend.regIdx.cmd := transactionTable.backend.regIdx.cmd
+  transactionTable.backend.regIdx.resp := io.backend.regIdx.resp
 
   when (coreArbiter.out.fire()) {
     printfInfo("""XFiles Arbiter: coreArbiter.out.valid asserted
