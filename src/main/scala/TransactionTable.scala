@@ -6,16 +6,14 @@ import Chisel._
 
 import rocket.{RoCCCommand, RoCCResponse}
 import cde.{Parameters}
-import xfiles.{TransactionTableNumEntries}
+import xfiles.{TransactionTableNumEntries, TableEntry, HasTable}
 
-class TransactionState(implicit p: Parameters) extends DanaBundle()(p) {
+class TransactionState(implicit p: Parameters) extends TableEntry()(p)
+    with DanaParameters {
   //-------- Base class
-  val valid = Bool()
-  val reserved = Bool()
   val cacheValid = Bool()
   val waiting = Bool()
   val needsLayerInfo = Bool()
-  val done = Bool()
   val decInUse = Bool()
   // There are two "in the last layer" bits. The first, "inLast",
   // asserts when all PEs in the previous layer are done. The latter,
@@ -24,8 +22,6 @@ class TransactionState(implicit p: Parameters) extends DanaBundle()(p) {
   val inLast = Bool()
   val inFirst = Bool()
   val cacheIndex = UInt(width = log2Up(cacheNumEntries))
-  val asid = UInt(width = asidWidth)
-  val tid = UInt(width = tidWidth)
   val nnid = UInt(width = nnidWidth)
   val decimalPoint = UInt(width = decimalPointWidth)
   val numLayers = UInt(width = 16) // [TODO] fragile
@@ -244,7 +240,7 @@ class TransactionTableInterfaceLearn(implicit p: Parameters)
 class TransactionTableBase[StateType <: TransactionState,
   ControlReqType <: ControlReq](
   genStateVec: => Vec[StateType], genControlReq: => ControlReqType)(
-  implicit p: Parameters) extends DanaModule()(p) {
+  implicit p: Parameters) extends DanaModule()(p) with HasTable {
   lazy val io = new TransactionTableInterface()(p)
 
   // IO aliases
@@ -270,17 +266,12 @@ class TransactionTableBase[StateType <: TransactionState,
   // Create the actual Transaction Table
   val table = Reg(genStateVec)
 
-  // An entry is free if it is not valid and not reserved
-  def fIsFree(x: StateType): Bool = { !x.valid && !x.reserved }
-  def fDerefTid(x: StateType, asid: UInt, tid: UInt): Bool = {
-    (x.asid === asid) && (x.tid === tid) && (x.valid || x.reserved) }
-
   // Determine if there exits a free entry in the table and the index
   // of the next availble free entry
-  val hasFree = table.exists(fIsFree(_))
-  val nextFree = table.indexWhere(fIsFree(_))
-  val foundTid = table.exists(fDerefTid(_: StateType, cmd.asid, cmd.tid))
-  val derefTidIndex = table.indexWhere(fDerefTid(_: StateType, cmd.asid,
+  val hasFree = table.exists(isFree(_: StateType))
+  val nextFree = table.indexWhere(isFree(_: StateType))
+  val foundTid = table.exists(findAsidTid(_: StateType, cmd.asid, cmd.tid))
+  val derefTidIndex = table.indexWhere(findAsidTid(_: StateType, cmd.asid,
     cmd.tid))
   // io.arbiter.rocc.cmd.ready := hasFree
   io.arbiter.rocc.cmd.ready := Bool(true)
@@ -614,9 +605,7 @@ class TransactionTableBase[StateType <: TransactionState,
     info(table, "ttable,") }
 
   // Reset Condition
-  when (reset) {for (i <- 0 until transactionTableNumEntries) {
-    table(i).valid := Bool(false)
-    table(i).reserved := Bool(false) }}
+  when (reset) {(0 until transactionTableNumEntries).map(i => table(i).reset)}
 
   // Assertions
 

@@ -6,8 +6,7 @@ import Chisel._
 import rocket.{RoCCCommand, RoCCResponse}
 import cde.{Parameters, Field}
 
-class XFilesTransactionTableState(implicit p: Parameters)
-    extends XFilesBundle()(p) {
+trait TableVRDAT extends XFilesParameters {
   val valid = Bool()
   val reserved = Bool()
   val done = Bool()
@@ -20,6 +19,15 @@ class XFilesTransactionTableState(implicit p: Parameters)
   }
 }
 
+class TableEntry(implicit p: Parameters) extends XFilesBundle()(p)
+    with TableVRDAT
+
+trait HasTable {
+  def isFree[T <: TableEntry](x: T): Bool = { !x.valid & !x.reserved }
+  def findAsidTid[T <: TableEntry](x: T, asid: UInt, tid: UInt): Bool = {
+    (x.asid === asid) & (x.tid === tid) & (x.valid | x.reserved) }
+}
+
 class XFilesTransactionTableCmdResp(implicit p: Parameters) extends
     XFilesBundle()(p) {
   val cmd = Decoupled(new RoCCCommand).flip
@@ -28,7 +36,8 @@ class XFilesTransactionTableCmdResp(implicit p: Parameters) extends
   val regIdx = (new CoreIdx).flip
 }
 
-class XFilesTransactionTable(implicit p: Parameters) extends XFilesModule()(p) {
+class XFilesTransactionTable(implicit p: Parameters) extends XFilesModule()(p)
+    with HasTable {
   val io = new Bundle { // The portion of the RoCCInterface this uses
     val xfiles = new XFilesTransactionTableCmdResp
     val backend = (new XFilesTransactionTableCmdResp).flip
@@ -36,9 +45,10 @@ class XFilesTransactionTable(implicit p: Parameters) extends XFilesModule()(p) {
 
   val numEntries = transactionTableNumEntries
 
-  val table = Reg(Vec(numEntries, new XFilesTransactionTableState))
+  val table = Reg(Vec(numEntries, new TableEntry))
 
-  def isFree(x: XFilesTransactionTableState): Bool = { !x.valid & !x.reserved}
+  val hasFree = table.exists(isFree(_: TableEntry))
+  val idxFree = table.indexWhere(isFree(_: TableEntry))
 
   val cmd = io.xfiles.cmd
   val funct = cmd.bits.inst.funct
