@@ -25,7 +25,6 @@ class XFilesTransactionTableCmdResp(implicit p: Parameters) extends
   val cmd = Decoupled(new RoCCCommand).flip
   val resp = Decoupled(new RoCCResponse)
   val busy = Bool(OUTPUT)
-  val s = Bool(INPUT)
   val regIdx = (new CoreIdx).flip
 }
 
@@ -43,9 +42,8 @@ class XFilesTransactionTable(implicit p: Parameters) extends XFilesModule()(p) {
 
   val cmd = io.xfiles.cmd
   val funct = cmd.bits.inst.funct
-  val sup = io.xfiles.s
-  val newRequest = cmd.fire() & funct === t_NEW_REQUEST & !sup
-  val readDataPoll = cmd.fire() & funct === t_READ_DATA & !sup
+  val newRequest = cmd.fire() & funct === t_NEW_REQUEST
+  val readDataPoll = cmd.fire() & funct === t_READ_DATA
 
   when (newRequest) {
   }

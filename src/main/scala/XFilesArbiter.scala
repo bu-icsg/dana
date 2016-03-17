@@ -230,7 +230,7 @@ class XFilesArbiter(implicit p: Parameters) extends XFilesModule()(p) {
   // superseded by a forwarded supervisor request.
   coreArbiter.out.ready := io.backend.rocc.cmd.ready & !supReqToBackend
 
-  val userReqToBackend = coreArbiter.out.valid | supReqToBackend
+  val userReqToBackend = coreArbiter.out.valid
 
   // io.backend.rocc.cmd.valid := userReqToBackend
   // io.backend.rocc.cmd.bits := coreArbiter.out.bits
@@ -240,13 +240,13 @@ class XFilesArbiter(implicit p: Parameters) extends XFilesModule()(p) {
   transactionTable.xfiles.cmd.valid := userReqToBackend
   transactionTable.xfiles.cmd.bits := coreArbiter.out.bits
   transactionTable.xfiles.regIdx.cmd := coreArbiter.chosen
-  transactionTable.xfiles.s := supReqToBackend
   transactionTable.xfiles.resp.ready := Bool(true)
   transactionTable.backend.resp <> io.backend.rocc.resp
 
-  io.backend.rocc.cmd.valid := transactionTable.backend.cmd.valid
+  io.backend.rocc.cmd.valid := transactionTable.backend.cmd.valid |
+    supReqToBackend
   io.backend.rocc.cmd.bits := transactionTable.backend.cmd.bits
-  io.backend.rocc.s := transactionTable.backend.s
+  io.backend.rocc.s := supReqToBackend
   io.backend.regIdx.cmd := transactionTable.backend.regIdx.cmd
   transactionTable.backend.regIdx.resp := io.backend.regIdx.resp
 
