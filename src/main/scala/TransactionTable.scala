@@ -6,7 +6,8 @@ import Chisel._
 
 import rocket.{RoCCCommand, RoCCResponse}
 import cde.{Parameters}
-import xfiles.{TransactionTableNumEntries, TableEntry, HasTable}
+import xfiles.{TransactionTableNumEntries, TableEntry, HasTable,
+  XFilesResponseCodes}
 
 class TransactionState(implicit p: Parameters) extends TableEntry()(p)
     with DanaParameters {
@@ -240,7 +241,8 @@ class TransactionTableInterfaceLearn(implicit p: Parameters)
 class TransactionTableBase[StateType <: TransactionState,
   ControlReqType <: ControlReq](
   genStateVec: => Vec[StateType], genControlReq: => ControlReqType)(
-  implicit p: Parameters) extends DanaModule()(p) with HasTable {
+  implicit p: Parameters) extends DanaModule()(p) with HasTable
+    with XFilesResponseCodes {
   lazy val io = new TransactionTableInterface()(p)
 
   // IO aliases
@@ -275,7 +277,6 @@ class TransactionTableBase[StateType <: TransactionState,
     cmd.tid))
   // io.arbiter.rocc.cmd.ready := hasFree
   io.arbiter.rocc.cmd.ready := Bool(true)
-  io.arbiter.rocc.resp.valid := Bool(false)
   io.arbiter.rocc.resp.bits.rd := UInt(0)
   io.arbiter.rocc.resp.bits.data := UInt(0)
   // Default register file connections
@@ -289,26 +290,21 @@ class TransactionTableBase[StateType <: TransactionState,
   val arbiterRespPipe = Reg(Valid(new XFilesArbiterRespPipe))
   arbiterRespPipe.valid := Bool(false)
   arbiterRespPipe.bits.respType := UInt(0)
-  arbiterRespPipe.bits.tid := UInt(0)
+  arbiterRespPipe.bits.tid := cmd.tid
   arbiterRespPipe.bits.readIdx := UInt(0)
   arbiterRespPipe.bits.tidIdx := UInt(0)
-  arbiterRespPipe.bits.coreIdx := UInt(0)
-  arbiterRespPipe.bits.rd := UInt(0)
+  arbiterRespPipe.bits.coreIdx := cmd.coreIdx
+  arbiterRespPipe.bits.rd := cmd.rd
   arbiterRespPipe.bits.status := UInt(0)
   io.arbiter.rocc.resp.valid := arbiterRespPipe.valid
 
   switch (arbiterRespPipe.bits.respType) {
-    is (e_TID) {
-      io.arbiter.rocc.resp.bits.data := arbiterRespPipe.bits.respType ##
-        UInt(0, width = 14) ##
-        arbiterRespPipe.bits.tid ##
-        UInt(0, width = elementWidth) }
-    is (e_READ) {
+    is (resp_READ) {
       io.arbiter.rocc.resp.bits.data := arbiterRespPipe.bits.respType ##
         UInt(0, width = 14) ##
         arbiterRespPipe.bits.tid ##
         io.regFile.resp.bits.data }
-    is (e_NOT_DONE) {
+    is (resp_NOT_DONE) {
       io.arbiter.rocc.resp.bits.data := arbiterRespPipe.bits.respType ##
         UInt(0, width = 14) ##
         arbiterRespPipe.bits.tid ##
@@ -343,13 +339,6 @@ class TransactionTableBase[StateType <: TransactionState,
           table(nextFree).regFileAddrOut := UInt(0)
           table(derefTidIndex).nodesInCurrentLayer := UInt(0)
 
-          arbiterRespPipe.valid := Bool(true)
-          // Initiate a response that will contain the TID
-          arbiterRespPipe.bits.respType := e_TID
-          arbiterRespPipe.bits.tid := cmd.tid
-          arbiterRespPipe.bits.tidIdx := derefTidIndex
-          arbiterRespPipe.bits.coreIdx := cmd.coreIdx
-          arbiterRespPipe.bits.rd := cmd.rd
           printfInfo(
             "DANA TTable: saw new write request for NNID/ASID/TID 0x%x/0x%x/0x%x\n",
             cmd.nnid, cmd.asid, cmd.tid)
@@ -381,7 +370,7 @@ class TransactionTableBase[StateType <: TransactionState,
           table(derefTidIndex).done := Bool(false)
           table(derefTidIndex).waiting := Bool(false)
           table(derefTidIndex).regFileLocationBit := UInt(0)
-          printfInfo("TTable: LAST input write TID/data[%d] 0x%x/0x%x\n",
+          printfInfo("DANA TTable: LAST input write TID/data[%d] 0x%x/0x%x\n",
             table(derefTidIndex).indexElement, cmd.tid, cmd.data);
       }
         // This is an input packet
@@ -410,12 +399,9 @@ class TransactionTableBase[StateType <: TransactionState,
         // data from the _guaranteed_ response from the Register File
         // on the next cycle
         arbiterRespPipe.valid := Bool(true)
-        arbiterRespPipe.bits.respType := e_READ
-        arbiterRespPipe.bits.tid := cmd.tid
+        arbiterRespPipe.bits.respType := resp_READ
         arbiterRespPipe.bits.tidIdx := derefTidIndex
         arbiterRespPipe.bits.readIdx := table(derefTidIndex).readIdx
-        arbiterRespPipe.bits.coreIdx := cmd.coreIdx
-        arbiterRespPipe.bits.rd := cmd.rd
         // Check to see if all outputs have been read and we're not in
         // some batch training state where we expect to see a new set
         // training input/output item.
@@ -423,10 +409,7 @@ class TransactionTableBase[StateType <: TransactionState,
         printfInfo("DANA TTable: saw read request on TID %x\n", cmd.tid);
       } .otherwise {
         arbiterRespPipe.valid := Bool(true)
-        arbiterRespPipe.bits.tid := cmd.tid
-        arbiterRespPipe.bits.respType := e_NOT_DONE
-        arbiterRespPipe.bits.coreIdx := cmd.coreIdx
-        arbiterRespPipe.bits.rd := cmd.rd
+        arbiterRespPipe.bits.respType := resp_NOT_DONE
         arbiterRespPipe.bits.status :=
           table(derefTidIndex).valid ##
           table(derefTidIndex).reserved ##
@@ -462,7 +445,7 @@ class TransactionTableBase[StateType <: TransactionState,
           // table(tIdx).lambda := io.control.resp.bits.data(4)
           // Once we know the cache is valid, this entry is no longer waiting
           table(tIdx).waiting := Bool(false)
-          printfInfo("TTable: Updating global info from Cache...\n")
+          printfInfo("DANA TTable: Updating global info from Cache...\n")
           printfInfo("  total layers:            0x%x\n",
             io.control.resp.bits.data(0))
           printfInfo("  total nodes:             0x%x\n",
@@ -497,7 +480,7 @@ class TransactionTableBase[StateType <: TransactionState,
           val niplOffset = niplMSBs + Mux(niplLSBs =/= UInt(0),
             UInt(elementsPerBlock), UInt(0))
 
-          printfInfo("TTable: Updating cache layer...\n")
+          printfInfo("DANA TTable: Updating cache layer...\n")
           printfInfo("  total layers:               0x%x\n",
             table(tIdx).numLayers)
           printfInfo("  layer is:                   0x%x\n",
@@ -530,7 +513,7 @@ class TransactionTableBase[StateType <: TransactionState,
       val inLastOld = table(tIdx).inLast
       val inLastNew = table(tIdx).currentLayer === (table(tIdx).numLayers - UInt(1))
       table(tIdx).inLast := inLastNew
-      printfInfo("TTable: RegFile has all outputs of tIdx 0x%x\n",
+      printfInfo("DANA TTable: RegFile has all outputs of tIdx 0x%x\n",
         io.control.resp.bits.layerValidIndex)
     }
   }
@@ -588,7 +571,7 @@ class TransactionTableBase[StateType <: TransactionState,
     val tIdx = entryArbiter.io.out.bits.tableIndex
     table(tIdx).waiting := Bool(true)
     when (entryArbiter.io.out.bits.isDone) {
-      printfInfo("TTable entry for ASID/TID %x/%x is done\n",
+      printfInfo("DANA TTable entry for ASID/TID %x/%x is done\n",
         table(tIdx).asid, table(tIdx).tid);
         table(tIdx).done := Bool(true) }}
   when (isPeReq) {
@@ -613,7 +596,7 @@ class TransactionTableBase[StateType <: TransactionState,
   // if it is asserting its ready signal (it has a free entry)
   assert(!(newRoccCmd && cmd.readOrWrite && cmd.isNew &&
     !cmd.isLast && !hasFree),
-    "TTable saw new write req, but doesn't have any free entries")
+    "DANA TTable saw new write req, but doesn't have any free entries")
 
   // Only one inbound request or response on the same line can
   // currently be handled. Due to the split nature of cache and
@@ -621,20 +604,20 @@ class TransactionTableBase[StateType <: TransactionState,
   assert(!(newRoccCmd && cmd.readOrWrite && cmd.isNew &&
     io.control.resp.bits.cacheValid &&
     (io.control.resp.bits.tableIndex === nextFree)),
-    "TTable saw new write req on same entry as control resp from Cache")
+    "DANA TTable saw new write req on same entry as control resp from Cache")
   assert(!(newRoccCmd && cmd.readOrWrite && cmd.isNew &&
     io.control.resp.bits.layerValid &&
     (io.control.resp.bits.layerValidIndex === nextFree)),
-    "TTable saw new write req on same entry as control resp from Reg File")
+    "DANA TTable saw new write req on same entry as control resp from Reg File")
 
   assert(!(newRoccCmd && cmd.readOrWrite && !cmd.isNew &&
     io.control.resp.bits.cacheValid &&
     (io.control.resp.bits.tableIndex === derefTidIndex)),
-    "TTable saw non-new write req on same entry as control resp from Cache")
+    "DANA TTable saw non-new write req on same entry as control resp from Cache")
   assert(!(newRoccCmd && cmd.readOrWrite && !cmd.isNew &&
     io.control.resp.bits.layerValid &&
     (io.control.resp.bits.layerValidIndex === derefTidIndex)),
-    "TTable saw non-new write req on same entry as control resp from Reg File")
+    "DANA TTable saw non-new write req on same entry as control resp from Reg File")
 
   // Valid should never be true if reserved is not true
   for (i <- 0 until transactionTableNumEntries)
@@ -645,21 +628,21 @@ class TransactionTableBase[StateType <: TransactionState,
   // entry
   assert(!(!foundTid && newRoccCmd &&
     (!cmd.readOrWrite || (cmd.readOrWrite && !cmd.isNew))),
-    "TTable saw read or non-new write req on a non-existent ASID/TID")
+    "DANA TTable saw read or non-new write req on a non-existent ASID/TID")
   // A new write request should not hit a tid
   assert(!(foundTid && newRoccCmd &&
     cmd.readOrWrite && cmd.isNew && !cmd.isLast),
-    "TTable saw new write req on an existing ASID/TID")
+    "DANA TTable saw new write req on an existing ASID/TID")
   // A register write should hit a tid
   assert(!(!foundTid && newRoccCmd &&
     cmd.readOrWrite && cmd.isNew && cmd.isLast),
-    "TTable saw write register on non-existent ASID/TID")
+    "DANA TTable saw write register on non-existent ASID/TID")
 
   // A Control response should never have a cacheValid or layerValid
   // asserted when the decoupled valid is deasserted
   assert(!(!io.control.resp.valid &&
     (io.control.resp.bits.cacheValid || io.control.resp.bits.layerValid)),
-    "TTable control response deasserted, but cacheValid or layerValid asserted")
+    "DANA TTable control response deasserted, but cacheValid or layerValid asserted")
 
   // The current node should never be greater than the total number of nodes
   assert(!Vec((0 until transactionTableNumEntries).map(i =>
@@ -668,19 +651,19 @@ class TransactionTableBase[StateType <: TransactionState,
 
   // Don't send a response to the core unless it's ready
   assert(!(io.arbiter.rocc.resp.valid && !io.arbiter.rocc.resp.ready),
-    "TTable tried to send a valid response when core was not ready")
+    "DANA TTable tried to send a valid response when core was not ready")
 
   // Check to make sure that the Register File is producing the
   // expected timing
   assert(!(io.arbiter.rocc.resp.valid &&
-    arbiterRespPipe.bits.respType === e_READ &&
+    arbiterRespPipe.bits.respType === resp_READ &&
     !io.regFile.resp.valid),
-    "TTable sending valid RoCC read response, but RegisterFile response not valid")
+    "DANA TTable sending valid RoCC read response, but RegisterFile response not valid")
 
 
   // No writes should show up if the transaction is already valid
   assert(!(newRoccCmd && cmd.readOrWrite && table(derefTidIndex).valid),
-    "TTable saw write requests on valid TID")
+    "DANA TTable saw write requests on valid TID")
 
   // If learning is disabled we should never see a learning request
   if (!learningEnabled) {
@@ -718,7 +701,7 @@ class TransactionTable(implicit p: Parameters)
           table(derefTidIndex).nodesInCurrentLayer - UInt(1))) {
           table(derefTidIndex).valid := Bool(false)
           table(derefTidIndex).reserved := Bool(false)
-          printfInfo("TTable: All outputs read, evicting ASID/TID 0x%x/0x%x\n",
+          printfInfo("DANA TTable: All outputs read, evicting ASID/TID 0x%x/0x%x\n",
             table(derefTidIndex).asid, table(derefTidIndex).tid)
         }
       } .otherwise {
@@ -804,15 +787,15 @@ class TransactionTableLearn(implicit p: Parameters)
           switch(cmd.regId) {
             is (e_TTABLE_WRITE_REG_BATCH_ITEMS) {
               table(derefTidIndex).numBatchItems := cmd.regValue
-              printfInfo("TTable setting TID 0x%x numBatchItems to 0x%x\n",
+              printfInfo("DANA TTable setting TID 0x%x numBatchItems to 0x%x\n",
                 cmd.tid, cmd.regValue)}
             is (e_TTABLE_WRITE_REG_LEARNING_RATE) {
               table(derefTidIndex).learningRate := cmd.regValue
-              printfInfo("TTable setting TID 0x%x learningRate to 0x%x\n",
+              printfInfo("DANA TTable setting TID 0x%x learningRate to 0x%x\n",
                 cmd.tid, cmd.regValue)}
             is (e_TTABLE_WRITE_REG_WEIGHT_DECAY_LAMBDA) {
               table(derefTidIndex).lambda := cmd.regValue
-              printfInfo("TTable setting TID 0x%x lambda to 0x%x\n",
+              printfInfo("DANA TTable setting TID 0x%x lambda to 0x%x\n",
                 cmd.tid, cmd.regValue)}
           }
         } .otherwise {
@@ -845,13 +828,13 @@ class TransactionTableLearn(implicit p: Parameters)
           table(derefTidIndex).stateLearn := e_TTABLE_STATE_LEARN_FEEDFORWARD
           table(derefTidIndex).regFileAddrInFixed := nextIndexBlock
           table(derefTidIndex).regFileAddrOut := nextIndexBlock
-          printfInfo("TTable: LAST E[output] write TID/data 0x%x/0x%x\n",
+          printfInfo("DANA TTable: LAST E[output] write TID/data 0x%x/0x%x\n",
             cmd.tid, cmd.data);
           table(derefTidIndex).valid := Bool(false)
         } .otherwise {
           table(derefTidIndex).nodesInCurrentLayer :=
             numInputsOffset - table(derefTidIndex).regFileAddrInFixed
-          printfInfo("TTable: Setting nodesInCurrentLayer to 0x%x\n",
+          printfInfo("DANA TTable: Setting nodesInCurrentLayer to 0x%x\n",
             numInputsOffset - table(derefTidIndex).regFileAddrInFixed)
         }
         table(derefTidIndex).inLastEarly := Bool(false)
@@ -876,7 +859,7 @@ class TransactionTableLearn(implicit p: Parameters)
           (table(derefTidIndex).stateLearn =/= e_TTABLE_STATE_LOAD_OUTPUTS)) {
           table(derefTidIndex).valid := Bool(false)
           table(derefTidIndex).reserved := Bool(false)
-          printfInfo("TTable: All outputs read, evicting ASID/TID 0x%x/0x%x\n",
+          printfInfo("DANA TTable: All outputs read, evicting ASID/TID 0x%x/0x%x\n",
             table(derefTidIndex).asid, table(derefTidIndex).tid)
           printfInfo("        State is: 0x%x\n",
             table(derefTidIndex).stateLearn)
@@ -1032,7 +1015,7 @@ class TransactionTableLearn(implicit p: Parameters)
             }
             is(e_TTABLE_STATE_LEARN_WEIGHT_UPDATE){
               when(table(tIdx).transactionType === e_TTYPE_BATCH){
-                printfInfo("TTable Layer Update, state == LEARN_WEIGHT_UPDATE\n")
+                printfInfo("DANA TTable Layer Update, state == LEARN_WEIGHT_UPDATE\n")
                 when (table(tIdx).currentLayer === UInt(0)){
                   table(tIdx).regFileAddrDW := table(tIdx).regFileAddrInFixed
                   table(tIdx).regFileAddrIn := table(tIdx).regFileAddrInFixed +
@@ -1235,7 +1218,7 @@ class TransactionTableLearn(implicit p: Parameters)
   (0 until transactionTableNumEntries).map(i =>
     assert(!((table(i).valid || table(i).reserved) &&
       table(i).stateLearn === e_TTABLE_STATE_ERROR),
-      "TTable Transaction is in error state"))
+      "DANA TTable Transaction is in error state"))
 
 }
 

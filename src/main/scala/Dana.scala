@@ -198,11 +198,6 @@ abstract class DanaModule(implicit p: Parameters) extends XFilesModule()(p)
   val (e_AF_DO_ACTIVATION_FUNCTION :: // 0
     e_AF_DO_ERROR_FUNCTION ::         // 1
     Nil) = Enum(UInt(), 2)
-  // Response type that will be sent to a core
-  val (e_TID ::   // 0
-    e_READ ::     // 1
-    e_NOT_DONE :: // 2
-    Nil) = Enum(UInt(), 3)
   // Transaction Table to Register File Types
   val (e_TTABLE_REGFILE_WRITE :: // 0
     e_TTABLE_REGFILE_READ ::     // 1
@@ -242,7 +237,6 @@ class Dana(implicit p: Parameters) extends XFilesBackend()(p)
   // ASID--NNID Table Walker
   antw.io.xfiles.rocc.cmd.valid := io.rocc.cmd.valid
   antw.io.xfiles.rocc.cmd.bits := io.rocc.cmd.bits
-  io.rocc.cmd.ready := antw.io.xfiles.rocc.cmd.ready
   antw.io.xfiles.rocc.resp.ready := io.rocc.resp.ready
   antw.io.xfiles.rocc.s := io.rocc.s
   antw.io.xfiles.rocc.coreIdxCmd := io.regIdx.cmd
@@ -270,7 +264,6 @@ class Dana(implicit p: Parameters) extends XFilesBackend()(p)
   // Transaction Table
   tTable.io.arbiter.rocc.cmd.valid := io.rocc.cmd.valid
   tTable.io.arbiter.rocc.cmd.bits := io.rocc.cmd.bits
-  io.rocc.cmd.ready := tTable.io.arbiter.rocc.cmd.ready
   tTable.io.arbiter.rocc.resp.ready := io.rocc.resp.ready
   tTable.io.arbiter.rocc.s := io.rocc.s
   tTable.io.arbiter.coreIdx := io.regIdx.cmd

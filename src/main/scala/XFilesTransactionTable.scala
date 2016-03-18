@@ -17,6 +17,11 @@ trait TableVRDAT extends XFilesParameters {
     this.valid := Bool(false)
     this.reserved := Bool(false)
   }
+  def reserve(asid: UInt, tid: UInt) {
+    this.valid := Bool(false)
+    this.reserved := Bool(true)
+    this.done := Bool(false)
+  }
 }
 
 class TableEntry(implicit p: Parameters) extends XFilesBundle()(p)
@@ -36,12 +41,28 @@ class XFilesTransactionTableCmdResp(implicit p: Parameters) extends
   val regIdx = (new CoreIdx).flip
 }
 
+class RespBundle(implicit p: Parameters) extends XFilesBundle()(p) {
+  val rocc = new RoCCResponse
+  val idx = UInt(width = numCores)
+}
+
 class XFilesTransactionTable(implicit p: Parameters) extends XFilesModule()(p)
-    with HasTable {
+    with HasTable with XFilesResponseCodes {
   val io = new Bundle { // The portion of the RoCCInterface this uses
     val xfiles = new XFilesTransactionTableCmdResp
     val backend = (new XFilesTransactionTableCmdResp).flip
   }
+
+  def getCmdAsid() = { io.xfiles.cmd.bits.rs1(asidWidth + tidWidth - 1, tidWidth) }
+  def getCmdTid() = { io.xfiles.cmd.bits.rs1(tidWidth - 1, 0) }
+
+  def getRespCode() = { io.backend.resp.bits.data(xLen - 1, xLen - respCodeWidth) }
+  def getRespTid() = {
+    val offset = xLen - respCodeWidth
+    io.backend.resp.bits.data(offset - 1, offset - tidWidth) }
+  def getRespAsid() = {
+    val offset = xLen - respCodeWidth - tidWidth
+    io.backend.resp.bits.data(offset - 1, offset - asidWidth) }
 
   val numEntries = transactionTableNumEntries
 
@@ -53,16 +74,55 @@ class XFilesTransactionTable(implicit p: Parameters) extends XFilesModule()(p)
   val cmd = io.xfiles.cmd
   val funct = cmd.bits.inst.funct
   val newRequest = cmd.fire() & funct === t_NEW_REQUEST
+  val writeData = cmd.fire() & funct === t_WRITE_DATA
+  val writeDataLast = cmd.fire() & funct === t_WRITE_DATA_LAST
   val readDataPoll = cmd.fire() & funct === t_READ_DATA
+  val asid =  getCmdAsid()
+  val tid = getCmdTid()
+
+  val error = Reg(Bool(), init = Bool(false))
+
+  // Temporary pass-through
+  io.xfiles.cmd <> io.backend.cmd
+  io.xfiles.busy := io.backend.busy
+
+  // resp
+  val resp_d = Reg(Valid(new RespBundle))
+  io.xfiles.resp.valid := io.backend.resp.valid | resp_d.valid
+  io.xfiles.resp.bits := io.backend.resp.bits
+  io.backend.resp.ready := io.xfiles.resp.ready
+
+  resp_d.valid := newRequest
+  resp_d.bits.rocc.rd := cmd.bits.inst.rd
+  resp_d.bits.idx := io.xfiles.regIdx.cmd
+
+  // regIdx
+  io.xfiles.regIdx.resp := io.backend.regIdx.resp
+  io.backend.regIdx.cmd := io.xfiles.regIdx.cmd
+
+  when (resp_d.valid) {
+    io.xfiles.resp.bits.rd := resp_d.bits.rocc.rd
+    io.xfiles.resp.bits.data := resp_d.bits.rocc.data
+    io.xfiles.regIdx.resp := resp_d.bits.idx
+  }
 
   when (newRequest) {
+    genResp(resp_d.bits.rocc.data, resp_TID, tid)
+  }
+
+  when (writeData) {
+  }
+
+  when (writeDataLast) {
   }
 
   when (readDataPoll) {
   }
 
-  // Temporary pass-through
-  io.xfiles <> io.backend
+  assert (!(error), "XF TTable error asserted")
+
+  // assert (!(resp_d0.valid & io.backend.resp.valid),
+  //   "XF TTable: newRequest resp just aliased backend resp")
 
   when (reset) { (0 until numEntries).map(i => { table(i).reset() })}
 }

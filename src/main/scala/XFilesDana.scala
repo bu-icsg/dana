@@ -34,6 +34,8 @@ class XFilesDana(implicit p: Parameters) extends RoCC()(p) {
 
   io.mem.resp <> xFilesArbiter.io.core(0).mem.resp
 
+  io.busy := Bool(false)
+
   // io.mem.xcpt.ma := Bool(false)
   // io.mem.xcpt.pf := Bool(false)
   // io.mem.ptw.req.ready := Bool(false)
@@ -49,7 +51,7 @@ class XFilesDana(implicit p: Parameters) extends RoCC()(p) {
 
   for (i <- 0 until p(RoccNMemChannels)) {
     io.utl(i).acquire.valid := Bool(false)
-    io.utl(i).grant.ready := Bool(true)}
+    io.utl(i).grant.ready := Bool(true) }
 
   xFilesArbiter.io.backend <> dana.io
 

@@ -29,6 +29,19 @@ trait XFilesSupervisorRequests {
   val t_SUP_WRITE_REG = 1
 }
 
+trait XFilesResponseCodes extends XFilesParameters {
+  val respCodeWidth = 2
+
+  val (resp_TID :: resp_READ :: resp_NOT_DONE :: resp_XFILES :: Nil) =
+    Enum(UInt(), 4)
+
+  def genResp[T <: Bits](resp: T, respCode: UInt, tid: UInt, data: T = Bits(0)) {
+    resp := data.toBits
+    resp(xLen - 1, xLen - respCodeWidth) := UInt(respCode)
+    resp(xLen - respCodeWidth - 1, xLen - respCodeWidth - tidWidth) := tid
+  }
+}
+
 trait XFilesParameters extends HasCoreParameters with XFilesErrorCodes
     with XFilesSupervisorRequests {
   val numCores = p(NumCores)
@@ -168,7 +181,7 @@ class XFilesArbiter(implicit p: Parameters) extends XFilesModule()(p) {
       UInt(p(CacheNumEntries), width = 4)
 
     io.core(i).resp.valid := reqInfo | badRequest | asidUnits(i).resp.valid | (
-      transactionTable.xfiles.resp.valid &&
+      transactionTable.xfiles.resp.valid &
         transactionTable.xfiles.regIdx.resp === UInt(i))
 
     io.core(i).resp.bits.rd := cmd.bits.inst.rd
@@ -203,9 +216,9 @@ class XFilesArbiter(implicit p: Parameters) extends XFilesModule()(p) {
     coreQueue(i).deq <> coreArbiter.in(i)
 
     // Deal with responses in priority order
-    when (asidUnits(i).resp.fire()) {
+    when (asidUnits(i).resp.valid) {
       io.core(i).resp.bits := asidUnits(i).resp.bits
-    } .elsewhen (transactionTable.xfiles.resp.fire() &&
+    } .elsewhen (transactionTable.xfiles.resp.valid &
       transactionTable.xfiles.regIdx.resp === UInt(i)) {
       io.core(i).resp.bits := transactionTable.xfiles.resp.bits
     }
@@ -228,7 +241,7 @@ class XFilesArbiter(implicit p: Parameters) extends XFilesModule()(p) {
   // We can pull things out of the Core Arbiter if the backend is
   // telling us it's okay and if the Core Arbiter isn't getting
   // superseded by a forwarded supervisor request.
-  coreArbiter.out.ready := io.backend.rocc.cmd.ready & !supReqToBackend
+  coreArbiter.out.ready := transactionTable.xfiles.cmd.ready & !supReqToBackend
 
   val userReqToBackend = coreArbiter.out.valid
 
@@ -242,6 +255,7 @@ class XFilesArbiter(implicit p: Parameters) extends XFilesModule()(p) {
   transactionTable.xfiles.regIdx.cmd := coreArbiter.chosen
   transactionTable.xfiles.resp.ready := Bool(true)
   transactionTable.backend.resp <> io.backend.rocc.resp
+  transactionTable.backend.cmd.ready := io.backend.rocc.cmd.ready
 
   io.backend.rocc.cmd.valid := transactionTable.backend.cmd.valid |
     supReqToBackend
@@ -325,7 +339,17 @@ class XFilesArbiter(implicit p: Parameters) extends XFilesModule()(p) {
   // Assertions
   (0 until numCores).map(i => {
     val totalResponses = Vec(asidUnits(i).resp.valid,
-      io.backend.rocc.resp.valid && io.backend.regIdx.cmd === UInt(i))
+      transactionTable.xfiles.resp.valid &
+        transactionTable.xfiles.regIdx.resp === UInt(i))
     assert(!(totalResponses.count((x: Bool) => x) > UInt(1)),
       "X-FILES Arbiter: AsidUnit just aliased a TTable response")})
+
+  when (io.core(0).resp.valid) {
+    printf("XF Arbiter: Responding to core 0 with data 0x%x\n",
+    io.core(0).resp.bits.data) }
+
+  val newRequestToTransactionTable = RegNext(transactionTable.xfiles.cmd.fire()&
+    transactionTable.xfiles.cmd.bits.inst.funct === t_NEW_REQUEST)
+  assert(!(newRequestToTransactionTable & !io.core(0).resp.valid),
+    "XF Arbiter: TTable failed to generate resposne after newRequest")
 }

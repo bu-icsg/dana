@@ -61,7 +61,9 @@ tid_type new_write_request(nnid_type nnid, learning_type_t learning_type,
   // The TID is in bits [47:32] of what we get back. Pull out this
   // portion and return it. [TODO] This is fragile on tid and element
   // sizing.
-  return (out >> 32) & ~((~0) << 16);
+  const size_t shift = sizeof(xlen_t) * 8 - 16 - 2;
+  const xlen_t mask = (~((~(xlen_t)0) << 16)) << shift;
+  return (out & mask) >> shift;
 }
 
 void write_register(tid_type tid, xfiles_reg reg, uint32_t value) {
