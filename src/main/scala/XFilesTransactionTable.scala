@@ -6,31 +6,35 @@ import Chisel._
 import rocket.{RoCCCommand, RoCCResponse}
 import cde.{Parameters, Field}
 
-trait TableVRDAT extends XFilesParameters {
-  val valid = Bool()
-  val reserved = Bool()
-  val done = Bool()
+trait TableRVDIO extends XFilesParameters {
+  val flags = new Bundle{
+    val reserved = Bool()  // Entry is in use
+    val valid = Bool()     // Eligible for scheduling
+    val done = Bool()      // Entry is finished
+    val input = Bool()     // Entry is waiting for input queue to be not empty
+    val output = Bool()    // Entry is waiting for output queue to be not full
+  }
   val asid = UInt(width = asidWidth)
   val tid = UInt(width = tidWidth)
 
   def reset() {
-    this.valid := Bool(false)
-    this.reserved := Bool(false)
+    this.flags.valid := Bool(false)
+    this.flags.reserved := Bool(false)
   }
   def reserve(asid: UInt, tid: UInt) {
-    this.valid := Bool(false)
-    this.reserved := Bool(true)
-    this.done := Bool(false)
+    this.flags.valid := Bool(false)
+    this.flags.reserved := Bool(true)
+    this.flags.done := Bool(false)
   }
 }
 
 class TableEntry(implicit p: Parameters) extends XFilesBundle()(p)
-    with TableVRDAT
+    with TableRVDIO
 
 trait HasTable {
-  def isFree[T <: TableEntry](x: T): Bool = { !x.valid & !x.reserved }
+  def isFree[T <: TableEntry](x: T): Bool = { !x.flags.reserved }
   def findAsidTid[T <: TableEntry](x: T, asid: UInt, tid: UInt): Bool = {
-    (x.asid === asid) & (x.tid === tid) & (x.valid | x.reserved) }
+    (x.asid === asid) & (x.tid === tid) & (x.flags.valid | x.flags.reserved) }
 }
 
 class XFilesTransactionTableCmdResp(implicit p: Parameters) extends
@@ -121,8 +125,8 @@ class XFilesTransactionTable(implicit p: Parameters) extends XFilesModule()(p)
 
   assert (!(error), "XF TTable error asserted")
 
-  // assert (!(resp_d0.valid & io.backend.resp.valid),
-  //   "XF TTable: newRequest resp just aliased backend resp")
+  assert (!(resp_d.valid & io.backend.resp.valid),
+    "XF TTable: newRequest resp just aliased backend resp")
 
   when (reset) { (0 until numEntries).map(i => { table(i).reset() })}
 }

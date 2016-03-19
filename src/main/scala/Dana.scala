@@ -382,12 +382,12 @@ abstract class DanaTester[+T <: Module](c: T, isTrace: Boolean = true)
         printf("----------------------------\n")
         for (i <- 0 until c.table.length) {
           printf("|%d|%d|%2d|%2d|%2d|%s|%3d|%4x|",
-            peek(c.table(i).valid),
-            peek(c.table(i).reserved),
+            peek(c.table(i).flags.valid),
+            peek(c.table(i).flags.reserved),
             peek(c.table(i).cacheValid),
             peek(c.table(i).waiting),
             peek(c.table(i).needsLayerInfo),
-            peek(c.table(i).done),
+            peek(c.table(i).flags.done),
             peek(c.table(i).tid),
             peek(c.table(i).nnid)
           )

@@ -323,7 +323,7 @@ class TransactionTableBase[StateType <: TransactionState,
         } .otherwise {
           // [TODO] A lot of this can be removed as not everything has
           // to be initialized
-          table(nextFree).reserved := Bool(true)
+          table(nextFree).flags.reserved := Bool(true)
           table(nextFree).cacheValid := Bool(false)
           table(nextFree).waiting := Bool(false)
           table(nextFree).needsLayerInfo := Bool(true)
@@ -332,7 +332,7 @@ class TransactionTableBase[StateType <: TransactionState,
           table(nextFree).nnid := cmd.nnid
           table(nextFree).currentLayer := UInt(0)
           table(nextFree).countFeedback := cmd.countFeedback
-          table(nextFree).done := Bool(false)
+          table(nextFree).flags.done := Bool(false)
           table(nextFree).decInUse := Bool(false)
           table(nextFree).indexElement := UInt(0)
           table(nextFree).coreIdx := cmd.coreIdx
@@ -361,13 +361,13 @@ class TransactionTableBase[StateType <: TransactionState,
           log2Up(elementsPerBlock)) ## UInt(0, width=log2Up(elementsPerBlock))
         val numInputsLSBs = numInputs(log2Up(elementsPerBlock) - 1, 0)
         val numInputsOffset = numInputsMSBs + UInt(elementsPerBlock)
-          table(derefTidIndex).valid := Bool(true)
+          table(derefTidIndex).flags.valid := Bool(true)
           table(derefTidIndex).currentNode := UInt(0)
           table(derefTidIndex).readIdx := UInt(0)
           table(derefTidIndex).inFirst := Bool(true)
           table(derefTidIndex).inLast := Bool(false)
           table(derefTidIndex).needsLayerInfo := Bool(true)
-          table(derefTidIndex).done := Bool(false)
+          table(derefTidIndex).flags.done := Bool(false)
           table(derefTidIndex).waiting := Bool(false)
           table(derefTidIndex).regFileLocationBit := UInt(0)
           printfInfo("DANA TTable: LAST input write TID/data[%d] 0x%x/0x%x\n",
@@ -389,7 +389,7 @@ class TransactionTableBase[StateType <: TransactionState,
         // table(derefTidIndex).data() :=
       }
     } .otherwise { // Ths is a read packet.
-      when (table(derefTidIndex).done) {
+      when (table(derefTidIndex).flags.done) {
         // Register File request
         io.regFile.req.valid := Bool(true)
         io.regFile.req.bits.addr := table(derefTidIndex).readIdx +
@@ -411,12 +411,12 @@ class TransactionTableBase[StateType <: TransactionState,
         arbiterRespPipe.valid := Bool(true)
         arbiterRespPipe.bits.respType := resp_NOT_DONE
         arbiterRespPipe.bits.status :=
-          table(derefTidIndex).valid ##
-          table(derefTidIndex).reserved ##
+          table(derefTidIndex).flags.valid ##
+          table(derefTidIndex).flags.reserved ##
           table(derefTidIndex).cacheValid ##
           table(derefTidIndex).waiting ##
           table(derefTidIndex).needsLayerInfo ##
-          table(derefTidIndex).done ##
+          table(derefTidIndex).flags.done ##
           table(derefTidIndex).inFirst ##
           table(derefTidIndex).inLast ##
           table(derefTidIndex).neuronPointer(7,0) ##
@@ -525,7 +525,7 @@ class TransactionTableBase[StateType <: TransactionState,
   val entryArbiter = Module(new RRArbiter(genControlReq,
     transactionTableNumEntries))
   for (i <- 0 until transactionTableNumEntries) {
-    val isValid = table(i).valid
+    val isValid = table(i).flags.valid
     val isNotWaiting = !table(i).waiting
     val noRequestLastCycle = Reg(next = !entryArbiter.io.out.valid)
     val cacheWorkToDo = (table(i).decInUse || !table(i).cacheValid ||
@@ -573,7 +573,7 @@ class TransactionTableBase[StateType <: TransactionState,
     when (entryArbiter.io.out.bits.isDone) {
       printfInfo("DANA TTable entry for ASID/TID %x/%x is done\n",
         table(tIdx).asid, table(tIdx).tid);
-        table(tIdx).done := Bool(true) }}
+        table(tIdx).flags.done := Bool(true) }}
   when (isPeReq) {
     val tIdx = entryArbiter.io.out.bits.tableIndex
     val inLastNode = table(tIdx).currentNodeInLayer ===
@@ -621,7 +621,7 @@ class TransactionTableBase[StateType <: TransactionState,
 
   // Valid should never be true if reserved is not true
   for (i <- 0 until transactionTableNumEntries)
-    assert(!table(i).valid || table(i).reserved,
+    assert(!table(i).flags.valid || table(i).flags.reserved,
       "Valid asserted with reserved de-asserted on TTable " + i)
 
   // A read request or a non-new write request should hit a valid
@@ -646,7 +646,8 @@ class TransactionTableBase[StateType <: TransactionState,
 
   // The current node should never be greater than the total number of nodes
   assert(!Vec((0 until transactionTableNumEntries).map(i =>
-    table(i).valid && (table(i).currentNode > table(i).numNodes))).contains(Bool(true)),
+    table(i).flags.valid && (table(i).currentNode >
+      table(i).numNodes))).contains(Bool(true)),
     "A TTable entry has a currentNode count greater than the total numNodes")
 
   // Don't send a response to the core unless it's ready
@@ -662,7 +663,7 @@ class TransactionTableBase[StateType <: TransactionState,
 
 
   // No writes should show up if the transaction is already valid
-  assert(!(newRoccCmd && cmd.readOrWrite && table(derefTidIndex).valid),
+  assert(!(newRoccCmd && cmd.readOrWrite && table(derefTidIndex).flags.valid),
     "DANA TTable saw write requests on valid TID")
 
   // If learning is disabled we should never see a learning request
@@ -696,11 +697,11 @@ class TransactionTable(implicit p: Parameters)
       } .otherwise {
       }
     } .otherwise {
-      when (table(derefTidIndex).done) {
+      when (table(derefTidIndex).flags.done) {
         when ((table(derefTidIndex).readIdx ===
           table(derefTidIndex).nodesInCurrentLayer - UInt(1))) {
-          table(derefTidIndex).valid := Bool(false)
-          table(derefTidIndex).reserved := Bool(false)
+          table(derefTidIndex).flags.valid := Bool(false)
+          table(derefTidIndex).flags.reserved := Bool(false)
           printfInfo("DANA TTable: All outputs read, evicting ASID/TID 0x%x/0x%x\n",
             table(derefTidIndex).asid, table(derefTidIndex).tid)
         }
@@ -830,7 +831,7 @@ class TransactionTableLearn(implicit p: Parameters)
           table(derefTidIndex).regFileAddrOut := nextIndexBlock
           printfInfo("DANA TTable: LAST E[output] write TID/data 0x%x/0x%x\n",
             cmd.tid, cmd.data);
-          table(derefTidIndex).valid := Bool(false)
+          table(derefTidIndex).flags.valid := Bool(false)
         } .otherwise {
           table(derefTidIndex).nodesInCurrentLayer :=
             numInputsOffset - table(derefTidIndex).regFileAddrInFixed
@@ -847,7 +848,7 @@ class TransactionTableLearn(implicit p: Parameters)
       } .otherwise {
       }
     } .otherwise {
-      when (table(derefTidIndex).done) {
+      when (table(derefTidIndex).flags.done) {
         // [TODO] #54: this comparison for an exit condition is
         // causing problems with incremental learning. I'm not
         // planning to read in the output layer, so the exit condition
@@ -857,8 +858,8 @@ class TransactionTableLearn(implicit p: Parameters)
         when ((table(derefTidIndex).readIdx ===
           table(derefTidIndex).nodesInLast - UInt(1)) &&
           (table(derefTidIndex).stateLearn =/= e_TTABLE_STATE_LOAD_OUTPUTS)) {
-          table(derefTidIndex).valid := Bool(false)
-          table(derefTidIndex).reserved := Bool(false)
+          table(derefTidIndex).flags.valid := Bool(false)
+          table(derefTidIndex).flags.reserved := Bool(false)
           printfInfo("DANA TTable: All outputs read, evicting ASID/TID 0x%x/0x%x\n",
             table(derefTidIndex).asid, table(derefTidIndex).tid)
           printfInfo("        State is: 0x%x\n",
@@ -1085,8 +1086,8 @@ class TransactionTableLearn(implicit p: Parameters)
             table(tIdx).decInUse := Bool(true)
           } .elsewhen (table(tIdx).stateLearn === e_TTABLE_STATE_LOAD_OUTPUTS) {
             table(tIdx).indexElement := UInt(0)
-            table(tIdx).done := Bool(true)
-            table(tIdx).valid := Bool(false)
+            table(tIdx).flags.done := Bool(true)
+            table(tIdx).flags.valid := Bool(false)
           } .otherwise {
             table(tIdx).waiting := Bool(false)
           }
@@ -1216,7 +1217,7 @@ class TransactionTableLearn(implicit p: Parameters)
 
   // Catch any jumps to an error state
   (0 until transactionTableNumEntries).map(i =>
-    assert(!((table(i).valid || table(i).reserved) &&
+    assert(!((table(i).flags.valid || table(i).flags.reserved) &&
       table(i).stateLearn === e_TTABLE_STATE_ERROR),
       "DANA TTable Transaction is in error state"))
 
