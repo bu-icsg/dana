@@ -20,8 +20,10 @@ case object TableDebug extends Field[Boolean]
 case object TransactionTableNumEntries extends Field[Int]
 
 trait XFilesErrorCodes {
-  val err_XFILES_BADREQ = 1
-  val err_XFILES_NOASID = 2
+  val err_XFILES_UNKNOWN = 0
+  val err_XFILES_NOASID = 1
+  val err_XFILES_TTABLEFULL = 2
+  val err_XFILES_INVALIDTID = 3
 }
 
 trait XFilesSupervisorRequests {
@@ -35,7 +37,7 @@ trait XFilesResponseCodes extends XFilesParameters {
   val (resp_TID :: resp_READ :: resp_NOT_DONE :: resp_XFILES :: Nil) =
     Enum(UInt(), 4)
 
-  def genResp[T <: Bits](resp: T, respCode: UInt, tid: UInt, data: T = Bits(0)) {
+  def genResp[T <: Bits](resp: T, respCode: T, tid: T, data: T = Bits(0)) {
     resp := data.toBits
     resp(xLen - 1, xLen - respCodeWidth) := UInt(respCode)
     resp(xLen - respCodeWidth - 1, xLen - respCodeWidth - tidWidth) := tid
@@ -182,13 +184,13 @@ class XFilesArbiter(implicit p: Parameters) extends XFilesModule()(p) {
 
     io.core(i).resp.valid := reqInfo | badRequest | asidUnits(i).resp.valid | (
       transactionTable.xfiles.resp.valid &
-        transactionTable.xfiles.regIdx.resp === UInt(i))
+        transactionTable.regIdx.resp === UInt(i))
 
     io.core(i).resp.bits.rd := cmd.bits.inst.rd
     // [TODO] The info returned should be about X-FILES or the
     // backend. There shouldn't be anything DANA-specific here.
     io.core(i).resp.bits.data := Mux(reqInfo, info,
-      SInt(-err_XFILES_BADREQ, width = xLen).toUInt)
+      SInt(-err_XFILES_NOASID, width = xLen).toUInt)
 
     // The ASID Units are provided with the full command, barring that
     // a short-circuit response hasn't been generated
@@ -219,7 +221,7 @@ class XFilesArbiter(implicit p: Parameters) extends XFilesModule()(p) {
     when (asidUnits(i).resp.valid) {
       io.core(i).resp.bits := asidUnits(i).resp.bits
     } .elsewhen (transactionTable.xfiles.resp.valid &
-      transactionTable.xfiles.regIdx.resp === UInt(i)) {
+      transactionTable.regIdx.resp === UInt(i)) {
       io.core(i).resp.bits := transactionTable.xfiles.resp.bits
     }
 
@@ -252,26 +254,26 @@ class XFilesArbiter(implicit p: Parameters) extends XFilesModule()(p) {
   // io.backend.rocc.resp.ready := Bool(true)
   transactionTable.xfiles.cmd.valid := userReqToBackend
   transactionTable.xfiles.cmd.bits := coreArbiter.out.bits
-  transactionTable.xfiles.regIdx.cmd := coreArbiter.chosen
+  transactionTable.regIdx.cmd := coreArbiter.chosen
   transactionTable.xfiles.resp.ready := Bool(true)
-  transactionTable.backend.resp <> io.backend.rocc.resp
-  transactionTable.backend.cmd.ready := io.backend.rocc.cmd.ready
+  transactionTable.backend.rocc.resp <> io.backend.rocc.resp
+  transactionTable.backend.rocc.cmd.ready := io.backend.rocc.cmd.ready
 
-  io.backend.rocc.cmd.valid := transactionTable.backend.cmd.valid |
+  io.backend.rocc.cmd.valid := transactionTable.backend.rocc.cmd.valid |
     supReqToBackend
-  io.backend.rocc.cmd.bits := transactionTable.backend.cmd.bits
+  io.backend.rocc.cmd.bits := transactionTable.backend.rocc.cmd.bits
   io.backend.rocc.s := supReqToBackend
   io.backend.regIdx.cmd := transactionTable.backend.regIdx.cmd
   transactionTable.backend.regIdx.resp := io.backend.regIdx.resp
 
-  when (coreArbiter.out.fire()) {
-    printfInfo("""XFiles Arbiter: coreArbiter.out.valid asserted
-[INFO] XFilesArbiter: Non-cmdFwd req sent to TTable:
-[INFO] XFilesArbiter:   inst: 0x%x
-[INFO] XFilesArbiter:   rs1:  0x%x
-[INFO] XFilesArbiter:   rs2:  0x%x
-""", coreArbiter.out.bits.inst.toBits, coreArbiter.out.bits.rs1,
-      coreArbiter.out.bits.rs2) }
+//   when (coreArbiter.out.fire()) {
+//     printfInfo("""XFiles Arbiter: coreArbiter.out.valid asserted
+// [INFO] XFilesArbiter: Non-cmdFwd req sent to TTable:
+// [INFO] XFilesArbiter:   inst: 0x%x
+// [INFO] XFilesArbiter:   rs1:  0x%x
+// [INFO] XFilesArbiter:   rs2:  0x%x
+// """, coreArbiter.out.bits.inst.toBits, coreArbiter.out.bits.rs1,
+//       coreArbiter.out.bits.rs2) }
 
   (numCores -1 to 0 by -1).map(i => {
     when (asidUnits(i).cmdFwd.valid) {
@@ -283,10 +285,14 @@ class XFilesArbiter(implicit p: Parameters) extends XFilesModule()(p) {
   // Handle memory request routing
   val allMemReady = io.core.forall((rocc: RoCCInterface) => rocc.mem.req.ready)
   (0 until numCores).map(i => {
-    io.core(i).mem.req.valid := io.backend.rocc.mem.req.valid &&
-      io.backend.memIdx.cmd === UInt(i)
-    io.core(i).mem.req.bits := io.backend.rocc.mem.req.bits
-    io.core(i).mem.invalidate_lr := io.backend.rocc.mem.invalidate_lr
+    // io.core(i).mem.req.valid := io.backend.rocc.mem.req.valid &&
+    //   io.backend.memIdx.cmd === UInt(i)
+    io.core(i).mem.req.valid := transactionTable.xfiles.mem.req.valid &&
+      transactionTable.memIdx.cmd === UInt(i)
+    // io.core(i).mem.req.bits := io.backend.rocc.mem.req.bits
+    io.core(i).mem.req.bits := transactionTable.xfiles.mem.req.bits
+    // io.core(i).mem.invalidate_lr := io.backend.rocc.mem.invalidate_lr
+    io.core(i).mem.invalidate_lr := transactionTable.xfiles.mem.invalidate_lr
     when (io.core(i).mem.req.fire()) {
       printfInfo("XFilesArbiter: Mem request core %d with tag 0x%x for addr 0x%x\n",
         UInt(i), io.core(i).mem.req.bits.tag, io.core(i).mem.req.bits.addr) }
@@ -295,7 +301,8 @@ class XFilesArbiter(implicit p: Parameters) extends XFilesModule()(p) {
 """,
         UInt(i), io.core(i).mem.resp.bits.tag, io.core(i).mem.resp.bits.addr,
         io.core(i).mem.resp.bits.data_word_bypass) }})
-  io.backend.rocc.mem.req.ready := allMemReady
+  // io.backend.rocc.mem.req.ready := allMemReady
+  transactionTable.xfiles.mem.req.ready := allMemReady
 
   // Handle memory responses. These are sent into a per-core memory
   // response queue and then arbitrated out and passed to the backend.
@@ -331,16 +338,32 @@ class XFilesArbiter(implicit p: Parameters) extends XFilesModule()(p) {
   // Decoupled interface. We hack this in with a manual assignment and
   // telling the arbiter that the backend can always accept data (we
   // then just have guarantee that this is true on the backend).
-  io.backend.rocc.mem.resp.valid := memArbiter.out.valid
-  io.backend.rocc.mem.resp.bits := memArbiter.out.bits
+
+  // io.backend.rocc.mem.resp.valid := memArbiter.out.valid
+  // io.backend.rocc.mem.resp.bits := memArbiter.out.bits
+  transactionTable.xfiles.mem.resp.valid := memArbiter.out.valid
+  transactionTable.xfiles.mem.resp.bits := memArbiter.out.bits
+
+  io.backend.rocc.mem.resp.valid := transactionTable.backend.rocc.mem.resp.valid
+  io.backend.rocc.mem.resp.bits := transactionTable.backend.rocc.mem.resp.bits
+
   memArbiter.out.ready := Bool(true)
-  io.backend.memIdx.resp := memArbiter.chosen
+
+  // io.backend.memIdx.resp := memArbiter.chosen
+  transactionTable.memIdx.resp := memArbiter.chosen
+
+  io.backend.memIdx <> transactionTable.backend.memIdx
+  transactionTable.backend.rocc.mem.req <> io.backend.rocc.mem.req
+
+  io.backend.xfReq <> transactionTable.backend.xfReq
+  io.backend.xfResp <> transactionTable.backend.xfResp
+  io.backend.queueIO <> transactionTable.backend.queueIO
 
   // Assertions
   (0 until numCores).map(i => {
     val totalResponses = Vec(asidUnits(i).resp.valid,
       transactionTable.xfiles.resp.valid &
-        transactionTable.xfiles.regIdx.resp === UInt(i))
+        transactionTable.regIdx.resp === UInt(i))
     assert(!(totalResponses.count((x: Bool) => x) > UInt(1)),
       "X-FILES Arbiter: AsidUnit just aliased a TTable response")})
 

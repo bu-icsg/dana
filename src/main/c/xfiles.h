@@ -11,9 +11,9 @@
 // [TODO] Any changes to these types need to occur in conjunction with
 // the Chisel code and with the TID extraction part of
 // new_write_request.
-typedef uint32_t nnid_type;
-typedef uint16_t asid_type;
-typedef uint16_t tid_type;
+typedef int32_t nnid_type;
+typedef int16_t asid_type;
+typedef int16_t tid_type;
 typedef int32_t element_type;
 typedef uint64_t xlen_t;
 
@@ -44,8 +44,10 @@ typedef enum {
 } learning_type_t;
 
 typedef enum {
-  err_XFILES_BADREQ = 1,
-  err_XFILES_NOASID
+  err_XFILES_UNKNOWN = 0,
+  err_XFILES_NOASID,
+  err_XFILES_TTABLEFULL,
+  err_XFILES_INVALIDTID
 } xfiles_err_t;
 
 typedef enum {

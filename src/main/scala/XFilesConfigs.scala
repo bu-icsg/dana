@@ -13,8 +13,9 @@ class DefaultXFilesConfig extends Config (
       case TidWidth => Dump("TID_WIDTH", 16)
       case AsidWidth => Dump("ASID_WIDTH", 16)
       case DebugEnabled => false
-      case TableDebug => false
+      case TableDebug => true
       case TransactionTableNumEntries => Dump(Knob("TRANSACTION_TABLE_NUM_ENTRIES"))
+      case TransactionTableQueueSize => 32
     }},
   knobValues = {
     case "NUM_CORES" => 1

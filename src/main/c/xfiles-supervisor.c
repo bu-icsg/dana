@@ -145,7 +145,7 @@ void asid_nnid_table_info(asid_nnid_table * table) {
   }
 }
 
-int attach_nn_configuration(asid_nnid_table ** table, uint16_t asid,
+int attach_nn_configuration(asid_nnid_table ** table, asid_type asid,
                             const char * file_name) {
   int file_size, nnid;
   FILE *fp;
@@ -204,7 +204,7 @@ int attach_nn_configuration(asid_nnid_table ** table, uint16_t asid,
   return ++(*table)->entry[asid].num_valid;
 }
 
-int attach_garbage(asid_nnid_table ** table, uint16_t asid) {
+int attach_garbage(asid_nnid_table ** table, asid_type asid) {
 
   int nnid;
 

@@ -16,6 +16,7 @@ class TransactionState(implicit p: Parameters) extends TableEntry()(p)
   val waiting = Bool()
   val needsLayerInfo = Bool()
   val decInUse = Bool()
+  val state = UInt()
   // There are two "in the last layer" bits. The first, "inLast",
   // asserts when all PEs in the previous layer are done. The latter,
   // "inLastEarly", asserts as soon as all PEs in the previous layer
@@ -69,6 +70,10 @@ class TransactionState(implicit p: Parameters) extends TableEntry()(p)
     "countFeedback" -> "CF",
     "regFileAddrOutFixed" -> "AOutF"
   )
+  override def reset() {
+    super.reset()
+    this.state := UInt(0)
+  }
 }
 
 class TransactionStateLearn(implicit p: Parameters)
@@ -633,10 +638,14 @@ class TransactionTableBase[StateType <: TransactionState,
   assert(!(foundTid && newRoccCmd &&
     cmd.readOrWrite && cmd.isNew && !cmd.isLast),
     "DANA TTable saw new write req on an existing ASID/TID")
-  // A register write should hit a tid
-  assert(!(!foundTid && newRoccCmd &&
-    cmd.readOrWrite && cmd.isNew && cmd.isLast),
-    "DANA TTable saw write register on non-existent ASID/TID")
+
+  // Disabled (#7) -- the backend should be dumb and not have any
+  // concept of validity, hence writes to arbitrary registers should
+  // be allowed to go through
+  // // A register write should hit a tid
+  // assert(!(!foundTid && newRoccCmd &&
+  //   cmd.readOrWrite && cmd.isNew && cmd.isLast),
+  //   "DANA TTable saw write register on non-existent ASID/TID")
 
   // A Control response should never have a cacheValid or layerValid
   // asserted when the decoupled valid is deasserted

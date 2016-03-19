@@ -271,6 +271,12 @@ class Dana(implicit p: Parameters) extends XFilesBackend()(p)
   tTable.io.control <> control.io.tTable
   tTable.io.regFile <> regFile.io.tTable
 
+  // Temporary signal tie-offs
+  io.xfReq.tidx.ready := Bool(false)
+  io.xfResp.tidx.valid := Bool(false)
+  io.queueIO.in.ready := Bool(false)
+  io.queueIO.out.valid := Bool(false)
+
   when (io.rocc.cmd.valid) {
     printfInfo("Dana: io.tTable.rocc.cmd.valid asserted\n")}
 }

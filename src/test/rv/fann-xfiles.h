@@ -296,6 +296,7 @@ int xfiles_train_batch(test_t * t, int item_start, int item_stop) {
     return -1;
 
   t->tid = new_write_request(t->nnid, TRAIN_BATCH, 0);
+  if (t->tid < 0) return t->tid;
   write_register(t->tid, xfiles_reg_batch_items, t->batch_items);
   write_register(t->tid, xfiles_reg_learning_rate, t->learn_rate);
   write_register(t->tid, xfiles_reg_weight_decay_lambda, t->weight_decay);
@@ -320,6 +321,7 @@ int xfiles_train_incremental(test_t * t, int item_start, int item_stop) {
   for (int i = 0; i < t->batch_items; ++i) {
     // Run one training t->epoch
     t->tid = new_write_request(t->nnid, TRAIN_INCREMENTAL, 0);
+    if (t->tid < 0) return t->tid;
     write_register(t->tid, xfiles_reg_learning_rate, t->learn_rate);
     write_register(t->tid, xfiles_reg_weight_decay_lambda, t->weight_decay);
     // Write the output and input data
@@ -364,6 +366,7 @@ int xfiles_eval_batch(test_t * t, int item_start, int item_stop) {
 
   for (int item = 0; item < t->batch_items; item++) {
     t->tid = new_write_request(t->nnid, FEEDFORWARD, 0);
+    if (t->tid < 0) return t->tid;
     write_data(t->tid, (element_type *) t->data->input[item], t->num_input);
     read_data_spinlock(t->tid, t->outputs, t->num_output);
 
@@ -437,43 +440,43 @@ int xfiles_eval_batch(test_t * t, int item_start, int item_stop) {
 }
 
 int xfiles_batch_verbose(test_t * t) {
-  int exit_code = 0;
   t->cycles = read_csr(0xc00);
   for (t->epoch = 0; t->epoch < t->max_epochs; t->epoch++) {
-    if ((exit_code = xfiles_train_batch(t, 0, t->batch_items)))
-      return exit_code;
-    if ((exit_code = xfiles_eval_batch(t, 0, t->batch_items)))
-      return exit_code;
+    if ((t->exit_code = xfiles_train_batch(t, 0, t->batch_items)))
+      return t->exit_code;
+    if ((t->exit_code = xfiles_eval_batch(t, 0, t->batch_items)))
+      return t->exit_code;
   }
   t->cycles = read_csr(0xc00) - t->cycles;
-  return exit_code;
+  return t->exit_code;
 }
 
 int xfiles_incremental_verbose(test_t * t) {
-  int exit_code = 0;
   t->cycles = read_csr(0xc00);
   for (t->epoch = 0; t->epoch < t->max_epochs; t->epoch++) {
-    if ((exit_code = xfiles_train_incremental(t, 0, t->batch_items)))
-      return exit_code;
-    if ((exit_code = xfiles_eval_batch(t, 0, t->batch_items)))
-      return exit_code;
+    if ((t->exit_code = xfiles_train_incremental(t, 0, t->batch_items)))
+      return t->exit_code;
+    if ((t->exit_code = xfiles_eval_batch(t, 0, t->batch_items)))
+      return t->exit_code;
   }
   t->cycles = read_csr(0xc00) - t->cycles;
-  return exit_code;
+  return t->exit_code;
 }
 
-void xfiles_batch_performance(test_t * t) {
+int xfiles_batch_performance(test_t * t) {
   t->cycles = read_csr(0xc00);
   for (t->epoch = 0; t->epoch < t->max_epochs; t->epoch++)
-    xfiles_train_batch(t, 0, t->batch_items);
+    t->exit_code = xfiles_train_batch(t, 0, t->batch_items);
   t->cycles = read_csr(0xc00) - t->cycles;
+  return t->exit_code;
 }
 
-void xfiles_incremental_performance(test_t * t) {
+int xfiles_incremental_performance(test_t * t) {
   t->cycles = read_csr(0xc00);
   for (t->epoch = 0; t->epoch < t->max_epochs; t->epoch++)
-    xfiles_train_incremental(t, 0, t->batch_items);
+    t->exit_code = xfiles_train_incremental(t, 0, t->batch_items);
   t->cycles = read_csr(0xc00) - t->cycles;
+  return t->exit_code;
 }
 
 #endif  // SRC_TEST_RV_FANN_XFILES_H
