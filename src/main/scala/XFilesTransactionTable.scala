@@ -9,15 +9,15 @@ import cde.{Parameters, Field}
 case object TransactionTableQueueSize extends Field[Int]
 
 trait FlagsVDIO {
-  val valid = Bool()  // Eligible for scheduling
+  val valid = Bool()  // Eligible for scheduling on the backend
   val done = Bool()   // Entry is finished
-  val input = Bool()  // Entry is waiting for input queue to be not empty
-  val output = Bool() // Entry is waiting for output queue to be not full
+  val input = Bool()  // Asserted when waiting for input queue to be not empty
+  val output = Bool() // Asserted when waiting for output queue to be not full
 }
 
 trait TableRVDIO extends XFilesParameters {
   val flags = new Bundle with FlagsVDIO {
-    val reserved = Bool()  // Entry is in use
+    val reserved = Bool() // Entry is in use
   }
   val asid = UInt(width = asidWidth)
   val tid = UInt(width = tidWidth)
@@ -148,107 +148,88 @@ class XFilesTransactionTable(implicit p: Parameters) extends XFilesModule()(p)
     io.regIdx.resp := resp_d.bits.idx
   }
 
-  when (newRequest) {
-    when (hasFree) {
-      genResp(resp_d.bits.rocc.data, resp_TID, tid)
-      table(idxFree).reserve(asid, tid)
-    } .otherwise {
-      genResp(resp_d.bits.rocc.data, resp_TID, -SInt(err_XFILES_TTABLEFULL))
-    }
-    printfInfo("XF TTable: Saw newRequest\n")
-  }
-
-  // Input queue connections
+  // Queue connections
   (0 until numEntries).map(i => {
-    queueInput(i).enq.valid := ((writeData | writeDataLast) & hitAsidTid & (
-      idxAsidTid === UInt(i))) | (newRequest & hasFree & (idxFree === UInt(i)))
-    queueInput(i).enq.bits(0) := cmd.bits.rs1
-    queueInput(i).enq.bits(1) := cmd.bits.rs2
+    val hitNew = newRequest & hasFree & (idxFree === UInt(i))
+    val hitOld = (writeData|writeDataLast) & hitAsidTid & idxAsidTid===UInt(i)
+    val enq = hitNew | hitOld
+    val deq = io.backend.queueIO.in.ready & io.backend.queueIO.tidx === UInt(i)
+    queueInput(i).enq.valid := enq
+    queueInput(i).enq.bits := Vec(cmd.bits.rs1, cmd.bits.rs2)
 
-    queueInput(i).deq.ready := io.backend.queueIO.in.ready &
-      io.backend.queueIO.tidx === UInt(i)
-
-    assert(!(queueInput(i).enq.valid & !queueInput(i).enq.ready),
-      "XF TTable: Input queue overflowed\n")
-    when (queueInput(i).enq.fire()) {
-      printfInfo("XF TTable: queueInput[%d] fired w/ data [0x%x, 0x%x]\n",
-        UInt(i), queueInput(i).enq.bits(0), queueInput(i).enq.bits(1)) }
+    queueInput(i).deq.ready := deq
   })
   io.backend.queueIO.in.bits := queueInput(io.backend.queueIO.tidx).deq.bits
   io.backend.queueIO.in.valid := queueInput(io.backend.queueIO.tidx).deq.valid
 
-  when (writeData | writeDataLast) {
-    when (!queueInput(idxAsidTid).enq.ready) {
-      genResp(resp_d.bits.rocc.data, resp_QUEUE_ERR, tid)
-    } .otherwise {
-      genResp(resp_d.bits.rocc.data, resp_OK, tid)
-    }
-    when (writeData) { printfInfo("XF TTable: Saw writeData\n") }
-    when (writeDataLast) { printfInfo("XF TTable: Saw writeDataLast\n") }
-  }
-
-  assert(!((writeData | writeDataLast) & !hitAsidTid),
-    "XF TTable: writeData or writeDataLast without TTable ASID/TID hit")
-
   (0 until numEntries).map(i => {
-    queueOutput(i).deq.ready := readDataPoll & hitAsidTid & (
-      idxAsidTid === UInt(i))
-
-    queueOutput(i).enq.valid := io.backend.queueIO.out.valid &
-      io.backend.queueIO.tidx === UInt(i)
+    val enq = io.backend.queueIO.out.valid & io.backend.queueIO.tidx===UInt(i)
+    val deq = readDataPoll & hitAsidTid & (idxAsidTid === UInt(i))
+    queueOutput(i).enq.valid := enq
     queueOutput(i).enq.bits := io.backend.queueIO.out.bits
 
-    // [TODO] Remove overly verbose printfs
-    when (queueOutput(i).deq.fire()) {
-      printfInfo("XF TTable: queueOutput[%d] fired w/ data 0x%x\n", UInt(i),
-      queueOutput(i).deq.bits) }
+    queueOutput(i).deq.ready := deq
   })
   io.backend.queueIO.out.ready := queueOutput(io.backend.queueIO.tidx).enq.ready
 
+  // State updates. These are structured with the error response first
+  // followed by a check on the correct condition, table updates (if
+  // applicable), and the correct response.
+  when (newRequest) {
+    genResp(resp_d.bits.rocc.data, resp_TID, -SInt(err_XFILES_TTABLEFULL))
+    when (hasFree) {
+      genResp(resp_d.bits.rocc.data, resp_TID, tid)
+      table(idxFree).reserve(asid, tid)
+    }
+  }
+
+  when (writeData | writeDataLast) {
+    genResp(resp_d.bits.rocc.data, resp_QUEUE_ERR, tid)
+    when (queueInput(idxAsidTid).enq.ready) {
+      genResp(resp_d.bits.rocc.data, resp_OK, tid)
+      table(idxAsidTid).flags.input := Bool(false)
+    }
+  }
+
   when (readDataPoll) {
     val queue = queueOutput(idxAsidTid)
+    genResp(resp_d.bits.rocc.data, resp_NOT_DONE, tid)
     when (queue.deq.fire()) {
       genResp(resp_d.bits.rocc.data, resp_OK, tid, queue.deq.bits)
-    } .otherwise {
-      genResp(resp_d.bits.rocc.data, resp_NOT_DONE, tid)
+      table(idxAsidTid).flags.output := Bool(false)
     }
     printfInfo("XF TTable: Saw readDataPoll\n")
   }
 
   when (unknownCmd) {
+    genResp(resp_d.bits.rocc.data, resp_OK, -SInt(err_XFILES_INVALIDTID))
     when (hitAsidTid) {
       genResp(resp_d.bits.rocc.data, resp_OK, tid)
-    } .otherwise {
-      genResp(resp_d.bits.rocc.data, resp_OK, -SInt(err_XFILES_INVALIDTID))
     }
-    printfInfo("XF TTable: Saw unknownCmd\n")
   }
-
-  when (RegNext(newRequest | writeData | writeDataLast | readDataPoll)) {
-    info(table, "xfttable,") }
-
-  assert (!(resp_d.valid & io.backend.rocc.resp.valid),
-    "XF TTable: newRequest resp just aliased backend resp")
 
   when (reset) { (0 until numEntries).map(i => { table(i).reset() })}
 
-
-  //------------------------------------ Temporary features to be removed
+  //------------------------------------ Printfs, asserts
   val error = Reg(Bool(), init = Bool(false))
 
   // Check for too many reads without a response
   val readDataPollCount = Reg(UInt(width = 32), init = UInt(0))
 
   when (newRequest) {
+    printfInfo("XF TTable: Saw newRequest\n")
   }
 
   when (unknownCmd) {
+    printfInfo("XF TTable: Saw unknownCmd\n")
   }
 
   when (writeData) {
+    printfInfo("XF TTable: Saw writeData\n")
   }
 
   when (writeDataLast) {
+    printfInfo("XF TTable: Saw writeDataLast\n")
   }
 
   when (readDataPoll) {
@@ -256,6 +237,28 @@ class XFilesTransactionTable(implicit p: Parameters) extends XFilesModule()(p)
     error := readDataPollCount > UInt(32)
   }
 
-  // Error out if error gets set
-  assert (!(error), "XF TTable error asserted")
+  (0 until numEntries).map(i => {
+    // Input Queue
+    assert(!(queueInput(i).enq.valid & !queueInput(i).enq.ready),
+      "XF TTable: Input queue overflowed\n")
+    when (queueInput(i).enq.fire()) {
+      printfInfo("XF TTable: queueInput[%d] fired w/ data [0x%x, 0x%x]\n",
+        UInt(i), queueInput(i).enq.bits(0), queueInput(i).enq.bits(1)) }
+
+    // Output Queue
+    when (queueOutput(i).deq.fire()) {
+      printfInfo("XF TTable: queueOutput[%d] fired w/ data 0x%x\n", UInt(i),
+      queueOutput(i).deq.bits) }
+  })
+
+  when (RegNext(newRequest | writeData | writeDataLast | readDataPoll)) {
+    info(table, "xfttable,") }
+
+  // Explicit assertions
+  assert (!(resp_d.valid & io.backend.rocc.resp.valid),
+    "XF TTable: newRequest resp just aliased backend resp")
+  assert(!((writeData | writeDataLast) & !hitAsidTid),
+    "XF TTable: writeData or writeDataLast without TTable ASID/TID hit")
+  assert (!(error),
+    "XF TTable error asserted")
 }
