@@ -25,7 +25,7 @@ class XFilesQueueInterface(implicit p: Parameters) extends XFilesBundle()(p) {
   // The naming here follows what is connected to the XF TTable Input
   // and Ouptut queues. Alternatively, this is from the perspective of
   // data flowing into (in) and out of (out) the backend
-  val in = Decoupled(UInt(width = xLen)).flip
+  val in = Decoupled(Vec(2, UInt(width = xLen))).flip
   val out = Decoupled(UInt(width = xLen))
 }
 

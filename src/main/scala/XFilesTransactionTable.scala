@@ -93,7 +93,7 @@ class XFilesTransactionTable(implicit p: Parameters) extends XFilesModule()(p)
 
   val table = Reg(Vec(numEntries, new TableEntry))
   val queueInput = Vec.fill(numEntries){
-    Module(new Queue(UInt(width = xLen), queueSize)).io }
+    Module(new Queue(Vec(2, UInt(width = xLen)), queueSize)).io }
   val queueOutput = Vec.fill(numEntries){
     Module(new Queue(UInt(width = xLen), queueSize)).io }
 
@@ -162,7 +162,8 @@ class XFilesTransactionTable(implicit p: Parameters) extends XFilesModule()(p)
   (0 until numEntries).map(i => {
     queueInput(i).enq.valid := ((writeData | writeDataLast) & hitAsidTid & (
       idxAsidTid === UInt(i))) | (newRequest & hasFree & (idxFree === UInt(i)))
-    queueInput(i).enq.bits := cmd.bits.rs2
+    queueInput(i).enq.bits(0) := cmd.bits.rs1
+    queueInput(i).enq.bits(1) := cmd.bits.rs2
 
     queueInput(i).deq.ready := io.backend.queueIO.in.ready &
       io.backend.queueIO.tidx === UInt(i)
@@ -170,8 +171,8 @@ class XFilesTransactionTable(implicit p: Parameters) extends XFilesModule()(p)
     assert(!(queueInput(i).enq.valid & !queueInput(i).enq.ready),
       "XF TTable: Input queue overflowed\n")
     when (queueInput(i).enq.fire()) {
-      printfInfo("XF TTable: queueInput[%d] fired w/ data 0x%x\n", UInt(i),
-      queueInput(i).enq.bits) }
+      printfInfo("XF TTable: queueInput[%d] fired w/ data [0x%x, 0x%x]\n",
+        UInt(i), queueInput(i).enq.bits(0), queueInput(i).enq.bits(1)) }
   })
   io.backend.queueIO.in.bits := queueInput(io.backend.queueIO.tidx).deq.bits
   io.backend.queueIO.in.valid := queueInput(io.backend.queueIO.tidx).deq.valid
