@@ -102,10 +102,10 @@ int main (int argc, char * argv[]) {
   // with the '-c' option to get an accurate number of connection
   // updates per cycle.
   switch((t.flags.performance << 1) | t.flags.incremental) {
-  case 0: t.exit_code = xfiles_batch_verbose(&t);           break;
-  case 1: t.exit_code = xfiles_incremental_verbose(&t);     break;
-  case 2: t.exit_code = xfiles_batch_performance(&t);       break;
-  case 3: t.exit_code = xfiles_incremental_performance(&t); break;
+  case 0: xfiles_batch_verbose(&t);           break;
+  case 1: xfiles_incremental_verbose(&t);     break;
+  case 2: xfiles_batch_performance(&t);       break;
+  case 3: xfiles_incremental_performance(&t); break;
   }
 
   if (t.exit_code) {

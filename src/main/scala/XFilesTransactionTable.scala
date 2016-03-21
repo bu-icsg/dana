@@ -134,7 +134,7 @@ class XFilesTransactionTable(implicit p: Parameters) extends XFilesModule()(p)
   io.xfiles.resp.bits := io.backend.rocc.resp.bits
   io.backend.rocc.resp.ready := io.xfiles.resp.ready
 
-  resp_d.valid := newRequest | readDataPoll
+  resp_d.valid := cmd.fire()
   resp_d.bits.rocc.rd := cmd.bits.inst.rd
   resp_d.bits.idx := io.regIdx.cmd
 
@@ -160,8 +160,8 @@ class XFilesTransactionTable(implicit p: Parameters) extends XFilesModule()(p)
 
   // Input queue connections
   (0 until numEntries).map(i => {
-    queueInput(i).enq.valid := (writeData | writeDataLast) & hitAsidTid & (
-      idxAsidTid === UInt(i))
+    queueInput(i).enq.valid := ((writeData | writeDataLast) & hitAsidTid & (
+      idxAsidTid === UInt(i))) | (newRequest & hasFree & (idxFree === UInt(i)))
     queueInput(i).enq.bits := cmd.bits.rs2
 
     queueInput(i).deq.ready := io.backend.queueIO.in.ready &
@@ -178,7 +178,9 @@ class XFilesTransactionTable(implicit p: Parameters) extends XFilesModule()(p)
 
   when (writeData | writeDataLast) {
     when (!queueInput(idxAsidTid).enq.ready) {
-      // [TODO] Queue is full response handling
+      genResp(resp_d.bits.rocc.data, resp_QUEUE_ERR, tid)
+    } .otherwise {
+      genResp(resp_d.bits.rocc.data, resp_OK, tid)
     }
     when (writeData) { printfInfo("XF TTable: Saw writeData\n") }
     when (writeDataLast) { printfInfo("XF TTable: Saw writeDataLast\n") }
@@ -203,18 +205,20 @@ class XFilesTransactionTable(implicit p: Parameters) extends XFilesModule()(p)
   io.backend.queueIO.out.ready := queueOutput(io.backend.queueIO.tidx).enq.ready
 
   when (readDataPoll) {
-    when (queueOutput(idxAsidTid).deq.fire()) {
-      genResp(resp_d.bits.rocc.data, resp_READ, tid, queueOutput(idxAsidTid).deq.bits)
+    val queue = queueOutput(idxAsidTid)
+    when (queue.deq.fire()) {
+      genResp(resp_d.bits.rocc.data, resp_OK, tid, queue.deq.bits)
     } .otherwise {
       genResp(resp_d.bits.rocc.data, resp_NOT_DONE, tid)
     }
     printfInfo("XF TTable: Saw readDataPoll\n")
   }
 
-
   when (unknownCmd) {
-    when (!hitAsidTid) {
-      genResp(resp_d.bits.rocc.data, resp_TID, -SInt(err_XFILES_INVALIDTID))
+    when (hitAsidTid) {
+      genResp(resp_d.bits.rocc.data, resp_OK, tid)
+    } .otherwise {
+      genResp(resp_d.bits.rocc.data, resp_OK, -SInt(err_XFILES_INVALIDTID))
     }
     printfInfo("XF TTable: Saw unknownCmd\n")
   }
@@ -237,13 +241,18 @@ class XFilesTransactionTable(implicit p: Parameters) extends XFilesModule()(p)
   when (newRequest) {
   }
 
+  when (unknownCmd) {
+  }
+
+  when (writeData) {
+  }
+
   when (writeDataLast) {
-    // error := Bool(true)
   }
 
   when (readDataPoll) {
     readDataPollCount := readDataPollCount + UInt(1)
-    error := readDataPollCount > UInt(4)
+    error := readDataPollCount > UInt(32)
   }
 
   // Error out if error gets set

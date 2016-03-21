@@ -32,10 +32,10 @@ trait XFilesSupervisorRequests {
 }
 
 trait XFilesResponseCodes extends XFilesParameters {
-  val respCodeWidth = 2
+  val respCodeWidth = 3
 
-  val (resp_TID :: resp_READ :: resp_NOT_DONE :: resp_XFILES :: Nil) =
-    Enum(UInt(), 4)
+  val (resp_OK :: resp_TID :: resp_READ :: resp_NOT_DONE :: resp_QUEUE_ERR ::
+    resp_XFILES :: Nil) =  Enum(UInt(), 6)
 
   def genResp[T <: Bits](resp: T, respCode: T, tid: T, data: T = Bits(0)) {
     resp := data.toBits

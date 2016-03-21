@@ -51,6 +51,15 @@ typedef enum {
 } xfiles_err_t;
 
 typedef enum {
+  resp_OK = 0,
+  resp_TID,
+  resp_READ,
+  resp_NOT_DONE,
+  resp_QUEUE_ERR,
+  resp_XFILES
+} xfiles_resp_t;
+
+typedef enum {
   err_UNKNOWN     = 0,
   err_DANA_NOANTP = 1,
   err_INVASID     = 2,
@@ -58,6 +67,8 @@ typedef enum {
   err_ZEROSIZE    = 4,
   err_INVEPB      = 5
 } dana_err_t;
+
+#define RESP_CODE_WIDTH 3
 
 //-------------------------------------- Userland
 
@@ -78,23 +89,23 @@ tid_type new_write_request(nnid_type nnid, learning_type_t learning_type,
 // Arbiter. The value is passed as a 32-bit unsigned, but only the
 // LSBs will be used if the destination register has fewer than 32
 // bits.
-void write_register(tid_type tid, xfiles_reg reg, uint32_t value);
+xlen_t write_register(tid_type tid, xfiles_reg reg, uint32_t value);
 
 // Write the contents of an input array of some size to the X-Files
 // Arbiter. After completing this function, the transaction is deemed
 // valid and will start executing on Dana.
-void write_data(tid_type tid,
-                element_type * input_data_array,
-                size_t count);
+xlen_t write_data(tid_type tid,
+                  element_type * input_data_array,
+                  size_t count);
 
 // A special write data request used for incremental training. Here,
 // an input and an expected output vector are passed. The
 // configuration cache is updated inside the Configuration Cache.
-void write_data_train_incremental(tid_type tid,
-                                  element_type * input_data_array,
-                                  element_type * output_data_array,
-                                  size_t count_input,
-                                  size_t count_output);
+xlen_t write_data_train_incremental(tid_type tid,
+                                    element_type * input_data_array,
+                                    element_type * output_data_array,
+                                    size_t count_input,
+                                    size_t count_output);
 
 // Read all the output data for a specific transaction. This throws
 // the CPU into a spinlock repeatedly checking the validity of the
@@ -102,6 +113,9 @@ void write_data_train_incremental(tid_type tid,
 uint64_t read_data_spinlock(tid_type tid,
                             element_type * output_data_array,
                             size_t count);
+
+// Forcibly kill a running transaction
+xlen_t kill_transaction(tid_type tid);
 
 //-------------------------------------- Supervisor
 
