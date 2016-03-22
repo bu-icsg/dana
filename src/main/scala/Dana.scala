@@ -95,13 +95,15 @@ abstract class DanaModule(implicit p: Parameters) extends XFilesModule()(p)
     e_TTYPE_BATCH ::          // 2
     Nil) = Enum(UInt(), 3)
   // Used to define the state of the transaction
-  val (e_TTABLE_STATE_LOAD_OUTPUTS ::      // 0
-    e_TTABLE_STATE_FEEDFORWARD ::          // 1
-    e_TTABLE_STATE_LEARN_FEEDFORWARD ::    // 2
-    e_TTABLE_STATE_LEARN_ERROR_BACKPROP :: // 3
-    e_TTABLE_STATE_LEARN_WEIGHT_UPDATE ::  // 5
-    e_TTABLE_STATE_ERROR ::                // 6
-    Nil) = Enum(UInt(), 6)
+  val (e_TTABLE_STATE_READ_INFO ::         // 0
+    e_TTABLE_STATE_LOAD_OUTPUTS ::         // 1
+    e_TTABLE_STATE_LOAD_INPUTS ::          // 2
+    e_TTABLE_STATE_FEEDFORWARD ::          // 3
+    e_TTABLE_STATE_LEARN_FEEDFORWARD ::    // 4
+    e_TTABLE_STATE_LEARN_ERROR_BACKPROP :: // 5
+    e_TTABLE_STATE_LEARN_WEIGHT_UPDATE ::  // 6
+    e_TTABLE_STATE_ERROR ::                // 7
+    Nil) = Enum(UInt(), 8)
   // Transaction register IDs used for write register request. This
   // must match "typedef enum xfiles_reg" in "xfiles.h".
   val (e_TTABLE_WRITE_REG_BATCH_ITEMS ::      // 0
@@ -271,11 +273,9 @@ class Dana(implicit p: Parameters) extends XFilesBackend()(p)
   tTable.io.control <> control.io.tTable
   tTable.io.regFile <> regFile.io.tTable
 
-  // Temporary signal tie-offs
-  io.xfReq.tidx.ready := Bool(false)
-  io.xfResp.tidx.valid := Bool(false)
-  io.queueIO.in.ready := Bool(false)
-  io.queueIO.out.valid := Bool(false)
+  tTable.io.arbiter.xfReq <> io.xfReq
+  tTable.io.arbiter.xfResp <> io.xfResp
+  tTable.io.arbiter.queueIO <> io.queueIO
 
   when (io.rocc.cmd.valid) {
     printfInfo("Dana: io.tTable.rocc.cmd.valid asserted\n")}

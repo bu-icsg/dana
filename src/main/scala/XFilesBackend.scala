@@ -20,12 +20,18 @@ class XFilesBackendResp(implicit p: Parameters) extends XFilesBundle()(p) {
   val flags = (new Bundle with FlagsVDIO).asOutput
 }
 
+class XFilesRs1Rs2Funct(implicit p: Parameters) extends XFilesBundle()(p) {
+  val rs1 = UInt(width = xLen)
+  val rs2 = UInt(width = xLen)
+  val funct = UInt(width = 7)
+}
+
 class XFilesQueueInterface(implicit p: Parameters) extends XFilesBundle()(p) {
   val tidx = UInt(OUTPUT, width = log2Up(transactionTableNumEntries))
   // The naming here follows what is connected to the XF TTable Input
   // and Ouptut queues. Alternatively, this is from the perspective of
   // data flowing into (in) and out of (out) the backend
-  val in = Decoupled(Vec(2, UInt(width = xLen))).flip
+  val in = Decoupled(new XFilesRs1Rs2Funct).flip
   val out = Decoupled(UInt(width = xLen))
 }
 

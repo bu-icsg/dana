@@ -13,6 +13,22 @@ trait FlagsVDIO {
   val done = Bool()   // Entry is finished
   val input = Bool()  // Asserted when waiting for input queue to be not empty
   val output = Bool() // Asserted when waiting for output queue to be not full
+  def set(x: String) {x.map((a: Char) => {
+      a match {
+        case 'v' => this.valid  := Bool(true)
+        case 'd' => this.done   := Bool(true)
+        case 'i' => this.input  := Bool(true)
+        case 'o' => this.output := Bool(true)
+        case _ => throwException("FlagsVDIO.set cannot match " + a) }})
+  }
+  def reset(x: String) {x.map((a: Char) => {
+      a match {
+        case 'v' => this.valid  := Bool(false)
+        case 'd' => this.done   := Bool(false)
+        case 'i' => this.input  := Bool(false)
+        case 'o' => this.output := Bool(false)
+        case _ => throwException("FlagsVDIO.reset cannot match " + a) }})
+  }
 }
 
 trait TableRVDIO extends XFilesParameters {
@@ -28,7 +44,7 @@ trait TableRVDIO extends XFilesParameters {
   }
   def reserve(asid: UInt, tid: UInt) {
     this.flags.reserved := Bool(true)
-    this.flags.valid := Bool(false)
+    this.flags.valid := Bool(true)
     this.flags.done := Bool(false)
     this.flags.input := Bool(false)
     this.flags.output := Bool(false)
@@ -93,9 +109,11 @@ class XFilesTransactionTable(implicit p: Parameters) extends XFilesModule()(p)
 
   val table = Reg(Vec(numEntries, new TableEntry))
   val queueInput = Vec.fill(numEntries){
-    Module(new Queue(Vec(2, UInt(width = xLen)), queueSize)).io }
+    Module(new Queue(new XFilesRs1Rs2Funct, queueSize)).io }
   val queueOutput = Vec.fill(numEntries){
     Module(new Queue(UInt(width = xLen), queueSize)).io }
+  val arbiter = Module(new RRArbiter(UInt(width = 0), numEntries,
+    needsHold = true)).io
 
   val hasFree = table.exists(isFree(_: TableEntry))
   val idxFree = table.indexWhere(isFree(_: TableEntry))
@@ -155,7 +173,9 @@ class XFilesTransactionTable(implicit p: Parameters) extends XFilesModule()(p)
     val enq = hitNew | hitOld
     val deq = io.backend.queueIO.in.ready & io.backend.queueIO.tidx === UInt(i)
     queueInput(i).enq.valid := enq
-    queueInput(i).enq.bits := Vec(cmd.bits.rs1, cmd.bits.rs2)
+    queueInput(i).enq.bits.rs1 := cmd.bits.rs1
+    queueInput(i).enq.bits.rs2 := cmd.bits.rs2
+    queueInput(i).enq.bits.funct := cmd.bits.inst.funct
 
     queueInput(i).deq.ready := deq
   })
@@ -172,6 +192,30 @@ class XFilesTransactionTable(implicit p: Parameters) extends XFilesModule()(p)
   })
   io.backend.queueIO.out.ready := queueOutput(io.backend.queueIO.tidx).enq.ready
 
+  // Hook up the arbiter to the table
+  (0 until numEntries).map(i => {
+    val flags = table(UInt(i)).flags
+    arbiter.in(i).valid := flags.valid & !(flags.input | flags.output)
+  })
+  io.backend.xfReq.tidx.bits := arbiter.chosen
+  io.backend.xfReq.tidx.valid := arbiter.out.valid
+  arbiter.out.ready := io.backend.xfReq.tidx.ready
+  // Transaction goes invalid whenever it gets scheduled on the
+  // backend
+  when (arbiter.out.fire()) {
+    table(arbiter.chosen).flags.valid := Bool(false)
+  }
+
+  // Deal with response on the xfResp line
+  when (io.backend.xfResp.tidx.fire()) {
+    val tidx = io.backend.xfResp.tidx.bits
+    val flags = table(tidx).flags
+    flags.valid := flags.valid | io.backend.xfResp.flags.valid
+    flags.done := flags.done | io.backend.xfResp.flags.done
+    flags.input := flags.input | io.backend.xfResp.flags.input
+    flags.output := flags.output | io.backend.xfResp.flags.output
+  }
+
   // State updates. These are structured with the error response first
   // followed by a check on the correct condition, table updates (if
   // applicable), and the correct response.
@@ -184,8 +228,9 @@ class XFilesTransactionTable(implicit p: Parameters) extends XFilesModule()(p)
   }
 
   when (writeData | writeDataLast) {
+    val queue = queueInput(idxAsidTid)
     genResp(resp_d.bits.rocc.data, resp_QUEUE_ERR, tid)
-    when (queueInput(idxAsidTid).enq.ready) {
+    when (queue.enq.fire()) {
       genResp(resp_d.bits.rocc.data, resp_OK, tid)
       table(idxAsidTid).flags.input := Bool(false)
     }
@@ -234,7 +279,13 @@ class XFilesTransactionTable(implicit p: Parameters) extends XFilesModule()(p)
 
   when (readDataPoll) {
     readDataPollCount := readDataPollCount + UInt(1)
-    error := readDataPollCount > UInt(32)
+    error := readDataPollCount > UInt(16)
+  }
+
+  when (arbiter.out.fire()) {
+    val tidx = arbiter.chosen
+    printfInfo("XF TTable: Arbiter scheduled tidx 0d%d (ASID:0x%x/TID:0x%x)\n",
+      tidx, table(tidx).asid, table(tidx).tid)
   }
 
   (0 until numEntries).map(i => {
@@ -242,8 +293,19 @@ class XFilesTransactionTable(implicit p: Parameters) extends XFilesModule()(p)
     assert(!(queueInput(i).enq.valid & !queueInput(i).enq.ready),
       "XF TTable: Input queue overflowed\n")
     when (queueInput(i).enq.fire()) {
-      printfInfo("XF TTable: queueInput[%d] fired w/ data [0x%x, 0x%x]\n",
-        UInt(i), queueInput(i).enq.bits(0), queueInput(i).enq.bits(1)) }
+      printfInfo("XF TTable: queueIn[%d] enq [f:0x%x, rs1:0x%x, rs2:0x%x], #:0d%d\n",
+        UInt(i), queueInput(i).enq.bits.funct, queueInput(i).enq.bits.rs1,
+        queueInput(i).enq.bits.rs2, queueInput(i).count) }
+    when (queueInput(i).deq.fire()) {
+      printfInfo("XF TTable: queueIn[%d] deq [f:0x%x, rs1:0x%x, rs2:0x%x], #:0d%d\n",
+        UInt(i), queueInput(i).deq.bits.funct, queueInput(i).deq.bits.rs1,
+        queueInput(i).deq.bits.rs2, queueInput(i).count) }
+    when (queueOutput(i).enq.fire()) {
+      printfInfo("XF TTable: queueOut[%d] deq [data:0x%x], #:0d%d\n",
+        UInt(i), queueOutput(i).enq.bits, queueOutput(i).count) }
+    when (queueOutput(i).deq.fire()) {
+      printfInfo("XF TTable: queueOut[%d] deq [data:0x%x], #:0d%d\n",
+        UInt(i), queueOutput(i).enq.bits, queueOutput(i).count) }
 
     // Output Queue
     when (queueOutput(i).deq.fire()) {
@@ -251,7 +313,8 @@ class XFilesTransactionTable(implicit p: Parameters) extends XFilesModule()(p)
       queueOutput(i).deq.bits) }
   })
 
-  when (RegNext(newRequest | writeData | writeDataLast | readDataPoll)) {
+  when (RegNext(newRequest | writeData | writeDataLast | readDataPoll |
+    io.backend.xfResp.tidx.fire())) {
     info(table, "xfttable,") }
 
   // Explicit assertions

@@ -79,14 +79,14 @@ xlen_t write_register(tid_type tid, xfiles_reg reg, uint32_t value) {
 }
 
 xlen_t write_data(tid_type tid, element_type * data, size_t count) {
-  int i;
   xlen_t out;
 
   // There are two types of writes available to users determined by
   // whether or not "isLast" (bit 2) is set. We write all but the last
   // data value with "isLast" deasserted (funct == 1). The tid goes in
   // rs1 and data goes in rs2.
-  for (i = 0; i < count - 1; i++) {
+  int i;
+  for (i = 0; i < count - 1; ++i) {
     asm volatile ("custom0 %[out], %[rs1], %[rs2], %[type]"
                   : [out] "=r" (out)
                   : [rs1] "r" (tid), [rs2] "r" (data[i]),

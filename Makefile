@@ -458,6 +458,7 @@ include $(DIR_TOOLS)/common/Makefrag-video
 
 #--------- Generate ScalaDoc documentation
 doc:
+	@ if [[ ! -d $(DIR_BUILD)/doc ]]; then mkdir $(DIR_BUILD)/doc; fi
 	scaladoc src/main/scala/*.scala -d $(DIR_BUILD)/doc
 
 $(DIR_BUILD)/doc:
