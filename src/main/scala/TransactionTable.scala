@@ -29,13 +29,13 @@ class TransactionState(implicit p: Parameters) extends TableEntry()(p)
   val cacheIndex = UInt(width = log2Up(cacheNumEntries))
   val nnid = UInt(width = nnidWidth)
   val decimalPoint = UInt(width = decimalPointWidth)
-  val numLayers = UInt(width = 16) // [TODO] fragile
-  val numNodes = UInt(width = 16) // [TODO] fragile
-  val currentNode = UInt(width = 16) // [TODO] fragile
-  val currentNodeInLayer = UInt(width = 16) // [TODO] fragile
-  val currentLayer = UInt(width = 16) // [TODO] fragile
+  val numLayers = UInt(width = 16)           // [TODO] fragile
+  val numNodes = UInt(width = 16)            // [TODO] fragile
+  val currentNode = UInt(width = 16)         // [TODO] fragile
+  val currentNodeInLayer = UInt(width = 16)  // [TODO] fragile
+  val currentLayer = UInt(width = 16)        // [TODO] fragile
   val nodesInCurrentLayer = UInt(width = 16) // [TODO] fragile
-  val neuronPointer = UInt(width = 11) // [TODO] fragile
+  val neuronPointer = UInt(width = 11)       // [TODO] fragile
   val regFileLocationBit = UInt(width = 1)
   val regFileAddrIn = UInt(width = log2Up(regFileNumElements))
   val regFileAddrOut = UInt(width = log2Up(regFileNumElements))
@@ -97,6 +97,15 @@ class TransactionState(implicit p: Parameters) extends TableEntry()(p)
     this.inFirst := Bool(true)
     this.inLast := Bool(false)
     this.needsLayerInfo := Bool(true)
+    this.regFileLocationBit := UInt(0)
+  }
+  def enable() {
+    this.flags.valid := Bool(true)
+    this.currentNode := UInt(0)
+    this.readIdx := UInt(0)
+    this.inFirst := Bool(true)
+    this.inLast := Bool(false)
+    this.needsLayerInfo := Bool(true)
     this.flags.done := Bool(false)
     this.waiting := Bool(false)
     this.regFileLocationBit := UInt(0)
@@ -108,22 +117,23 @@ class TransactionStateLearn(implicit p: Parameters)
   // flags
   val needsOutputs = Bool()
   //
-  val globalWtptr = UInt(width = 16) //[TODO] fragile
+  val globalWtptr = UInt(width = 16)            //[TODO] fragile
   val inLastEarly = Bool()
   val transactionType = UInt(width = log2Up(3)) // [TODO] fragile
-  val numTrainOutputs = UInt(width = 16) // [TODO] fragile
-  val stateLearn = UInt(width = log2Up(8)) // [TODO] fragile
-  val errorFunction = UInt(width = log2Up(2)) // [TODO] fragile
-  val learningRate = UInt(width = 16) // [TODO] fragile
-  val lambda = UInt(width = 16) // [TODO] fragile
-  val numWeightBlocks = UInt(width = 16) // [TODO] fragile
-  val mse = UInt(width = elementWidth) // unused
+  val numTrainOutputs = UInt(width = 16)        // [TODO] fragile
+  val stateLearn = UInt(width = log2Up(8))      // [TODO] fragile
+  val errorFunction = UInt(width = log2Up(2))   // [TODO] fragile
+  val learningRate = UInt(width = 16)           // [TODO] fragile
+  val lambda = UInt(width = 16)                 // [TODO] fragile
+  val numWeightBlocks = UInt(width = 16)        // [TODO] fragile
+  val mse = UInt(width = elementWidth)          // unused
   // Batch training information
-  val numBatchItems = UInt(width = 16) // [TODO] fragile
-  val curBatchItem = UInt(width = 16) // [TODO] fragile
-  val biasAddr = UInt(width = 16) // [TODO] fragile
-  val offsetBias = UInt(width = 16) // [TODO] fragile
-  val offsetDW = UInt(width = 16) // [TODO] fragile
+  val numBatchItems = UInt(width = 16)          // [TODO] fragile
+  val curBatchItem = UInt(width = 16)           // [TODO] fragile
+  val biasAddr = UInt(width = 16)               // [TODO] fragile
+  val offsetBias = UInt(width = 16)             // [TODO] fragile
+  val offsetDW = UInt(width = 16)               // [TODO] fragile
+  val numOutputs = UInt(width = 16)             // [TODO] fragile
   // We need to keep track of where inputs and outputs should be
   // written to in the Register File.
   val regFileAddrInFixed = UInt(width = log2Up(regFileNumElements))
@@ -160,6 +170,28 @@ class TransactionStateLearn(implicit p: Parameters)
   override def reserve() {
     super.reserve()
     this.needsOutputs := Bool(false)
+    this.inLastEarly := Bool(false)
+    this.regFileAddrIn := UInt(0)
+    // table(derefTidIndex).regFileAddrDelta := UInt(0)
+    this.regFileAddrDW := UInt(0)
+    this.regFileAddrSlope := UInt(0)
+    this.offsetBias := UInt(0)
+    this.offsetDW := UInt(0)
+    this.regFileAddrInFixed := UInt(0)
+    // [TODO] Temporary value for number of batch items
+    this.numBatchItems := UInt(1)
+    this.curBatchItem := UInt(0)
+  }
+
+  override def enable() {
+    super.enable()
+    this.inLastEarly := Bool(false)
+    this.regFileAddrIn := UInt(0)
+    // table(derefTidIndex).regFileAddrDelta := UInt(0)
+    this.regFileAddrDW := UInt(0)
+    this.regFileAddrSlope := UInt(0)
+    this.offsetBias := UInt(0)
+    this.offsetDW := UInt(0)
   }
 }
 
@@ -320,11 +352,11 @@ class TransactionTableBase[StateType <: TransactionState,
   // Control is broken up into X-FILES orchestrated updates and
   // independent actions
   when (io.arbiter.xfReq.tidx.fire()) {
-    val tidx = io.arbiter.xfReq.tidx.bits
-    table(tidx).validIO := Bool(true)
-    when (!table(tidx).flags.reserved) {
-      table(tidx).reserve()
-      table(tidx).coreIdx := io.arbiter.coreIdx
+    val entry = table(io.arbiter.xfReq.tidx.bits)
+    entry.validIO := Bool(true)
+    when (!entry.flags.reserved) {
+      entry.reserve()
+      entry.coreIdx := io.arbiter.coreIdx
     }
   }
 
@@ -621,6 +653,9 @@ class TransactionTableBase[StateType <: TransactionState,
   io.arbiter.xfResp.tidx.bits := ioArbiter.chosen
   io.arbiter.xfResp.flags.reset("vdio")
 
+  val queueOutTidx_d = Reg(Valid(UInt(width = log2Up(transactionTableNumEntries))))
+  queueOutTidx_d.valid := Bool(false)
+  queueOutTidx_d.bits := ioArbiter.chosen
   when (ioArbiter.out.valid) {
     val entry = table(ioArbiter.chosen)
     when (entry.needsAsidNnid) {
@@ -674,17 +709,39 @@ class TransactionTableBase[StateType <: TransactionState,
             UInt(0, width=log2Up(elementsPerBlock))) + UInt(elementsPerBlock)
           entry.indexElement := nextIndexBlock
           entry.needsInputs := Bool(false)
-          entry.flags.valid := Bool(true)
+          entry.enable()
         } .otherwise {
           entry.indexElement := entry.indexElement + UInt(1)
         }
       }
     }
+
+    when (entry.flags.done) {
+      when (!io.arbiter.queueIO.out.ready) {
+        io.arbiter.xfResp.tidx.valid := Bool(true)
+        io.arbiter.xfResp.flags.set("vo")
+        entry.validIO := Bool(false)
+        printfInfo("DANA TTable: Entry 0d%d has OUTPUTS, but Out Queue not ready\n",
+          ioArbiter.chosen)
+      } .otherwise {
+        io.regFile.req.valid := Bool(true)
+        io.regFile.req.bits.reqType := e_TTABLE_REGFILE_READ
+        io.regFile.req.bits.addr := entry.readIdx + entry.regFileAddrOutFixed
+
+        entry.readIdx := entry.readIdx + UInt(1)
+
+        queueOutTidx_d.valid := Bool(true)
+
+        printfInfo("DANA TTable: Req output 0x%x from Reg File sent\n",
+          entry.readIdx)
+      }
+    }
   }
 
-  // [TODO] #7: disabling the control backend fornow
-  io.control.req.valid := Bool(false)
-  // io.control.req <> entryArbiter.io.out
+  io.arbiter.queueIO.out.valid := queueOutTidx_d.valid
+  io.arbiter.queueIO.out.bits := io.regFile.resp.bits.data
+
+  io.control.req <> entryArbiter.io.out
 
   // Do a special table update if the arbiter is allowing a request to
   // go through. This decreases the necessary bandwidth between the
@@ -712,8 +769,8 @@ class TransactionTableBase[StateType <: TransactionState,
     table(tIdx).waiting := Bool(true)
     when (entryArbiter.io.out.bits.isDone) {
       printfInfo("DANA TTable entry for ASID/TID %x/%x is done\n",
-        table(tIdx).asid, table(tIdx).tid);
-        table(tIdx).flags.done := Bool(true) }}
+        table(tIdx).asid, table(tIdx).tid)
+      table(tIdx).flags.done := Bool(true) }}
   when (isPeReq) {
     val tIdx = entryArbiter.io.out.bits.tableIndex
     val inLastNode = table(tIdx).currentNodeInLayer ===
@@ -827,14 +884,12 @@ class TransactionTableBase[StateType <: TransactionState,
     val flags = io.arbiter.xfResp.flags
     when (flags.input | flags.output) {
       printfInfo("DANA TTable: Deschedule T0d%d with flags VDIO/%b%b%b%b\n",
-        io.arbiter.xfResp.tidx.bits, io.arbiter.xfResp.flags.valid,
-        io.arbiter.xfResp.flags.done, io.arbiter.xfResp.flags.input,
-        io.arbiter.xfResp.flags.output)
+        io.arbiter.xfResp.tidx.bits, flags.valid, flags.done, flags.input,
+        flags.output)
     } .otherwise {
       printfInfo("DANA TTable: Reschedule T0d%d with flags VDIO/%b%b%b%b\n",
-        io.arbiter.xfResp.tidx.bits, io.arbiter.xfResp.flags.valid,
-        io.arbiter.xfResp.flags.done, io.arbiter.xfResp.flags.input,
-        io.arbiter.xfResp.flags.output)
+        io.arbiter.xfResp.tidx.bits, flags.valid, flags.done, flags.input,
+        flags.output)
     }
   }
 }
@@ -843,6 +898,8 @@ class TransactionTable(implicit p: Parameters)
     extends TransactionTableBase[TransactionState, ControlReq](
   Vec(p(TransactionTableNumEntries), new TransactionState),
       new ControlReq)(p) {
+
+  // [TODO] #7: This is all replaced with the ioArbiter logic
   when (newRoccCmd) {
     when (cmd.readOrWrite) {
       when (cmd.isNew) {
@@ -872,6 +929,21 @@ class TransactionTable(implicit p: Parameters)
         }
       } .otherwise {
       }
+    }
+  }
+
+  // The finished condition (when the transaction becomes unreserved),
+  // occurs differently for the non-learning and learning variants
+  when (table(ioArbiter.chosen).flags.done) {
+    val entry = table(ioArbiter.chosen)
+    val finished = entry.flags.done & io.arbiter.queueIO.out.ready &
+      (entry.readIdx === entry.nodesInCurrentLayer - UInt(1))
+    when (finished) {
+      io.arbiter.xfResp.tidx.valid := Bool(true)
+      io.arbiter.xfResp.flags.set("d")
+      entry.flags.valid := Bool(false)
+      entry.flags.reserved := Bool(false)
+      entry.flags.done := Bool(false)
     }
   }
 
@@ -956,7 +1028,8 @@ class TransactionTableLearn(implicit p: Parameters)
     val entry = table(i)
     val flags = entry.flags
     ioArbiter.in(i).valid := flags.reserved & entry.validIO & (
-      entry.needsAsidNnid | entry.needsOutputs |entry.needsInputs)
+      entry.needsAsidNnid | entry.needsOutputs | entry.needsInputs |
+        entry.flags.done)
   })
 
   when (newRoccCmd) {
@@ -1067,6 +1140,21 @@ class TransactionTableLearn(implicit p: Parameters)
         transactionType)
     }
 
+    // The learning variant needs to set certain fields when it exits
+    // the "needsInputs" state
+    val isLast = io.arbiter.queueIO.in.bits.funct(2)
+    val numInputs = entry.indexElement
+    val numInputsMSBs = numInputs(log2Up(regFileNumElements) - 1,
+      log2Up(elementsPerBlock)) ## UInt(0, width=log2Up(elementsPerBlock))
+    val numInputsOffset = numInputsMSBs + UInt(elementsPerBlock)
+    when (entry.needsInputs & io.arbiter.queueIO.in.valid & isLast) {
+      entry.stateLearn := e_TTABLE_STATE_FEEDFORWARD
+      when (entry.transactionType =/= e_TTYPE_FEEDFORWARD) {
+        entry.stateLearn := e_TTABLE_STATE_LEARN_FEEDFORWARD
+        entry.nodesInCurrentLayer := numInputsOffset - entry.regFileAddrInFixed
+      }
+    }
+
     when (entry.needsOutputs) {
       when (!io.arbiter.queueIO.in.valid) {
         io.arbiter.xfResp.tidx.valid := Bool(true)
@@ -1082,30 +1170,55 @@ class TransactionTableLearn(implicit p: Parameters)
         io.regFile.req.bits.reqType := e_TTABLE_REGFILE_WRITE
         io.regFile.req.bits.tidIdx := derefTidIndex
         io.regFile.req.bits.addr := entry.indexElement
-        val data = io.arbiter.queueIO.in.bits.rs1
+        val data = io.arbiter.queueIO.in.bits.rs2
         io.regFile.req.bits.data := data
         printfInfo("DANA TTable: T0d%d got (E[OUTPUT]:0x%x) from queue\n",
           ioArbiter.chosen, data)
 
-        val isLast = io.arbiter.queueIO.in.bits.funct(2)
         when (isLast) {
-          val nextIndexBlock = (table(derefTidIndex).indexElement(
+          val nextIndexBlock = (entry.indexElement(
             log2Up(regFileNumElements)-1,log2Up(elementsPerBlock)) ##
             UInt(0, width=log2Up(elementsPerBlock))) + UInt(elementsPerBlock)
           entry.indexElement := nextIndexBlock
           entry.needsInputs := Bool(true)
           entry.needsOutputs := Bool(false)
+          entry.regFileAddrInFixed := nextIndexBlock
+          entry.regFileAddrOut := nextIndexBlock
+          entry.numOutputs := entry.indexElement
+          printfInfo("DANA TTable: Saving numOutputs 0d%d\n", entry.indexElement)
         } .otherwise {
           entry.indexElement := entry.indexElement + UInt(1)
         }
       }
+    }
+
+  }
+
+  when (table(ioArbiter.chosen).flags.done) {
+    val entry = table(ioArbiter.chosen)
+    val finished = entry.flags.done & io.arbiter.queueIO.out.ready &
+      (entry.readIdx === entry.numOutputs)
+    when (finished & (entry.stateLearn =/= e_TTABLE_STATE_LOAD_OUTPUTS)) {
+      // This is an "I'm done" response to XF which indicates that all
+      // outputs have been read
+      io.arbiter.xfResp.tidx.valid := Bool(true)
+      io.arbiter.xfResp.flags.set("d")
+      entry.flags.valid := Bool(false)
+      entry.flags.reserved := Bool(false)
+      entry.flags.done := Bool(false)
+    }
+
+    when (finished & entry.stateLearn === e_TTABLE_STATE_LOAD_OUTPUTS) {
+      entry.flags.valid := Bool(false)
+      entry.flags.done := Bool(false)
+      entry.needsOutputs := Bool(true)
+      printfInfo("DANA TTable: Learn TX batch done\n")
     }
   }
 
   // Update the table when we get a request from DANA
   when (io.control.resp.valid) {
     val tIdx = io.control.resp.bits.tableIndex
-    // table(tIdx).waiting := Bool(true)
     when (io.control.resp.bits.cacheValid) {
       switch(io.control.resp.bits.field) {
         is(e_TTABLE_CACHE_VALID) {

@@ -37,7 +37,8 @@ trait XFilesResponseCodes extends XFilesParameters {
   val (resp_OK :: resp_TID :: resp_READ :: resp_NOT_DONE :: resp_QUEUE_ERR ::
     resp_XFILES :: Nil) =  Enum(UInt(), 6)
 
-  def genResp[T <: Bits](resp: T, respCode: T, tid: T, data: T = Bits(0)) {
+  def genResp[T <: Bits](resp: T, respCode: T, tid: T,
+    data: T = Bits(0, width = xLen)) {
     resp := data.toBits
     resp(xLen - 1, xLen - respCodeWidth) := UInt(respCode)
     resp(xLen - respCodeWidth - 1, xLen - respCodeWidth - tidWidth) := tid

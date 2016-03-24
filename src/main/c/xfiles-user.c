@@ -79,6 +79,7 @@ xlen_t write_register(tid_type tid, xfiles_reg reg, uint32_t value) {
 }
 
 xlen_t write_data(tid_type tid, element_type * data, size_t count) {
+  const size_t shift = sizeof(xlen_t) * 8 - RESP_CODE_WIDTH;
   xlen_t out;
 
   // There are two types of writes available to users determined by
@@ -91,6 +92,7 @@ xlen_t write_data(tid_type tid, element_type * data, size_t count) {
                   : [out] "=r" (out)
                   : [rs1] "r" (tid), [rs2] "r" (data[i]),
                    [type] "i" (WRITE_DATA));
+    out >>= shift;
     if (out)
       return out;
   }
@@ -103,6 +105,7 @@ xlen_t write_data(tid_type tid, element_type * data, size_t count) {
                 : [out] "=r" (out)
                 : [rs1] "r" (tid), [rs2] "r" (data[i]),
                  [type] "i" (WRITE_DATA_LAST));
+  out >>= shift;
   return out;
 }
 

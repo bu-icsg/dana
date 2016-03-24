@@ -297,7 +297,6 @@ int xfiles_train_batch(test_t * t, int item_start, int item_stop) {
 
   t->tid = new_write_request(t->nnid, TRAIN_BATCH, 0);
   if (t->tid < 0) return t->tid;
-  printf("[INFO] Got TID 0d%d\n", t->tid);
   write_register(t->tid, xfiles_reg_batch_items, t->batch_items);
   write_register(t->tid, xfiles_reg_learning_rate, t->learn_rate);
   write_register(t->tid, xfiles_reg_weight_decay_lambda, t->weight_decay);
@@ -323,7 +322,6 @@ int xfiles_train_incremental(test_t * t, int item_start, int item_stop) {
     // Run one training t->epoch
     t->tid = new_write_request(t->nnid, TRAIN_INCREMENTAL, 0);
     if (t->tid < 0) return t->tid;
-    printf("[INFO] Got TID 0d%d\n", t->tid);
     write_register(t->tid, xfiles_reg_learning_rate, t->learn_rate);
     write_register(t->tid, xfiles_reg_weight_decay_lambda, t->weight_decay);
     // Write the output and input data
@@ -370,7 +368,10 @@ int xfiles_eval_batch(test_t * t, int item_start, int item_stop) {
   for (int item = 0; item < t->batch_items; item++) {
     t->tid = new_write_request(t->nnid, FEEDFORWARD, 0);
     if (t->tid < 0) return t->tid;
-    write_data(t->tid, (element_type *) t->data->input[item], t->num_input);
+    t->exit_code =
+        write_data(t->tid, (element_type *) t->data->input[item], t->num_input);
+    if (t->exit_code)
+      return t->exit_code;
     read_data_spinlock(t->tid, t->outputs, t->num_output);
 
     if (t->flags.verbose) {

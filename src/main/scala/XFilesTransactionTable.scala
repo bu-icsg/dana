@@ -238,12 +238,16 @@ class XFilesTransactionTable(implicit p: Parameters) extends XFilesModule()(p)
 
   when (readDataPoll) {
     val queue = queueOutput(idxAsidTid)
+    val entry = table(idxAsidTid)
+    val finished = entry.flags.done && queue.count === UInt(1)
     genResp(resp_d.bits.rocc.data, resp_NOT_DONE, tid)
     when (queue.deq.fire()) {
       genResp(resp_d.bits.rocc.data, resp_OK, tid, queue.deq.bits)
-      table(idxAsidTid).flags.output := Bool(false)
+      entry.flags.output := Bool(false)
+      when (finished) { entry.reset()
+        printfInfo("XF TTable: T0d%d is done, evicting...\n", idxAsidTid)
+      }
     }
-    printfInfo("XF TTable: Saw readDataPoll\n")
   }
 
   when (unknownCmd) {
@@ -279,13 +283,19 @@ class XFilesTransactionTable(implicit p: Parameters) extends XFilesModule()(p)
 
   when (readDataPoll) {
     readDataPollCount := readDataPollCount + UInt(1)
-    error := readDataPollCount > UInt(16)
+    // error := readDataPollCount > UInt(256)
+    printfInfo("XF TTable: Saw readDataPoll\n")
   }
 
   when (arbiter.out.fire()) {
     val tidx = arbiter.chosen
     printfInfo("XF TTable: Arbiter scheduled tidx 0d%d (ASID:0x%x/TID:0x%x)\n",
       tidx, table(tidx).asid, table(tidx).tid)
+  }
+
+  when (io.xfiles.resp.fire()) {
+    printfInfo("XF TTable: XF TTable response to R0d%d with data 0x%x\n",
+      io.xfiles.resp.bits.rd, io.xfiles.resp.bits.data)
   }
 
   (0 until numEntries).map(i => {
@@ -301,16 +311,11 @@ class XFilesTransactionTable(implicit p: Parameters) extends XFilesModule()(p)
         UInt(i), queueInput(i).deq.bits.funct, queueInput(i).deq.bits.rs1,
         queueInput(i).deq.bits.rs2, queueInput(i).count) }
     when (queueOutput(i).enq.fire()) {
-      printfInfo("XF TTable: queueOut[%d] deq [data:0x%x], #:0d%d\n",
+      printfInfo("XF TTable: queueOut[%d] enq [data:0x%x], #:0d%d\n",
         UInt(i), queueOutput(i).enq.bits, queueOutput(i).count) }
     when (queueOutput(i).deq.fire()) {
       printfInfo("XF TTable: queueOut[%d] deq [data:0x%x], #:0d%d\n",
-        UInt(i), queueOutput(i).enq.bits, queueOutput(i).count) }
-
-    // Output Queue
-    when (queueOutput(i).deq.fire()) {
-      printfInfo("XF TTable: queueOutput[%d] fired w/ data 0x%x\n", UInt(i),
-      queueOutput(i).deq.bits) }
+        UInt(i), queueOutput(i).deq.bits, queueOutput(i).count) }
   })
 
   when (RegNext(newRequest | writeData | writeDataLast | readDataPoll |
