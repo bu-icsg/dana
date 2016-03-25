@@ -338,7 +338,8 @@ class TransactionTableBase[StateType <: TransactionState,
     val regValue = io.arbiter.rocc.cmd.bits.rs2(31,0)
     // Only used with learning, but maintained for assertion checking
     val transactionType = io.arbiter.rocc.cmd.bits.rs2(49,48)
-    val numTrainOutputs = io.arbiter.rocc.cmd.bits.rs2(47,32) }
+    val numTrainOutputs = io.arbiter.rocc.cmd.bits.rs2(47,32)
+    val raw = io.arbiter.rocc.cmd }
 
   // Create the actual Transaction Table
   val table = Reg(genStateVec)
@@ -405,14 +406,18 @@ class TransactionTableBase[StateType <: TransactionState,
   io.arbiter.rocc.resp.bits.rd := arbiterRespPipe.bits.rd
   io.arbiter.indexOut := arbiterRespPipe.bits.coreIdx
 
-  val newRoccCmd = io.arbiter.rocc.cmd.fire() && !io.arbiter.rocc.s
+  val newRoccCmd = cmd.raw.fire() && !io.arbiter.rocc.s
+  val regWrite = newRoccCmd & cmd.raw.bits.inst.funct === t_WRITE_REGISTER
+  when (regWrite) {
+    printfInfo("DANA TTable: saw reg write TID/Reg/Value 0x%x/0x%x/0x%x\n",
+      cmd.tid, cmd.regId, cmd.regValue)
+  }
+
   when (newRoccCmd) {
     // This is a new packet
     when (cmd.readOrWrite) { // Write == True
       when (cmd.isNew) {
         when (cmd.isLast) {
-          printfInfo("DANA TTable: saw reg write TID/Reg/Value 0x%x/0x%x/0x%x\n",
-            cmd.tid, cmd.regId, cmd.regValue)
         } .otherwise {
           // [TODO] A lot of this can be removed as not everything has
           // to be initialized
@@ -649,7 +654,8 @@ class TransactionTableBase[StateType <: TransactionState,
     ioArbiter.in(i).valid := flags.reserved & entry.validIO & (
       entry.needsAsidNnid | entry.needsInputs)
   })
-  io.arbiter.queueIO.tidx := ioArbiter.chosen
+  io.arbiter.queueIO.tidxIn := ioArbiter.chosen
+  io.arbiter.queueIO.tidxOut := Reg(next = ioArbiter.chosen)
   io.arbiter.xfResp.tidx.bits := ioArbiter.chosen
   io.arbiter.xfResp.flags.reset("vdio")
 
@@ -717,13 +723,15 @@ class TransactionTableBase[StateType <: TransactionState,
     }
 
     when (entry.flags.done) {
-      when (!io.arbiter.queueIO.out.ready) {
+      when (!io.arbiter.queueIO.out.ready | queueOutTidx_d.valid) {
         io.arbiter.xfResp.tidx.valid := Bool(true)
         io.arbiter.xfResp.flags.set("vo")
         entry.validIO := Bool(false)
         printfInfo("DANA TTable: Entry 0d%d has OUTPUTS, but Out Queue not ready\n",
           ioArbiter.chosen)
       } .otherwise {
+        // [TODO] Kludge to slow down the output rate so that we don't
+        // overwrite the FIFO.
         io.regFile.req.valid := Bool(true)
         io.regFile.req.bits.reqType := e_TTABLE_REGFILE_READ
         io.regFile.req.bits.addr := entry.readIdx + entry.regFileAddrOutFixed
@@ -937,7 +945,7 @@ class TransactionTable(implicit p: Parameters)
   when (table(ioArbiter.chosen).flags.done) {
     val entry = table(ioArbiter.chosen)
     val finished = entry.flags.done & io.arbiter.queueIO.out.ready &
-      (entry.readIdx === entry.nodesInCurrentLayer - UInt(1))
+      !queueOutTidx_d.valid & (entry.readIdx === entry.nodesInCurrentLayer)
     when (finished) {
       io.arbiter.xfResp.tidx.valid := Bool(true)
       io.arbiter.xfResp.flags.set("d")
@@ -1031,6 +1039,15 @@ class TransactionTableLearn(implicit p: Parameters)
       entry.needsAsidNnid | entry.needsOutputs | entry.needsInputs |
         entry.flags.done)
   })
+
+  when (regWrite) {
+    val e = table(derefTidIndex)
+    switch(cmd.regId) {
+      is (e_TTABLE_WRITE_REG_BATCH_ITEMS) {  e.numBatchItems := cmd.regValue }
+      is (e_TTABLE_WRITE_REG_LEARNING_RATE) { e.learningRate := cmd.regValue }
+      is (e_TTABLE_WRITE_REG_WEIGHT_DECAY_LAMBDA) { e.lambda := cmd.regValue }
+    }
+  }
 
   when (newRoccCmd) {
     when (cmd.readOrWrite) {
@@ -1184,7 +1201,7 @@ class TransactionTableLearn(implicit p: Parameters)
           entry.needsOutputs := Bool(false)
           entry.regFileAddrInFixed := nextIndexBlock
           entry.regFileAddrOut := nextIndexBlock
-          entry.numOutputs := entry.indexElement
+          entry.numOutputs := entry.indexElement + UInt(1)
           printfInfo("DANA TTable: Saving numOutputs 0d%d\n", entry.indexElement)
         } .otherwise {
           entry.indexElement := entry.indexElement + UInt(1)
@@ -1197,7 +1214,7 @@ class TransactionTableLearn(implicit p: Parameters)
   when (table(ioArbiter.chosen).flags.done) {
     val entry = table(ioArbiter.chosen)
     val finished = entry.flags.done & io.arbiter.queueIO.out.ready &
-      (entry.readIdx === entry.numOutputs)
+      !queueOutTidx_d.valid & (entry.readIdx === entry.numOutputs)
     when (finished & (entry.stateLearn =/= e_TTABLE_STATE_LOAD_OUTPUTS)) {
       // This is an "I'm done" response to XF which indicates that all
       // outputs have been read

@@ -110,8 +110,11 @@ class XFilesTransactionTable(implicit p: Parameters) extends XFilesModule()(p)
   val table = Reg(Vec(numEntries, new TableEntry))
   val queueInput = Vec.fill(numEntries){
     Module(new Queue(new XFilesRs1Rs2Funct, queueSize)).io }
+  // We use a Queue with an "almost full" high water mark to provide
+  // flow control for the backend.
   val queueOutput = Vec.fill(numEntries){
-    Module(new Queue(UInt(width = xLen), queueSize)).io }
+    Module(new QueueAf(UInt(width = xLen), queueSize,
+      almostFullEntries = queueSize - 1)).io }
   val arbiter = Module(new RRArbiter(UInt(width = 0), numEntries,
     needsHold = true)).io
 
@@ -171,7 +174,7 @@ class XFilesTransactionTable(implicit p: Parameters) extends XFilesModule()(p)
     val hitNew = newRequest & hasFree & (idxFree === UInt(i))
     val hitOld = (writeData|writeDataLast) & hitAsidTid & idxAsidTid===UInt(i)
     val enq = hitNew | hitOld
-    val deq = io.backend.queueIO.in.ready & io.backend.queueIO.tidx === UInt(i)
+    val deq = io.backend.queueIO.in.ready & io.backend.queueIO.tidxIn === UInt(i)
     queueInput(i).enq.valid := enq
     queueInput(i).enq.bits.rs1 := cmd.bits.rs1
     queueInput(i).enq.bits.rs2 := cmd.bits.rs2
@@ -179,18 +182,18 @@ class XFilesTransactionTable(implicit p: Parameters) extends XFilesModule()(p)
 
     queueInput(i).deq.ready := deq
   })
-  io.backend.queueIO.in.bits := queueInput(io.backend.queueIO.tidx).deq.bits
-  io.backend.queueIO.in.valid := queueInput(io.backend.queueIO.tidx).deq.valid
+  io.backend.queueIO.in.bits := queueInput(io.backend.queueIO.tidxIn).deq.bits
+  io.backend.queueIO.in.valid := queueInput(io.backend.queueIO.tidxIn).deq.valid
 
   (0 until numEntries).map(i => {
-    val enq = io.backend.queueIO.out.valid & io.backend.queueIO.tidx===UInt(i)
+    val enq = io.backend.queueIO.out.valid & io.backend.queueIO.tidxOut===UInt(i)
     val deq = readDataPoll & hitAsidTid & (idxAsidTid === UInt(i))
     queueOutput(i).enq.valid := enq
     queueOutput(i).enq.bits := io.backend.queueIO.out.bits
 
     queueOutput(i).deq.ready := deq
   })
-  io.backend.queueIO.out.ready := queueOutput(io.backend.queueIO.tidx).enq.ready
+  io.backend.queueIO.out.ready := queueOutput(io.backend.queueIO.tidxOut).enq.ready
 
   // Hook up the arbiter to the table
   (0 until numEntries).map(i => {
@@ -237,16 +240,14 @@ class XFilesTransactionTable(implicit p: Parameters) extends XFilesModule()(p)
   }
 
   when (readDataPoll) {
-    val queue = queueOutput(idxAsidTid)
+    // val queueOut = queueOutput(idxAsidTid)
     val entry = table(idxAsidTid)
-    val finished = entry.flags.done && queue.count === UInt(1)
+    val finished = entry.flags.done && queueOutput(idxAsidTid).count === UInt(1)
     genResp(resp_d.bits.rocc.data, resp_NOT_DONE, tid)
-    when (queue.deq.fire()) {
-      genResp(resp_d.bits.rocc.data, resp_OK, tid, queue.deq.bits)
+    when (queueOutput(idxAsidTid).deq.fire()) {
+      genResp(resp_d.bits.rocc.data, resp_OK, tid, queueOutput(idxAsidTid).deq.bits)
       entry.flags.output := Bool(false)
-      when (finished) { entry.reset()
-        printfInfo("XF TTable: T0d%d is done, evicting...\n", idxAsidTid)
-      }
+      when (finished) { entry.reset() }
     }
   }
 
@@ -265,26 +266,18 @@ class XFilesTransactionTable(implicit p: Parameters) extends XFilesModule()(p)
   // Check for too many reads without a response
   val readDataPollCount = Reg(UInt(width = 32), init = UInt(0))
 
-  when (newRequest) {
-    printfInfo("XF TTable: Saw newRequest\n")
-  }
-
-  when (unknownCmd) {
-    printfInfo("XF TTable: Saw unknownCmd\n")
-  }
-
-  when (writeData) {
-    printfInfo("XF TTable: Saw writeData\n")
-  }
-
-  when (writeDataLast) {
-    printfInfo("XF TTable: Saw writeDataLast\n")
-  }
-
-  when (readDataPoll) {
+  when (newRequest)    { printfInfo("XF TTable: Saw newRequest\n")    }
+  when (unknownCmd)    { printfInfo("XF TTable: Saw unknownCmd\n")    }
+  when (writeData)     { printfInfo("XF TTable: Saw writeData\n")     }
+  when (writeDataLast) { printfInfo("XF TTable: Saw writeDataLast\n") }
+  when (readDataPoll)  { printfInfo("XF TTable: Saw readDataPoll\n")
+    val entry = table(idxAsidTid)
+    val finished = entry.flags.done && queueOutput(idxAsidTid).count === UInt(1)
     readDataPollCount := readDataPollCount + UInt(1)
-    // error := readDataPollCount > UInt(256)
-    printfInfo("XF TTable: Saw readDataPoll\n")
+    // error := readDataPollCount > UInt()
+    when (queueOutput(idxAsidTid).deq.fire() & finished) {
+      printfInfo("XF TTable: T0d%d is done via queue, evicting...\n", idxAsidTid)
+    }
   }
 
   when (arbiter.out.fire()) {
@@ -323,10 +316,10 @@ class XFilesTransactionTable(implicit p: Parameters) extends XFilesModule()(p)
     info(table, "xfttable,") }
 
   // Explicit assertions
-  assert (!(resp_d.valid & io.backend.rocc.resp.valid),
+  assert(!(resp_d.valid & io.backend.rocc.resp.valid),
     "XF TTable: newRequest resp just aliased backend resp")
   assert(!((writeData | writeDataLast) & !hitAsidTid),
     "XF TTable: writeData or writeDataLast without TTable ASID/TID hit")
-  assert (!(error),
+  assert(!(error),
     "XF TTable error asserted")
 }

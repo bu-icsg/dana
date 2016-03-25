@@ -27,7 +27,8 @@ class XFilesRs1Rs2Funct(implicit p: Parameters) extends XFilesBundle()(p) {
 }
 
 class XFilesQueueInterface(implicit p: Parameters) extends XFilesBundle()(p) {
-  val tidx = UInt(OUTPUT, width = log2Up(transactionTableNumEntries))
+  val tidxIn = UInt(OUTPUT, width = log2Up(transactionTableNumEntries))
+  val tidxOut = UInt(OUTPUT, width = log2Up(transactionTableNumEntries))
   // The naming here follows what is connected to the XF TTable Input
   // and Ouptut queues. Alternatively, this is from the perspective of
   // data flowing into (in) and out of (out) the backend
