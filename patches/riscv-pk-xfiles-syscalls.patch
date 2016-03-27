@@ -1,18 +1,17 @@
 diff --git a/Makefile.in b/Makefile.in
-index 108d19d..d851329 100644
+index 8babada..fbc7d8b 100644
 --- a/Makefile.in
 +++ b/Makefile.in
-@@ -36,6 +36,9 @@ project_name := @PACKAGE_TARNAME@
- src_dir      := @srcdir@
+@@ -37,6 +37,8 @@ src_dir      := @srcdir@
  scripts_dir  := $(src_dir)/scripts
+ bbl_payload  := @BBL_PAYLOAD@
  
-+# Architecture to use to build everything
 +ARCH ?= RV64IMAFDXcustom
 +
  # If the version information is not in the configure script, then we
  # assume that we are in a working directory. We use the vcs-version.sh
  # script in the scripts directory to generate an appropriate version
-@@ -75,7 +78,7 @@ sprojs_include := -I. $(addprefix -I$(src_dir)/, $(sprojs_enabled))
+@@ -76,7 +78,7 @@ sprojs_include := -I. $(addprefix -I$(src_dir)/, $(sprojs_enabled))
  VPATH := $(addprefix $(src_dir)/, $(sprojs_enabled))
  
  #-------------------------------------------------------------------------
@@ -21,16 +20,16 @@ index 108d19d..d851329 100644
  #-------------------------------------------------------------------------
  
  # C++ compiler
-@@ -83,7 +86,7 @@ VPATH := $(addprefix $(src_dir)/, $(sprojs_enabled))
+@@ -84,7 +86,7 @@ VPATH := $(addprefix $(src_dir)/, $(sprojs_enabled))
  #  - CXXFLAGS : flags for C++ compiler (eg. -Wall,-g,-O3)
  
  CC            := @CC@
--CFLAGS        := @CFLAGS@ $(CFLAGS)
-+CFLAGS        := @CFLAGS@ $(CFLAGS) -march=$(ARCH)
+-CFLAGS        := @CFLAGS@ $(CFLAGS) -DBBL_PAYLOAD=\"$(bbl_payload)\"
++CFLAGS        := @CFLAGS@ $(CFLAGS) -DBBL_PAYLOAD=\"$(bbl_payload)\" -march=$(ARCH)
  COMPILE       := $(CC) -MMD -MP $(CFLAGS) \
                   $(sprojs_include)
  # Linker
-@@ -129,7 +132,7 @@ dist_junk += $(sprojs_mk)
+@@ -130,7 +132,7 @@ dist_junk += $(sprojs_mk)
  #-------------------------------------------------------------------------
  # This function is used by the subproject template to reverse the list
  # of dependencies. It uses recursion to perform the reversal.
@@ -39,7 +38,7 @@ index 108d19d..d851329 100644
  # Arguments:
  #  $(1)   : space separated input list
  #  retval : input list in reverse order
-@@ -151,7 +154,7 @@ endef
+@@ -152,7 +154,7 @@ endef
  # subprojects defining a certain set of make variables which are all
  # prefixed with the subproject name. Since subproject names can have
  # dashes in them (and the make variables are assumed to only use
@@ -48,7 +47,7 @@ index 108d19d..d851329 100644
  # subproject name and one with dashes replaced with underscores.
  #
  # Arguments:
-@@ -281,7 +284,7 @@ clean-$(1) :
+@@ -282,7 +284,7 @@ clean-$(1) :
  
  libs += lib$(1).a
  objs += $$($(2)_c_objs)
@@ -57,7 +56,7 @@ index 108d19d..d851329 100644
  hdrs += $$(addprefix $(src_dir)/$(1)/, $$($(2)_hdrs))
  junk += $$($(2)_junk)
  deps += $$($(2)_c_deps)
-@@ -372,7 +375,7 @@ dist_junk += config.status config.h Makefile config.log
+@@ -373,7 +375,7 @@ dist_junk += config.status config.h Makefile config.log
  # Distribution
  #-------------------------------------------------------------------------
  # The distribution tarball is named project-ver.tar.gz and it includes
@@ -67,28 +66,28 @@ index 108d19d..d851329 100644
  dist_files = \
    $(sprojs) \
 diff --git a/pk/syscall.c b/pk/syscall.c
-index 2d96282..7816333 100644
+index de11a0a..b91023e 100644
 --- a/pk/syscall.c
 +++ b/pk/syscall.c
-@@ -381,7 +381,7 @@ int sys_times(void* restrict loc)
-   put_long(loc, 1, 0);
-   put_long(loc, 2, 0);
-   put_long(loc, 3, 0);
+@@ -380,7 +380,7 @@ int sys_times(long* loc)
+   loc[1] = 0;
+   loc[2] = 0;
+   loc[3] = 0;
 -  
 +
    return 0;
  }
  
-@@ -392,7 +392,7 @@ int sys_gettimeofday(long* loc)
+@@ -389,7 +389,7 @@ int sys_gettimeofday(long* loc)
    uintptr_t t = rdcycle();
-   put_long(loc, 0, t/CLOCK_FREQ);
-   put_long(loc, 1, (t % CLOCK_FREQ) / (CLOCK_FREQ / 1000000));
+   loc[0] = t / CLOCK_FREQ;
+   loc[1] = (t % CLOCK_FREQ) / (CLOCK_FREQ / 1000000);
 -  
 +
    return 0;
  }
  
-@@ -426,6 +426,24 @@ static int sys_stub_nosys()
+@@ -421,6 +421,25 @@ static int sys_stub_nosys()
    return -ENOSYS;
  }
  
@@ -110,10 +109,11 @@ index 2d96282..7816333 100644
 +  return old_antp;
 +}
 +
++
  long do_syscall(long a0, long a1, long a2, long a3, long a4, long a5, unsigned long n)
  {
    const static void* syscall_table[] = {
-@@ -470,6 +488,8 @@ long do_syscall(long a0, long a1, long a2, long a3, long a4, long a5, unsigned l
+@@ -466,6 +485,8 @@ long do_syscall(long a0, long a1, long a2, long a3, long a4, long a5, unsigned l
      [SYS_getrusage] = sys_stub_nosys,
      [SYS_getrlimit] = sys_stub_nosys,
      [SYS_setrlimit] = sys_stub_nosys,
@@ -123,14 +123,13 @@ index 2d96282..7816333 100644
  
    const static void* old_syscall_table[] = {
 diff --git a/pk/syscall.h b/pk/syscall.h
-index bed30e9..30bec66 100644
+index c1f3d8a..ba69beb 100644
 --- a/pk/syscall.h
 +++ b/pk/syscall.h
-@@ -49,6 +49,10 @@
+@@ -50,6 +50,9 @@
  #define SYS_getrusage 165
  #define SYS_clock_gettime 113
  
-+// X-Files/Dana
 +#define SYS_xfiles_dana_set_asid 512
 +#define SYS_xfiles_dana_set_antp 513
 +
