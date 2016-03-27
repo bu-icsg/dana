@@ -4,7 +4,7 @@ package dana
 
 import Chisel._
 
-import rocket.{RoCCCommand, RoCCResponse, HellaCacheReq, HellaCacheIO}
+import rocket.{RoCCCommand, RoCCResponse, HellaCacheReq, HellaCacheIO, MStatus}
 import uncore.{CacheName}
 import uncore.constants.MemoryOpConstants._
 import cde.{Parameters}
@@ -13,7 +13,7 @@ class ANTWXFilesInterface(implicit p: Parameters) extends DanaBundle()(p) {
   val rocc = new Bundle {
     val cmd = Decoupled(new RoCCCommand).flip
     val resp = Decoupled(new RoCCResponse)
-    val s = Bool(INPUT)
+    val status = new MStatus().asInput
     val coreIdxCmd = UInt(INPUT, width = log2Up(numCores))
     val coreIdxResp = UInt(OUTPUT, width = log2Up(numCores))
   }
@@ -140,7 +140,7 @@ class AsidNnidTableWalker(implicit p: Parameters) extends DanaModule()(p) {
   // of -err_DANA_NOANTP (defined in src/main/scala/Dana.scala) is
   // returned.
   val funct = io.xfiles.rocc.cmd.bits.inst.funct
-  val updateAntp = io.xfiles.rocc.s && funct === UInt(t_SUP_WRITE_REG)
+  val updateAntp = io.xfiles.rocc.status.prv.orR && funct === UInt(t_SUP_WRITE_REG)
   when (io.xfiles.rocc.cmd.fire() && updateAntp) {
     antpReg.valid := Bool(true)
     antpReg.antp := io.xfiles.rocc.cmd.bits.rs1

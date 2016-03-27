@@ -173,7 +173,7 @@ class XFilesTransactionTable(implicit p: Parameters) extends XFilesModule()(p)
   (0 until numEntries).map(i => {
     val hitNew = newRequest & hasFree & (idxFree === UInt(i))
     val hitOld = (writeData|writeDataLast) & hitAsidTid & idxAsidTid===UInt(i)
-    val enq = hitNew | hitOld
+    val enq = (hitNew | hitOld) & queueInput(i).enq.ready
     val deq = io.backend.queueIO.in.ready & io.backend.queueIO.tidxIn === UInt(i)
     queueInput(i).enq.valid := enq
     queueInput(i).enq.bits.rs1 := cmd.bits.rs1
@@ -223,8 +223,9 @@ class XFilesTransactionTable(implicit p: Parameters) extends XFilesModule()(p)
   // followed by a check on the correct condition, table updates (if
   // applicable), and the correct response.
   when (newRequest) {
+    val queue = queueInput(idxFree)
     genResp(resp_d.bits.rocc.data, resp_TID, -SInt(err_XFILES_TTABLEFULL))
-    when (hasFree) {
+    when (hasFree & queue.enq.ready) {
       genResp(resp_d.bits.rocc.data, resp_TID, tid)
       table(idxFree).reserve(asid, tid)
     }
@@ -233,7 +234,7 @@ class XFilesTransactionTable(implicit p: Parameters) extends XFilesModule()(p)
   when (writeData | writeDataLast) {
     val queue = queueInput(idxAsidTid)
     genResp(resp_d.bits.rocc.data, resp_QUEUE_ERR, tid)
-    when (queue.enq.fire()) {
+    when (queue.enq.ready) {
       genResp(resp_d.bits.rocc.data, resp_OK, tid)
       table(idxAsidTid).flags.input := Bool(false)
     }
@@ -274,7 +275,7 @@ class XFilesTransactionTable(implicit p: Parameters) extends XFilesModule()(p)
     val entry = table(idxAsidTid)
     val finished = entry.flags.done && queueOutput(idxAsidTid).count === UInt(1)
     readDataPollCount := readDataPollCount + UInt(1)
-    // error := readDataPollCount > UInt()
+    // error := readDataPollCount > UInt(512)
     when (queueOutput(idxAsidTid).deq.fire() & finished) {
       printfInfo("XF TTable: T0d%d is done via queue, evicting...\n", idxAsidTid)
     }

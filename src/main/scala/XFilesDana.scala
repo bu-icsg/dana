@@ -43,7 +43,7 @@ class XFilesDana(implicit p: Parameters) extends RoCC()(p) {
   // io.mem.ptw.sret := Bool(false)
 
   io.busy := xFilesArbiter.io.core(0).busy
-  xFilesArbiter.io.core(0).s := io.s
+  xFilesArbiter.io.core(0).status := io.status
   io.interrupt := xFilesArbiter.io.core(0).interrupt
 
   io.autl.acquire.valid := Bool(false)

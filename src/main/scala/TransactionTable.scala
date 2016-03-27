@@ -4,7 +4,7 @@ package dana
 
 import Chisel._
 
-import rocket.{RoCCCommand, RoCCResponse}
+import rocket.{RoCCCommand, RoCCResponse, MStatus}
 import cde.{Parameters}
 import xfiles.{TransactionTableNumEntries, TableEntry, HasTable,
   XFilesResponseCodes, XFilesBackendReq, XFilesBackendResp,
@@ -283,7 +283,7 @@ class TTableArbiter(implicit p: Parameters) extends DanaBundle()(p) {
   val rocc = new Bundle {
     val cmd = Decoupled(new RoCCCommand).flip
     val resp = Decoupled(new RoCCResponse)
-    val s = Bool(INPUT)
+    val status = new MStatus().asInput
   }
   val coreIdx = UInt(INPUT, width = log2Up(numCores))
   val indexOut = UInt(OUTPUT, width = log2Up(numCores))
@@ -372,7 +372,7 @@ class TransactionTableBase[StateType <: TransactionState,
 
   io.arbiter.rocc.resp.valid := Bool(false)
 
-  val newRoccCmd = cmd.raw.fire() && !io.arbiter.rocc.s
+  val newRoccCmd = cmd.raw.fire() && !io.arbiter.rocc.status.prv.orR
   val regWrite = newRoccCmd & cmd.raw.bits.inst.funct === t_WRITE_REGISTER
   when (regWrite) {
     printfInfo("DANA TTable: saw reg write TID/Reg/Value 0x%x/0x%x/0x%x\n",
@@ -649,48 +649,10 @@ class TransactionTableBase[StateType <: TransactionState,
   when (reset) {(0 until transactionTableNumEntries).map(i => table(i).reset)}
 
   // Assertions
-
-  // The X-FILES arbiter should only receive a new transaction request
-  // if it is asserting its ready signal (it has a free entry)
-  assert(!(newRoccCmd && cmd.readOrWrite && cmd.isNew &&
-    !cmd.isLast && !hasFree),
-    "DANA TTable saw new write req, but doesn't have any free entries")
-
-  // Only one inbound request or response on the same line can
-  // currently be handled. Due to the split nature of cache and
-  // register file responses, both have to be checked.
-  assert(!(newRoccCmd && cmd.readOrWrite && cmd.isNew &&
-    io.control.resp.bits.cacheValid &&
-    (io.control.resp.bits.tableIndex === nextFree)),
-    "DANA TTable saw new write req on same entry as control resp from Cache")
-  assert(!(newRoccCmd && cmd.readOrWrite && cmd.isNew &&
-    io.control.resp.bits.layerValid &&
-    (io.control.resp.bits.layerValidIndex === nextFree)),
-    "DANA TTable saw new write req on same entry as control resp from Reg File")
-
-  assert(!(newRoccCmd && cmd.readOrWrite && !cmd.isNew &&
-    io.control.resp.bits.cacheValid &&
-    (io.control.resp.bits.tableIndex === derefTidIndex)),
-    "DANA TTable saw non-new write req on same entry as control resp from Cache")
-  assert(!(newRoccCmd && cmd.readOrWrite && !cmd.isNew &&
-    io.control.resp.bits.layerValid &&
-    (io.control.resp.bits.layerValidIndex === derefTidIndex)),
-    "DANA TTable saw non-new write req on same entry as control resp from Reg File")
-
   // Valid should never be true if reserved is not true
   for (i <- 0 until transactionTableNumEntries)
     assert(!table(i).flags.valid || table(i).flags.reserved,
       "Valid asserted with reserved de-asserted on TTable " + i)
-
-  // A read request or a non-new write request should hit a valid
-  // entry
-  assert(!(!foundTid && newRoccCmd &&
-    (!cmd.readOrWrite || (cmd.readOrWrite && !cmd.isNew))),
-    "DANA TTable saw read or non-new write req on a non-existent ASID/TID")
-  // A new write request should not hit a tid
-  assert(!(foundTid && newRoccCmd &&
-    cmd.readOrWrite && cmd.isNew && !cmd.isLast),
-    "DANA TTable saw new write req on an existing ASID/TID")
 
   // Disabled (#7) -- the backend should be dumb and not have any
   // concept of validity, hence writes to arbitrary registers should

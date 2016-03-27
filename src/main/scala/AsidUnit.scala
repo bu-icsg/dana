@@ -4,7 +4,7 @@ package xfiles
 
 import Chisel._
 
-import rocket.{RoCCCommand, RoCCResponse}
+import rocket.{RoCCCommand, RoCCResponse, MStatus}
 import cde.{Parameters}
 
 class AsidTid(implicit p: Parameters) extends XFilesBundle()(p) {
@@ -15,7 +15,7 @@ class AsidTid(implicit p: Parameters) extends XFilesBundle()(p) {
 class AsidUnit(id: Int)(implicit p: Parameters) extends XFilesModule()(p) {
   val io = new XFilesBundle {
     val cmd = Decoupled(new RoCCCommand).flip
-    val s = Bool(INPUT)
+    val status = new MStatus().asInput
     val resp = Decoupled(new RoCCResponse)
     val data = Valid(new AsidTid()(p))
     // In the event that we can't do anything with this request, we
@@ -26,8 +26,8 @@ class AsidUnit(id: Int)(implicit p: Parameters) extends XFilesModule()(p) {
   val asidReg = Reg(Valid(new AsidTid))
 
   val funct = io.cmd.bits.inst.funct
-  val updateAsid = io.s & funct === UInt(t_UPDATE_ASID)
-  val newRequest = !io.s & funct === t_NEW_REQUEST
+  val updateAsid = io.status.prv.orR & funct === UInt(t_UPDATE_ASID)
+  val newRequest = !io.status.prv.orR & funct === t_NEW_REQUEST
 
   // Snoop on the input RoCCInterface. When you see a new supervisory
   // ASID-update request, set the ASID and reset the TID counter.
@@ -45,7 +45,7 @@ class AsidUnit(id: Int)(implicit p: Parameters) extends XFilesModule()(p) {
   // Forward the command on if we're aren't supposed to touch it. The
   // ready line is ignored as this request has to go through.
   io.cmdFwd.bits := io.cmd.bits
-  io.cmdFwd.valid := (io.cmd.fire() & io.s & !updateAsid)
+  io.cmdFwd.valid := (io.cmd.fire() & io.status.prv.orR & !updateAsid)
 
   when (io.cmdFwd.valid) {
     printfInfo("ASID Unit[%d] is forwarding request with funct code 0x%x\n",

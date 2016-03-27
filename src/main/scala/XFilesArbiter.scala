@@ -168,14 +168,14 @@ class XFilesArbiter(implicit p: Parameters) extends XFilesModule()(p) {
     // Either of these two types of requests means that we "squash"
     // the requst and prevent it from getting entered in the Core
     // Queue.
-    val reqInfo = cmd.fire() & !io.core(i).s & funct === t_XFILES_ID
-    val badRequest = cmd.fire() & !io.core(i).s & !asidUnits(i).data.valid
-    val writeReg = cmd.fire() & io.core(i).s
-    val newRequest = cmd.fire() & !io.core(i).s & funct === t_NEW_REQUEST
+    val reqInfo = cmd.fire() & !io.core(i).status.prv.orR & funct === t_XFILES_ID
+    val badRequest = cmd.fire() & !io.core(i).status.prv.orR & !asidUnits(i).data.valid
+    val writeReg = cmd.fire() & io.core(i).status.prv.orR
+    val newRequest = cmd.fire() & !io.core(i).status.prv.orR & funct === t_NEW_REQUEST
     // Anything that is a short circuit response or involves a
     // supervisor request gets squashed.
     val squashSup = reqInfo | badRequest
-    val squashUser = squashSup | io.core(i).s
+    val squashUser = squashSup | io.core(i).status.prv.orR
 
     // This information should be a provided by the backend
     val info = UInt(p(ElementsPerBlock), width = 6) ##
@@ -197,7 +197,7 @@ class XFilesArbiter(implicit p: Parameters) extends XFilesModule()(p) {
     // a short-circuit response hasn't been generated
     asidUnits(i).cmd.valid := cmd.fire() & !squashSup
     asidUnits(i).cmd.bits := cmd.bits
-    asidUnits(i).s := io.core(i).s
+    asidUnits(i).status := io.core(i).status
     asidUnits(i).resp.ready := Bool(true)
 
     // Core queue connections. We enqueue any user requests, i.e.,
@@ -263,7 +263,10 @@ class XFilesArbiter(implicit p: Parameters) extends XFilesModule()(p) {
   io.backend.rocc.cmd.valid := transactionTable.backend.rocc.cmd.valid |
     supReqToBackend
   io.backend.rocc.cmd.bits := transactionTable.backend.rocc.cmd.bits
-  io.backend.rocc.s := supReqToBackend
+  // [TODO] Kludge that zeros all the status fields of MStatus except
+  // for setting the privilege bits (prv) to ONE if we're sending a
+  // supervisor request.
+  io.backend.rocc.status.prv := supReqToBackend
   io.backend.regIdx.cmd := transactionTable.backend.regIdx.cmd
   transactionTable.backend.regIdx.resp := io.backend.regIdx.resp
 
@@ -281,6 +284,8 @@ class XFilesArbiter(implicit p: Parameters) extends XFilesModule()(p) {
       printfInfo("XFiles Arbiter: cmdFwd asserted\n")
       io.backend.rocc.cmd.bits := asidUnits(i).cmdFwd.bits
       io.backend.regIdx.cmd := UInt(i)
+      // [TODO] All the status bits other than prv are left unconnected
+      io.backend.rocc.status.prv := io.core(i).status.prv
     }})
 
   // Handle memory request routing

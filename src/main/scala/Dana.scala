@@ -240,7 +240,7 @@ class Dana(implicit p: Parameters) extends XFilesBackend()(p)
   antw.io.xfiles.rocc.cmd.valid := io.rocc.cmd.valid
   antw.io.xfiles.rocc.cmd.bits := io.rocc.cmd.bits
   antw.io.xfiles.rocc.resp.ready := io.rocc.resp.ready
-  antw.io.xfiles.rocc.s := io.rocc.s
+  antw.io.xfiles.rocc.status := io.rocc.status
   antw.io.xfiles.rocc.coreIdxCmd := io.regIdx.cmd
 
   antw.io.cache <> cache.io.mem
@@ -267,7 +267,7 @@ class Dana(implicit p: Parameters) extends XFilesBackend()(p)
   tTable.io.arbiter.rocc.cmd.valid := io.rocc.cmd.valid
   tTable.io.arbiter.rocc.cmd.bits := io.rocc.cmd.bits
   tTable.io.arbiter.rocc.resp.ready := io.rocc.resp.ready
-  tTable.io.arbiter.rocc.s := io.rocc.s
+  tTable.io.arbiter.rocc.status := io.rocc.status
   tTable.io.arbiter.coreIdx := io.regIdx.cmd
 
   tTable.io.control <> control.io.tTable
