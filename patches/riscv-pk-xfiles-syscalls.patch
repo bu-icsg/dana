@@ -65,6 +65,18 @@ index 8babada..fbc7d8b 100644
  
  dist_files = \
    $(sprojs) \
+diff --git a/machine/minit.c b/machine/minit.c
+index 055fdb3..aa03338 100644
+--- a/machine/minit.c
++++ b/machine/minit.c
+@@ -15,6 +15,7 @@ static void mstatus_init()
+   uintptr_t ms = 0;
+   ms = INSERT_FIELD(ms, MSTATUS_VM, VM_CHOICE);
+   ms = INSERT_FIELD(ms, MSTATUS_FS, 1);
++  ms = INSERT_FIELD(ms, MSTATUS_XS, 1);
+   write_csr(mstatus, ms);
+ 
+   // Make sure the hart actually supports the VM mode we want
 diff --git a/pk/syscall.c b/pk/syscall.c
 index de11a0a..b91023e 100644
 --- a/pk/syscall.c
