@@ -576,7 +576,7 @@ class TransactionTableBase[StateType <: TransactionState,
     }
 
     when (entry.flags.done) {
-      when (!io.arbiter.queueIO.out.ready | queueOutTidx_d.valid) {
+      when (!io.arbiter.queueIO.out.ready) {
         io.arbiter.xfResp.tidx.valid := Bool(true)
         io.arbiter.xfResp.flags.set("vo")
         entry.validIO := Bool(false)
@@ -716,10 +716,10 @@ class TransactionTable(implicit p: Parameters)
 
   // The finished condition (when the transaction becomes unreserved),
   // occurs differently for the non-learning and learning variants
-  when (table(ioArbiter.chosen).flags.done) {
+  when (ioArbiter.out.valid) {
     val entry = table(ioArbiter.chosen)
-    val finished = entry.flags.done & io.arbiter.queueIO.out.ready &
-      !queueOutTidx_d.valid & (entry.readIdx === entry.nodesInCurrentLayer)
+    val finished = io.arbiter.queueIO.out.ready &
+      (entry.readIdx === (entry.numOutputs - UInt(1)))
     when (finished) {
       io.arbiter.xfResp.tidx.valid := Bool(true)
       io.arbiter.xfResp.flags.set("d")
@@ -893,27 +893,26 @@ class TransactionTableLearn(implicit p: Parameters)
       }
     }
 
-  }
+    when (entry.flags.done) {
+      val entry = table(ioArbiter.chosen)
+      val finished = io.arbiter.queueIO.out.ready &
+        (entry.readIdx === (entry.numOutputs - UInt(1)))
+      when (finished & (entry.stateLearn =/= e_TTABLE_STATE_LOAD_OUTPUTS)) {
+        // This is an "I'm done" response to XF which indicates that all
+        // outputs have been read
+        io.arbiter.xfResp.tidx.valid := Bool(true)
+        io.arbiter.xfResp.flags.set("d")
+        entry.flags.valid := Bool(false)
+        entry.flags.reserved := Bool(false)
+        entry.flags.done := Bool(false)
+      }
 
-  when (table(ioArbiter.chosen).flags.done) {
-    val entry = table(ioArbiter.chosen)
-    val finished = entry.flags.done & io.arbiter.queueIO.out.ready &
-      !queueOutTidx_d.valid & (entry.readIdx === entry.numOutputs)
-    when (finished & (entry.stateLearn =/= e_TTABLE_STATE_LOAD_OUTPUTS)) {
-      // This is an "I'm done" response to XF which indicates that all
-      // outputs have been read
-      io.arbiter.xfResp.tidx.valid := Bool(true)
-      io.arbiter.xfResp.flags.set("d")
-      entry.flags.valid := Bool(false)
-      entry.flags.reserved := Bool(false)
-      entry.flags.done := Bool(false)
-    }
-
-    when (finished & entry.stateLearn === e_TTABLE_STATE_LOAD_OUTPUTS) {
-      entry.flags.valid := Bool(false)
-      entry.flags.done := Bool(false)
-      entry.needsOutputs := Bool(true)
-      printfInfo("DANA TTable: Learn TX batch done\n")
+      when (finished & entry.stateLearn === e_TTABLE_STATE_LOAD_OUTPUTS) {
+        entry.flags.valid := Bool(false)
+        entry.flags.done := Bool(false)
+        entry.needsOutputs := Bool(true)
+        printfInfo("DANA TTable: Learn TX batch done\n")
+      }
     }
   }
 

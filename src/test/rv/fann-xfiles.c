@@ -88,9 +88,6 @@ int main (int argc, char * argv[]) {
   // weight_decay = 1;
   if (t.learn_rate == 0) {
     printf("[ERROR] Number of batch items forces learning rate increase\n");
-    printf("[ERROR]   learning_rate: 0d%f\n", t.learning_rate);
-    printf("[ERROR]   multiplier:    0f%f\n", t.multiplier);
-    printf("[ERROR]   learn_rate:    0d%d\n", t.learn_rate);
     t.exit_code = -3;
     goto bail;
   }
