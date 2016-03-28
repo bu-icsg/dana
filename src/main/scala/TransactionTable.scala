@@ -719,7 +719,7 @@ class TransactionTable(implicit p: Parameters)
   when (ioArbiter.out.valid) {
     val entry = table(ioArbiter.chosen)
     val finished = io.arbiter.queueIO.out.ready &
-      (entry.readIdx === (entry.numOutputs - UInt(1)))
+      (entry.readIdx === entry.nodesInCurrentLayer - UInt(1))
     when (finished) {
       io.arbiter.xfResp.tidx.valid := Bool(true)
       io.arbiter.xfResp.flags.set("d")
