@@ -85,8 +85,8 @@ VCDS_V             = $(TESTS_V:%.v=$(DIR_BUILD)/%$(FPGA_CONFIG_DOT)-v.vcd)
 INCLUDE_V          = $(DIR_BUILD) $(DIR_BUILD)/cache \
 	$(DIR_TEST_V) \
 	$(DIR_SRC_V) \
-	$(shell readlink -f ../submodules/verilog/src/) \
-	$(shell readlink -f ../nnsim-hdl/src)
+	$(abspath ../submodules/verilog/src/) \
+	$(abspath ../nnsim-hdl/src)
 FLAGS_V            = -g2012 $(addprefix -I, $(INCLUDE_V))
 HEADERS_V          = ../nnsim-hdl/src/ram_infer_preloaded_cache.v \
 	../submodules/verilog/src/ram_infer.v \
@@ -98,10 +98,10 @@ RV_TESTS             = hello.c \
 	fann-soft.c \
 	write-on-invalid-asid.c \
 	read-xfiles-dana-id.c
-RV_TESTS_EXECUTABLES = $(RV_TESTS:%.c=$(DIR_BUILD)/newlib/%.rv) \
-	$(RV_TESTS:%.c=$(DIR_BUILD)/linux/%.rv)
-RV_TESTS_DISASM      = $(RV_TESTS:%.c=$(DIR_BUILD)/newlib/%.rvS) \
-	$(RV_TESTS:%.c=$(DIR_BUILD)/linux/%.rvS)
+RV_TESTS_EXECUTABLES_NEWLIB	= $(RV_TESTS:%.c=$(DIR_BUILD)/newlib/%.rv)
+RV_TESTS_EXECUTABLES_LINUX	= $(RV_TESTS:%.c=$(DIR_BUILD)/linux/%.rv)
+RV_TESTS_DISASM_NEWLIB		= $(RV_TESTS:%.c=$(DIR_BUILD)/newlib/%.rvS)
+RV_TESTS_DISASM_LINUX		= $(RV_TESTS:%.c=$(DIR_BUILD)/linux/%.rvS)
 
 # Compiler related options
 CXX           ?= g++
@@ -126,13 +126,12 @@ RV_OBJDUMP_LINUX = $(RV_LINUX)-objdump
 # Linker related options
 LIB_PATHS     = $(DIR_USR_LIB)
 LIB_LIBS      = m fann
-LFLAGS        = $(addprefix -Wl$(COMMA)-R, $(shell readlink -f $(LIB_PATHS))) \
+LFLAGS        = $(addprefix -Wl$(COMMA)-R, $(abspath $(LIB_PATHS))) \
 	$(LIB_PATHS:%=-L %) $(LIB_LIBS:%=-l %)
 
 # X-FILES libraries related
 XFILES_LIBRARIES_NEWLIB = $(DIR_BUILD)/newlib/libxfiles.a
 XFILES_LIBRARIES_LINUX = $(DIR_BUILD)/linux/libxfiles.a
-#$(DIR_BUILD)/libxfiles.so
 XFILES_LIBRARIES_OBJECTS_NEWLIB = $(DIR_BUILD)/newlib/xfiles-user.o \
 	$(DIR_BUILD)/newlib/xfiles-supervisor.o
 
@@ -176,17 +175,11 @@ TRAIN_SIN=sin-scale-0.25 sin-scale-0.50 sin-scale-0.75 sin-scale-1.00 \
 	sin-scale-1.25 sin-scale-1.50 sin-scale-1.75 sin-scale-2.00 \
 	sin-scale-2.25 sin-scale-2.50 sin-scale-2.75 sin-scale-3.00 \
 	sin-scale-3.25 sin-scale-3.50 sin-scale-3.75 sin-scale-4.00
-# [TODO] Skip threshold nets as I don't have floating point *.net sources
-# NETS_BIN+=$(addprefix $(DIR_BUILD_NETS)/, \
-# 	$(addsuffix -threshold-fixed.16bin, $(NETS_THRESHOLD)) \
-# 	$(addsuffix -threshold-fixed.32bin, $(NETS_THRESHOLD)) \
-# 	$(addsuffix -threshold-fixed.64bin, $(NETS_THRESHOLD)) \
-# 	$(addsuffix -threshold-fixed.128bin, $(NETS_THRESHOLD)))
-NETS_H+=$(addprefix $(DIR_BUILD_NETS)/, $(addsuffix -fixed-16bin-32.h, $(NETS)) \
+NETS_H +=$(addprefix $(DIR_BUILD_NETS)/, $(addsuffix -fixed-16bin-32.h, $(NETS)) \
 	$(addsuffix -fixed-32bin-32.h, $(NETS)) \
 	$(addsuffix -fixed-64bin-32.h, $(NETS)) \
 	$(addsuffix -fixed-128bin-32.h, $(NETS)))
-NETS_H+=$(addprefix $(DIR_BUILD_NETS)/, $(addsuffix -fixed-16bin-64.h, $(NETS)) \
+NETS_H +=$(addprefix $(DIR_BUILD_NETS)/, $(addsuffix -fixed-16bin-64.h, $(NETS)) \
 	$(addsuffix -fixed-32bin-64.h, $(NETS)) \
 	$(addsuffix -fixed-64bin-64.h, $(NETS)) \
 	$(addsuffix -fixed-128bin-64.h, $(NETS)))
@@ -196,31 +189,10 @@ TRAIN_FIXED+=$(addprefix $(DIR_BUILD_NETS)/, $(addsuffix -fixed.train, $(NETS_FA
 TRAIN_FIXED+=$(addprefix $(DIR_BUILD_NETS)/, $(addsuffix -fixed.train, $(NETS_PARITY)))
 TRAIN_FIXED+=$(addprefix $(DIR_BUILD_NETS)/, $(addsuffix -fixed.train, $(NETS_XOR)))
 TRAIN_FIXED+=$(addprefix $(DIR_BUILD_NETS)/, $(addsuffix -fixed.train, $(TRAIN_SIN)))
-FLOAT_TO_FIXED=$(DIR_USR_BIN)/fann-float-to-fixed
-WRITE_FANN_CONFIG=$(DIR_USR_BIN)/write-fann-config-for-accelerator
-BIN_TO_C_HEADER=$(DIR_USR_BIN)/bin-config-to-c-header
-TRAIN_TO_C_HEADER=$(DIR_USR_BIN)/fann-train-to-c-header
-TRAIN_TO_C_HEADER_FIXED=$(DIR_USR_BIN)/fann-train-to-c-header-fixed
-FANN_RANDOM=$(DIR_USR_BIN)/fann-random
-FANN_CHANGE_FIXED_POINT=$(DIR_USR_BIN)/fann-change-fixed-point
-FANN_TRAIN_TO_FIXED=$(DIR_USR_BIN)/fann-data-to-fixed
-GEN_BOOLEAN_DATA=$(DIR_USR_BIN)/gen-boolean-data
-GEN_MATH_DATA=$(DIR_USR_BIN)/gen-math-data
-FANN_TRAIN=$(DIR_USR_BIN)/fann-train
-GEN_VIDEO=$(DIR_USR_BIN)/gen-trace-video
-NETS_TOOLS = $(FLOAT_TO_FIXED) \
-	$(WRITE_FANN_CONFIG) \
-	$(BIN_TO_C_HEADER) \
-	$(TRAIN_TO_C_HEADER) \
-	$(FANN_RANDOM) \
-	$(FANN_TRAIN)
+
 DECIMAL_POINT_OFFSET=7
 DECIMAL_POINT_BITS=3
 MAX_DECIMAL_POINT=`echo "2 $(DECIMAL_POINT_BITS)^1-$(DECIMAL_POINT_OFFSET)+p"|dc`
-
-FANN_LIBS = $(DIR_BUILD)/fann/libfann.so \
-	$(DIR_BUILD)/fann-rv-newlib/libfann.a \
-	$(DIR_BUILD)/fann-rv-linux/libfann.a
 
 vpath %.scala $(DIR_SRC_SCALA)
 vpath %.cpp $(DIR_TEST_CPP)
@@ -239,70 +211,11 @@ vpath %bin $(DIR_BUILD_NETS)
 
 default: all
 
-# all: $(TEST_EXECUTABLES)
-# all: $(BACKEND_CPP)
 all:
 
 cpp: $(BACKEND_CPP)
 
 dot: $(BACKEND_DOT)
-
-$(DIR_BUILD)/fann/libfann.so:
-	if [ ! -d $(DIR_BUILD)/fann ]; then mkdir -p $(DIR_BUILD)/fann; fi
-	cd $(DIR_BUILD)/fann && \
-	cmake -DCMAKE_LIBRARY_OUTPUT_DIRECTORY=\
-	$(shell readlink -f $(DIR_BUILD)/fann) \
-	-DCMAKE_C_FLAGS="-DFANN_NO_SEED" \
-	-DCMAKE_CXX_FLAGS="-DFANN_NO_SEED" \
-	../../submodules/fann && \
-	$(MAKE)
-
-# Newer versions of FANN includes additional tests which newlib cannot
-# build. Hence, this target is set to ignore all build errors. This is
-# dangerous, but I don't see a way around it without me putting a fix
-# in FANN.
-$(DIR_BUILD)/fann-rv-newlib/libfann.a:
-	if [ ! -d $(DIR_BUILD)/fann-rv-newlib ]; \
-	  then mkdir -p $(DIR_BUILD)/fann-rv-newlib; fi
-	cd $(DIR_BUILD)/fann-rv-newlib && \
-	cmake -DCMAKE_ARCHIVE_OUTPUT_DIRECTORY=\
-	$(shell readlink -f $(DIR_BUILD)/fann-rv-newlib) \
-	-DPKGCONFIG_INSTALL_DIR=$(shell readlink \
-	  -f $(DIR_BUILD)/fann-rv-newlib) \
-	-DINCLUDE_INSTALL_DIR=$(shell readlink \
-	  -f $(DIR_BUILD)/fann-rv-newlib) \
-	-DLIB_INSTALL_DIR=$(shell readlink \
-	  -f $(DIR_BUILD)/fann-rv-newlib) \
-	-DCMAKE_CONFIG_DIR=$(shell readlink -f $(DIR_BUILD)/fann-rv-newlib) \
-	-DCMAKE_CURRENT_BINARY_DIR=$(shell readlink \
-	  -f $(DIR_BUILD)/fann-rv-newlib) \
-	-DCMAKE_C_COMPILER=$(RV_CC) \
-	-DCMAKE_CXX_COMPILER=$(RV_CXX) \
-	-DCMAKE_SYSTEM_NAME=Generic \
-	-DDISABLE_PARALLEL_FANN=1 \
-	-DBUILD_SHARED_LIBS=OFF \
-	../../submodules/fann && \
-	$(MAKE) -k || true
-
-$(DIR_BUILD)/fann-rv-linux/libfann.a:
-	if [ ! -d $(DIR_BUILD)/fann-rv-linux ]; \
-	  then mkdir -p $(DIR_BUILD)/fann-rv-linux; fi
-	cd $(DIR_BUILD)/fann-rv-linux && \
-	cmake -DCMAKE_ARCHIVE_OUTPUT_DIRECTORY=\
-	$(shell readlink -f $(DIR_BUILD)/fann-rv-linux) \
-	-DPKGCONFIG_INSTALL_DIR=$(shell readlink -f \
-	  $(DIR_BUILD)/fann-rv-linux) \
-	-DINCLUDE_INSTALL_DIR=$(shell readlink -f \
-	  $(DIR_BUILD)/fann-rv-linux) \
-	-DLIB_INSTALL_DIR=$(shell readlink -f $(DIR_BUILD)/fann-rv-linux) \
-	-DCMAKE_CONFIG_DIR=$(shell readlink -f $(DIR_BUILD)/fann-rv-linux) \
-	-DCMAKE_CURRENT_BINARY_DIR=$(shell readlink -f \
-	  $(DIR_BUILD)/fann-rv-linux) \
-	-DCMAKE_C_COMPILER=$(RV_CC_LINUX) \
-	-DCMAKE_CXX_COMPILER=$(RV_CXX_LINUX) \
-	-DDISABLE_PARALLEL_FANN=1 \
-	../../submodules/fann && \
-	$(MAKE)
 
 verilog: $(BACKEND_VERILOG)
 
@@ -315,9 +228,6 @@ run: $(TEST_EXECUTABLES) Makefile
 run-verilog: $(TEST_V_EXECUTABLES) Makefile
 	vvp $<
 
-tools: $(FANN_LIBS)
-	$(MAKE) -j$(JOBS) -C $(DIR_TOOLS)
-
 vcd-verilog: $(DIR_BUILD)/t_XFilesDana$(FPGA_CONFIG_DOT)-vcd.vvp Makefile
 	vvp $<
 	scripts/gtkwave $<.vcd
@@ -325,20 +235,28 @@ vcd-verilog: $(DIR_BUILD)/t_XFilesDana$(FPGA_CONFIG_DOT)-vcd.vvp Makefile
 debug: $(TEST_EXECUTABLES) Makefile
 	$< -d $(<:$(DIR_BUILD)/t_%=$(DIR_BUILD)/%.prm)
 
-rv: $(XFILES_LIBRARIES_NEWLIB) $(XFILES_LIBRARIES_LINUX) \
+rv: $(XFILES_LIBRARIES_NEWLIB)  \
 	$(NETS_BIN) \
 	$(TRAIN_FIXED) \
-	$(RV_TESTS_EXECUTABLES) \
-	$(RV_TESTS_DISASM)
+	$(RV_TESTS_EXECUTABLES_NEWLIB) \
+	$(RV_TESTS_DISASM_NEWLIB)
+
+rv-linux: $(XFILES_LIBRARIES_LINUX) \
+	$(NETS_BIN) \
+	$(TRAIN_FIXED) \
+	$(RV_TESTS_EXECUTABLES_LINUX) \
+	$(RV_TESTS_DISASM_LINUX)
+
+include $(DIR_TOOLS)/common/Makefrag-fann
 
 #------------------- Library Targets
-$(DIR_BUILD)/newlib/%.o: %.c $(DIR_BUILD)/newlib
+$(DIR_BUILD)/newlib/%.o: %.c | $(DIR_BUILD)/newlib
 	$(RV_CC) -Wall -Werror -march=RV64IMAFDXcustom -I. -c $< -o $@
 
 $(DIR_BUILD)/newlib/libxfiles.a: $(XFILES_LIBRARIES_OBJECTS_NEWLIB) xfiles.h
 	$(RV_AR) rcs $@ $(XFILES_LIBRARIES_OBJECTS_NEWLIB)
 
-$(DIR_BUILD)/linux/%.o: %.c $(DIR_BUILD)/linux
+$(DIR_BUILD)/linux/%.o: %.c | $(DIR_BUILD)/linux
 	$(RV_CC_LINUX) -Wall -Werror -march=RV64IMAFDXcustom -I. -c $< -o $@
 
 $(DIR_BUILD)/linux/libxfiles.a: $(XFILES_LIBRARIES_OBJECTS_LINUX) xfiles.h
@@ -381,16 +299,16 @@ $(DIR_BUILD)/%$(FPGA_CONFIG_DOT)-vcd.vvp: %.v $(BACKEND_VERILOG) $(HEADERS_V)
 	iverilog $(FLAGS_V) -D DUMP_VCD=\"$@.vcd\" -o $@ $<
 
 #------------------- RISC-V Tests
-$(DIR_BUILD)/newlib/fann-soft.rv: fann-soft.c $(DIR_BUILD_NETS) $(XFILES_LIBRARIES_NEWLIB) $(DIR_BUILD)/newlib $(DIR_BUILD)/fann-rv-newlib/libfann.a
+$(DIR_BUILD)/newlib/fann-soft.rv: fann-soft.c $(XFILES_LIBRARIES_NEWLIB) $(DIR_BUILD)/fann-rv-newlib/libfann.a
 	$(RV_CC) -Wall -Werror -static -march=RV64IMAFDXcustom -I$(DIR_SRC_C) -I$(DIR_BUILD_NETS) -I$(DIR_USR_INCLUDE) -I. $< -o $@ -L$(DIR_USR)/lib-rv-newlib -lxfiles -lfann -lm
 
 $(DIR_BUILD)/linux/fann-soft.rv: fann-soft.c $(DIR_BUILD_NETS) $(XFILES_LIBRARIES_LINUX) $(DIR_BUILD)/linux $(DIR_BUILD)/fann-rv-linux/libfann.a
 	$(RV_CC_LINUX) -Wall -Werror -static -march=RV64IMAFDXcustom -I$(DIR_SRC_C) -I$(DIR_BUILD_NETS) -I$(DIR_USR_INCLUDE) -I. $< -o $@ -L$(DIR_USR)/lib-rv-linux -lxfiles -lfann -lm
 
-$(DIR_BUILD)/newlib/%.rv: %.c $(DIR_BUILD_NETS) $(XFILES_LIBRARIES_NEWLIB) $(DIR_BUILD)/newlib $(DIR_BUILD)/fann-rv-newlib/libfann.a
+$(DIR_BUILD)/newlib/%.rv: %.c $(XFILES_LIBRARIES_NEWLIB) $(DIR_BUILD)/fann-rv-newlib/libfann.a | $(DIR_BUILD)/newlib
 	$(RV_CC) -Wall -Werror -static -march=RV64IMAFDXcustom -I$(DIR_SRC_C) -I$(DIR_BUILD_NETS) -I$(DIR_USR_INCLUDE) -I. $< -o $@ -L$(DIR_USR)/lib-rv-newlib -lxfiles -lfixedfann -lm
 
-$(DIR_BUILD)/linux/%.rv: %.c $(DIR_BUILD_NETS) $(XFILES_LIBRARIES_LINUX) $(DIR_BUILD)/linux $(DIR_BUILD)/fann-rv-linux/libfann.a
+$(DIR_BUILD)/linux/%.rv: %.c $(XFILES_LIBRARIES_LINUX) $(DIR_BUILD)/fann-rv-linux/libfann.a | $(DIR_BUILD)/linux
 	$(RV_CC_LINUX) -Wall -Werror -static -march=RV64IMAFDXcustom -I$(DIR_SRC_C) -I$(DIR_BUILD_NETS) -I$(DIR_USR_INCLUDE) -I. $< -o $@ -L$(DIR_USR)/lib-rv-linux -lxfiles -lfixedfann -lm
 
 $(DIR_BUILD)/newlib/%.rvS: $(DIR_BUILD)/newlib/%.rv
@@ -400,40 +318,8 @@ $(DIR_BUILD)/linux/%.rvS: $(DIR_BUILD)/linux/%.rv
 	$(RV_OBJDUMP) -S $< > $@
 
 #------------------- Nets
-include $(DIR_TOOLS)/common/Makefrag-nets
 include $(DIR_TOOLS)/common/Makefrag-tools
-
-$(DIR_BUILD_NETS)/%-16bin-32.h: $(DIR_BUILD_NETS)/%.16bin $(NETS_TOOLS)
-	$(BIN_TO_C_HEADER) $< \
-	$(subst -,_,init-$(basename $(notdir $<))-16bin-32) 32 > $@
-
-$(DIR_BUILD_NETS)/%-16bin-64.h: $(DIR_BUILD_NETS)/%.16bin $(NETS_TOOLS)
-	$(BIN_TO_C_HEADER) $< \
-	$(subst -,_,init-$(basename $(notdir $<))-16bin-64) 64 > $@
-
-$(DIR_BUILD_NETS)/%-32bin-32.h: $(DIR_BUILD_NETS)/%.32bin $(NETS_TOOLS)
-	$(BIN_TO_C_HEADER) $< \
-	$(subst -,_,init-$(basename $(notdir $<))-32bin-32) 32 > $@
-
-$(DIR_BUILD_NETS)/%-32bin-64.h: $(DIR_BUILD_NETS)/%.32bin $(NETS_TOOLS)
-	$(BIN_TO_C_HEADER) $< \
-	$(subst -,_,init-$(basename $(notdir $<))-32bin-64) 64 > $@
-
-$(DIR_BUILD_NETS)/%-64bin-32.h: $(DIR_BUILD_NETS)/%.64bin $(NETS_TOOLS)
-	$(BIN_TO_C_HEADER) $< \
-	$(subst -,_,init-$(basename $(notdir $<))-64bin-32) 32 > $@
-
-$(DIR_BUILD_NETS)/%-64bin-64.h: $(DIR_BUILD_NETS)/%.64bin $(NETS_TOOLS)
-	$(BIN_TO_C_HEADER) $< \
-	$(subst -,_,init-$(basename $(notdir $<))-64bin-64) 64 > $@
-
-$(DIR_BUILD_NETS)/%-128bin-32.h: $(DIR_BUILD_NETS)/%.128bin $(NETS_TOOLS)
-	$(BIN_TO_C_HEADER) $< \
-	$(subst -,_,init-$(basename $(notdir $<))-128bin-32) 32 > $@
-
-$(DIR_BUILD_NETS)/%-128bin-64.h: $(DIR_BUILD_NETS)/%.128bin $(NETS_TOOLS)
-	$(BIN_TO_C_HEADER) $< \
-	$(subst -,_,init-$(basename $(notdir $<))-128bin-64) 64 > $@
+include $(DIR_TOOLS)/common/Makefrag-nets
 
 #--------- Fixed point training files
 $(DIR_BUILD_NETS)/%_train.h: %.train $(NETS_TOOLS)
@@ -444,25 +330,21 @@ $(DIR_BUILD_NETS)/%_train.h: %.train $(NETS_TOOLS)
 	$(basename $<)-float.net) $< $(basename $(notdir $<)) > $@; \
 	fi
 
-$(DIR_BUILD_NETS):
-	if [ ! -d $@ ]; then mkdir -p $@; fi
-
 $(DIR_BUILD)/linux:
-	if [ ! -d $@ ]; then mkdir -p $@; fi
+	mkdir -p $@
 
 $(DIR_BUILD)/newlib:
-	if [ ! -d $@ ]; then mkdir -p $@; fi
+	mkdir -p $@
 
 #--------- Generate videos
 include $(DIR_TOOLS)/common/Makefrag-video
 
 #--------- Generate ScalaDoc documentation
-doc:
-	@ if [[ ! -d $(DIR_BUILD)/doc ]]; then mkdir $(DIR_BUILD)/doc; fi
+doc: | $(DIR_BUILD)/doc
 	scaladoc src/main/scala/*.scala -d $(DIR_BUILD)/doc
 
 $(DIR_BUILD)/doc:
-	if [ ! -d $@ ]; then mkdir -p $@; fi
+	mkdir -p $@
 
 #------------------- Populate a dummy cache (shouldn't be needed!)
 $(DIR_BUILD)/cache:
@@ -472,6 +354,7 @@ $(DIR_BUILD)/cache:
 clean:
 	rm -rf $(DIR_BUILD)/*
 	rm -rf target
+	make clean -C $(DIR_TOOLS)
 
 mrproper: clean
 	$(MAKE) clean -C $(DIR_TOOLS)
