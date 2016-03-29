@@ -1,26 +1,25 @@
 Overview
 ========================================
-A set of user and supervisor extensions (X-FILES software), hardware management of neural network "transactions" (X-FILES Hardware Arbiter), and a backend
-multi-transaction accelerator (DANA) to accelerate neural network computation [[1]](#cite-pact2015).
+A set of user and supervisor extensions (X-FILES software), hardware management of "transactions" (X-FILES Hardware Arbiter), and a backend, multi-transaction/context neural network accelerator (DANA) [[1]](#cite-pact2015).
 X-FILES/DANA provide hardware acceleration for a subset of neural networks supported by the Fast Artificial Neural Network (FANN) library.
 DANA attempts to dynamically interleave the execution of neural network transactions to improve throughput.
 
-This system is intended to be used as an accelerator for a RISC-V microprocessor like [Rocket](https://www.github.com/ucb-bar/rocket-chip).
+This system is intended to be used as an accelerator for a RISC-V microprocessor like [Rocket Chip](https://www.github.com/ucb-bar/rocket-chip).
 
 The name choices aren't arbitrary, but are heavily cherry-picked:
 * **X-FILES** -- software/hardware e**X**tensions **F**or the **I**ntegration of machine **L**earning in **E**verday **S**ystems
 * **DANA** -- **D**ynamically **A**llocated **N**eural network **A**ccelerator
 
-### Build Status [![Build Status](https://travis-ci.org/bu-icsg/xfiles-dana.svg?branch=master)](https://travis-ci.org/bu-icsg/xfiles-dana)
+### Build Status [![Build Status](https://travis-ci.org/bu-icsg/rocket-chip.svg?branch=xfiles-dana)](https://travis-ci.org/bu-icsg/rocket-chip)
 Builds are currently tested against the following configurations:
 ```
 |-------------------------------+--------------------|
 | Number of Processing Elements | Elements Per Block |
 |-------------------------------+--------------------|
-|                             1 |                  4 |
 |                             4 |                  4 |
 |                             8 |                  8 |
-|                             8 |                 16 |
+|                            16 |                 16 |
+|                            32 |                 32 |
 |-------------------------------+--------------------|
 ```
 
@@ -57,9 +56,11 @@ Builds are currently tested against the following configurations:
 ----------------------------------------
 This is not, at present, a standalone repository due to dependencies on classes and parameters defined in [rocket](https://www.github.com/ucb-bar/rocket), [uncore](https://www.github.com/ucb-bar/uncore), [rocket-chip](https://www.github.com/ucb-bar/rocket-chip), and possibly others. Consequently, X-FILES/DANA cannot be tested outside of a rocket-chip environment.
 
-First, you need to grab a copy of rocket-chip. I'm going to use the variable `$ROCKETCHIP` as the directory where you've cloned rocket-chip:
+First, you need to grab a copy of rocket-chip.
+While you can use a bleeding edge rocket-chip from [Berkeley](https://github.com/ucb-bar/rocket-chip), we provide a stable version guaranteed to work with X-FILES/DANA in [our own rocket-chip repo](https://github.com/bu-icsg/rocket-chip).
+Here, the variable `$ROCKETCHIP` is directory where you've cloned rocket-chip:
 ```bash
-git clone https://github.com/ucb-bar/rocket-chip $ROCKETCHIP
+git clone https://github.com/bu-icsg/rocket-chip --branch=xfiles-dana $ROCKETCHIP
 cd $ROCKETCHIP
 git submodule update --init
 ```
@@ -97,19 +98,6 @@ cd build
 make
 make install
 ```
-
-Then clone a copy of this repository (`xfiles-dana`) inside the rocket-chip repo. We then symlink in the files that `rocket-chip` needs to know about (`./install-symlinks`) and build some RISC-V test programs (`make rv`).
-```bash
-git clone git@github.com:bu-icsg/xfiles-dana $ROCKETCHIP/xfiles-dana
-cd $ROCKETCHIP/xfiles-dana
-git submodule update --init
-./install-symlinks
-make rv
-```
-
-The `install-symlinks` script adds a symlink into `$ROCKETCHIP/src/main/scala` which defines Rocket Chip configurations that include X-FILES/DANA. These configurations live in `xfiles-dana/config`. Some of these configurations are listed below:
-* XFilesDANACPPConfig -- Used for C++ emulation/testing
-* XFilesDANAFPGAConfig -- Builds X-FILES/DANA alongside a "larger" Rocket core (includes an FPU and larger caches)
 
 ### <a name="simulation"></a> Simulation
 
@@ -309,9 +297,6 @@ We're working on a full integration of the X-FILES supervisor library with the L
 
 #### <a name="io-queues"></a> IO Queues
 While neural network configurations are loaded from the memory of the microprocessor, all input and output data is transferred from Rocket to X-FILES/DANA hardware through the Rocket Custom Coprocessor (RoCC) register interface. We have plans to enable asynchronous transfer through in-memory queues.
-
-#### <a name="generality-of-xfiles"></a> Generality of X-FILES Software and Hardware
-The definition of X-FILES software and hardware is generic in terms of the backend accelerator. However, the current implementation of the [Transaction Table](https://www.github.com/bu-icsg/xfiles-dana/tree/master/src/main/scala/TransactionTable.scala) performs DANA-specific state update logic for transactions. We're in the process of refactoring the Transaction Table to support arbitrary backends.
 
 #### <a name="configuration-offload"></a> Ability to Offload Configurations
 We don't currently support writeback of trained neural network configurations from DANA back to the memory of the microprocessor. Repeated user calls to use the same neural network configuration will, however, use the cached (and trained) neural network configuration on DANA.
