@@ -15,7 +15,7 @@ class DefaultXFilesConfig extends Config (
       case DebugEnabled => false
       case TableDebug => true
       case TransactionTableNumEntries => Dump(Knob("TRANSACTION_TABLE_NUM_ENTRIES"))
-      case TransactionTableQueueSize => 2
+      case TransactionTableQueueSize => 32
     }},
   knobValues = {
     case "NUM_CORES" => 1
