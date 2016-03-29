@@ -226,8 +226,8 @@ class Dana(implicit p: Parameters) extends XFilesBackend()(p)
     Module(new RegisterFile)
   val antw = Module(new AsidNnidTableWalker)
 
-  val tTable = if (learningEnabled) Module(new TransactionTableLearn) else
-    Module(new TransactionTable)
+  val tTable = if (learningEnabled) Module(new DanaTransactionTableLearn) else
+    Module(new DanaTransactionTable)
 
   // Wire everything up. Ordering shouldn't matter here.
   cache.io.control <> control.io.cache
@@ -382,8 +382,8 @@ abstract class DanaTester[+T <: Module](c: T, isTrace: Boolean = true)
   // on the type.
   def info(dut : Any) {
     dut match {
-      case _: TransactionTable =>
-        val c = dut.asInstanceOf[TransactionTable]
+      case _: DanaTransactionTable =>
+        val c = dut.asInstanceOf[DanaTransactionTable]
         printf("|V|R|CV|WC|NL|NR|D|Tid|Nnid| <- TTable\n")
         printf("----------------------------\n")
         for (i <- 0 until c.table.length) {

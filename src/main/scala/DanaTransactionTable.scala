@@ -292,23 +292,23 @@ class TTableArbiter(implicit p: Parameters) extends DanaBundle()(p) {
   val queueIO = new XFilesQueueInterface
 }
 
-class TransactionTableInterface(implicit p: Parameters) extends DanaBundle()(p) {
+class DanaTransactionTableInterface(implicit p: Parameters) extends DanaBundle()(p) {
   val arbiter = new TTableArbiter
   lazy val control = new TTableControlInterface
   val regFile = new TTableRegisterFileInterface
 }
 
-class TransactionTableInterfaceLearn(implicit p: Parameters)
-    extends TransactionTableInterface()(p) {
+class DanaTransactionTableInterfaceLearn(implicit p: Parameters)
+    extends DanaTransactionTableInterface()(p) {
   override lazy val control = new TTableControlInterfaceLearn
 }
 
-class TransactionTableBase[StateType <: TransactionState,
+class DanaTransactionTableBase[StateType <: TransactionState,
   ControlReqType <: ControlReq](
   genStateVec: => Vec[StateType], genControlReq: => ControlReqType)(
   implicit p: Parameters) extends DanaModule()(p) with HasTable
     with XFilesResponseCodes {
-  lazy val io = new TransactionTableInterface()(p)
+  lazy val io = new DanaTransactionTableInterface()(p)
 
   // IO aliases
   lazy val cmd = new DanaBundle {
@@ -709,8 +709,8 @@ class TransactionTableBase[StateType <: TransactionState,
   }
 }
 
-class TransactionTable(implicit p: Parameters)
-    extends TransactionTableBase[TransactionState, ControlReq](
+class DanaTransactionTable(implicit p: Parameters)
+    extends DanaTransactionTableBase[TransactionState, ControlReq](
   Vec(p(TransactionTableNumEntries), new TransactionState),
       new ControlReq)(p) {
 
@@ -793,11 +793,11 @@ class TransactionTable(implicit p: Parameters)
 
 }
 
-class TransactionTableLearn(implicit p: Parameters)
-    extends TransactionTableBase[TransactionStateLearn, ControlReqLearn](
+class DanaTransactionTableLearn(implicit p: Parameters)
+    extends DanaTransactionTableBase[TransactionStateLearn, ControlReqLearn](
   Vec(p(TransactionTableNumEntries), new TransactionStateLearn),
     new ControlReqLearn)(p) {
-  override lazy val io = new TransactionTableInterfaceLearn()(p)
+  override lazy val io = new DanaTransactionTableInterfaceLearn()(p)
 
   when (io.arbiter.xfReq.tidx.fire()) {
     val tidx = io.arbiter.xfReq.tidx.bits
@@ -1267,7 +1267,7 @@ class TransactionTableLearn(implicit p: Parameters)
       "DANA TTable Transaction is in error state"))
 }
 
-class TransactionTableTests(uut: TransactionTable, isTrace: Boolean = true)
+class DanaTransactionTableTests(uut: DanaTransactionTable, isTrace: Boolean = true)
     extends DanaTester(uut, isTrace) {
   for (t <- 0 until 3) {
     peek(uut.hasFree)
