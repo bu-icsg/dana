@@ -193,7 +193,7 @@ class XFilesTransactionTable(implicit p: Parameters) extends XFilesModule()(p)
 
     queueOutput(i).deq.ready := deq
   })
-  io.backend.queueIO.out.ready := queueOutput(io.backend.queueIO.tidxOut).enq.ready
+  io.backend.queueIO.out.ready := !queueOutput(io.backend.queueIO.tidxOut).almostFull
 
   // Hook up the arbiter to the table
   (0 until numEntries).map(i => {
