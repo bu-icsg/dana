@@ -3,7 +3,7 @@
 package dana
 
 import Chisel._
-import cde.{Parameters, Field}
+import cde.{Parameters}
 
 class ControlCacheInterfaceResp(implicit p: Parameters) extends DanaBundle()(p) {
   val fetch = Bool()
@@ -22,7 +22,7 @@ class ControlCacheInterfaceRespLearn(implicit p: Parameters)
   val globalWtptr = UInt(INPUT, 16) //[TODO] possibly fragile
 }
 
-class ControlCacheInterfaceReq(implicit p: Parameters) extends XFilesBundle()(p) {
+class ControlCacheInterfaceReq(implicit p: Parameters) extends DanaBundle()(p) {
   val request = UInt(width = log2Up(3)) // [TODO] fragile on Constants.scala
   val asid = UInt(width = asidWidth)
   val nnid = UInt(width = nnidWidth)

@@ -3,7 +3,8 @@ package rocketchip
 import Chisel._
 import uncore._
 import rocket._
-import dana._
+import xfiles.{XFilesDana, DefaultXFilesDanaFPGAConfig, XFilesDebugConfig}
+import dana.{DanaNoLearningConfig}
 import cde.{Parameters, Config}
 
 import Implicits._
@@ -22,24 +23,18 @@ class XFilesDanaConfig extends Config (
     }}
 )
 
-class XFilesDanaNoLearningConfig extends Config (
-  topDefinitions = { (pname,site,here) =>
-    pname match {
-      case LearningEnabled => false }}
-)
-
-class XFilesDanaCPPConfig extends Config(new XFilesDanaDebugConfig ++
+class XFilesDanaCPPConfig extends Config(new XFilesDebugConfig ++
   new XFilesDanaConfig ++ new DefaultXFilesDanaFPGAConfig ++
   new DefaultCPPConfig)
 
 class XFilesDanaNoLearningCPPConfig extends Config(
-  new XFilesDanaNoLearningConfig ++ new XFilesDanaCPPConfig)
+  new DanaNoLearningConfig ++ new XFilesDanaCPPConfig)
 
 class XFilesDanaFPGAConfig extends Config(new XFilesDanaConfig ++
   new DefaultXFilesDanaFPGAConfig ++ new DefaultFPGAConfig)
 
 class XFilesDanaNoLearningFPGAConfig extends Config(new XFilesDanaConfig ++
-  new XFilesDanaNoLearningConfig ++ new DefaultFPGAConfig)
+  new DanaNoLearningConfig ++ new DefaultFPGAConfig)
 
 class XFilesDanaFPGASmallConfig extends Config(new XFilesDanaConfig ++
   new DefaultXFilesDanaFPGAConfig ++ new DefaultFPGASmallConfig)

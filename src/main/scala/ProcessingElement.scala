@@ -3,7 +3,7 @@
 package dana
 
 import Chisel._
-import cde.{Parameters, Field}
+import cde.{Parameters}
 
 class ProcessingElementReq(implicit p: Parameters) extends DanaBundle()(p) {
   val numWeights = UInt(INPUT, width = 8)            // [TODO] fragile

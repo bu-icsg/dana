@@ -11,11 +11,11 @@
 // [TODO] Any changes to these types need to occur in conjunction with
 // the Chisel code and with the TID extraction part of
 // new_write_request.
-typedef uint32_t nnid_type;
-typedef uint16_t asid_type;
-typedef uint16_t tid_type;
+typedef int32_t nnid_type;
+typedef int16_t asid_type;
+typedef int16_t tid_type;
 typedef int32_t element_type;
-typedef uint64_t x_len;
+typedef uint64_t xlen_t;
 
 typedef enum {
   xfiles_reg_batch_items = 0,
@@ -43,12 +43,39 @@ typedef enum {
   TRAIN_BATCH = 2
 } learning_type_t;
 
+typedef enum {
+  err_XFILES_UNKNOWN = 0,
+  err_XFILES_NOASID,
+  err_XFILES_TTABLEFULL,
+  err_XFILES_INVALIDTID
+} xfiles_err_t;
+
+typedef enum {
+  resp_OK = 0,
+  resp_TID,
+  resp_READ,
+  resp_NOT_DONE,
+  resp_QUEUE_ERR,
+  resp_XFILES
+} xfiles_resp_t;
+
+typedef enum {
+  err_UNKNOWN     = 0,
+  err_DANA_NOANTP = 1,
+  err_INVASID     = 2,
+  err_INVNNID     = 3,
+  err_ZEROSIZE    = 4,
+  err_INVEPB      = 5
+} dana_err_t;
+
+#define RESP_CODE_WIDTH 3
+
 //-------------------------------------- Userland
 
 // Request information about the specific X-FILES/DANA configuration
 // and return it in an XLen sized packed representation. Optionally,
 // this will print the output directly to stdout.
-x_len xfiles_dana_id(int flag_print);
+xlen_t xfiles_dana_id(int flag_print);
 
 // Initiate a new Transaction for a specific NNID. The X-Files Arbiter
 // will then assign and return a TID necessary for other userland
@@ -62,23 +89,23 @@ tid_type new_write_request(nnid_type nnid, learning_type_t learning_type,
 // Arbiter. The value is passed as a 32-bit unsigned, but only the
 // LSBs will be used if the destination register has fewer than 32
 // bits.
-void write_register(tid_type tid, xfiles_reg reg, uint32_t value);
+xlen_t write_register(tid_type tid, xfiles_reg reg, uint32_t value);
 
 // Write the contents of an input array of some size to the X-Files
 // Arbiter. After completing this function, the transaction is deemed
 // valid and will start executing on Dana.
-void write_data(tid_type tid,
-                element_type * input_data_array,
-                size_t count);
+xlen_t write_data(tid_type tid,
+                  element_type * input_data_array,
+                  size_t count);
 
 // A special write data request used for incremental training. Here,
 // an input and an expected output vector are passed. The
 // configuration cache is updated inside the Configuration Cache.
-void write_data_train_incremental(tid_type tid,
-                                  element_type * input_data_array,
-                                  element_type * output_data_array,
-                                  size_t count_input,
-                                  size_t count_output);
+xlen_t write_data_train_incremental(tid_type tid,
+                                    element_type * input_data_array,
+                                    element_type * output_data_array,
+                                    size_t count_input,
+                                    size_t count_output);
 
 // Read all the output data for a specific transaction. This throws
 // the CPU into a spinlock repeatedly checking the validity of the
@@ -86,6 +113,9 @@ void write_data_train_incremental(tid_type tid,
 uint64_t read_data_spinlock(tid_type tid,
                             element_type * output_data_array,
                             size_t count);
+
+// Forcibly kill a running transaction
+xlen_t kill_transaction(tid_type tid);
 
 //-------------------------------------- Supervisor
 
@@ -147,7 +177,7 @@ typedef struct {                 // |----------------|   |    |
 typedef struct {                 // |--------------------|               |
   size_t size;                   // | size of config     |               |
   size_t elements_per_block;     // | elements per block |               |
-  x_len * config;                // | * config           |-> [NN Config] |
+  xlen_t * config;               // | * config           |-> [NN Config] |
 } nn_configuration;              // |--------------------| <---|         |
                                  //                            |         |
 typedef struct {                 // |-------------------|      |         |
@@ -163,10 +193,10 @@ typedef struct {                 // |-----------|           |
 } asid_nnid_table;               // |-----------| <--------------------[OS ANTP]
 
 // Set the ASID to a new value
-uint64_t set_asid (asid_type asid);
+xlen_t set_asid (asid_type asid);
 
 // Set the ASID--NNID Table Poitner (ANTP)
-uint64_t set_antp (asid_nnid_table * os_antp);
+xlen_t set_antp (asid_nnid_table * os_antp);
 
 // Constructor and destructor for the ASID--NNID Table data structure
 void asid_nnid_table_create(asid_nnid_table ** table, size_t num_asids,
@@ -197,7 +227,7 @@ int attach_garbage(asid_nnid_table ** table, asid_type asid);
 // 32-bit depending on RISC-V architecture) array and of a certain
 // size to the ASID of a specific ASID--NNID Table.
 int attach_nn_configuration_array(asid_nnid_table ** table, uint16_t asid,
-                                  const x_len * nn_configuration_array,
+                                  const xlen_t * nn_configuration_array,
                                   size_t size);
 
 #endif

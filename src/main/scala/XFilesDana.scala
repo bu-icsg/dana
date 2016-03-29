@@ -1,30 +1,12 @@
 // See LICENSE for license details.
 
-package dana
+package xfiles
 
 import Chisel._
+import dana.Dana
 
-import rocket._
-import cde.{Parameters, Field}
-
-class XFilesArbiterReq(implicit p: Parameters) extends DanaBundle()(p) {
-  val tid = UInt(width = tidWidth)
-  val readOrWrite = Bool()
-  val countFeedback = UInt(width = feedbackWidth)
-  val isNew = Bool()
-  val isLast = Bool()
-  val data = UInt(width = elementWidth)
-}
-
-class XFilesArbiterResp(implicit p: Parameters) extends DanaBundle()(p) {
-  val tid = UInt(width = tidWidth)
-  val data = UInt(width = elementWidth)
-}
-
-class XFilesArbiterInterface(implicit p: Parameters) extends DanaBundle()(p) {
-  val req = Decoupled(new XFilesArbiterReq)
-  val resp = Decoupled(new XFilesArbiterResp).flip
-}
+import rocket.{RoCC, RoccNMemChannels}
+import cde.{Parameters}
 
 class XFilesDana(implicit p: Parameters) extends RoCC()(p) {
   // val io = new CoreXFilesInterface
@@ -52,6 +34,8 @@ class XFilesDana(implicit p: Parameters) extends RoCC()(p) {
 
   io.mem.resp <> xFilesArbiter.io.core(0).mem.resp
 
+  io.busy := Bool(false)
+
   // io.mem.xcpt.ma := Bool(false)
   // io.mem.xcpt.pf := Bool(false)
   // io.mem.ptw.req.ready := Bool(false)
@@ -59,7 +43,7 @@ class XFilesDana(implicit p: Parameters) extends RoCC()(p) {
   // io.mem.ptw.sret := Bool(false)
 
   io.busy := xFilesArbiter.io.core(0).busy
-  xFilesArbiter.io.core(0).s := io.s
+  xFilesArbiter.io.core(0).status := io.status
   io.interrupt := xFilesArbiter.io.core(0).interrupt
 
   io.autl.acquire.valid := Bool(false)
@@ -67,9 +51,9 @@ class XFilesDana(implicit p: Parameters) extends RoCC()(p) {
 
   for (i <- 0 until p(RoccNMemChannels)) {
     io.utl(i).acquire.valid := Bool(false)
-    io.utl(i).grant.ready := Bool(true)}
+    io.utl(i).grant.ready := Bool(true) }
 
-  xFilesArbiter.io.dana <> dana.io
+  xFilesArbiter.io.backend <> dana.io
 
   // Assertions
 

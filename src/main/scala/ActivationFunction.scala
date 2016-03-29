@@ -3,7 +3,7 @@
 package dana
 
 import Chisel._
-import cde.{Parameters, Field}
+import cde.{Parameters}
 
 // The steepness is currently
 
