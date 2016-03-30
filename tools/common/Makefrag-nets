@@ -10,6 +10,9 @@
 # randomly initialized networks which have to be generated with
 # `fann-random` and will have their floating point versions put in
 # build/nets.
+
+vpath %bin $(DIR_BUILD_NETS)
+
 NETS_GEN=xorSigmoid xorSigmoidSymmetric xorSigmoidSymmetricPair \
 	xorSigmoidSymmetricThreeLayer
 NETS_FANN=census-house mushroom diabetes gene kin32fm soybean thyroid \
@@ -32,7 +35,7 @@ NETS_FLOAT=$(addsuffix -float, $(NETS))
 # Only certain networks have valid training files
 NETS_TRAIN=xorSigmoid xorSigmoidSymmetric xorSigmoidSymmetricPair \
 	xorSigmoidSymmetricThreeLayer
-NETS_BIN=$(addprefix $(DIR_BUILD_NETS)/, $(addsuffix -fixed.16bin, $(NETS)) \
+NETS_BIN=$(addprefix $(DIR_BUILD)/nets/, $(addsuffix -fixed.16bin, $(NETS)) \
 	$(addsuffix -fixed.32bin, $(NETS)) \
 	$(addsuffix -fixed.64bin, $(NETS)) \
 	$(addsuffix -fixed.128bin, $(NETS)))
@@ -40,20 +43,20 @@ TRAIN_SIN=sin-scale-0.25 sin-scale-0.50 sin-scale-0.75 sin-scale-1.00 \
 	sin-scale-1.25 sin-scale-1.50 sin-scale-1.75 sin-scale-2.00 \
 	sin-scale-2.25 sin-scale-2.50 sin-scale-2.75 sin-scale-3.00 \
 	sin-scale-3.25 sin-scale-3.50 sin-scale-3.75 sin-scale-4.00
-NETS_H +=$(addprefix $(DIR_BUILD_NETS)/, $(addsuffix -fixed-16bin-32.h, $(NETS)) \
+NETS_H +=$(addprefix $(DIR_BUILD)/nets/, $(addsuffix -fixed-16bin-32.h, $(NETS)) \
 	$(addsuffix -fixed-32bin-32.h, $(NETS)) \
 	$(addsuffix -fixed-64bin-32.h, $(NETS)) \
 	$(addsuffix -fixed-128bin-32.h, $(NETS)))
-NETS_H +=$(addprefix $(DIR_BUILD_NETS)/, $(addsuffix -fixed-16bin-64.h, $(NETS)) \
+NETS_H +=$(addprefix $(DIR_BUILD)/nets/, $(addsuffix -fixed-16bin-64.h, $(NETS)) \
 	$(addsuffix -fixed-32bin-64.h, $(NETS)) \
 	$(addsuffix -fixed-64bin-64.h, $(NETS)) \
 	$(addsuffix -fixed-128bin-64.h, $(NETS)))
-TRAIN_H=$(addprefix $(DIR_BUILD_NETS)/, $(addsuffix _train.h, $(NETS_TRAIN)))
-TRAIN_FIXED=$(addprefix $(DIR_BUILD_NETS)/, $(addsuffix -fixed.train, $(NETS_GEN)))
-TRAIN_FIXED+=$(addprefix $(DIR_BUILD_NETS)/, $(addsuffix -fixed.train, $(NETS_FANN)))
-TRAIN_FIXED+=$(addprefix $(DIR_BUILD_NETS)/, $(addsuffix -fixed.train, $(NETS_PARITY)))
-TRAIN_FIXED+=$(addprefix $(DIR_BUILD_NETS)/, $(addsuffix -fixed.train, $(NETS_XOR)))
-TRAIN_FIXED+=$(addprefix $(DIR_BUILD_NETS)/, $(addsuffix -fixed.train, $(TRAIN_SIN)))
+TRAIN_H=$(addprefix $(DIR_BUILD)/nets/, $(addsuffix _train.h, $(NETS_TRAIN)))
+TRAIN_FIXED=$(addprefix $(DIR_BUILD)/nets/, $(addsuffix -fixed.train, $(NETS_GEN)))
+TRAIN_FIXED+=$(addprefix $(DIR_BUILD)/nets/, $(addsuffix -fixed.train, $(NETS_FANN)))
+TRAIN_FIXED+=$(addprefix $(DIR_BUILD)/nets/, $(addsuffix -fixed.train, $(NETS_PARITY)))
+TRAIN_FIXED+=$(addprefix $(DIR_BUILD)/nets/, $(addsuffix -fixed.train, $(NETS_XOR)))
+TRAIN_FIXED+=$(addprefix $(DIR_BUILD)/nets/, $(addsuffix -fixed.train, $(TRAIN_SIN)))
 
 vpath %.train $(DIR_TOP)/src/main/resources
 vpath %.train $(DIR_TOP)/submodules/fann/datasets
@@ -66,12 +69,13 @@ vpath %.train $(DIR_TOP)/submodules/fann/datasets
 	$(DIR_BUILD)/nets/xor-sigmoid-%o-float.train \
 	$(DIR_BUILD)/nets/parity-%-float.train \
 	$(DIR_BUILD)/nets/sin-%-float.train \
-	$(DIR_BUILD)/nets/sin-scale-%-float.train
+	$(DIR_BUILD)/nets/sin-scale-%-float.train \
+	$(DIR_BUILD)/fann/libfann.so
 
 #--------------------------------------- Build floating point NNs
-$(DIR_BUILD)/nets/%-float.net: $(FANN_RANDOM) | $(DIR_BUILD)/nets
+$(DIR_BUILD)/nets/%-float.net: $(FANN_RANDOM) $(DIR_BUILD)/fann/libfann.so | $(DIR_BUILD)/nets
 	$(FANN_RANDOM) -s$(SEED) \
-	`$(DIR_USR_BIN)/find-net $* $(DIR_TOOLS)/common/nets.txt` $@
+	`$(DIR_TOP)/usr/bin/find-net $* $(DIR_TOP)/tools/common/nets.txt` $@
 
 #--------------------------------------- Generate special training files
 $(DIR_BUILD)/nets/parity-%-float.train: | $(DIR_BUILD)/nets
@@ -141,37 +145,46 @@ $(DIR_BUILD)/nets/%-fixed.train: $(DIR_BUILD)/nets/%-float.train $(DIR_BUILD)/ne
 	$(FANN_TRAIN_TO_FIXED) $< $@ `grep decimal_point $(word 2,$^) | sed 's/^.\+=//'`
 
 #--------------------------------------- C headers of binary files
-$(DIR_BUILD_NETS)/%-16bin-32.h: $(DIR_BUILD_NETS)/%.16bin $(NETS_TOOLS) | $(DIR_BUILD)/nets
+$(DIR_BUILD)/nets/%-16bin-32.h: $(DIR_BUILD)/nets/%.16bin $(NETS_TOOLS) | $(DIR_BUILD)/nets
 	$(BIN_TO_C_HEADER) $< \
 	$(subst -,_,init-$(basename $(notdir $<))-16bin-32) 32 > $@
 
-$(DIR_BUILD_NETS)/%-16bin-64.h: $(DIR_BUILD_NETS)/%.16bin $(NETS_TOOLS) | $(DIR_BUILD)/nets
+$(DIR_BUILD)/nets/%-16bin-64.h: $(DIR_BUILD)/nets/%.16bin $(NETS_TOOLS) | $(DIR_BUILD)/nets
 	$(BIN_TO_C_HEADER) $< \
 	$(subst -,_,init-$(basename $(notdir $<))-16bin-64) 64 > $@
 
-$(DIR_BUILD_NETS)/%-32bin-32.h: $(DIR_BUILD_NETS)/%.32bin $(NETS_TOOLS) | $(DIR_BUILD)/nets
+$(DIR_BUILD)/nets/%-32bin-32.h: $(DIR_BUILD)/nets/%.32bin $(NETS_TOOLS) | $(DIR_BUILD)/nets
 	$(BIN_TO_C_HEADER) $< \
 	$(subst -,_,init-$(basename $(notdir $<))-32bin-32) 32 > $@
 
-$(DIR_BUILD_NETS)/%-32bin-64.h: $(DIR_BUILD_NETS)/%.32bin $(NETS_TOOLS) | $(DIR_BUILD)/nets
+$(DIR_BUILD)/nets/%-32bin-64.h: $(DIR_BUILD)/nets/%.32bin $(NETS_TOOLS) | $(DIR_BUILD)/nets
 	$(BIN_TO_C_HEADER) $< \
 	$(subst -,_,init-$(basename $(notdir $<))-32bin-64) 64 > $@
 
-$(DIR_BUILD_NETS)/%-64bin-32.h: $(DIR_BUILD_NETS)/%.64bin $(NETS_TOOLS) | $(DIR_BUILD)/nets
+$(DIR_BUILD)/nets/%-64bin-32.h: $(DIR_BUILD)/nets/%.64bin $(NETS_TOOLS) | $(DIR_BUILD)/nets
 	$(BIN_TO_C_HEADER) $< \
 	$(subst -,_,init-$(basename $(notdir $<))-64bin-32) 32 > $@
 
-$(DIR_BUILD_NETS)/%-64bin-64.h: $(DIR_BUILD_NETS)/%.64bin $(NETS_TOOLS) | $(DIR_BUILD)/nets
+$(DIR_BUILD)/nets/%-64bin-64.h: $(DIR_BUILD)/nets/%.64bin $(NETS_TOOLS) | $(DIR_BUILD)/nets
 	$(BIN_TO_C_HEADER) $< \
 	$(subst -,_,init-$(basename $(notdir $<))-64bin-64) 64 > $@
 
-$(DIR_BUILD_NETS)/%-128bin-32.h: $(DIR_BUILD_NETS)/%.128bin $(NETS_TOOLS) | $(DIR_BUILD)/nets
+$(DIR_BUILD)/nets/%-128bin-32.h: $(DIR_BUILD)/nets/%.128bin $(NETS_TOOLS) | $(DIR_BUILD)/nets
 	$(BIN_TO_C_HEADER) $< \
 	$(subst -,_,init-$(basename $(notdir $<))-128bin-32) 32 > $@
 
-$(DIR_BUILD_NETS)/%-128bin-64.h: $(DIR_BUILD_NETS)/%.128bin $(NETS_TOOLS) | $(DIR_BUILD)/nets
+$(DIR_BUILD)/nets/%-128bin-64.h: $(DIR_BUILD)/nets/%.128bin $(NETS_TOOLS) | $(DIR_BUILD)/nets
 	$(BIN_TO_C_HEADER) $< \
 	$(subst -,_,init-$(basename $(notdir $<))-128bin-64) 64 > $@
+
+#--------- Fixed point training files
+$(DIR_BUILD)/nets/%_train.h: %.train $(NETS_TOOLS)
+	@ if [[ -e $(DIR_MAIN_RES)/$(notdir $(basename $<)-float.net) ]]; \
+	then $(TRAIN_TO_C_HEADER) \
+	$(basename $<)-float.net $< $(basename $(notdir $<)) > $@;\
+	else $(TRAIN_TO_C_HEADER) $(DIR_BUILD_NETS)/$(notdir \
+	$(basename $<)-float.net) $< $(basename $(notdir $<)) > $@; \
+	fi
 
 $(DIR_BUILD)/nets:
 	mkdir -p $@

@@ -5,7 +5,6 @@ SHELL            = /bin/bash
 DIR_TOP         ?= .
 DIR_BUILD	?= $(DIR_TOP)/build
 
-DIR_BUILD_NETS  = $(DIR_BUILD)/nets
 DIR_FANN        = $(DIR_TOP)/submodules/fann
 
 # Common configuration
@@ -25,7 +24,6 @@ DIR_USR_LIB     = $(DIR_TOP)/usr/lib
 DIR_USR_LIB_RV  = $(DIR_TOP)/usr/lib-rv-newlib
 DIR_USR_LIB_RV_LINUX = $(DIR_TOP)/usr/lib-rv-linux
 DIR_USR_INCLUDE = $(DIR_TOP)/usr/include
-DIR_TOOLS       = $(DIR_TOP)/tools
 SEED            = $(shell echo "$$RANDOM")
 SEED            = 0
 
@@ -110,18 +108,6 @@ INCLUDES      = $(addprefix -include $(DIR_BUILD)/, \
 	$(EXECUTABLES:%=%$(CHISEL_CONFIG_DOT).h))
 CXX_FLAGS     = $(INCLUDES) $(INCLUDE_PATHS:%=-I %) -g -std=c++11
 
-# RISC-V related options
-RV_NEWLIB        = riscv64-unknown-elf
-RV_LINUX         = riscv64-unknown-linux-gnu
-RV_CC            = $(RV_NEWLIB)-gcc
-RV_CXX           = $(RV_NEWLIB)-g++
-RV_AR            = $(RV_NEWLIB)-ar
-RV_OBJDUMP       = $(RV_NEWLIB)-objdump
-RV_CC_LINUX      = $(RV_LINUX)-gcc
-RV_CXX_LINUX     = $(RV_LINUX)-g++
-RV_AR_LINUX      = $(RV_LINUX)-ar
-RV_OBJDUMP_LINUX = $(RV_LINUX)-objdump
-
 # Linker related options
 LIB_PATHS     = $(DIR_USR_LIB)
 LIB_LIBS      = m fann
@@ -131,11 +117,6 @@ LFLAGS        = $(addprefix -Wl$(COMMA)-R, $(abspath $(LIB_PATHS))) \
 # X-FILES libraries related
 XFILES_LIBRARIES_NEWLIB = $(DIR_BUILD)/newlib/libxfiles.a
 XFILES_LIBRARIES_LINUX = $(DIR_BUILD)/linux/libxfiles.a
-XFILES_LIBRARIES_OBJECTS_NEWLIB = $(DIR_BUILD)/newlib/xfiles-user.o \
-	$(DIR_BUILD)/newlib/xfiles-supervisor.o
-
-XFILES_LIBRARIES_OBJECTS_LINUX = $(DIR_BUILD)/linux/xfiles-user.o \
-	$(DIR_BUILD)/linux/xfiles-supervisor.o
 
 DECIMAL_POINT_OFFSET=7
 DECIMAL_POINT_BITS=3
@@ -151,7 +132,6 @@ vpath %.v $(DIR_TEST_V)
 vpath %.v $(DIR_SRC_V)
 vpath %.v $(DIR_BUILD)
 vpath %-float.net $(DIR_MAIN_RES)
-vpath %bin $(DIR_BUILD_NETS)
 
 .PHONY: all clean cpp debug doc dot libraries mrproper nets run \
 	run-verilog tools vcd vcd-verilog verilog
@@ -192,25 +172,14 @@ linux: $(XFILES_LIBRARIES_LINUX) \
 disasm-newlib: $(RV_TESTS_DISASM_NEWLIB)
 disasm-linux: $(RV_TESTS_DISASM_LINUX)
 
-include $(DIR_TOOLS)/common/Makefrag-fann
-include $(DIR_TOOLS)/common/Makefrag-tools
-include $(DIR_TOOLS)/common/Makefrag-nets
+include $(DIR_TOP)/tools/common/Makefrag-rv
+include $(DIR_TOP)/tools/common/Makefrag-fann
+include $(DIR_TOP)/tools/common/Makefrag-tools
+include $(DIR_TOP)/tools/common/Makefrag-nets
+include $(DIR_TOP)/tools/common/Makefrag-video
 
 nets: $(NETS_BIN) $(TRAIN_FIXED)
 tools: $(NETS_TOOLS)
-
-#------------------- Library Targets
-$(DIR_BUILD)/newlib/%.o: %.c | $(DIR_BUILD)/newlib
-	$(RV_CC) -Wall -Werror -march=RV64IMAFDXcustom -I. -c $< -o $@
-
-$(DIR_BUILD)/newlib/libxfiles.a: $(XFILES_LIBRARIES_OBJECTS_NEWLIB) xfiles.h
-	$(RV_AR) rcs $@ $(XFILES_LIBRARIES_OBJECTS_NEWLIB)
-
-$(DIR_BUILD)/linux/%.o: %.c | $(DIR_BUILD)/linux
-	$(RV_CC_LINUX) -Wall -Werror -march=RV64IMAFDXcustom -I. -c $< -o $@
-
-$(DIR_BUILD)/linux/libxfiles.a: $(XFILES_LIBRARIES_OBJECTS_LINUX) xfiles.h
-	$(RV_AR_LINUX) rcs $@ $(XFILES_LIBRARIES_OBJECTS_LINUX)
 
 #------------------- Chisel Build Targets
 $(DIR_BUILD)/%$(CHISEL_CONFIG_DOT).cpp: %.scala $(ALL_MODULES)
@@ -248,43 +217,6 @@ $(DIR_BUILD)/%$(FPGA_CONFIG_DOT).vvp: %.v $(BACKEND_VERILOG) $(HEADERS_V)
 $(DIR_BUILD)/%$(FPGA_CONFIG_DOT)-vcd.vvp: %.v $(BACKEND_VERILOG) $(HEADERS_V)
 	iverilog $(FLAGS_V) -D DUMP_VCD=\"$@.vcd\" -o $@ $<
 
-#------------------- RISC-V Tests
-$(DIR_BUILD)/newlib/fann-soft.rv: fann-soft.c $(XFILES_LIBRARIES_NEWLIB) $(DIR_BUILD)/fann-rv-newlib/libfann.a
-	$(RV_CC) -Wall -Werror -static -march=RV64IMAFDXcustom -I$(DIR_SRC_C) -I$(DIR_BUILD_NETS) -I$(DIR_USR_INCLUDE) -I. $< -o $@ -L$(DIR_USR)/lib-rv-newlib -lxfiles -lfann -lm
-
-$(DIR_BUILD)/linux/fann-soft.rv: fann-soft.c $(DIR_BUILD_NETS) $(XFILES_LIBRARIES_LINUX) $(DIR_BUILD)/linux $(DIR_BUILD)/fann-rv-linux/libfann.a
-	$(RV_CC_LINUX) -Wall -Werror -static -march=RV64IMAFDXcustom -I$(DIR_SRC_C) -I$(DIR_BUILD_NETS) -I$(DIR_USR_INCLUDE) -I. $< -o $@ -L$(DIR_USR)/lib-rv-linux -lxfiles -lfann -lm
-
-$(DIR_BUILD)/newlib/%.rv: %.c $(XFILES_LIBRARIES_NEWLIB) $(DIR_BUILD)/fann-rv-newlib/libfann.a | $(DIR_BUILD)/newlib
-	$(RV_CC) -Wall -Werror -static -march=RV64IMAFDXcustom -I$(DIR_SRC_C) -I$(DIR_BUILD_NETS) -I$(DIR_USR_INCLUDE) -I. $< -o $@ -L$(DIR_USR)/lib-rv-newlib -lxfiles -lfixedfann -lm
-
-$(DIR_BUILD)/linux/%.rv: %.c $(XFILES_LIBRARIES_LINUX) $(DIR_BUILD)/fann-rv-linux/libfann.a | $(DIR_BUILD)/linux
-	$(RV_CC_LINUX) -Wall -Werror -static -march=RV64IMAFDXcustom -I$(DIR_SRC_C) -I$(DIR_BUILD_NETS) -I$(DIR_USR_INCLUDE) -I. $< -o $@ -L$(DIR_USR)/lib-rv-linux -lxfiles -lfixedfann -lm
-
-$(DIR_BUILD)/newlib/%.rvS: $(DIR_BUILD)/newlib/%.rv
-	$(RV_OBJDUMP) -S $< > $@
-
-$(DIR_BUILD)/linux/%.rvS: $(DIR_BUILD)/linux/%.rv
-	$(RV_OBJDUMP) -S $< > $@
-
-#--------- Fixed point training files
-$(DIR_BUILD_NETS)/%_train.h: %.train $(NETS_TOOLS)
-	@ if [[ -e $(DIR_MAIN_RES)/$(notdir $(basename $<)-float.net) ]]; \
-	then $(TRAIN_TO_C_HEADER) \
-	$(basename $<)-float.net $< $(basename $(notdir $<)) > $@;\
-	else $(TRAIN_TO_C_HEADER) $(DIR_BUILD_NETS)/$(notdir \
-	$(basename $<)-float.net) $< $(basename $(notdir $<)) > $@; \
-	fi
-
-$(DIR_BUILD)/linux:
-	mkdir -p $@
-
-$(DIR_BUILD)/newlib:
-	mkdir -p $@
-
-#--------- Generate videos
-include $(DIR_TOOLS)/common/Makefrag-video
-
 #--------- Generate ScalaDoc documentation
 doc: | $(DIR_BUILD)/doc
 	scaladoc src/main/scala/*.scala -d $(DIR_BUILD)/doc
@@ -302,4 +234,4 @@ clean:
 	rm -rf target
 
 mrproper: clean
-	$(MAKE) clean -C $(DIR_TOOLS)
+	$(MAKE) clean -C $(DIR_TOP)/tools

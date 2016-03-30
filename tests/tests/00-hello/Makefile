@@ -5,7 +5,9 @@ TARGETS=$(SOURCES:%.c=%.rv)
 
 all: compare
 
-test: $(TARGETS)
+include ../../common/Makefrag
+
+test: $(TARGETS) $(EMULATOR)
 	@ $(EMULATOR) +maxcycles=$(MAX_CYCLES) pk hello.rv 2>&1 > \
 	hello.emulator
 	@ spike pk hello.rv 2>&1 > hello.spike
@@ -14,5 +16,3 @@ compare: test
 	@ $(TOOL_COMPARE) hello.spike hello.emulator $(TEST_NAME)
 
 JUNK += *.spike
-
-include ../../common/Makefrag

@@ -1,4 +1,4 @@
-#include "xfiles.h"
+#include "src/main/c/xfiles.h"
 
 int main (int argv, char * argc[]) {
   printf("%s: START\n", argc[0]);

@@ -5,8 +5,8 @@
 #include <math.h>
 #include <getopt.h>
 
-#include "fann.h"
-#include "xfiles.h"
+#include "usr/include/fann.h"
+#include "src/main/c/xfiles.h"
 
 #define read_csr(reg) ({ unsigned long __tmp; \
   asm volatile ("csrr %0, " #reg : "=r"(__tmp)); \

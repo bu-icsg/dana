@@ -1,13 +1,16 @@
 #-*- mode: makefile-*-
 
 DIR_TOP  = ../../..
+DIR_BUILD= $(DIR_TOP)/build
 
 PES ?= 1
 EPB ?= 4
 CONFIG ?= XFilesDanaCppPe${PES}Epb${EPB}Config
+ROCKETCHIP_ADDONS ?= xfiles-dana
 BIN_SUFFIX = $(shell echo "$(EPB) 4*p" | dc)bin
 
-EMULATOR ?= ../$(DIR_TOP)/emulator/emulator-Top-$(CONFIG)
+DIR_EMULATOR =  ../$(DIR_TOP)/emulator
+EMULATOR ?= $(DIR_EMULATOR)/emulator-Top-$(CONFIG)
 C_FLAGS  ?= -Wall \
 	-Werror \
 	-O3 \
@@ -33,8 +36,17 @@ PHONY += all default clean
 
 default: all
 
-%.rv: %.c $(DIR_TOP)/build/newlib/libxfiles.a $(DIR_TOP)/build/fann-rv-newlib/libfann.a
+include $(DIR_TOP)/tools/common/Makefrag-rv
+include $(DIR_TOP)/tools/common/Makefrag-fann
+include $(DIR_TOP)/tools/common/Makefrag-nets
+include $(DIR_TOP)/tools/common/Makefrag-tools
+
+%.rv: %.c $(DIR_BUILD)/newlib/libxfiles.a $(DIR_BUILD)/fann-rv-newlib/libfann.a
 	@ $(RV_CC) $(C_FLAGS) $< -o $@ $(L_FLAGS)
+
+$(EMULATOR):
+	make -C $(DIR_EMULATOR) \
+	CONFIG=$(CONFIG) ROCKETCHIP_ADDONS=$(ROCKETCHIP_ADDONS)
 
 # Common utilities
 TOOL_COMPARE = ../../common/compare.sh
@@ -44,5 +56,3 @@ JUNK = *.emulator *.rv
 
 clean:
 	rm -f $(JUNK)
-
-include $(DIR_TOP)/Makefile

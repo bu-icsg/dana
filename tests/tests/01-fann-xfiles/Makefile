@@ -39,7 +39,6 @@ MSE_CONVERGE=0.002
 MAX_CONVERGE_EPOCHS=10000
 
 include ../../common/Makefrag
-include ../../../tools/common/Makefrag-nets
 
 vpath %.train $(DIR_TOP)/src/main/resources
 vpath %.train $(DIR_TOP)/submodules/fann/datasets
@@ -55,11 +54,11 @@ all: $(RUNS)
 # MSE tests -- These check that the MSE is following _the exact_
 # pattern that it was previously. The output of a new run "*.mse" is
 # compared to a known good example "*.mse-good".
-%.msePattern: $(DIR_BUILD_NETS)/%-fixed.$(BIN_SUFFIX) $(DIR_BUILD_NETS)/%-fixed.train $(DIR_BUILD_NETS)/%-fixed.net $(TEST).rv %.mse-good
+%.msePattern: $(DIR_BUILD)/nets/%-fixed.$(BIN_SUFFIX) $(DIR_BUILD)/nets/%-fixed.train $(DIR_BUILD)/nets/%-fixed.net $(TEST).rv %.mse-good $(EMULATOR)
 	@ echo [INFO] $(TEST_NAME)-$@ seed/asid/nnid $(SEED)/$(ASID)/$(NNID)
 	$(EMULATOR) +maxcycles=$(MAX_CYCLES) pk $(TEST).rv \
-	-n $(DIR_BUILD_NETS)/$*-fixed.$(BIN_SUFFIX) \
-	-t $(DIR_BUILD_NETS)/$*-fixed.train \
+	-n $(DIR_BUILD)/nets/$*-fixed.$(BIN_SUFFIX) \
+	-t $(DIR_BUILD)/nets/$*-fixed.train \
 	-m -e10 -j$(ASID) -k$(NNID) | tee $*.mse
 	@ $(TOOL_COMPARE) $*.mse-good \
 	$*.mse \
@@ -68,11 +67,11 @@ all: $(RUNS)
 # Convergence tests -- These check that the NNs converge to be under a
 # specific bit fail limit or MSE after a long number of training
 # epochs.
-%.converge: $(DIR_BUILD_NETS)/%-fixed.$(BIN_SUFFIX) $(DIR_BUILD_NETS)/%-fixed.train $(DIR_BUILD_NETS)/%-fixed.net $(TEST).rv
+%.converge: $(DIR_BUILD)/nets/%-fixed.$(BIN_SUFFIX) $(DIR_BUILD)/nets/%-fixed.train $(DIR_BUILD)/nets/%-fixed.net $(TEST).rv $(EMULATOR)
 	@ echo [INFO] $(TEST_NAME)-$@ seed/asid/nnid $(SEED)/$(ASID)/$(NNID)
 	@ $(EMULATOR) +maxcycles=$(MAX_CYCLES) pk $(TEST).rv \
-	-n $(DIR_BUILD_NETS)/$*-fixed.$(BIN_SUFFIX) \
-	-t $(DIR_BUILD_NETS)/$*-fixed.train \
+	-n $(DIR_BUILD)/nets/$*-fixed.$(BIN_SUFFIX) \
+	-t $(DIR_BUILD)/nets/$*-fixed.train \
 	-e$(MAX_CONVERGE_EPOCHS) -j$(ASID) -k$(NNID) \
 	-f$(BIT_FAIL_LIMIT) -g$(MSE_CONVERGE) -l -m > $@
 	@ tail -n 1 $@ | awk '{print $$7}' | \

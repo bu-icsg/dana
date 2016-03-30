@@ -1,0 +1,60 @@
+#-*- mode: makefile-*-
+
+# RISC-V related options
+RV_NEWLIB        = riscv64-unknown-elf
+RV_LINUX         = riscv64-unknown-linux-gnu
+RV_CC            = $(RV_NEWLIB)-gcc
+RV_CXX           = $(RV_NEWLIB)-g++
+RV_AR            = $(RV_NEWLIB)-ar
+RV_OBJDUMP       = $(RV_NEWLIB)-objdump
+RV_CC_LINUX      = $(RV_LINUX)-gcc
+RV_CXX_LINUX     = $(RV_LINUX)-g++
+RV_AR_LINUX      = $(RV_LINUX)-ar
+RV_OBJDUMP_LINUX = $(RV_LINUX)-objdump
+
+XFILES_LIBRARIES_OBJECTS_NEWLIB = $(DIR_BUILD)/newlib/xfiles-user.o \
+	$(DIR_BUILD)/newlib/xfiles-supervisor.o
+XFILES_LIBRARIES_OBJECTS_LINUX = $(DIR_BUILD)/linux/xfiles-user.o \
+	$(DIR_BUILD)/linux/xfiles-supervisor.o
+
+vpath %.c $(DIR_TOP)/src/main/c
+vpath %.c $(DIR_TOP)/src/test/rv
+
+#------------------- Library Targets
+$(DIR_BUILD)/newlib/%.o: %.c | $(DIR_BUILD)/newlib
+	$(RV_CC) -Wall -Werror -march=RV64IMAFDXcustom -I. -c $< -o $@
+
+$(DIR_BUILD)/newlib/libxfiles.a: $(XFILES_LIBRARIES_OBJECTS_NEWLIB)
+	$(RV_AR) rcs $@ $(XFILES_LIBRARIES_OBJECTS_NEWLIB)
+
+$(DIR_BUILD)/linux/%.o: %.c | $(DIR_BUILD)/linux
+	$(RV_CC_LINUX) -Wall -Werror -march=RV64IMAFDXcustom -I. -c $< -o $@
+
+$(DIR_BUILD)/linux/libxfiles.a: $(XFILES_LIBRARIES_OBJECTS_LINUX)
+	$(RV_AR_LINUX) rcs $@ $(XFILES_LIBRARIES_OBJECTS_LINUX)
+
+#------------------- RISC-V Tests
+$(DIR_BUILD)/newlib/fann-soft.rv: fann-soft.c $(XFILES_LIBRARIES_NEWLIB) $(DIR_BUILD)/fann-rv-newlib/libfann.a
+	$(RV_CC) -Wall -Werror -static -march=RV64IMAFDXcustom -I. -I$(DIR_BUILD)/nets -I$(DIR_TOP)/usr/include -I. $< -o $@ -L$(DIR_USR)/lib-rv-newlib -lxfiles -lfann -lm
+
+$(DIR_BUILD)/linux/fann-soft.rv: fann-soft.c $(DIR_BUILD_NETS) $(XFILES_LIBRARIES_LINUX) $(DIR_BUILD)/linux $(DIR_BUILD)/fann-rv-linux/libfann.a
+	$(RV_CC_LINUX) -Wall -Werror -static -march=RV64IMAFDXcustom -I. -I$(DIR_BUILD_NETS) -I$(DIR_USR_INCLUDE) -I. $< -o $@ -L$(DIR_USR)/lib-rv-linux -lxfiles -lfann -lm
+
+$(DIR_BUILD)/newlib/%.rv: %.c $(XFILES_LIBRARIES_NEWLIB) $(DIR_BUILD)/fann-rv-newlib/libfann.a | $(DIR_BUILD)/newlib
+	$(RV_CC) -Wall -Werror -static -march=RV64IMAFDXcustom -I$(DIR_SRC_C) -I$(DIR_BUILD_NETS) -I$(DIR_USR_INCLUDE) -I. $< -o $@ -L$(DIR_USR)/lib-rv-newlib -lxfiles -lfixedfann -lm
+
+$(DIR_BUILD)/linux/%.rv: %.c $(XFILES_LIBRARIES_LINUX) $(DIR_BUILD)/fann-rv-linux/libfann.a | $(DIR_BUILD)/linux
+	$(RV_CC_LINUX) -Wall -Werror -static -march=RV64IMAFDXcustom -I$(DIR_SRC_C) -I$(DIR_BUILD_NETS) -I$(DIR_USR_INCLUDE) -I. $< -o $@ -L$(DIR_USR)/lib-rv-linux -lxfiles -lfixedfann -lm
+
+$(DIR_BUILD)/newlib/%.rvS: $(DIR_BUILD)/newlib/%.rv
+	$(RV_OBJDUMP) -S $< > $@
+
+$(DIR_BUILD)/linux/%.rvS: $(DIR_BUILD)/linux/%.rv
+	$(RV_OBJDUMP) -S $< > $@
+
+#--------------------------------------- Directories
+$(DIR_BUILD)/linux:
+	mkdir -p $@
+
+$(DIR_BUILD)/newlib:
+	mkdir -p $@
