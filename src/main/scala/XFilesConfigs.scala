@@ -32,3 +32,13 @@ class XFilesDebugConfig extends Config (
 
 class DefaultXFilesDanaFPGAConfig extends Config(new DefaultXFilesConfig ++
   new DefaultDanaConfig)
+
+class RocketChipCopiedConfig extends Config (
+  topDefinitions = { (pname,site,here) =>
+    pname match {
+      case PAddrBits => 32
+    }}
+)
+
+class XFilesDanaNoRocketConfig extends Config(new DefaultXFilesConfig ++
+  new DefaultDanaConfig ++ new RocketChipCopiedConfig)

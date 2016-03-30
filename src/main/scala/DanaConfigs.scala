@@ -60,3 +60,9 @@ class DanaNoLearningConfig extends Config (
       case LearningEnabled => false
     }}
 )
+
+// Variants that use explicit numbers of PEs
+class WithPeEpb(numPes: Int, epb: Int) extends Config(
+  knobValues = {
+    case "NUM_PES" => numPes
+    case "ELEMENTS_PER_BLOCK" => epb })

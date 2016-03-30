@@ -4,7 +4,7 @@ import Chisel._
 import uncore._
 import rocket._
 import xfiles.{XFilesDana, DefaultXFilesDanaFPGAConfig, XFilesDebugConfig}
-import dana.{DanaNoLearningConfig}
+import dana.{DanaNoLearningConfig, WithPeEpb}
 import cde.{Parameters, Config}
 
 import Implicits._
@@ -39,90 +39,84 @@ class XFilesDanaNoLearningFPGAConfig extends Config(new XFilesDanaConfig ++
 class XFilesDanaFPGASmallConfig extends Config(new XFilesDanaConfig ++
   new DefaultXFilesDanaFPGAConfig ++ new DefaultFPGASmallConfig)
 
-// Variants that use explicit numbers of PEs
-class Dana(numPes: Int, epb: Int) extends Config(
-  knobValues = {
-    case "NUM_PES" => numPes
-    case "ELEMENTS_PER_BLOCK" => epb })
-
-class XFilesDanaPe1Epb4Config extends Config(new Dana(1, 4) ++
+class XFilesDanaPe1Epb4Config extends Config(new WithPeEpb(1, 4) ++
   new XFilesDanaFPGAConfig)
-class XFilesDanaPe2Epb4Config extends Config(new Dana(2, 4) ++
+class XFilesDanaPe2Epb4Config extends Config(new WithPeEpb(2, 4) ++
   new XFilesDanaFPGAConfig)
-class XFilesDanaPe3Epb4Config extends Config(new Dana(3, 4) ++
+class XFilesDanaPe3Epb4Config extends Config(new WithPeEpb(3, 4) ++
   new XFilesDanaFPGAConfig)
-class XFilesDanaPe4Epb4Config extends Config(new Dana(4, 4) ++
+class XFilesDanaPe4Epb4Config extends Config(new WithPeEpb(4, 4) ++
   new XFilesDanaFPGAConfig)
 
-class XFilesDanaPe1Epb8Config extends Config(new Dana(1, 8) ++
+class XFilesDanaPe1Epb8Config extends Config(new WithPeEpb(1, 8) ++
   new XFilesDanaFPGAConfig)
-class XFilesDanaPe2Epb8Config extends Config(new Dana(2, 8) ++
+class XFilesDanaPe2Epb8Config extends Config(new WithPeEpb(2, 8) ++
   new XFilesDanaFPGAConfig)
-class XFilesDanaPe3Epb8Config extends Config(new Dana(3, 8) ++
+class XFilesDanaPe3Epb8Config extends Config(new WithPeEpb(3, 8) ++
   new XFilesDanaFPGAConfig)
-class XFilesDanaPe4Epb8Config extends Config(new Dana(4, 8) ++
+class XFilesDanaPe4Epb8Config extends Config(new WithPeEpb(4, 8) ++
   new XFilesDanaFPGAConfig)
-class XFilesDanaPe5Epb8Config extends Config(new Dana(1, 8) ++
+class XFilesDanaPe5Epb8Config extends Config(new WithPeEpb(1, 8) ++
   new XFilesDanaFPGAConfig)
-class XFilesDanaPe6Epb8Config extends Config(new Dana(2, 8) ++
+class XFilesDanaPe6Epb8Config extends Config(new WithPeEpb(2, 8) ++
   new XFilesDanaFPGAConfig)
-class XFilesDanaPe7Epb8Config extends Config(new Dana(3, 8) ++
+class XFilesDanaPe7Epb8Config extends Config(new WithPeEpb(3, 8) ++
   new XFilesDanaFPGAConfig)
-class XFilesDanaPe8Epb8Config extends Config(new Dana(4, 8) ++
+class XFilesDanaPe8Epb8Config extends Config(new WithPeEpb(4, 8) ++
   new XFilesDanaFPGAConfig)
 
-class XFilesDanaCppPe1Epb4Config extends Config(new Dana(1, 4) ++
+class XFilesDanaCppPe1Epb4Config extends Config(new WithPeEpb(1, 4) ++
   new XFilesDanaCPPConfig)
-class XFilesDanaCppPe2Epb4Config extends Config(new Dana(2, 4) ++
+class XFilesDanaCppPe2Epb4Config extends Config(new WithPeEpb(2, 4) ++
   new XFilesDanaCPPConfig)
-class XFilesDanaCppPe3Epb4Config extends Config(new Dana(3, 4) ++
+class XFilesDanaCppPe3Epb4Config extends Config(new WithPeEpb(3, 4) ++
   new XFilesDanaCPPConfig)
-class XFilesDanaCppPe4Epb4Config extends Config(new Dana(4, 4) ++
-  new XFilesDanaCPPConfig)
-
-class XFilesDanaCppPe1Epb8Config extends Config(new Dana(1, 8) ++
-  new XFilesDanaCPPConfig)
-class XFilesDanaCppPe2Epb8Config extends Config(new Dana(2, 8) ++
-  new XFilesDanaCPPConfig)
-class XFilesDanaCppPe3Epb8Config extends Config(new Dana(3, 8) ++
-  new XFilesDanaCPPConfig)
-class XFilesDanaCppPe4Epb8Config extends Config(new Dana(4, 8) ++
-  new XFilesDanaCPPConfig)
-class XFilesDanaCppPe5Epb8Config extends Config(new Dana(5, 8) ++
-  new XFilesDanaCPPConfig)
-class XFilesDanaCppPe6Epb8Config extends Config(new Dana(6, 8) ++
-  new XFilesDanaCPPConfig)
-class XFilesDanaCppPe7Epb8Config extends Config(new Dana(7, 8) ++
-  new XFilesDanaCPPConfig)
-class XFilesDanaCppPe8Epb8Config extends Config(new Dana(8, 8) ++
+class XFilesDanaCppPe4Epb4Config extends Config(new WithPeEpb(4, 4) ++
   new XFilesDanaCPPConfig)
 
-class XFilesDanaCppPe1Epb16Config extends Config(new Dana(1, 16) ++
+class XFilesDanaCppPe1Epb8Config extends Config(new WithPeEpb(1, 8) ++
   new XFilesDanaCPPConfig)
-class XFilesDanaCppPe2Epb16Config extends Config(new Dana(2, 16) ++
+class XFilesDanaCppPe2Epb8Config extends Config(new WithPeEpb(2, 8) ++
   new XFilesDanaCPPConfig)
-class XFilesDanaCppPe3Epb16Config extends Config(new Dana(3, 16) ++
+class XFilesDanaCppPe3Epb8Config extends Config(new WithPeEpb(3, 8) ++
   new XFilesDanaCPPConfig)
-class XFilesDanaCppPe4Epb16Config extends Config(new Dana(4, 16) ++
+class XFilesDanaCppPe4Epb8Config extends Config(new WithPeEpb(4, 8) ++
   new XFilesDanaCPPConfig)
-class XFilesDanaCppPe5Epb16Config extends Config(new Dana(5, 16) ++
+class XFilesDanaCppPe5Epb8Config extends Config(new WithPeEpb(5, 8) ++
   new XFilesDanaCPPConfig)
-class XFilesDanaCppPe6Epb16Config extends Config(new Dana(6, 16) ++
+class XFilesDanaCppPe6Epb8Config extends Config(new WithPeEpb(6, 8) ++
   new XFilesDanaCPPConfig)
-class XFilesDanaCppPe7Epb16Config extends Config(new Dana(7, 16) ++
+class XFilesDanaCppPe7Epb8Config extends Config(new WithPeEpb(7, 8) ++
   new XFilesDanaCPPConfig)
-class XFilesDanaCppPe8Epb16Config extends Config(new Dana(8, 16) ++
-  new XFilesDanaCPPConfig)
-class XFilesDanaCppPe16Epb16Config extends Config(new Dana(8, 16) ++
+class XFilesDanaCppPe8Epb8Config extends Config(new WithPeEpb(8, 8) ++
   new XFilesDanaCPPConfig)
 
-class XFilesDanaCppPe1Epb32Config extends Config(new Dana(1, 32) ++
+class XFilesDanaCppPe1Epb16Config extends Config(new WithPeEpb(1, 16) ++
   new XFilesDanaCPPConfig)
-class XFilesDanaCppPe4Epb32Config extends Config(new Dana(4, 32) ++
+class XFilesDanaCppPe2Epb16Config extends Config(new WithPeEpb(2, 16) ++
   new XFilesDanaCPPConfig)
-class XFilesDanaCppPe8Epb32Config extends Config(new Dana(8, 32) ++
+class XFilesDanaCppPe3Epb16Config extends Config(new WithPeEpb(3, 16) ++
   new XFilesDanaCPPConfig)
-class XFilesDanaCppPe16Epb32Config extends Config(new Dana(16, 32) ++
+class XFilesDanaCppPe4Epb16Config extends Config(new WithPeEpb(4, 16) ++
   new XFilesDanaCPPConfig)
-class XFilesDanaCppPe32Epb32Config extends Config(new Dana(32, 32) ++
+class XFilesDanaCppPe5Epb16Config extends Config(new WithPeEpb(5, 16) ++
+  new XFilesDanaCPPConfig)
+class XFilesDanaCppPe6Epb16Config extends Config(new WithPeEpb(6, 16) ++
+  new XFilesDanaCPPConfig)
+class XFilesDanaCppPe7Epb16Config extends Config(new WithPeEpb(7, 16) ++
+  new XFilesDanaCPPConfig)
+class XFilesDanaCppPe8Epb16Config extends Config(new WithPeEpb(8, 16) ++
+  new XFilesDanaCPPConfig)
+class XFilesDanaCppPe16Epb16Config extends Config(new WithPeEpb(8, 16) ++
+  new XFilesDanaCPPConfig)
+
+class XFilesDanaCppPe1Epb32Config extends Config(new WithPeEpb(1, 32) ++
+  new XFilesDanaCPPConfig)
+class XFilesDanaCppPe4Epb32Config extends Config(new WithPeEpb(4, 32) ++
+  new XFilesDanaCPPConfig)
+class XFilesDanaCppPe8Epb32Config extends Config(new WithPeEpb(8, 32) ++
+  new XFilesDanaCPPConfig)
+class XFilesDanaCppPe16Epb32Config extends Config(new WithPeEpb(16, 32) ++
+  new XFilesDanaCPPConfig)
+class XFilesDanaCppPe32Epb32Config extends Config(new WithPeEpb(32, 32) ++
   new XFilesDanaCPPConfig)

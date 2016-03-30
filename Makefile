@@ -4,6 +4,7 @@
 SHELL            = /bin/bash
 DIR_TOP         ?= .
 DIR_BUILD	?= $(DIR_TOP)/build
+DIR_ROCKETCHIP ?= $(abspath $(DIR_TOP)/..)
 
 DIR_FANN        = $(DIR_TOP)/submodules/fann
 
@@ -23,19 +24,20 @@ SEED            = 0
 
 SBT			?= sbt
 # Unused sbt flags
+CHISEL_SUBMODULE        ?= $(DIR_ROCKETCHIP)/chisel2
 _SBT_FLAGS		?= -Dsbt.log.noformat=true
 SBT_FLAGS		?=
-CHISEL_TOP		= dana
-CHISEL_CONFIG		= DefaultXFilesDanaConfig
+CHISEL_TOP		= rocketchip
+CHISEL_CONFIG		?= XFilesDanaNoRocketConfig
 CHISEL_CONFIG_DOT 	= .$(CHISEL_CONFIG)
-FPGA_CONFIG             = DefaultXFilesDanaFPGAConfig
+FPGA_CONFIG             ?= $(CHISEL_CONFIG)
 FPGA_CONFIG_DOT 	= .$(FPGA_CONFIG)
 CHISEL_FLAGS		= --targetDir $(DIR_BUILD) \
 	--configDump \
 	--compile \
 	--debug \
 	--vcd
-CHISEL_FLAGS_CPP	= --backend c --genHarness --compile $(CHISEL_FLAGS) \
+CHISEL_FLAGS_CPP	= $(CHISEL_TOP) $(CHISEL_CONFIG) --backend c --genHarness --compile $(CHISEL_FLAGS) \
 	--configInstance $(CHISEL_TOP)$(CHISEL_CONFIG_DOT)
 CHISEL_FLAGS_V		= --backend v $(CHISEL_FLAGS) \
 	--configInstance $(CHISEL_TOP)$(FPGA_CONFIG_DOT)
