@@ -35,16 +35,16 @@ $(DIR_BUILD)/linux/libxfiles.a: $(XFILES_LIBRARIES_OBJECTS_LINUX)
 
 #------------------- RISC-V Tests
 $(DIR_BUILD)/newlib/fann-soft.rv: fann-soft.c $(XFILES_LIBRARIES_NEWLIB) $(DIR_BUILD)/fann-rv-newlib/libfann.a
-	$(RV_CC) -Wall -Werror -static -march=RV64IMAFDXcustom -I. -I$(DIR_BUILD)/nets -I$(DIR_TOP)/usr/include -I. $< -o $@ -L$(DIR_USR)/lib-rv-newlib -lxfiles -lfann -lm
+	$(RV_CC) -Wall -Werror -static -march=RV64IMAFDXcustom -I. -I$(DIR_BUILD)/nets -I$(DIR_TOP)/usr/include $< -o $@ -L$(DIR_TOP)/usr/lib-rv-newlib -lxfiles -lfann -lm
 
 $(DIR_BUILD)/linux/fann-soft.rv: fann-soft.c $(DIR_BUILD_NETS) $(XFILES_LIBRARIES_LINUX) $(DIR_BUILD)/linux $(DIR_BUILD)/fann-rv-linux/libfann.a
-	$(RV_CC_LINUX) -Wall -Werror -static -march=RV64IMAFDXcustom -I. -I$(DIR_BUILD_NETS) -I$(DIR_USR_INCLUDE) -I. $< -o $@ -L$(DIR_USR)/lib-rv-linux -lxfiles -lfann -lm
+	$(RV_CC_LINUX) -Wall -Werror -static -march=RV64IMAFDXcustom -I. -I$(DIR_BUILD_NETS) -I$(DIR_TOP)/usr/include $< -o $@ -L$(DIR_TOP)/usr/lib-rv-linux -lxfiles -lfann -lm
 
 $(DIR_BUILD)/newlib/%.rv: %.c $(XFILES_LIBRARIES_NEWLIB) $(DIR_BUILD)/fann-rv-newlib/libfann.a | $(DIR_BUILD)/newlib
-	$(RV_CC) -Wall -Werror -static -march=RV64IMAFDXcustom -I$(DIR_SRC_C) -I$(DIR_BUILD_NETS) -I$(DIR_USR_INCLUDE) -I. $< -o $@ -L$(DIR_USR)/lib-rv-newlib -lxfiles -lfixedfann -lm
+	$(RV_CC) -Wall -Werror -static -march=RV64IMAFDXcustom -I. -I$(DIR_BUILD_NETS) -I$(DIR_TOP)/usr/include $< -o $@ -L$(DIR_TOP)/usr/lib-rv-newlib -lxfiles -lfixedfann -lm
 
 $(DIR_BUILD)/linux/%.rv: %.c $(XFILES_LIBRARIES_LINUX) $(DIR_BUILD)/fann-rv-linux/libfann.a | $(DIR_BUILD)/linux
-	$(RV_CC_LINUX) -Wall -Werror -static -march=RV64IMAFDXcustom -I$(DIR_SRC_C) -I$(DIR_BUILD_NETS) -I$(DIR_USR_INCLUDE) -I. $< -o $@ -L$(DIR_USR)/lib-rv-linux -lxfiles -lfixedfann -lm
+	$(RV_CC_LINUX) -Wall -Werror -static -march=RV64IMAFDXcustom -I. -I$(DIR_BUILD_NETS) -I$(DIR_TOP)/usr/include $< -o $@ -L$(DIR_TOP)/usr/lib-rv-linux -lxfiles -lfixedfann -lm
 
 $(DIR_BUILD)/newlib/%.rvS: $(DIR_BUILD)/newlib/%.rv
 	$(RV_OBJDUMP) -S $< > $@

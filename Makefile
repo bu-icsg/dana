@@ -18,12 +18,6 @@ DIR_TEST_V	= $(DIR_TOP)/src/test/verilog
 DIR_TEST_CPP	= $(DIR_TOP)/src/test/cpp
 DIR_TEST_RV     = $(DIR_TOP)/src/test/rv
 DIR_MAIN_RES    = $(DIR_TOP)/src/main/resources
-DIR_USR         = $(DIR_TOP)/usr
-DIR_USR_BIN     = $(DIR_TOP)/usr/bin
-DIR_USR_LIB     = $(DIR_TOP)/usr/lib
-DIR_USR_LIB_RV  = $(DIR_TOP)/usr/lib-rv-newlib
-DIR_USR_LIB_RV_LINUX = $(DIR_TOP)/usr/lib-rv-linux
-DIR_USR_INCLUDE = $(DIR_TOP)/usr/include
 SEED            = $(shell echo "$$RANDOM")
 SEED            = 0
 
@@ -103,13 +97,13 @@ RV_TESTS_DISASM_LINUX		= $(RV_TESTS:%.c=$(DIR_BUILD)/linux/%.rvS)
 # Compiler related options
 CXX           ?= g++
 CC            ?= gcc
-INCLUDE_PATHS = $(DIR_BUILD) $(DIR_USR_INCLUDE)
+INCLUDE_PATHS = $(DIR_BUILD) $(DIR_TOP)/usr/include
 INCLUDES      = $(addprefix -include $(DIR_BUILD)/, \
 	$(EXECUTABLES:%=%$(CHISEL_CONFIG_DOT).h))
 CXX_FLAGS     = $(INCLUDES) $(INCLUDE_PATHS:%=-I %) -g -std=c++11
 
 # Linker related options
-LIB_PATHS     = $(DIR_USR_LIB)
+LIB_PATHS     = $(DIR_TOP)/usr/lib
 LIB_LIBS      = m fann
 LFLAGS        = $(addprefix -Wl$(COMMA)-R, $(abspath $(LIB_PATHS))) \
 	$(LIB_PATHS:%=-L %) $(LIB_LIBS:%=-l %)
@@ -226,7 +220,7 @@ $(DIR_BUILD)/doc:
 
 #------------------- Populate a dummy cache (shouldn't be needed!)
 $(DIR_BUILD)/cache:
-	$(DIR_USR_BIN)/danaCache $@ src/main/resources/fft.net
+	$(DIR_TOP)/usr/bin/danaCache $@ src/main/resources/fft.net
 
 #------------------- Utility Targets
 clean:
