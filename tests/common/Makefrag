@@ -38,8 +38,8 @@ default: all
 
 include $(DIR_TOP)/tools/common/Makefrag-rv
 include $(DIR_TOP)/tools/common/Makefrag-fann
-include $(DIR_TOP)/tools/common/Makefrag-nets
 include $(DIR_TOP)/tools/common/Makefrag-tools
+include $(DIR_TOP)/tools/common/Makefrag-nets
 
 %.rv: %.c $(DIR_BUILD)/newlib/libxfiles.a $(DIR_BUILD)/fann-rv-newlib/libfann.a
 	@ $(RV_CC) $(C_FLAGS) $< -o $@ $(L_FLAGS)
