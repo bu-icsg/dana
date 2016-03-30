@@ -110,9 +110,9 @@ cd $ROCKETCHIP/emulator
 make CONFIG=XFilesDanaCppPe4Epb4Config ROCKETCHIP_ADDONS=xfiles-dana
 ```
 
-With the patched Proxy Kernel, we can then run the test programs (built by running `make rv` in the `xfiles-dana` repo). The two test programs are a hello-world program (`hello.rv`) which does not exercise X-FILES/DANA and a one-off test running gradient descent/stochatic gradient descent (`fann-xfiles.rv`) which offloads FANN computation to X-FILES/DANA. If your patched Proxy Kernel is not in its "normal" place in the `RISCV` directory, you'll need to specify a full path to it.
+With the patched Proxy Kernel, we can then run the test programs (built by running `make` in the `xfiles-dana` repo). The two test programs are a hello-world program (`hello.rv`) which does not exercise X-FILES/DANA and a one-off test running gradient descent/stochatic gradient descent (`fann-xfiles.rv`) which offloads FANN computation to X-FILES/DANA. If your patched Proxy Kernel is not in its "normal" place in the `RISCV` directory, you'll need to specify a full path to it.
 
-Note: the `make rv` command will build and use the newlib variant of the RISC-V toolchain. You can target the linux-gcc variant with `make rv-linux`, but this requires that you have the linux-gcc toolchain installed and available.
+Note: the `make rv` command will build and use the newlib variant of the RISC-V toolchain. You can target the linux-gcc variant with `make linux`, but this requires that you have the linux-gcc toolchain installed and available.
 
 You can run the hello world program with the following:
 ```bash

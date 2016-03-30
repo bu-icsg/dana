@@ -3,6 +3,58 @@
 # Makefile that defines neural network configurations and defines how
 # to build floating point and fixed point neural networks.
 
+# Network Configurations -- the convenction here is floating point
+# nets look like "foo.net" while the fixed point equivalent of this is
+# "foo-fixed.net". NETS and NETS_THRESHOLD have floating point
+# configurations which live in src/main/resources. NETS_GEN are
+# randomly initialized networks which have to be generated with
+# `fann-random` and will have their floating point versions put in
+# build/nets.
+NETS_GEN=xorSigmoid xorSigmoidSymmetric xorSigmoidSymmetricPair \
+	xorSigmoidSymmetricThreeLayer
+NETS_FANN=census-house mushroom diabetes gene kin32fm soybean thyroid \
+	two-spiral abelone bank32fm bank32nh building census-house \
+	pumadyn-32fm robot soybean
+NETS_PARITY=parity-1 parity-2 parity-3 parity-4 parity-5 parity-6 parity-7 \
+	parity-8 parity-9
+NETS_PARITY_SAME=parity-same-1 parity-same-2 parity-same-3 parity-same-4 \
+	parity-same-5 parity-same-6 parity-same-7 parity-same-8 parity-same-9
+NETS_XOR=xor-sigmoid-4i xor-sigmoid-8i xor-sigmoid-16i xor-sigmoid-32i \
+	xor-sigmoid-64i xor-sigmoid-128i xor-sigmoid-256i xor-sigmoid-512i \
+	xor-sigmoid-1024i \
+	xor-sigmoid-4o xor-sigmoid-8o xor-sigmoid-16o xor-sigmoid-32o \
+	xor-sigmoid-64o xor-sigmoid-128o xor-sigmoid-256o xor-sigmoid-512o \
+	xor-sigmoid-1024o
+NETS_SIN=sin
+NETS+=$(NETS_GEN) $(NETS_FANN) $(NETS_PARITY) $(NETS_PARITY_SAME) $(NETS_XOR) \
+	$(NETS_SIN)
+NETS_FLOAT=$(addsuffix -float, $(NETS))
+# Only certain networks have valid training files
+NETS_TRAIN=xorSigmoid xorSigmoidSymmetric xorSigmoidSymmetricPair \
+	xorSigmoidSymmetricThreeLayer
+NETS_BIN=$(addprefix $(DIR_BUILD_NETS)/, $(addsuffix -fixed.16bin, $(NETS)) \
+	$(addsuffix -fixed.32bin, $(NETS)) \
+	$(addsuffix -fixed.64bin, $(NETS)) \
+	$(addsuffix -fixed.128bin, $(NETS)))
+TRAIN_SIN=sin-scale-0.25 sin-scale-0.50 sin-scale-0.75 sin-scale-1.00 \
+	sin-scale-1.25 sin-scale-1.50 sin-scale-1.75 sin-scale-2.00 \
+	sin-scale-2.25 sin-scale-2.50 sin-scale-2.75 sin-scale-3.00 \
+	sin-scale-3.25 sin-scale-3.50 sin-scale-3.75 sin-scale-4.00
+NETS_H +=$(addprefix $(DIR_BUILD_NETS)/, $(addsuffix -fixed-16bin-32.h, $(NETS)) \
+	$(addsuffix -fixed-32bin-32.h, $(NETS)) \
+	$(addsuffix -fixed-64bin-32.h, $(NETS)) \
+	$(addsuffix -fixed-128bin-32.h, $(NETS)))
+NETS_H +=$(addprefix $(DIR_BUILD_NETS)/, $(addsuffix -fixed-16bin-64.h, $(NETS)) \
+	$(addsuffix -fixed-32bin-64.h, $(NETS)) \
+	$(addsuffix -fixed-64bin-64.h, $(NETS)) \
+	$(addsuffix -fixed-128bin-64.h, $(NETS)))
+TRAIN_H=$(addprefix $(DIR_BUILD_NETS)/, $(addsuffix _train.h, $(NETS_TRAIN)))
+TRAIN_FIXED=$(addprefix $(DIR_BUILD_NETS)/, $(addsuffix -fixed.train, $(NETS_GEN)))
+TRAIN_FIXED+=$(addprefix $(DIR_BUILD_NETS)/, $(addsuffix -fixed.train, $(NETS_FANN)))
+TRAIN_FIXED+=$(addprefix $(DIR_BUILD_NETS)/, $(addsuffix -fixed.train, $(NETS_PARITY)))
+TRAIN_FIXED+=$(addprefix $(DIR_BUILD_NETS)/, $(addsuffix -fixed.train, $(NETS_XOR)))
+TRAIN_FIXED+=$(addprefix $(DIR_BUILD_NETS)/, $(addsuffix -fixed.train, $(TRAIN_SIN)))
+
 vpath %.train $(DIR_TOP)/src/main/resources
 vpath %.train $(DIR_TOP)/submodules/fann/datasets
 

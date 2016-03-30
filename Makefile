@@ -15,7 +15,6 @@ DIR_SRC_SCALA	= $(DIR_TOP)/src/main/scala
 DIR_SRC_V	= $(DIR_TOP)/src/main/verilog
 DIR_SRC_C       = $(DIR_TOP)/src/main/c
 DIR_SRC_CPP	= $(DIR_TOP)/src/main/cpp
-DIR_TEST_SCALA	= $(DIR_TOP)/src/test/scala
 DIR_TEST_V	= $(DIR_TOP)/src/test/verilog
 DIR_TEST_CPP	= $(DIR_TOP)/src/test/cpp
 DIR_TEST_RV     = $(DIR_TOP)/src/test/rv
@@ -138,58 +137,6 @@ XFILES_LIBRARIES_OBJECTS_NEWLIB = $(DIR_BUILD)/newlib/xfiles-user.o \
 XFILES_LIBRARIES_OBJECTS_LINUX = $(DIR_BUILD)/linux/xfiles-user.o \
 	$(DIR_BUILD)/linux/xfiles-supervisor.o
 
-# Network Configurations -- the convenction here is floating point
-# nets look like "foo.net" while the fixed point equivalent of this is
-# "foo-fixed.net". NETS and NETS_THRESHOLD have floating point
-# configurations which live in src/main/resources. NETS_GEN are
-# randomly initialized networks which have to be generated with
-# `fann-random` and will have their floating point versions put in
-# build/nets.
-NETS_GEN=xorSigmoid xorSigmoidSymmetric xorSigmoidSymmetricPair \
-	xorSigmoidSymmetricThreeLayer
-NETS_FANN=census-house mushroom diabetes gene kin32fm soybean thyroid \
-	two-spiral abelone bank32fm bank32nh building census-house \
-	pumadyn-32fm robot soybean
-NETS_PARITY=parity-1 parity-2 parity-3 parity-4 parity-5 parity-6 parity-7 \
-	parity-8 parity-9
-NETS_PARITY_SAME=parity-same-1 parity-same-2 parity-same-3 parity-same-4 \
-	parity-same-5 parity-same-6 parity-same-7 parity-same-8 parity-same-9
-NETS_XOR=xor-sigmoid-4i xor-sigmoid-8i xor-sigmoid-16i xor-sigmoid-32i \
-	xor-sigmoid-64i xor-sigmoid-128i xor-sigmoid-256i xor-sigmoid-512i \
-	xor-sigmoid-1024i \
-	xor-sigmoid-4o xor-sigmoid-8o xor-sigmoid-16o xor-sigmoid-32o \
-	xor-sigmoid-64o xor-sigmoid-128o xor-sigmoid-256o xor-sigmoid-512o \
-	xor-sigmoid-1024o
-NETS_SIN=sin
-NETS+=$(NETS_GEN) $(NETS_FANN) $(NETS_PARITY) $(NETS_PARITY_SAME) $(NETS_XOR) \
-	$(NETS_SIN)
-NETS_FLOAT=$(addsuffix -float, $(NETS))
-# Only certain networks have valid training files
-NETS_TRAIN=xorSigmoid xorSigmoidSymmetric xorSigmoidSymmetricPair \
-	xorSigmoidSymmetricThreeLayer
-NETS_BIN=$(addprefix $(DIR_BUILD_NETS)/, $(addsuffix -fixed.16bin, $(NETS)) \
-	$(addsuffix -fixed.32bin, $(NETS)) \
-	$(addsuffix -fixed.64bin, $(NETS)) \
-	$(addsuffix -fixed.128bin, $(NETS)))
-TRAIN_SIN=sin-scale-0.25 sin-scale-0.50 sin-scale-0.75 sin-scale-1.00 \
-	sin-scale-1.25 sin-scale-1.50 sin-scale-1.75 sin-scale-2.00 \
-	sin-scale-2.25 sin-scale-2.50 sin-scale-2.75 sin-scale-3.00 \
-	sin-scale-3.25 sin-scale-3.50 sin-scale-3.75 sin-scale-4.00
-NETS_H +=$(addprefix $(DIR_BUILD_NETS)/, $(addsuffix -fixed-16bin-32.h, $(NETS)) \
-	$(addsuffix -fixed-32bin-32.h, $(NETS)) \
-	$(addsuffix -fixed-64bin-32.h, $(NETS)) \
-	$(addsuffix -fixed-128bin-32.h, $(NETS)))
-NETS_H +=$(addprefix $(DIR_BUILD_NETS)/, $(addsuffix -fixed-16bin-64.h, $(NETS)) \
-	$(addsuffix -fixed-32bin-64.h, $(NETS)) \
-	$(addsuffix -fixed-64bin-64.h, $(NETS)) \
-	$(addsuffix -fixed-128bin-64.h, $(NETS)))
-TRAIN_H=$(addprefix $(DIR_BUILD_NETS)/, $(addsuffix _train.h, $(NETS_TRAIN)))
-TRAIN_FIXED=$(addprefix $(DIR_BUILD_NETS)/, $(addsuffix -fixed.train, $(NETS_GEN)))
-TRAIN_FIXED+=$(addprefix $(DIR_BUILD_NETS)/, $(addsuffix -fixed.train, $(NETS_FANN)))
-TRAIN_FIXED+=$(addprefix $(DIR_BUILD_NETS)/, $(addsuffix -fixed.train, $(NETS_PARITY)))
-TRAIN_FIXED+=$(addprefix $(DIR_BUILD_NETS)/, $(addsuffix -fixed.train, $(NETS_XOR)))
-TRAIN_FIXED+=$(addprefix $(DIR_BUILD_NETS)/, $(addsuffix -fixed.train, $(TRAIN_SIN)))
-
 DECIMAL_POINT_OFFSET=7
 DECIMAL_POINT_BITS=3
 MAX_DECIMAL_POINT=`echo "2 $(DECIMAL_POINT_BITS)^1-$(DECIMAL_POINT_OFFSET)+p"|dc`
@@ -211,7 +158,7 @@ vpath %bin $(DIR_BUILD_NETS)
 
 default: all
 
-all:
+all: nets newlib
 
 cpp: $(BACKEND_CPP)
 
@@ -235,19 +182,22 @@ vcd-verilog: $(DIR_BUILD)/t_XFilesDana$(FPGA_CONFIG_DOT)-vcd.vvp Makefile
 debug: $(TEST_EXECUTABLES) Makefile
 	$< -d $(<:$(DIR_BUILD)/t_%=$(DIR_BUILD)/%.prm)
 
-rv: $(XFILES_LIBRARIES_NEWLIB)  \
-	$(NETS_BIN) \
-	$(TRAIN_FIXED) \
-	$(RV_TESTS_EXECUTABLES_NEWLIB) \
-	$(RV_TESTS_DISASM_NEWLIB)
+newlib: $(XFILES_LIBRARIES_NEWLIB)  \
+	$(RV_TESTS_EXECUTABLES_NEWLIB)
 
-rv-linux: $(XFILES_LIBRARIES_LINUX) \
-	$(NETS_BIN) \
-	$(TRAIN_FIXED) \
-	$(RV_TESTS_EXECUTABLES_LINUX) \
-	$(RV_TESTS_DISASM_LINUX)
+
+linux: $(XFILES_LIBRARIES_LINUX) \
+	$(RV_TESTS_EXECUTABLES_LINUX)
+
+disasm-newlib: $(RV_TESTS_DISASM_NEWLIB)
+disasm-linux: $(RV_TESTS_DISASM_LINUX)
 
 include $(DIR_TOOLS)/common/Makefrag-fann
+include $(DIR_TOOLS)/common/Makefrag-tools
+include $(DIR_TOOLS)/common/Makefrag-nets
+
+nets: $(NETS_BIN) $(TRAIN_FIXED)
+tools: $(NETS_TOOLS)
 
 #------------------- Library Targets
 $(DIR_BUILD)/newlib/%.o: %.c | $(DIR_BUILD)/newlib
@@ -317,10 +267,6 @@ $(DIR_BUILD)/newlib/%.rvS: $(DIR_BUILD)/newlib/%.rv
 $(DIR_BUILD)/linux/%.rvS: $(DIR_BUILD)/linux/%.rv
 	$(RV_OBJDUMP) -S $< > $@
 
-#------------------- Nets
-include $(DIR_TOOLS)/common/Makefrag-tools
-include $(DIR_TOOLS)/common/Makefrag-nets
-
 #--------- Fixed point training files
 $(DIR_BUILD_NETS)/%_train.h: %.train $(NETS_TOOLS)
 	@ if [[ -e $(DIR_MAIN_RES)/$(notdir $(basename $<)-float.net) ]]; \
@@ -354,8 +300,6 @@ $(DIR_BUILD)/cache:
 clean:
 	rm -rf $(DIR_BUILD)/*
 	rm -rf target
-	make clean -C $(DIR_TOOLS)
 
 mrproper: clean
 	$(MAKE) clean -C $(DIR_TOOLS)
-	$(MAKE) clean -C $(DIR_FANN)
