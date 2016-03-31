@@ -51,12 +51,6 @@ class XFilesBackendInterface(implicit p: Parameters)
   val queueIO = new XFilesQueueInterface
 }
 
-abstract class XFilesBackend(implicit p: Parameters) extends XFilesModule()(p) {
+class XFilesBackend(implicit p: Parameters) extends XFilesModule()(p) {
   val io = new XFilesBackendInterface
-
-  // An xLen set of bits that will be returned to the microprocessor
-  // on a "request info" request. These bits can be anything, but it
-  // is intended to provide some information to the user on what the
-  // backend is or how it is configured.
-  def backendInfo() = UInt(width = xLen)
 }

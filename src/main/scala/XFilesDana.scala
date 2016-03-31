@@ -14,7 +14,7 @@ class XFilesDana(implicit p: Parameters) extends RoCC()(p) {
   val buildBackend = p(BuildXFilesBackend)
   val backend = buildBackend.generator(p)
   val backendInfo = UInt(p(TransactionTableNumEntries)) ##
-    UInt(buildBackend.info, width = 48)
+    UInt(buildBackend.info, width = xLen - 16)
   val xFilesArbiter = Module(new XFilesArbiter(backendInfo)(p))
 
   // io.arbiter <> xFilesArbiter.io.core

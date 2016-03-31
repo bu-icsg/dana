@@ -216,13 +216,6 @@ abstract class DanaBundle(implicit p: Parameters) extends XFilesBundle()(p)
 class Dana(implicit p: Parameters) extends XFilesBackend()(p)
     with DanaParameters {
 
-  override def backendInfo(): UInt = {
-    UInt(p(ElementsPerBlock), width = 6) ##
-    UInt(p(PeTableNumEntries), width = 6) ##
-    UInt(p(TransactionTableNumEntries), width = 4) ##
-    UInt(p(CacheNumEntries), width = 4)
-  }
-
   // Module instantiation
   val control = if (learningEnabled) Module(new ControlLearn) else
     Module(new Control)
