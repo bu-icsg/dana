@@ -4,7 +4,7 @@ package xfiles
 
 import Chisel._
 import cde.{Parameters, Config, Dump, Knob}
-import dana.{DefaultDanaConfig}
+import dana.DefaultDanaConfig
 
 class DefaultXFilesConfig extends Config (
   topDefinitions = { (pname,site,here) =>

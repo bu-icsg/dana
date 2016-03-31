@@ -5,7 +5,7 @@ package dana
 import Chisel._
 
 import rocket.{RoCCCommand, RoCCResponse, MStatus}
-import cde.{Parameters}
+import cde.Parameters
 import xfiles.{TransactionTableNumEntries, TableEntry, HasTable,
   XFilesResponseCodes, XFilesBackendReq, XFilesBackendResp,
   XFilesQueueInterface}

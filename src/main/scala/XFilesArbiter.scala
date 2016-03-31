@@ -8,10 +8,6 @@ import junctions.ParameterizedBundle
 import rocket.{RoCCInterface, RoCCCommand, HellaCacheResp, HasCoreParameters}
 import cde.{Parameters, Field}
 
-// [TODO] This is to get the parameter info from DANA. This should be
-// removed once DANA is responding to its own info requests
-import dana.{ElementsPerBlock, PeTableNumEntries, CacheNumEntries}
-
 case object NumCores extends Field[Int]
 case object TidWidth extends Field[Int]
 case object AsidWidth extends Field[Int]
@@ -135,7 +131,8 @@ class XFilesInterface(implicit p: Parameters) extends Bundle {
   val backend = (new XFilesBackendInterface).flip
 }
 
-class XFilesArbiter(implicit p: Parameters) extends XFilesModule()(p) {
+class XFilesArbiter(backendInfo: UInt)(implicit p: Parameters)
+    extends XFilesModule()(p) {
   val io = new XFilesInterface
 
   val asidUnits = Vec.tabulate(numCores)(id => Module(new AsidUnit(id)).io)
@@ -177,12 +174,6 @@ class XFilesArbiter(implicit p: Parameters) extends XFilesModule()(p) {
     val squashSup = reqInfo | badRequest
     val squashUser = squashSup | io.core(i).status.prv.orR
 
-    // This information should be a provided by the backend
-    val info = UInt(p(ElementsPerBlock), width = 6) ##
-      UInt(p(PeTableNumEntries), width = 6) ##
-      UInt(p(TransactionTableNumEntries), width = 4) ##
-      UInt(p(CacheNumEntries), width = 4)
-
     io.core(i).resp.valid := reqInfo | badRequest | asidUnits(i).resp.valid | (
       transactionTable.xfiles.resp.valid &
         transactionTable.regIdx.resp === UInt(i))
@@ -190,7 +181,7 @@ class XFilesArbiter(implicit p: Parameters) extends XFilesModule()(p) {
     io.core(i).resp.bits.rd := cmd.bits.inst.rd
     // [TODO] The info returned should be about X-FILES or the
     // backend. There shouldn't be anything DANA-specific here.
-    io.core(i).resp.bits.data := Mux(reqInfo, info,
+    io.core(i).resp.bits.data := Mux(reqInfo, backendInfo,
       SInt(-err_XFILES_NOASID, width = xLen).toUInt)
 
     // The ASID Units are provided with the full command, barring that

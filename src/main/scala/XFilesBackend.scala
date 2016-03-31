@@ -3,8 +3,13 @@
 package xfiles
 
 import Chisel._
-import rocket.{RoCCInterface}
-import cde.{Parameters}
+import rocket.RoCCInterface
+import cde.{Parameters, Field}
+
+case object BuildXFilesBackend extends Field[XFilesBackendParameters]
+case class XFilesBackendParameters(
+  generator: Parameters => XFilesBackend,
+  info: Int = 0)
 
 class CoreIdx(implicit p: Parameters) extends XFilesBundle()(p) {
   val cmd = UInt(OUTPUT, width = log2Up(numCores))
@@ -46,6 +51,12 @@ class XFilesBackendInterface(implicit p: Parameters)
   val queueIO = new XFilesQueueInterface
 }
 
-class XFilesBackend(implicit p: Parameters) extends XFilesModule()(p) {
+abstract class XFilesBackend(implicit p: Parameters) extends XFilesModule()(p) {
   val io = new XFilesBackendInterface
+
+  // An xLen set of bits that will be returned to the microprocessor
+  // on a "request info" request. These bits can be anything, but it
+  // is intended to provide some information to the user on what the
+  // backend is or how it is configured.
+  def backendInfo() = UInt(width = xLen)
 }

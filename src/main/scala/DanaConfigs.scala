@@ -4,11 +4,17 @@ package dana
 
 import Chisel._
 import cde.{Parameters, Config, Dump, Knob}
+import xfiles.{BuildXFilesBackend, XFilesBackendParameters}
 
 class DefaultDanaConfig extends Config (
   topDefinitions = { (pname,site,here) =>
     def divUp (dividend: Int, divisor: Int): Int = {
       (dividend + divisor - 1) / divisor}
+    def packInfo (): Int = {
+      var x = site(ElementsPerBlock) << (6 + 4);
+      x = x | site(PeTableNumEntries) << 4;
+      x = x | site(CacheNumEntries);
+      x}
     pname match {
       // ANTW Parameters
       case AntwRobEntries => 32
@@ -40,6 +46,9 @@ class DefaultDanaConfig extends Config (
       case CacheNumBlocks => divUp(divUp((site(CacheDataSize) * 8),
         site(ElementWidth)), site(ElementsPerBlock))
       case NNConfigNeuronWidth => 64
+      case BuildXFilesBackend => XFilesBackendParameters(
+          generator = (p: Parameters) => Module(new Dana()(p)),
+          info = packInfo())
     }},
   // [TODO] Add constraints
   // topConstraints = List(

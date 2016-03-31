@@ -3,16 +3,19 @@
 package xfiles
 
 import Chisel._
-import dana.Dana
 
 import rocket.{RoCC, RoccNMemChannels}
-import cde.{Parameters}
+import cde.{Parameters, Field}
 
 class XFilesDana(implicit p: Parameters) extends RoCC()(p) {
   // val io = new CoreXFilesInterface
 
-  val xFilesArbiter = Module(new XFilesArbiter()(p))
-  val dana = Module(new Dana)
+  // val dana = Module(new Dana)
+  val buildBackend = p(BuildXFilesBackend)
+  val backend = buildBackend.generator(p)
+  val backendInfo = UInt(p(TransactionTableNumEntries)) ##
+    UInt(buildBackend.info, width = 48)
+  val xFilesArbiter = Module(new XFilesArbiter(backendInfo)(p))
 
   // io.arbiter <> xFilesArbiter.io.core
   io.cmd <> xFilesArbiter.io.core(0).cmd
@@ -53,7 +56,7 @@ class XFilesDana(implicit p: Parameters) extends RoCC()(p) {
     io.utl(i).acquire.valid := Bool(false)
     io.utl(i).grant.ready := Bool(true) }
 
-  xFilesArbiter.io.backend <> dana.io
+  xFilesArbiter.io.backend <> backend.io
 
   // Assertions
 

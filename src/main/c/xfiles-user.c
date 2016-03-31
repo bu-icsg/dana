@@ -26,17 +26,18 @@ xlen_t xfiles_dana_id(int flag_print) {
                 : [type] "i" (XFILES_DANA_ID));
 
   if (flag_print) {
-    uint32_t elements_per_block = (out >> 14) & ~((~0) << 6);
-    uint32_t pe_table_num_entries = (out >> 8) & ~((~0) << 6);
-    uint32_t transaction_table_num_entries = (out >> 4) & ~((~0) << 4);
+    uint64_t transaction_table_num_entries = (out >> 48) & ~((~0) << 4);
+
+    uint32_t elements_per_block = (out >> 10) & ~((~0) << 6);
+    uint32_t pe_table_num_entries = (out >> 4) & ~((~0) << 6);
     uint32_t cache_num_entries = out & ~((~0) << 4);
     printf("X-FILES/DANA Info:\n"
+           "  Transaction Table Entries: %ld\n"
            "  Elements per Block:        %d\n"
            "  PEs:                       %d\n"
-           "  Transaction Table Entries: %d\n"
            "  Cache Entries:             %d\n",
-           elements_per_block, pe_table_num_entries,
-           transaction_table_num_entries, cache_num_entries);
+           transaction_table_num_entries, elements_per_block,
+           pe_table_num_entries, cache_num_entries);
   }
 
   return out;

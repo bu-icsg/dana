@@ -5,7 +5,7 @@ package xfiles
 import Chisel._
 
 import rocket.{RoCCCommand, RoCCResponse, MStatus}
-import cde.{Parameters}
+import cde.Parameters
 
 class AsidTid(implicit p: Parameters) extends XFilesBundle()(p) {
   val asid = UInt(width = p(AsidWidth))

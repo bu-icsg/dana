@@ -3,7 +3,7 @@
 package dana
 
 import Chisel._
-import cde.{Parameters}
+import cde.Parameters
 
 class ControlCacheInterfaceResp(implicit p: Parameters) extends DanaBundle()(p) {
   val fetch = Bool()

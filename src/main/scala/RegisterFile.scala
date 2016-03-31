@@ -3,7 +3,7 @@
 package dana
 
 import Chisel._
-import scala.math._
+import scala.math.pow
 import xfiles.{TransactionTableNumEntries}
 import cde.{Parameters}
 
