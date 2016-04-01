@@ -239,11 +239,6 @@ class XFilesArbiter(backendInfo: UInt)(implicit p: Parameters)
 
   val userReqToBackend = coreArbiter.out.valid
 
-  // io.backend.rocc.cmd.valid := userReqToBackend
-  // io.backend.rocc.cmd.bits := coreArbiter.out.bits
-  // io.backend.regIdx.cmd := coreArbiter.chosen
-  // io.backend.rocc.s := supReqToBackend
-  // io.backend.rocc.resp.ready := Bool(true)
   transactionTable.xfiles.cmd.valid := userReqToBackend
   transactionTable.xfiles.cmd.bits := coreArbiter.out.bits
   transactionTable.regIdx.cmd := coreArbiter.chosen
@@ -254,21 +249,13 @@ class XFilesArbiter(backendInfo: UInt)(implicit p: Parameters)
   io.backend.rocc.cmd.valid := transactionTable.backend.rocc.cmd.valid |
     supReqToBackend
   io.backend.rocc.cmd.bits := transactionTable.backend.rocc.cmd.bits
+
   // [TODO] Kludge that zeros all the status fields of MStatus except
   // for setting the privilege bits (prv) to ONE if we're sending a
   // supervisor request.
   io.backend.rocc.status.prv := supReqToBackend
   io.backend.regIdx.cmd := transactionTable.backend.regIdx.cmd
   transactionTable.backend.regIdx.resp := io.backend.regIdx.resp
-
-//   when (coreArbiter.out.fire()) {
-//     printfInfo("""XFiles Arbiter: coreArbiter.out.valid asserted
-// [INFO] XFilesArbiter: Non-cmdFwd req sent to TTable:
-// [INFO] XFilesArbiter:   inst: 0x%x
-// [INFO] XFilesArbiter:   rs1:  0x%x
-// [INFO] XFilesArbiter:   rs2:  0x%x
-// """, coreArbiter.out.bits.inst.toBits, coreArbiter.out.bits.rs1,
-//       coreArbiter.out.bits.rs2) }
 
   (numCores -1 to 0 by -1).map(i => {
     when (asidUnits(i).cmdFwd.valid) {
@@ -282,13 +269,9 @@ class XFilesArbiter(backendInfo: UInt)(implicit p: Parameters)
   // Handle memory request routing
   val allMemReady = io.core.forall((rocc: RoCCInterface) => rocc.mem.req.ready)
   (0 until numCores).map(i => {
-    // io.core(i).mem.req.valid := io.backend.rocc.mem.req.valid &&
-    //   io.backend.memIdx.cmd === UInt(i)
     io.core(i).mem.req.valid := transactionTable.xfiles.mem.req.valid &&
       transactionTable.memIdx.cmd === UInt(i)
-    // io.core(i).mem.req.bits := io.backend.rocc.mem.req.bits
     io.core(i).mem.req.bits := transactionTable.xfiles.mem.req.bits
-    // io.core(i).mem.invalidate_lr := io.backend.rocc.mem.invalidate_lr
     io.core(i).mem.invalidate_lr := transactionTable.xfiles.mem.invalidate_lr
     when (io.core(i).mem.req.fire()) {
       printfInfo("XFilesArbiter: Mem request core %d with tag 0x%x for addr 0x%x\n",
@@ -311,20 +294,7 @@ class XFilesArbiter(backendInfo: UInt)(implicit p: Parameters)
   // memory response queue is large enough to handle the maximum
   // number of outstanding transactions.
 
-  // val oldAddr = Reg(Vec.fill(numCores)(UInt(width = xLen)))
-
   (0 until numCores).map(i => {
-    // There seems to be a problem with the core returning double
-    // requests (#5). Repeated responses can be squashed here (with
-    // this commented out code) to avoid this. This is, admittedly, a
-    // kludge and has the potential causing other data loss. This
-    // needs more investigation as to why this is actually happening.
-    // oldAddr(i) := oldAddr(i)
-    // when (io.core(i).mem.resp.valid) {
-    //   oldAddr(i) := io.core(i).mem.resp.bits.addr }
-    // memQueue(i).enq.valid := io.core(i).mem.resp.valid &
-    //   io.core(i).mem.resp.bits.addr =/= oldAddr(i)
-
     memQueue(i).enq.valid := io.core(i).mem.resp.valid
     memQueue(i).enq.bits := io.core(i).mem.resp.bits
     memQueue(i).deq <> memArbiter.in(i)
