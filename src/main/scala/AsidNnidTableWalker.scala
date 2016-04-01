@@ -325,9 +325,9 @@ class AsidNnidTableWalker(implicit p: Parameters) extends DanaModule()(p) {
   // invalid ASID for the stored ASID--NNID table pointer.
   assert(!(io.cache.req.fire() && antpReg.valid &&
     antpReg.size < io.cache.req.bits.asid),
-    "ANTW saw cache request with out of bounds ASID")
+    "INTERRUPT: ANTW saw cache request with out of bounds ASID")
   assert(!(io.cache.req.fire() && !antpReg.valid),
-    "ANTW saw cache request with invalid ASID-NNID Table Pointer")
+    "INTERRUPT: ANTW saw cache request with invalid ASID-NNID Table Pointer")
   assert(!(state === s_ERROR),
     "ANTW is in an error state")
   assert(Bool(isPow2(configBufSize)),
@@ -335,5 +335,5 @@ class AsidNnidTableWalker(implicit p: Parameters) extends DanaModule()(p) {
   // Outbound memory requests shouldn't try to read NULL
   assert(!(io.xfiles.dcache.mem.req.valid &&
     io.xfiles.dcache.mem.req.bits.addr === UInt(0)),
-    "ANTW tried to read from NULL")
+    "INTERRUPT: ANTW tried to read from NULL")
 }

@@ -88,7 +88,8 @@ RV_TESTS             = hello.c \
 	fann-xfiles.c \
 	fann-soft.c \
 	write-on-invalid-asid.c \
-	read-xfiles-dana-id.c
+	read-xfiles-dana-id.c \
+	new-request-no-asid.c
 RV_TESTS_EXECUTABLES_NEWLIB	= $(RV_TESTS:%.c=$(DIR_BUILD)/newlib/%.rv)
 RV_TESTS_EXECUTABLES_LINUX	= $(RV_TESTS:%.c=$(DIR_BUILD)/linux/%.rv)
 RV_TESTS_DISASM_NEWLIB		= $(RV_TESTS:%.c=$(DIR_BUILD)/newlib/%.rvS)

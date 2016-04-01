@@ -281,7 +281,6 @@ class XFilesArbiter(backendInfo: UInt)(implicit p: Parameters)
 """,
         UInt(i), io.core(i).mem.resp.bits.tag, io.core(i).mem.resp.bits.addr,
         io.core(i).mem.resp.bits.data_word_bypass) }})
-  // io.backend.rocc.mem.req.ready := allMemReady
   transactionTable.xfiles.mem.req.ready := allMemReady
 
   // Handle memory responses. These are sent into a per-core memory
@@ -306,8 +305,6 @@ class XFilesArbiter(backendInfo: UInt)(implicit p: Parameters)
   // telling the arbiter that the backend can always accept data (we
   // then just have guarantee that this is true on the backend).
 
-  // io.backend.rocc.mem.resp.valid := memArbiter.out.valid
-  // io.backend.rocc.mem.resp.bits := memArbiter.out.bits
   transactionTable.xfiles.mem.resp.valid := memArbiter.out.valid
   transactionTable.xfiles.mem.resp.bits := memArbiter.out.bits
 
@@ -316,7 +313,6 @@ class XFilesArbiter(backendInfo: UInt)(implicit p: Parameters)
 
   memArbiter.out.ready := Bool(true)
 
-  // io.backend.memIdx.resp := memArbiter.chosen
   transactionTable.memIdx.resp := memArbiter.chosen
 
   io.backend.memIdx <> transactionTable.backend.memIdx
@@ -342,4 +338,10 @@ class XFilesArbiter(backendInfo: UInt)(implicit p: Parameters)
     transactionTable.xfiles.cmd.bits.inst.funct === t_NEW_REQUEST)
   assert(!(newRequestToTransactionTable & !io.core(0).resp.valid),
     "XF Arbiter: TTable failed to generate resposne after newRequest")
+
+  (0 until numCores).map(i => {
+    val cmd = io.core(i).cmd
+    val sup = io.core(i).status.prv.orR
+    assert(!(cmd.valid & !sup),
+      "INTERRUPT: XF Arbiter saw user request with unset ASID") })
 }
