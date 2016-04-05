@@ -16,6 +16,7 @@ class ANTWXFilesInterface(implicit p: Parameters) extends DanaBundle()(p) {
     val status = new MStatus().asInput
     val coreIdxCmd = UInt(INPUT, width = log2Up(numCores))
     val coreIdxResp = UInt(OUTPUT, width = log2Up(numCores))
+    val interrupt = Bool(OUTPUT)
   }
   val dcache = new Bundle {
     val mem = new HellaCacheIO()(p.alterPartial({ case CacheName => "L1D" }))
@@ -270,10 +271,14 @@ class AsidNnidTableWalker(implicit p: Parameters) extends DanaModule()(p) {
     when (io.xfiles.dcache.mem.resp.valid) { feedConfigRob() }
   }
 
+  io.xfiles.rocc.interrupt := state === s_INTERRUPT
   when (state === s_INTERRUPT) {
     // Add interrupt/exception support (#4)
+    // [TODO] #4: What is the state transition out of this? Is the
+    // cache request dropped?
+
+    // state := s_ERROR;
     printfError("ANTW: Excpetion code 0d%d\n", interruptCode.bits);
-    state := s_ERROR;
   }
 
   when (io.xfiles.dcache.mem.req.fire()) {

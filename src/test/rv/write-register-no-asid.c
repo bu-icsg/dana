@@ -1,6 +1,6 @@
 #include "src/main/c/xfiles.h"
 
 int main() {
-  new_write_request(0, 0, 0);
+  write_register(0, 0, 0);
   while(1) {};
 }

@@ -278,6 +278,8 @@ class Dana(implicit p: Parameters) extends XFilesBackend()(p)
   tTable.io.arbiter.xfResp <> io.xfResp
   tTable.io.arbiter.queueIO <> io.queueIO
 
+  io.rocc.interrupt := antw.io.xfiles.rocc.interrupt
+
   when (io.rocc.cmd.valid) {
     printfInfo("Dana: io.tTable.rocc.cmd.valid asserted\n")}
 }

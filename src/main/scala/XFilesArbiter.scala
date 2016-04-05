@@ -7,6 +7,7 @@ import junctions.ParameterizedBundle
 
 import rocket.{RoCCInterface, RoCCCommand, HellaCacheResp, HasCoreParameters}
 import cde.{Parameters, Field}
+import math.pow
 
 case object NumCores extends Field[Int]
 case object TidWidth extends Field[Int]
@@ -20,6 +21,8 @@ trait XFilesErrorCodes {
   val err_XFILES_NOASID = 1
   val err_XFILES_TTABLEFULL = 2
   val err_XFILES_INVALIDTID = 3
+
+  val int_NOASID = 0
 }
 
 trait XFilesSupervisorRequests {
@@ -50,6 +53,8 @@ trait XFilesParameters extends HasCoreParameters with XFilesErrorCodes
 
   val debugEnabled = p(DebugEnabled)
   val tableDebug = p(TableDebug)
+
+  val k_NULL_ASID = pow(2, asidWidth) - 1
 }
 
 abstract class XFilesModule(implicit val p: Parameters) extends Module
@@ -149,6 +154,8 @@ class XFilesArbiter(backendInfo: UInt)(implicit p: Parameters)
   val coreArbiter = Module(new RRArbiter(new RoCCCommand, numCores)).io
   val memArbiter = Module(new RRArbiter(new HellaCacheResp, numCores)).io
 
+  val exception = Reg(Vec(numCores, Valid(UInt(width = xLen))))
+
   (0 until numCores).map(i => {
     // Alias out some commonly used signals
     val cmd = io.core(i).cmd
@@ -157,7 +164,9 @@ class XFilesArbiter(backendInfo: UInt)(implicit p: Parameters)
     // Handle direct, short-circuit responses to the core of the
     // following types:
     //   * reqInfo -- This is an informational request about X-FILES
-    //     or the backend
+    //     or the backend. This is allowed to go through
+    //     uncoditionally, i.e., the ASID does not have to be set for
+    //     this to succeed.
     //   * badRequest -- This covers receipt of a request when the
     //     ASID isn't set
     //   * writeReg -- Write a backend register
@@ -165,14 +174,17 @@ class XFilesArbiter(backendInfo: UInt)(implicit p: Parameters)
     // Either of these two types of requests means that we "squash"
     // the requst and prevent it from getting entered in the Core
     // Queue.
+    val asidValid = asidUnits(i).data.valid
+    val badRequest = cmd.fire() & !asidValid & !io.core(i).status.prv.orR &
+      funct =/= t_XFILES_ID
+
     val reqInfo = cmd.fire() & !io.core(i).status.prv.orR & funct === t_XFILES_ID
-    val badRequest = cmd.fire() & !io.core(i).status.prv.orR & !asidUnits(i).data.valid
     val writeReg = cmd.fire() & io.core(i).status.prv.orR
     val newRequest = cmd.fire() & !io.core(i).status.prv.orR & funct === t_NEW_REQUEST
     // Anything that is a short circuit response or involves a
     // supervisor request gets squashed.
     val squashSup = reqInfo | badRequest
-    val squashUser = squashSup | io.core(i).status.prv.orR
+    val squashUser = squashSup | io.core(i).status.prv.orR | !asidValid
 
     io.core(i).resp.valid := reqInfo | badRequest | asidUnits(i).resp.valid | (
       transactionTable.xfiles.resp.valid &
@@ -217,8 +229,17 @@ class XFilesArbiter(backendInfo: UInt)(implicit p: Parameters)
       io.core(i).resp.bits := transactionTable.xfiles.resp.bits
     }
 
+    // Deal with exceptional cases
+    val backendException = io.backend.rocc.interrupt &
+      (io.backend.regIdx.resp === UInt(i))
+    exception(i).valid := badRequest | backendException
+    when (badRequest) { exception(i).bits := UInt(int_NOASID)
+      printfWarn("XF Arbiter: Saw badRequest\n") }
+    when (backendException) { exception(i).bits := UInt(1) << 63 }
+
     // Other connections
-    io.core(i).interrupt := Bool(false)
+    // io.core(i).interrupt := exception(i).valid
+    io.core(i).interrupt := badRequest
   })
 
   // Connections to the backend. [TODO] Clean these up such that the
@@ -322,6 +343,8 @@ class XFilesArbiter(backendInfo: UInt)(implicit p: Parameters)
   io.backend.xfResp <> transactionTable.backend.xfResp
   io.backend.queueIO <> transactionTable.backend.queueIO
 
+  when (reset) { (0 until numCores).map(i => exception(i).valid := Bool(false)) }
+
   // Assertions
   (0 until numCores).map(i => {
     val totalResponses = Vec(asidUnits(i).resp.valid,
@@ -340,8 +363,11 @@ class XFilesArbiter(backendInfo: UInt)(implicit p: Parameters)
     "XF Arbiter: TTable failed to generate resposne after newRequest")
 
   (0 until numCores).map(i => {
-    val cmd = io.core(i).cmd
-    val sup = io.core(i).status.prv.orR
-    assert(!(cmd.valid & !sup),
+    val core = io.core(i)
+    val cmd = core.cmd
+    val sup = core.status.prv.orR
+    val badRequest = cmd.fire() & !asidUnits(i).data.valid & !core.status.prv.orR &
+      cmd.bits.inst.funct =/= t_XFILES_ID
+    assert(!(badRequest),
       "INTERRUPT: XF Arbiter saw user request with unset ASID") })
 }
