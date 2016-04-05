@@ -1,5 +1,39 @@
 # U Boot Documentation
 
+## Accessing U-Boot
+The FPGAs are setup to boot from the uramdisk.image.gz automatically. To access U-Boot, you need to login over the serial console and manually reboot the ARM core. You will then have the opportunity to interrupt the boot process and access U-Boot. After logging in over the serial console, run the `reboot` command:
+```
+root@fpga3:~# reboot
+
+Broadcast message from root@fpga3 ng down for reboot NOW!
+INIT: Switching to runlevel: 6
+INIT: Sending processes the TERM signal
+INIT: Stopping Dropbear SSH server: stopped /usr/sbin/dropbear (pid 818)
+dropbear.
+Stopping tcf-agent: OK
+not deconfiguring network interfaces: network file systems still mounted.
+Sending all processes the TERM signal...
+Sending all processes the KILL signal...
+Unmounting remote filesystems...
+Deactivating swap...
+Unmounting local filesystems...
+�ebooting... reboot: Restarting system
+
+U-Boot 2014.07-01982-gf634657-dirty (Sep 24 2014 - 07:54:13)
+
+Board:  Xilinx Zynq
+I2C:   ready
+DRAM:  ECC disabled 256 MiB
+MMC:   zynq_sdhci: 0
+SF: Detected S25FL128S_64K with page size 512 Bytes, erase size 128 KiB, total 32 MiB
+In:    serial
+Out:   serial
+Err:   serial
+Net:   Gem.e000b000
+Hit any key to stop autoboot:  0
+zynq-uboot>
+```
+
 ## Manually Loading the SD Card
 It is possible that the uramdisk.image.gz will get FUBARed during a transfer to a remote FPGA and all you can get to is U-Boot. If this is the case, you can reload whatever you need via U-Boot. I've only done this with minicom, however.
 
