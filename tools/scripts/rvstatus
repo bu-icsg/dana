@@ -30,12 +30,20 @@ for fpga in "${fpgas[@]}"; do
     power_strip=${fpga#*,*,}
     power_strip=${power_strip%%,*}
     plug=${fpga##*,}
-    ip=$(grep ip $dir/info.txt | grep ,$power_strip, | awk -F',' '{print $3}')
-    user=$(ps -A au | grep -i screen | grep $tty | tail -n1 | tail -n1 | \
-        awk '{print $1}')
-    status=$(exec fence_apc --action=status --ip=$ip --plug=$plug \
-        --username=$username_apc --password=$password_apc | awk '{print $2}')
+
+    if [ ! $plug ]; then
+        status="ON"
+    else
+        ip=$(grep ip $dir/info.txt | grep ,$power_strip, | \
+            awk -F',' '{print $3}')
+        status=$(exec fence_apc --action=status --ip=$ip --plug=$plug \
+            --username=$username_apc --password=$password_apc | \
+            awk '{print $2}')
+    fi
+
     if [ $status = "ON" ]; then
+        user=$(ps -A au | grep -i screen | grep $tty | tail -n1 | tail -n1 | \
+            awk '{print $1}')
         # config=$(ssh -i $ssh_key -o ConnectTimeout=1 $username@$name \
         #     md5sum /mnt/boot/boot.bin 2>/dev/null | awk '{print $1}')
         config=$(ssh -i $ssh_key -o ConnectTimeout=1 $username@$name \
