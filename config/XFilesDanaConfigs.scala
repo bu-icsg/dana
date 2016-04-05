@@ -71,6 +71,12 @@ class XFilesDanaPe7Epb8Config extends Config(new Dana(7, 8) ++
 class XFilesDanaPe8Epb8Config extends Config(new Dana(8, 8) ++
   new XFilesDanaFPGAConfig)
 
+class XFilesDanaPe16Epb16Config extends Config(new Dana(16, 16) ++
+  new XFilesDanaFPGAConfig)
+
+class XFilesDanaPe32Epb32Config extends Config(new Dana(32, 32) ++
+  new XFilesDanaFPGAConfig)
+
 class XFilesDanaCppPe1Epb4Config extends Config(new Dana(1, 4) ++
   new XFilesDanaCPPConfig)
 class XFilesDanaCppPe2Epb4Config extends Config(new Dana(2, 4) ++
