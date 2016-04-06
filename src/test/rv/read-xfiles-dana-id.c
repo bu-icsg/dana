@@ -1,4 +1,4 @@
-#include "src/main/c/xfiles.h"
+#include "src/main/c/xfiles-user.h"
 
 int main (int argv, char * argc[]) {
   xfiles_dana_id(1);

@@ -239,7 +239,7 @@ class XFilesArbiter(backendInfo: UInt)(implicit p: Parameters)
 
     // Other connections
     // io.core(i).interrupt := exception(i).valid
-    io.core(i).interrupt := badRequest
+    io.core(i).interrupt := exception(i).valid
   })
 
   // Connections to the backend. [TODO] Clean these up such that the

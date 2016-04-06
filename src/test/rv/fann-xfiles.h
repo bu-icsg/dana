@@ -2,7 +2,7 @@
 #define SRC_TEST_RV_FANN_XFILES_H
 
 #include "usr/include/fixedfann.h"
-#include "src/main/c/xfiles.h"
+#include "src/main/c/xfiles-user.h"
 
 #define read_csr(reg) ({ unsigned long __tmp; \
   asm volatile ("csrr %0, " #reg : "=r"(__tmp)); \

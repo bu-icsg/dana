@@ -191,13 +191,17 @@ class AsidNnidTableWalker(implicit p: Parameters) extends DanaModule()(p) {
       state := Mux(cond, nextState, s_INTERRUPT)
       setInterrupt(code) }}
 
-  val hasCacheRequests = cacheReqQueue.io.count > UInt(0) && antpReg.valid
+  val hasCacheRequests = cacheReqQueue.io.count > UInt(0)
   cacheReqQueue.io.deq.ready := state === s_IDLE & hasCacheRequests
   when (state === s_IDLE & hasCacheRequests) {
     // Pull data out of the cache request queue and save it in the
     // "current" buffer
     cacheReqCurrent := cacheReqQueue.io.deq.bits
     state := s_CHECK_ASID
+    when (!antpReg.valid) {
+      state := s_INTERRUPT
+      setInterrupt(err_DANA_NOANTP)
+    }
     reqSent := Bool(false)
   }
 
@@ -274,11 +278,14 @@ class AsidNnidTableWalker(implicit p: Parameters) extends DanaModule()(p) {
   io.xfiles.rocc.interrupt := state === s_INTERRUPT
   when (state === s_INTERRUPT) {
     // Add interrupt/exception support (#4)
-    // [TODO] #4: What is the state transition out of this? Is the
-    // cache request dropped?
 
-    // state := s_ERROR;
-    printfError("ANTW: Excpetion code 0d%d\n", interruptCode.bits);
+    // [TODO] #4: The transition back to idle makese sense. However,
+    // this also needs to respond to the cache to kill that waiting
+    // entry. This should then propagate back up to the Transaction
+    // Table and kill whatever is there?
+
+    state := s_IDLE
+    printfError("ANTW: Exception code 0d%d\n", interruptCode.bits);
   }
 
   when (io.xfiles.dcache.mem.req.fire()) {

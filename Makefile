@@ -87,7 +87,6 @@ HEADERS_V          = ../nnsim-hdl/src/ram_infer_preloaded_cache.v \
 RV_TESTS             = hello.c \
 	fann-xfiles.c \
 	fann-soft.c \
-	write-on-invalid-asid.c \
 	read-xfiles-dana-id.c \
 	new-request-no-asid.c \
 	request-antp-not-set.c \
@@ -112,8 +111,10 @@ LFLAGS        = $(addprefix -Wl$(COMMA)-R, $(abspath $(LIB_PATHS))) \
 	$(LIB_PATHS:%=-L %) $(LIB_LIBS:%=-l %)
 
 # X-FILES libraries related
-XFILES_LIBRARIES_NEWLIB = $(DIR_BUILD)/newlib/libxfiles.a
-XFILES_LIBRARIES_LINUX = $(DIR_BUILD)/linux/libxfiles.a
+XFILES_LIBRARIES_NEWLIB = $(DIR_BUILD)/newlib/libxfiles-user.a \
+	$(DIR_BUILD)/newlib/libxfiles-supervisor.a
+XFILES_LIBRARIES_LINUX = $(DIR_BUILD)/linux/libxfiles-user.a \
+	$(DIR_BUILD)/linux/libxfiles-supervisor.a
 
 DECIMAL_POINT_OFFSET=7
 DECIMAL_POINT_BITS=3
