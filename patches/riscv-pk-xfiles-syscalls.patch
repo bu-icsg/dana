@@ -97,6 +97,34 @@ index 6253228..23b1659 100644
  
  #-------------------------------------------------------------------------
  # MCPPBS subproject list
+diff --git a/machine/encoding.h b/machine/encoding.h
+index 6139bb0..c923cb7 100644
+--- a/machine/encoding.h
++++ b/machine/encoding.h
+@@ -716,6 +716,7 @@
+ #define CAUSE_SUPERVISOR_ECALL 0x9
+ #define CAUSE_HYPERVISOR_ECALL 0xa
+ #define CAUSE_MACHINE_ECALL 0xb
++#define CAUSE_ROCC 0xc
+ #endif
+ #ifdef DECLARE_INSN
+ DECLARE_INSN(beq, MATCH_BEQ, MASK_BEQ)
+diff --git a/machine/mentry.S b/machine/mentry.S
+index 50ce9ca..3c77dbb 100644
+--- a/machine/mentry.S
++++ b/machine/mentry.S
+@@ -72,6 +72,11 @@ trap_vector:
+   j .Lhandle_trap_in_machine_mode
+ 
+ 1:
++  # Kludge to catch RoCC generated traps (mcause 12)
++  li a0, CAUSE_ROCC * 2
++  beq a0, a1, rocc_trap
++
++1:
+   # By process of elimination, it must be an HTIF interrupt.
+   li a0, IRQ_HOST * 2
+   bne a0, a1, .Lunhandleable_trap
 diff --git a/machine/minit.c b/machine/minit.c
 index 055fdb3..aa03338 100644
 --- a/machine/minit.c
@@ -109,6 +137,39 @@ index 055fdb3..aa03338 100644
    write_csr(mstatus, ms);
  
    // Make sure the hart actually supports the VM mode we want
+diff --git a/machine/mtrap.c b/machine/mtrap.c
+index 1c310f9..9490cad 100644
+--- a/machine/mtrap.c
++++ b/machine/mtrap.c
+@@ -7,6 +7,8 @@
+ #include <stdarg.h>
+ #include <stdio.h>
+ 
++#include "src/main/c/xfiles-supervisor.h"
++
+ void __attribute__((noreturn)) bad_trap()
+ {
+   die("machine mode: unhandlable trap %d @ %p", read_csr(mcause), read_csr(mepc));
+@@ -275,6 +277,10 @@ static void machine_page_fault(uintptr_t* regs, uintptr_t mepc)
+   bad_trap();
+ }
+ 
++void __attribute__((noreturn)) rocc_trap() {
++  die("XFiles trap %d @ %p", xf_read_csr(csr_CAUSE), read_csr(mepc));
++}
++
+ void trap_from_machine_mode(uintptr_t* regs, uintptr_t dummy, uintptr_t mepc)
+ {
+   uintptr_t mcause = read_csr(mcause);
+@@ -284,6 +290,8 @@ void trap_from_machine_mode(uintptr_t* regs, uintptr_t dummy, uintptr_t mepc)
+     case CAUSE_FAULT_LOAD:
+     case CAUSE_FAULT_STORE:
+       return machine_page_fault(regs, mepc);
++    case CAUSE_ROCC:
++      return rocc_trap();
+     default:
+       bad_trap();
+   }
 diff --git a/pk/syscall.c b/pk/syscall.c
 index de11a0a..e2b5b27 100644
 --- a/pk/syscall.c

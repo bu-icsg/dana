@@ -8,6 +8,7 @@ import rocket.{RoCCCommand, RoCCResponse, HellaCacheReq, HellaCacheIO, MStatus}
 import uncore.{CacheName}
 import uncore.constants.MemoryOpConstants._
 import cde.{Parameters}
+import xfiles.{InterruptBundle}
 
 class ANTWXFilesInterface(implicit p: Parameters) extends DanaBundle()(p) {
   val rocc = new Bundle {
@@ -16,13 +17,13 @@ class ANTWXFilesInterface(implicit p: Parameters) extends DanaBundle()(p) {
     val status = new MStatus().asInput
     val coreIdxCmd = UInt(INPUT, width = log2Up(numCores))
     val coreIdxResp = UInt(OUTPUT, width = log2Up(numCores))
-    val interrupt = Bool(OUTPUT)
   }
   val dcache = new Bundle {
     val mem = new HellaCacheIO()(p.alterPartial({ case CacheName => "L1D" }))
     val coreIdxReq = UInt(OUTPUT, width = log2Up(numCores))
     val coreIdxResp = UInt(INPUT, width = log2Up(numCores))
   }
+  val interrupt = Valid(new InterruptBundle)
 }
 
 class AsidNnidTableWalkerInterface(implicit p: Parameters) extends DanaBundle()(p) {
@@ -275,7 +276,9 @@ class AsidNnidTableWalker(implicit p: Parameters) extends DanaModule()(p) {
     when (io.xfiles.dcache.mem.resp.valid) { feedConfigRob() }
   }
 
-  io.xfiles.rocc.interrupt := state === s_INTERRUPT
+  io.xfiles.interrupt.valid := state === s_INTERRUPT
+  io.xfiles.interrupt.bits.code := interruptCode.bits
+  io.xfiles.interrupt.bits.coreIdx := cacheReqCurrent.coreIndex
   when (state === s_INTERRUPT) {
     // Add interrupt/exception support (#4)
 
@@ -285,7 +288,8 @@ class AsidNnidTableWalker(implicit p: Parameters) extends DanaModule()(p) {
     // Table and kill whatever is there?
 
     state := s_IDLE
-    printfError("ANTW: Exception code 0d%d\n", interruptCode.bits);
+    printfError("ANTW: Exception code 0d%d for core 0d%d\n", interruptCode.bits,
+      cacheReqCurrent.coreIndex)
   }
 
   when (io.xfiles.dcache.mem.req.fire()) {

@@ -28,6 +28,7 @@ trait XFilesErrorCodes {
 trait XFilesSupervisorRequests {
   val t_UPDATE_ASID = 0
   val t_SUP_WRITE_REG = 1
+  val t_READ_CSR = 2
 }
 
 trait XFilesResponseCodes extends XFilesParameters {
@@ -169,6 +170,7 @@ class XFilesArbiter(backendInfo: UInt)(implicit p: Parameters)
     //     this to succeed.
     //   * badRequest -- This covers receipt of a request when the
     //     ASID isn't set
+    //   * readCsr -- read a CSR, like the exception cause register
     //   * writeReg -- Write a backend register
     //   * writeRegS -- Write a backend supervisor register
     // Either of these two types of requests means that we "squash"
@@ -179,22 +181,24 @@ class XFilesArbiter(backendInfo: UInt)(implicit p: Parameters)
       funct =/= t_XFILES_ID
 
     val reqInfo = cmd.fire() & !io.core(i).status.prv.orR & funct === t_XFILES_ID
+    val readCsr = cmd.fire() & io.core(i).status.prv.orR & funct === UInt(t_READ_CSR)
     val writeReg = cmd.fire() & io.core(i).status.prv.orR
     val newRequest = cmd.fire() & !io.core(i).status.prv.orR & funct === t_NEW_REQUEST
     // Anything that is a short circuit response or involves a
     // supervisor request gets squashed.
-    val squashSup = reqInfo | badRequest
+    val squashSup = reqInfo | badRequest | readCsr
     val squashUser = squashSup | io.core(i).status.prv.orR | !asidValid
 
-    io.core(i).resp.valid := reqInfo | badRequest | asidUnits(i).resp.valid | (
-      transactionTable.xfiles.resp.valid &
+    io.core(i).resp.valid := reqInfo | badRequest | readCsr |
+      asidUnits(i).resp.valid | (transactionTable.xfiles.resp.valid &
         transactionTable.regIdx.resp === UInt(i))
 
     io.core(i).resp.bits.rd := cmd.bits.inst.rd
     // [TODO] The info returned should be about X-FILES or the
     // backend. There shouldn't be anything DANA-specific here.
-    io.core(i).resp.bits.data := Mux(reqInfo, backendInfo,
-      SInt(-err_XFILES_NOASID, width = xLen).toUInt)
+    io.core(i).resp.bits.data := SInt(-err_XFILES_NOASID, width = xLen).toUInt
+    when (reqInfo) { io.core(i).resp.bits.data := backendInfo }
+    when (readCsr) { io.core(i).resp.bits.data := exception(i).bits }
 
     // The ASID Units are provided with the full command, barring that
     // a short-circuit response hasn't been generated
@@ -230,17 +234,26 @@ class XFilesArbiter(backendInfo: UInt)(implicit p: Parameters)
     }
 
     // Deal with exceptional cases
-    val backendException = io.backend.rocc.interrupt &
-      (io.backend.regIdx.resp === UInt(i))
+    val backendException = io.backend.interrupt.fire() &
+      (io.backend.interrupt.bits.coreIdx === UInt(i))
     exception(i).valid := badRequest | backendException
     when (badRequest) { exception(i).bits := UInt(int_NOASID)
       printfWarn("XF Arbiter: Saw badRequest\n") }
-    when (backendException) { exception(i).bits := UInt(1) << 63 }
+    when (backendException) { exception(i).bits := io.backend.interrupt.bits.code }
 
     // Other connections
     // io.core(i).interrupt := exception(i).valid
     io.core(i).interrupt := exception(i).valid
   })
+
+  when (io.backend.rocc.interrupt) {
+    printfError("XF Arbiter: RoCC Exception asserted w/ regIdx 0d%d\n",
+      io.backend.regIdx.resp)
+  }
+
+  when (io.backend.interrupt.fire()) {
+    printfError("XF Arbiter: Backend interrupt asserted on core 0d%d w/ code 0d%d\n",
+      io.backend.interrupt.bits.coreIdx, io.backend.interrupt.bits.code) }
 
   // Connections to the backend. [TODO] Clean these up such that the
   // backend gets a single RoCC interface and some special lines for
