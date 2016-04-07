@@ -85,6 +85,7 @@ cd ..
 export RISCV=<PATH TO WHERE YOU WILL INSTALL THE TOOLCHAIN>
 ./build.sh
 ```
+_Note_: Any failures resulting from running `./build.sh` related to the riscv-tests repository can be safely ignored.
 
 If you already have a toolchain and want to just build a patched Proxy Kernel, you can do the following:
 ```bash
