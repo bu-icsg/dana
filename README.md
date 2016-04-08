@@ -52,6 +52,12 @@ Builds are currently tested against the following configurations:
 
 ### <a name="setup"></a> Setup
 
+Requirements:
+* `python 2.7 or python 3.X`
+* `numpy`
+* `scipy`
+* All dependencies needed for the [RISC-V toolchain](https://www.github.com/riscv/riscv-tools)
+
 1) <a name="clone-the-rocket-chip-repo"></a> Clone the Rocket Chip Repository
 ----------------------------------------
 This is not, at present, a standalone repository due to dependencies on classes and parameters defined in [rocket](https://www.github.com/ucb-bar/rocket), [uncore](https://www.github.com/ucb-bar/uncore), [rocket-chip](https://www.github.com/ucb-bar/rocket-chip), and possibly others. Consequently, X-FILES/DANA cannot be tested outside of a rocket-chip environment.
@@ -86,6 +92,11 @@ export RISCV=<PATH TO WHERE YOU WILL INSTALL THE TOOLCHAIN>
 ./build.sh
 ```
 _Note_: Any failures resulting from running `./build.sh` related to the riscv-tests repository can be safely ignored.
+
+Ensure that you have the toolchain available on your path, i.e., append `$RISCV/bin` to your path with the following command (or add this to your `~/.bashrc`:
+``` bash
+export PATH=$PATH:$RISCV/bin
+```
 
 If you already have a toolchain and want to just build a patched Proxy Kernel, you can do the following:
 ```bash
