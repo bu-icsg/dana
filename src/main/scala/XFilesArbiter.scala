@@ -236,7 +236,7 @@ class XFilesArbiter(backendInfo: UInt)(implicit p: Parameters)
     // Deal with exceptional cases
     val backendException = io.backend.interrupt.fire() &
       (io.backend.interrupt.bits.coreIdx === UInt(i))
-    exception(i).valid := badRequest | backendException
+    exception(i).valid := exception(i).valid | badRequest | backendException
     when (badRequest) { exception(i).bits := UInt(int_NOASID)
       printfWarn("XF Arbiter: Saw badRequest\n") }
     when (backendException) { exception(i).bits := io.backend.interrupt.bits.code }
@@ -374,13 +374,4 @@ class XFilesArbiter(backendInfo: UInt)(implicit p: Parameters)
     transactionTable.xfiles.cmd.bits.inst.funct === t_NEW_REQUEST)
   assert(!(newRequestToTransactionTable & !io.core(0).resp.valid),
     "XF Arbiter: TTable failed to generate resposne after newRequest")
-
-  (0 until numCores).map(i => {
-    val core = io.core(i)
-    val cmd = core.cmd
-    val sup = core.status.prv.orR
-    val badRequest = cmd.fire() & !asidUnits(i).data.valid & !core.status.prv.orR &
-      cmd.bits.inst.funct =/= t_XFILES_ID
-    assert(!(badRequest),
-      "INTERRUPT: XF Arbiter saw user request with unset ASID") })
 }

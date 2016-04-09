@@ -88,9 +88,13 @@ RV_TESTS             = hello.c \
 	fann-xfiles.c \
 	fann-soft.c \
 	read-xfiles-dana-id.c \
-	new-request-no-asid.c \
-	request-antp-not-set.c \
-	write-register-no-asid.c
+	trap-00-new-request-no-asid.c \
+	trap-00-write-register-no-asid.c \
+	trap-01-request-antp-not-set.c \
+	trap-02-request-oob-asid.c \
+	trap-03-request-oob-nnid.c \
+	trap-05-request-nn-config-zero-size.c \
+	trap-06-request-invalid-epb.c
 RV_TESTS_EXECUTABLES_NEWLIB	= $(RV_TESTS:%.c=$(DIR_BUILD)/newlib/%.rv)
 RV_TESTS_EXECUTABLES_LINUX	= $(RV_TESTS:%.c=$(DIR_BUILD)/linux/%.rv)
 RV_TESTS_DISASM_NEWLIB		= $(RV_TESTS:%.c=$(DIR_BUILD)/newlib/%.rvS)

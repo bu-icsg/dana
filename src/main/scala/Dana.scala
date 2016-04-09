@@ -68,12 +68,14 @@ trait DanaParameters extends HasCoreParameters with XFilesParameters {
   def divUp (dividend: Int, divisor: Int): Int = {
     (dividend + divisor - 1) / divisor}
 
-  val err_UNKNOWN     = 0
-  val err_DANA_NOANTP = 1
-  val err_INVASID     = 2
-  val err_INVNNID     = 3
-  val err_ZEROSIZE    = 4
-  val err_INVEPB      = 5
+  val int_RESERVED    = 0 // This is used by X-FILES
+  val int_DANA_NOANTP = 1
+  val int_INVASID     = 2
+  val int_INVNNID     = 3
+  val int_NULLREAD    = 4
+  val int_ZEROSIZE    = 5
+  val int_INVEPB      = 6
+  val int_UNKNOWN     = -1
 }
 
 // An abstract base class for anything associated with DANA (and the
