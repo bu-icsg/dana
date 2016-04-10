@@ -1,5 +1,5 @@
 diff --git a/Makefile.in b/Makefile.in
-index 8babada..fbc7d8b 100644
+index 8babada..9cec4ed 100644
 --- a/Makefile.in
 +++ b/Makefile.in
 @@ -37,6 +37,8 @@ src_dir      := @srcdir@
@@ -11,7 +11,13 @@ index 8babada..fbc7d8b 100644
  # If the version information is not in the configure script, then we
  # assume that we are in a working directory. We use the vcs-version.sh
  # script in the scripts directory to generate an appropriate version
-@@ -76,7 +78,7 @@ sprojs_include := -I. $(addprefix -I$(src_dir)/, $(sprojs_enabled))
+@@ -72,11 +74,12 @@ install_exes_dir := $(INSTALLDIR)/bin
+ sprojs         := @subprojects@
+ sprojs_enabled := @subprojects_enabled@
+ 
+-sprojs_include := -I. $(addprefix -I$(src_dir)/, $(sprojs_enabled))
++sprojs_include := -I. $(addprefix -I$(src_dir)/, $(sprojs_enabled)) \
++	-I$(src_dir)/../../xfiles-dana
  VPATH := $(addprefix $(src_dir)/, $(sprojs_enabled))
  
  #-------------------------------------------------------------------------
@@ -20,7 +26,7 @@ index 8babada..fbc7d8b 100644
  #-------------------------------------------------------------------------
  
  # C++ compiler
-@@ -84,7 +86,7 @@ VPATH := $(addprefix $(src_dir)/, $(sprojs_enabled))
+@@ -84,7 +87,7 @@ VPATH := $(addprefix $(src_dir)/, $(sprojs_enabled))
  #  - CXXFLAGS : flags for C++ compiler (eg. -Wall,-g,-O3)
  
  CC            := @CC@
@@ -29,7 +35,7 @@ index 8babada..fbc7d8b 100644
  COMPILE       := $(CC) -MMD -MP $(CFLAGS) \
                   $(sprojs_include)
  # Linker
-@@ -130,7 +132,7 @@ dist_junk += $(sprojs_mk)
+@@ -130,7 +133,7 @@ dist_junk += $(sprojs_mk)
  #-------------------------------------------------------------------------
  # This function is used by the subproject template to reverse the list
  # of dependencies. It uses recursion to perform the reversal.
@@ -38,7 +44,7 @@ index 8babada..fbc7d8b 100644
  # Arguments:
  #  $(1)   : space separated input list
  #  retval : input list in reverse order
-@@ -152,7 +154,7 @@ endef
+@@ -152,7 +155,7 @@ endef
  # subprojects defining a certain set of make variables which are all
  # prefixed with the subproject name. Since subproject names can have
  # dashes in them (and the make variables are assumed to only use
@@ -47,7 +53,7 @@ index 8babada..fbc7d8b 100644
  # subproject name and one with dashes replaced with underscores.
  #
  # Arguments:
-@@ -282,7 +284,7 @@ clean-$(1) :
+@@ -282,7 +285,7 @@ clean-$(1) :
  
  libs += lib$(1).a
  objs += $$($(2)_c_objs)
@@ -56,7 +62,7 @@ index 8babada..fbc7d8b 100644
  hdrs += $$(addprefix $(src_dir)/$(1)/, $$($(2)_hdrs))
  junk += $$($(2)_junk)
  deps += $$($(2)_c_deps)
-@@ -373,7 +375,7 @@ dist_junk += config.status config.h Makefile config.log
+@@ -373,7 +376,7 @@ dist_junk += config.status config.h Makefile config.log
  # Distribution
  #-------------------------------------------------------------------------
  # The distribution tarball is named project-ver.tar.gz and it includes
@@ -65,6 +71,60 @@ index 8babada..fbc7d8b 100644
  
  dist_files = \
    $(sprojs) \
+diff --git a/configure b/configure
+index 6386de0..833c854 100755
+--- a/configure
++++ b/configure
+@@ -3977,7 +3977,7 @@ fi
+ 
+ CFLAGS="-Wall -Werror -D__NO_INLINE__ -mcmodel=medany -O2 -std=gnu99 -Wno-unused -Wno-attributes -fno-delete-null-pointer-checks"
+ 
+-LIBS="-lgcc"
++LIBS="-lgcc -L../../../xfiles-dana/usr/lib-rv-newlib -lxfiles-supervisor"
+ 
+ 
+ #-------------------------------------------------------------------------
+diff --git a/configure.ac b/configure.ac
+index 6253228..23b1659 100644
+--- a/configure.ac
++++ b/configure.ac
+@@ -72,7 +72,7 @@ AC_HEADER_STDC
+ #-------------------------------------------------------------------------
+ 
+ AC_SUBST([CFLAGS],  ["-Wall -Werror -D__NO_INLINE__ -mcmodel=medany -O2 -std=gnu99 -Wno-unused -Wno-attributes -fno-delete-null-pointer-checks"])
+-AC_SUBST([LIBS],  ["-lgcc"])
++AC_SUBST([LIBS],  ["-lgcc -L../../../xfiles-dana/usr/lib-rv-newlib -lxfiles-supervisor"])
+ 
+ #-------------------------------------------------------------------------
+ # MCPPBS subproject list
+diff --git a/machine/encoding.h b/machine/encoding.h
+index 6139bb0..c923cb7 100644
+--- a/machine/encoding.h
++++ b/machine/encoding.h
+@@ -716,6 +716,7 @@
+ #define CAUSE_SUPERVISOR_ECALL 0x9
+ #define CAUSE_HYPERVISOR_ECALL 0xa
+ #define CAUSE_MACHINE_ECALL 0xb
++#define CAUSE_ROCC 0xc
+ #endif
+ #ifdef DECLARE_INSN
+ DECLARE_INSN(beq, MATCH_BEQ, MASK_BEQ)
+diff --git a/machine/mentry.S b/machine/mentry.S
+index 50ce9ca..3c77dbb 100644
+--- a/machine/mentry.S
++++ b/machine/mentry.S
+@@ -72,6 +72,11 @@ trap_vector:
+   j .Lhandle_trap_in_machine_mode
+ 
+ 1:
++  # Kludge to catch RoCC generated traps (mcause 12)
++  li a0, CAUSE_ROCC * 2
++  beq a0, a1, rocc_trap
++
++1:
+   # By process of elimination, it must be an HTIF interrupt.
+   li a0, IRQ_HOST * 2
+   bne a0, a1, .Lunhandleable_trap
 diff --git a/machine/minit.c b/machine/minit.c
 index 055fdb3..aa03338 100644
 --- a/machine/minit.c
@@ -77,11 +137,53 @@ index 055fdb3..aa03338 100644
    write_csr(mstatus, ms);
  
    // Make sure the hart actually supports the VM mode we want
+diff --git a/machine/mtrap.c b/machine/mtrap.c
+index 1c310f9..9490cad 100644
+--- a/machine/mtrap.c
++++ b/machine/mtrap.c
+@@ -7,6 +7,8 @@
+ #include <stdarg.h>
+ #include <stdio.h>
+ 
++#include "src/main/c/xfiles-supervisor.h"
++
+ void __attribute__((noreturn)) bad_trap()
+ {
+   die("machine mode: unhandlable trap %d @ %p", read_csr(mcause), read_csr(mepc));
+@@ -275,6 +277,10 @@ static void machine_page_fault(uintptr_t* regs, uintptr_t mepc)
+   bad_trap();
+ }
+ 
++void __attribute__((noreturn)) rocc_trap() {
++  die("XFiles trap %d @ %p", xf_read_csr(csr_CAUSE), read_csr(mepc));
++}
++
+ void trap_from_machine_mode(uintptr_t* regs, uintptr_t dummy, uintptr_t mepc)
+ {
+   uintptr_t mcause = read_csr(mcause);
+@@ -284,6 +290,8 @@ void trap_from_machine_mode(uintptr_t* regs, uintptr_t dummy, uintptr_t mepc)
+     case CAUSE_FAULT_LOAD:
+     case CAUSE_FAULT_STORE:
+       return machine_page_fault(regs, mepc);
++    case CAUSE_ROCC:
++      return rocc_trap();
+     default:
+       bad_trap();
+   }
 diff --git a/pk/syscall.c b/pk/syscall.c
-index de11a0a..b91023e 100644
+index de11a0a..e2b5b27 100644
 --- a/pk/syscall.c
 +++ b/pk/syscall.c
-@@ -380,7 +380,7 @@ int sys_times(long* loc)
+@@ -9,6 +9,8 @@
+ #include <string.h>
+ #include <errno.h>
+ 
++#include "src/main/c/xfiles-supervisor.h"
++
+ typedef long (*syscall_t)(long, long, long, long, long, long, long);
+ 
+ #define CLOCK_FREQ 1000000000
+@@ -380,7 +382,7 @@ int sys_times(long* loc)
    loc[1] = 0;
    loc[2] = 0;
    loc[3] = 0;
@@ -90,7 +192,7 @@ index de11a0a..b91023e 100644
    return 0;
  }
  
-@@ -389,7 +389,7 @@ int sys_gettimeofday(long* loc)
+@@ -389,7 +391,7 @@ int sys_gettimeofday(long* loc)
    uintptr_t t = rdcycle();
    loc[0] = t / CLOCK_FREQ;
    loc[1] = (t % CLOCK_FREQ) / (CLOCK_FREQ / 1000000);
@@ -99,33 +201,25 @@ index de11a0a..b91023e 100644
    return 0;
  }
  
-@@ -421,6 +421,25 @@ static int sys_stub_nosys()
+@@ -421,6 +423,17 @@ static int sys_stub_nosys()
    return -ENOSYS;
  }
  
-+int sys_xfiles_dana_set_asid(uint16_t asid)
++int sys_xfiles_dana_set_asid(asid_type asid)
 +{
-+  int old_asid;
-+  asm volatile ("custom0 %[old_asid], %[rs1], 0, 0"
-+                : [old_asid] "=r" (old_asid)
-+                : [rs1] "r" (asid));
-+  return old_asid;
++  return set_asid(asid);
 +}
 +
-+int sys_xfiles_dana_set_antp(uint64_t antp, size_t size)
++int sys_xfiles_dana_set_antp(asid_nnid_table_entry * antp, size_t size)
 +{
-+  int old_antp;
-+  asm volatile ("custom0 %[old_antp], %[rs1], %[rs2], 1"
-+                : [old_antp] "=r" (old_antp)
-+                : [rs1] "r" (antp), [rs2] "r" (size));
-+  return old_antp;
++  return set_antp(antp, size);
 +}
 +
 +
  long do_syscall(long a0, long a1, long a2, long a3, long a4, long a5, unsigned long n)
  {
    const static void* syscall_table[] = {
-@@ -466,6 +485,8 @@ long do_syscall(long a0, long a1, long a2, long a3, long a4, long a5, unsigned l
+@@ -466,6 +479,8 @@ long do_syscall(long a0, long a1, long a2, long a3, long a4, long a5, unsigned l
      [SYS_getrusage] = sys_stub_nosys,
      [SYS_getrlimit] = sys_stub_nosys,
      [SYS_setrlimit] = sys_stub_nosys,

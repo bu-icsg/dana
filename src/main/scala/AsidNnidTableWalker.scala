@@ -8,6 +8,7 @@ import rocket.{RoCCCommand, RoCCResponse, HellaCacheReq, HellaCacheIO, MStatus}
 import uncore.{CacheName}
 import uncore.constants.MemoryOpConstants._
 import cde.{Parameters}
+import xfiles.{InterruptBundle}
 
 class ANTWXFilesInterface(implicit p: Parameters) extends DanaBundle()(p) {
   val rocc = new Bundle {
@@ -22,6 +23,7 @@ class ANTWXFilesInterface(implicit p: Parameters) extends DanaBundle()(p) {
     val coreIdxReq = UInt(OUTPUT, width = log2Up(numCores))
     val coreIdxResp = UInt(INPUT, width = log2Up(numCores))
   }
+  val interrupt = Valid(new InterruptBundle)
 }
 
 class AsidNnidTableWalkerInterface(implicit p: Parameters) extends DanaBundle()(p) {
@@ -137,7 +139,7 @@ class AsidNnidTableWalker(implicit p: Parameters) extends DanaModule()(p) {
   // RoCC requests that come in for changing the ANTP are handled
   // here. The old ASID value will be returned to the operating
   // system. In the event of an invalid ASID, a value
-  // of -err_DANA_NOANTP (defined in src/main/scala/Dana.scala) is
+  // of -int_DANA_NOANTP (defined in src/main/scala/Dana.scala) is
   // returned.
   val funct = io.xfiles.rocc.cmd.bits.inst.funct
   val updateAntp = io.xfiles.rocc.status.prv.orR && funct === UInt(t_SUP_WRITE_REG)
@@ -150,7 +152,7 @@ class AsidNnidTableWalker(implicit p: Parameters) extends DanaModule()(p) {
 
   io.xfiles.rocc.resp.bits.rd := io.xfiles.rocc.cmd.bits.inst.rd
   io.xfiles.rocc.resp.bits.data := Mux(antpReg.valid, antpReg.antp,
-    SInt(-err_DANA_NOANTP, width = xLen).toUInt)
+    SInt(-int_DANA_NOANTP, width = xLen).toUInt)
   io.xfiles.rocc.coreIdxResp := io.xfiles.rocc.coreIdxCmd
   io.xfiles.rocc.resp.valid := io.xfiles.rocc.cmd.fire() && updateAntp
 
@@ -168,7 +170,8 @@ class AsidNnidTableWalker(implicit p: Parameters) extends DanaModule()(p) {
   val interruptCode = Reg(Valid(UInt()))
   def setInterrupt(code: Int) {
     interruptCode.valid := Bool(true);
-    interruptCode.bits := UInt(code) }
+    if (code >= 0) interruptCode.bits := UInt(code)
+    else interruptCode.bits := SInt(code).toUInt }
   def clearInterrupt() { interruptCode.valid := Bool(false) }
 
   // Many of the state updates are gated by waiting for a response.
@@ -180,7 +183,7 @@ class AsidNnidTableWalker(implicit p: Parameters) extends DanaModule()(p) {
   val reqSent = Reg(Bool())
   reqSent := reqSent
   def reqWaitForResp(nextState: UInt, cond: => Bool = Bool(true),
-    code: Int = err_UNKNOWN) = {
+    code: Int = int_UNKNOWN) = {
     when (!reqSent) {
       io.xfiles.dcache.mem.req.valid := Bool(true)
       reqSent := io.xfiles.dcache.mem.req.ready
@@ -190,13 +193,17 @@ class AsidNnidTableWalker(implicit p: Parameters) extends DanaModule()(p) {
       state := Mux(cond, nextState, s_INTERRUPT)
       setInterrupt(code) }}
 
-  val hasCacheRequests = cacheReqQueue.io.count > UInt(0) && antpReg.valid
+  val hasCacheRequests = cacheReqQueue.io.count > UInt(0)
   cacheReqQueue.io.deq.ready := state === s_IDLE & hasCacheRequests
   when (state === s_IDLE & hasCacheRequests) {
     // Pull data out of the cache request queue and save it in the
     // "current" buffer
     cacheReqCurrent := cacheReqQueue.io.deq.bits
     state := s_CHECK_ASID
+    when (!antpReg.valid) {
+      state := s_INTERRUPT
+      setInterrupt(int_DANA_NOANTP)
+    }
     reqSent := Bool(false)
   }
 
@@ -206,7 +213,7 @@ class AsidNnidTableWalker(implicit p: Parameters) extends DanaModule()(p) {
     state := s_GET_VALID_NNIDS
     when (asid >= antpReg.size) {
       state := s_INTERRUPT
-      setInterrupt(err_INVASID)
+      setInterrupt(int_INVASID)
     }
   }
 
@@ -215,7 +222,7 @@ class AsidNnidTableWalker(implicit p: Parameters) extends DanaModule()(p) {
     val reqAddr = antpReg.antp + asid * UInt(24)
     val numValidNnids = respData(63, 32)
     memRead(reqAddr)
-    reqWaitForResp(s_GET_NN_POINTER, nnid < numValidNnids, err_INVNNID)
+    reqWaitForResp(s_GET_NN_POINTER, nnid < numValidNnids, int_INVNNID)
   }
 
   val nnidPointer = Reg(UInt())
@@ -224,7 +231,7 @@ class AsidNnidTableWalker(implicit p: Parameters) extends DanaModule()(p) {
     val reqAddr = antpReg.antp + asid * UInt(24) + UInt(8)
     nnidPointer := respData + nnid * UInt(24)
     memRead(reqAddr)
-    reqWaitForResp(s_GET_NN_SIZE, respData =/= UInt(0), err_ZEROSIZE)
+    reqWaitForResp(s_GET_NN_SIZE, respData =/= UInt(0), int_NULLREAD)
   }
 
   val configSize = Reg(UInt())
@@ -233,14 +240,14 @@ class AsidNnidTableWalker(implicit p: Parameters) extends DanaModule()(p) {
     val reqAddr = nnidPointer
     memRead(reqAddr)
     configSize := respData
-    reqWaitForResp(s_GET_NN_EPB)
+    reqWaitForResp(s_GET_NN_EPB, respData =/= UInt(0), int_ZEROSIZE)
   }
 
   when (state === s_GET_NN_EPB) {
     val reqAddr = nnidPointer + UInt(8)
     memRead(reqAddr)
     reqWaitForResp(s_GET_CONFIG_POINTER, respData === UInt(elementsPerBlock),
-      err_INVEPB)
+      int_INVEPB)
   }
 
   configPointer := configPointer
@@ -270,11 +277,24 @@ class AsidNnidTableWalker(implicit p: Parameters) extends DanaModule()(p) {
     when (io.xfiles.dcache.mem.resp.valid) { feedConfigRob() }
   }
 
+  io.xfiles.interrupt.valid := state === s_INTERRUPT
+  io.xfiles.interrupt.bits.code := interruptCode.bits
+  io.xfiles.interrupt.bits.coreIdx := cacheReqCurrent.coreIndex
   when (state === s_INTERRUPT) {
     // Add interrupt/exception support (#4)
-    printfError("ANTW: Excpetion code 0d%d\n", interruptCode.bits);
-    state := s_ERROR;
+
+    // [TODO] #4: The transition back to idle makese sense. However,
+    // this also needs to respond to the cache to kill that waiting
+    // entry. This should then propagate back up to the Transaction
+    // Table and kill whatever is there?
+
+    state := s_IDLE
+    printfError("ANTW: Exception code 0d%d for core 0d%d\n", interruptCode.bits,
+      cacheReqCurrent.coreIndex)
   }
+
+  assert(!(state === s_INTERRUPT & interruptCode.bits > UInt(int_INVEPB)),
+    "ANTW: hit interrupt")
 
   when (io.xfiles.dcache.mem.req.fire()) {
     printfInfo("ANTW: Mem req to Core %d with tag 0x%x for addr 0x%x\n",
@@ -321,13 +341,6 @@ class AsidNnidTableWalker(implicit p: Parameters) extends DanaModule()(p) {
   // Assertions
   assert(!(io.cache.req.fire() && !io.cache.req.ready),
     "ANTW saw a cache request, but it's cache queue is full")
-  // If the ASID is larger than the stored size, then this is an
-  // invalid ASID for the stored ASID--NNID table pointer.
-  assert(!(io.cache.req.fire() && antpReg.valid &&
-    antpReg.size < io.cache.req.bits.asid),
-    "ANTW saw cache request with out of bounds ASID")
-  assert(!(io.cache.req.fire() && !antpReg.valid),
-    "ANTW saw cache request with invalid ASID-NNID Table Pointer")
   assert(!(state === s_ERROR),
     "ANTW is in an error state")
   assert(Bool(isPow2(configBufSize)),
@@ -335,5 +348,5 @@ class AsidNnidTableWalker(implicit p: Parameters) extends DanaModule()(p) {
   // Outbound memory requests shouldn't try to read NULL
   assert(!(io.xfiles.dcache.mem.req.valid &&
     io.xfiles.dcache.mem.req.bits.addr === UInt(0)),
-    "ANTW tried to read from NULL")
+    "INTERRUPT: ANTW tried to read from NULL")
 }

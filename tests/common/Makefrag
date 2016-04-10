@@ -20,7 +20,7 @@ C_FLAGS  ?= -Wall \
 	-I$(DIR_TOP)/build/nets \
 	-I$(DIR_TOP)
 L_FLAGS  ?= -L$(DIR_TOP)/usr/lib-rv-newlib \
-	-lxfiles \
+	-lxfiles-user \
 	-lfixedfann \
 	-lm
 MAX_CYCLES ?= 100000000
@@ -41,7 +41,7 @@ include $(DIR_TOP)/tools/common/Makefrag-fann
 include $(DIR_TOP)/tools/common/Makefrag-tools
 include $(DIR_TOP)/tools/common/Makefrag-nets
 
-%.rv: %.c $(DIR_BUILD)/newlib/libxfiles.a $(DIR_BUILD)/fann-rv-newlib/libfann.a
+%.rv: %.c $(DIR_BUILD)/newlib/libxfiles-user.a $(DIR_BUILD)/fann-rv-newlib/libfann.a
 	@ $(RV_CC) $(C_FLAGS) $< -o $@ $(L_FLAGS)
 
 $(EMULATOR):

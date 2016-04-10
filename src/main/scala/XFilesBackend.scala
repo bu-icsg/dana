@@ -16,6 +16,11 @@ class CoreIdx(implicit p: Parameters) extends XFilesBundle()(p) {
   val resp = UInt(INPUT, width = log2Up(numCores))
 }
 
+class InterruptBundle(implicit p: Parameters) extends XFilesBundle()(p) {
+  val code = UInt(OUTPUT, width = xLen)
+  val coreIdx = UInt(OUTPUT, width = log2Up(numCores))
+}
+
 class XFilesBackendReq(implicit p: Parameters) extends XFilesBundle()(p) {
   val tidx = Decoupled(UInt(INPUT, width = log2Up(transactionTableNumEntries)))
 }
@@ -49,6 +54,7 @@ class XFilesBackendInterface(implicit p: Parameters)
   val xfReq = (new XFilesBackendReq).flip
   val xfResp = new XFilesBackendResp
   val queueIO = new XFilesQueueInterface
+  val interrupt = Valid(new InterruptBundle)
 }
 
 class XFilesBackend(implicit p: Parameters) extends XFilesModule()(p) {

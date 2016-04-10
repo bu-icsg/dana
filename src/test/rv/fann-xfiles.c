@@ -24,7 +24,7 @@ int main (int argc, char * argv[]) {
 
   // Create the ASID--NNID Table
   asid_nnid_table_create(&t.table, t.asid * 2 + 1, t.nnid * 2 + 1);
-  int old_antp = set_antp(t.table);
+  int old_antp = pk_syscall_set_antp(t.table);
   if (-old_antp != err_DANA_NOANTP) {
     printf("[ERROR] Found unexpected ANTP response 0d%d\n", -old_antp);
     t.exit_code = -old_antp;
@@ -44,7 +44,7 @@ int main (int argc, char * argv[]) {
     else
       attach_garbage(&t.table, t.asid);
   }
-  int old_asid = set_asid(t.asid);
+  int old_asid = pk_syscall_set_asid(t.asid);
   if (-old_asid != err_XFILES_NOASID) {
     printf("[ERROR] Found unexpected ASID response 0d%d\n", -old_asid);
     t.exit_code = -old_asid;

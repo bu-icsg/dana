@@ -7,6 +7,7 @@ import junctions.ParameterizedBundle
 
 import rocket.{RoCCInterface, RoCCCommand, HellaCacheResp, HasCoreParameters}
 import cde.{Parameters, Field}
+import math.pow
 
 case object NumCores extends Field[Int]
 case object TidWidth extends Field[Int]
@@ -20,11 +21,14 @@ trait XFilesErrorCodes {
   val err_XFILES_NOASID = 1
   val err_XFILES_TTABLEFULL = 2
   val err_XFILES_INVALIDTID = 3
+
+  val int_NOASID = 0
 }
 
 trait XFilesSupervisorRequests {
   val t_UPDATE_ASID = 0
   val t_SUP_WRITE_REG = 1
+  val t_READ_CSR = 2
 }
 
 trait XFilesResponseCodes extends XFilesParameters {
@@ -50,6 +54,8 @@ trait XFilesParameters extends HasCoreParameters with XFilesErrorCodes
 
   val debugEnabled = p(DebugEnabled)
   val tableDebug = p(TableDebug)
+
+  val k_NULL_ASID = pow(2, asidWidth) - 1
 }
 
 abstract class XFilesModule(implicit val p: Parameters) extends Module
@@ -149,6 +155,8 @@ class XFilesArbiter(backendInfo: UInt)(implicit p: Parameters)
   val coreArbiter = Module(new RRArbiter(new RoCCCommand, numCores)).io
   val memArbiter = Module(new RRArbiter(new HellaCacheResp, numCores)).io
 
+  val exception = Reg(Vec(numCores, Valid(UInt(width = xLen))))
+
   (0 until numCores).map(i => {
     // Alias out some commonly used signals
     val cmd = io.core(i).cmd
@@ -157,32 +165,41 @@ class XFilesArbiter(backendInfo: UInt)(implicit p: Parameters)
     // Handle direct, short-circuit responses to the core of the
     // following types:
     //   * reqInfo -- This is an informational request about X-FILES
-    //     or the backend
+    //     or the backend. This is allowed to go through
+    //     uncoditionally, i.e., the ASID does not have to be set for
+    //     this to succeed.
     //   * badRequest -- This covers receipt of a request when the
     //     ASID isn't set
+    //   * readCsr -- read a CSR, like the exception cause register
     //   * writeReg -- Write a backend register
     //   * writeRegS -- Write a backend supervisor register
     // Either of these two types of requests means that we "squash"
     // the requst and prevent it from getting entered in the Core
     // Queue.
+    val asidValid = asidUnits(i).data.valid
+    val badRequest = cmd.fire() & !asidValid & !io.core(i).status.prv.orR &
+      funct =/= t_XFILES_ID
+
     val reqInfo = cmd.fire() & !io.core(i).status.prv.orR & funct === t_XFILES_ID
-    val badRequest = cmd.fire() & !io.core(i).status.prv.orR & !asidUnits(i).data.valid
+    val readCsr = cmd.fire() & io.core(i).status.prv.orR & funct === UInt(t_READ_CSR)
     val writeReg = cmd.fire() & io.core(i).status.prv.orR
     val newRequest = cmd.fire() & !io.core(i).status.prv.orR & funct === t_NEW_REQUEST
     // Anything that is a short circuit response or involves a
     // supervisor request gets squashed.
-    val squashSup = reqInfo | badRequest
-    val squashUser = squashSup | io.core(i).status.prv.orR
+    val squashSup = reqInfo | badRequest | readCsr
+    val squashUser = squashSup | io.core(i).status.prv.orR | !asidValid
 
-    io.core(i).resp.valid := reqInfo | badRequest | asidUnits(i).resp.valid | (
-      transactionTable.xfiles.resp.valid &
+    io.core(i).resp.valid := reqInfo | badRequest | readCsr |
+      asidUnits(i).resp.valid | (transactionTable.xfiles.resp.valid &
         transactionTable.regIdx.resp === UInt(i))
 
     io.core(i).resp.bits.rd := cmd.bits.inst.rd
     // [TODO] The info returned should be about X-FILES or the
     // backend. There shouldn't be anything DANA-specific here.
-    io.core(i).resp.bits.data := Mux(reqInfo, backendInfo,
-      SInt(-err_XFILES_NOASID, width = xLen).toUInt)
+    io.core(i).resp.bits.data := SInt(-err_XFILES_NOASID, width = xLen).toUInt
+    when (reqInfo) { io.core(i).resp.bits.data := backendInfo }
+    when (readCsr) { io.core(i).resp.bits.data := exception(i).bits
+      exception(i).valid := Bool(false) }
 
     // The ASID Units are provided with the full command, barring that
     // a short-circuit response hasn't been generated
@@ -217,9 +234,27 @@ class XFilesArbiter(backendInfo: UInt)(implicit p: Parameters)
       io.core(i).resp.bits := transactionTable.xfiles.resp.bits
     }
 
+    // Deal with exceptional cases
+    val backendException = io.backend.interrupt.fire() &
+      (io.backend.interrupt.bits.coreIdx === UInt(i))
+    exception(i).valid := exception(i).valid | badRequest | backendException
+    when (badRequest) { exception(i).bits := UInt(int_NOASID)
+      printfWarn("XF Arbiter: Saw badRequest\n") }
+    when (backendException) { exception(i).bits := io.backend.interrupt.bits.code }
+
     // Other connections
-    io.core(i).interrupt := Bool(false)
+    // io.core(i).interrupt := exception(i).valid
+    io.core(i).interrupt := exception(i).valid
   })
+
+  when (io.backend.rocc.interrupt) {
+    printfError("XF Arbiter: RoCC Exception asserted w/ regIdx 0d%d\n",
+      io.backend.regIdx.resp)
+  }
+
+  when (io.backend.interrupt.fire()) {
+    printfError("XF Arbiter: Backend interrupt asserted on core 0d%d w/ code 0d%d\n",
+      io.backend.interrupt.bits.coreIdx, io.backend.interrupt.bits.code) }
 
   // Connections to the backend. [TODO] Clean these up such that the
   // backend gets a single RoCC interface and some special lines for
@@ -239,11 +274,6 @@ class XFilesArbiter(backendInfo: UInt)(implicit p: Parameters)
 
   val userReqToBackend = coreArbiter.out.valid
 
-  // io.backend.rocc.cmd.valid := userReqToBackend
-  // io.backend.rocc.cmd.bits := coreArbiter.out.bits
-  // io.backend.regIdx.cmd := coreArbiter.chosen
-  // io.backend.rocc.s := supReqToBackend
-  // io.backend.rocc.resp.ready := Bool(true)
   transactionTable.xfiles.cmd.valid := userReqToBackend
   transactionTable.xfiles.cmd.bits := coreArbiter.out.bits
   transactionTable.regIdx.cmd := coreArbiter.chosen
@@ -254,21 +284,13 @@ class XFilesArbiter(backendInfo: UInt)(implicit p: Parameters)
   io.backend.rocc.cmd.valid := transactionTable.backend.rocc.cmd.valid |
     supReqToBackend
   io.backend.rocc.cmd.bits := transactionTable.backend.rocc.cmd.bits
+
   // [TODO] Kludge that zeros all the status fields of MStatus except
   // for setting the privilege bits (prv) to ONE if we're sending a
   // supervisor request.
   io.backend.rocc.status.prv := supReqToBackend
   io.backend.regIdx.cmd := transactionTable.backend.regIdx.cmd
   transactionTable.backend.regIdx.resp := io.backend.regIdx.resp
-
-//   when (coreArbiter.out.fire()) {
-//     printfInfo("""XFiles Arbiter: coreArbiter.out.valid asserted
-// [INFO] XFilesArbiter: Non-cmdFwd req sent to TTable:
-// [INFO] XFilesArbiter:   inst: 0x%x
-// [INFO] XFilesArbiter:   rs1:  0x%x
-// [INFO] XFilesArbiter:   rs2:  0x%x
-// """, coreArbiter.out.bits.inst.toBits, coreArbiter.out.bits.rs1,
-//       coreArbiter.out.bits.rs2) }
 
   (numCores -1 to 0 by -1).map(i => {
     when (asidUnits(i).cmdFwd.valid) {
@@ -282,13 +304,9 @@ class XFilesArbiter(backendInfo: UInt)(implicit p: Parameters)
   // Handle memory request routing
   val allMemReady = io.core.forall((rocc: RoCCInterface) => rocc.mem.req.ready)
   (0 until numCores).map(i => {
-    // io.core(i).mem.req.valid := io.backend.rocc.mem.req.valid &&
-    //   io.backend.memIdx.cmd === UInt(i)
     io.core(i).mem.req.valid := transactionTable.xfiles.mem.req.valid &&
       transactionTable.memIdx.cmd === UInt(i)
-    // io.core(i).mem.req.bits := io.backend.rocc.mem.req.bits
     io.core(i).mem.req.bits := transactionTable.xfiles.mem.req.bits
-    // io.core(i).mem.invalidate_lr := io.backend.rocc.mem.invalidate_lr
     io.core(i).mem.invalidate_lr := transactionTable.xfiles.mem.invalidate_lr
     when (io.core(i).mem.req.fire()) {
       printfInfo("XFilesArbiter: Mem request core %d with tag 0x%x for addr 0x%x\n",
@@ -298,7 +316,6 @@ class XFilesArbiter(backendInfo: UInt)(implicit p: Parameters)
 """,
         UInt(i), io.core(i).mem.resp.bits.tag, io.core(i).mem.resp.bits.addr,
         io.core(i).mem.resp.bits.data_word_bypass) }})
-  // io.backend.rocc.mem.req.ready := allMemReady
   transactionTable.xfiles.mem.req.ready := allMemReady
 
   // Handle memory responses. These are sent into a per-core memory
@@ -311,20 +328,7 @@ class XFilesArbiter(backendInfo: UInt)(implicit p: Parameters)
   // memory response queue is large enough to handle the maximum
   // number of outstanding transactions.
 
-  // val oldAddr = Reg(Vec.fill(numCores)(UInt(width = xLen)))
-
   (0 until numCores).map(i => {
-    // There seems to be a problem with the core returning double
-    // requests (#5). Repeated responses can be squashed here (with
-    // this commented out code) to avoid this. This is, admittedly, a
-    // kludge and has the potential causing other data loss. This
-    // needs more investigation as to why this is actually happening.
-    // oldAddr(i) := oldAddr(i)
-    // when (io.core(i).mem.resp.valid) {
-    //   oldAddr(i) := io.core(i).mem.resp.bits.addr }
-    // memQueue(i).enq.valid := io.core(i).mem.resp.valid &
-    //   io.core(i).mem.resp.bits.addr =/= oldAddr(i)
-
     memQueue(i).enq.valid := io.core(i).mem.resp.valid
     memQueue(i).enq.bits := io.core(i).mem.resp.bits
     memQueue(i).deq <> memArbiter.in(i)
@@ -336,8 +340,6 @@ class XFilesArbiter(backendInfo: UInt)(implicit p: Parameters)
   // telling the arbiter that the backend can always accept data (we
   // then just have guarantee that this is true on the backend).
 
-  // io.backend.rocc.mem.resp.valid := memArbiter.out.valid
-  // io.backend.rocc.mem.resp.bits := memArbiter.out.bits
   transactionTable.xfiles.mem.resp.valid := memArbiter.out.valid
   transactionTable.xfiles.mem.resp.bits := memArbiter.out.bits
 
@@ -346,7 +348,6 @@ class XFilesArbiter(backendInfo: UInt)(implicit p: Parameters)
 
   memArbiter.out.ready := Bool(true)
 
-  // io.backend.memIdx.resp := memArbiter.chosen
   transactionTable.memIdx.resp := memArbiter.chosen
 
   io.backend.memIdx <> transactionTable.backend.memIdx
@@ -355,6 +356,8 @@ class XFilesArbiter(backendInfo: UInt)(implicit p: Parameters)
   io.backend.xfReq <> transactionTable.backend.xfReq
   io.backend.xfResp <> transactionTable.backend.xfResp
   io.backend.queueIO <> transactionTable.backend.queueIO
+
+  when (reset) { (0 until numCores).map(i => exception(i).valid := Bool(false)) }
 
   // Assertions
   (0 until numCores).map(i => {

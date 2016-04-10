@@ -87,8 +87,14 @@ HEADERS_V          = ../nnsim-hdl/src/ram_infer_preloaded_cache.v \
 RV_TESTS             = hello.c \
 	fann-xfiles.c \
 	fann-soft.c \
-	write-on-invalid-asid.c \
-	read-xfiles-dana-id.c
+	read-xfiles-dana-id.c \
+	trap-00-new-request-no-asid.c \
+	trap-00-write-register-no-asid.c \
+	trap-01-request-antp-not-set.c \
+	trap-02-request-oob-asid.c \
+	trap-03-request-oob-nnid.c \
+	trap-05-request-nn-config-zero-size.c \
+	trap-06-request-invalid-epb.c
 RV_TESTS_EXECUTABLES_NEWLIB	= $(RV_TESTS:%.c=$(DIR_BUILD)/newlib/%.rv)
 RV_TESTS_EXECUTABLES_LINUX	= $(RV_TESTS:%.c=$(DIR_BUILD)/linux/%.rv)
 RV_TESTS_DISASM_NEWLIB		= $(RV_TESTS:%.c=$(DIR_BUILD)/newlib/%.rvS)
@@ -109,8 +115,10 @@ LFLAGS        = $(addprefix -Wl$(COMMA)-R, $(abspath $(LIB_PATHS))) \
 	$(LIB_PATHS:%=-L %) $(LIB_LIBS:%=-l %)
 
 # X-FILES libraries related
-XFILES_LIBRARIES_NEWLIB = $(DIR_BUILD)/newlib/libxfiles.a
-XFILES_LIBRARIES_LINUX = $(DIR_BUILD)/linux/libxfiles.a
+XFILES_LIBRARIES_NEWLIB = $(DIR_BUILD)/newlib/libxfiles-user.a \
+	$(DIR_BUILD)/newlib/libxfiles-supervisor.a
+XFILES_LIBRARIES_LINUX = $(DIR_BUILD)/linux/libxfiles-user.a \
+	$(DIR_BUILD)/linux/libxfiles-supervisor.a
 
 DECIMAL_POINT_OFFSET=7
 DECIMAL_POINT_BITS=3

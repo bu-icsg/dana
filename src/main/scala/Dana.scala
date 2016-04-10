@@ -68,12 +68,14 @@ trait DanaParameters extends HasCoreParameters with XFilesParameters {
   def divUp (dividend: Int, divisor: Int): Int = {
     (dividend + divisor - 1) / divisor}
 
-  val err_UNKNOWN     = 0
-  val err_DANA_NOANTP = 1
-  val err_INVASID     = 2
-  val err_INVNNID     = 3
-  val err_ZEROSIZE    = 4
-  val err_INVEPB      = 5
+  val int_RESERVED    = 0 // This is used by X-FILES
+  val int_DANA_NOANTP = 1
+  val int_INVASID     = 2
+  val int_INVNNID     = 3
+  val int_NULLREAD    = 4
+  val int_ZEROSIZE    = 5
+  val int_INVEPB      = 6
+  val int_UNKNOWN     = -1
 }
 
 // An abstract base class for anything associated with DANA (and the
@@ -277,6 +279,11 @@ class Dana(implicit p: Parameters) extends XFilesBackend()(p)
   tTable.io.arbiter.xfReq <> io.xfReq
   tTable.io.arbiter.xfResp <> io.xfResp
   tTable.io.arbiter.queueIO <> io.queueIO
+
+  // There is a difference between the RoCC interrupt (which is tied
+  // off) and the interruptBundle which includes more information
+  io.rocc.interrupt := Bool(false)
+  io.interrupt <> antw.io.xfiles.interrupt
 
   when (io.rocc.cmd.valid) {
     printfInfo("Dana: io.tTable.rocc.cmd.valid asserted\n")}
