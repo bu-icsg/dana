@@ -198,7 +198,8 @@ class XFilesArbiter(backendInfo: UInt)(implicit p: Parameters)
     // backend. There shouldn't be anything DANA-specific here.
     io.core(i).resp.bits.data := SInt(-err_XFILES_NOASID, width = xLen).toUInt
     when (reqInfo) { io.core(i).resp.bits.data := backendInfo }
-    when (readCsr) { io.core(i).resp.bits.data := exception(i).bits }
+    when (readCsr) { io.core(i).resp.bits.data := exception(i).bits
+      exception(i).valid := Bool(false) }
 
     // The ASID Units are provided with the full command, barring that
     // a short-circuit response hasn't been generated
