@@ -16,8 +16,7 @@ def parse_arguments():
         description='Generate FANN training files of mathmetical function data')
     parser.add_argument(
         '-f', '--function', dest='function', type=str, required=True,
-        choices=['sin','log','exp'],
-        help='Math function to use, see supported below')
+        help='Anonymous python function to generate plot')
     parser.add_argument(
         '-d', '--domain', dest='domain', type=str, required=True,
         nargs=2,
@@ -65,7 +64,7 @@ def main():
     else:
         x = numpy.linspace(domain[0], domain[1], args.num_samples)
 
-    y = numpy.vectorize(eval('math.{0}'.format(args.function)))(x_scaling * x)
+    y = numpy.vectorize(eval(format(args.function)))(x_scaling * x)
 
     index_shuffle = list(range(len(x)))
     random.shuffle(index_shuffle)
@@ -100,8 +99,7 @@ def main():
 
     if (args.flag_plot or args.file_plot):
         x_full = numpy.linspace(domain[0], domain[1], 1000)
-        y_full = numpy.vectorize(eval('math.{0}'.format(args.function)))(
-            x_scaling * x_full)
+        y_full = numpy.vectorize(eval(format(args.function)))(x_scaling * x_full)
         plt.plot(x_full, y_full, color='#9ecae1')
         legend = ['function']
         plt.axis([min(x_full), max(x_full), min(y_full), max(y_full)])

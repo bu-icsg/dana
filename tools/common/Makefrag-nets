@@ -88,8 +88,9 @@ $(DIR_BUILD)/nets/xor-sigmoid-%o-float.train: | $(DIR_BUILD)/nets
 	$(GEN_BOOLEAN_DATA) -n 2 -f xor --replicate-output $* > $@
 
 $(DIR_BUILD)/nets/sin-scale-%-float.train: | $(DIR_BUILD)/nets
-	$(GEN_MATH_DATA) -f sin -s0 -d -1 1 -n 128 --x-scaling=$**1*math.pi \
-	--file-train=$@ --file-plot=$(DIR_BUILD)/nets/sin-scale-$*.png
+	$(GEN_MATH_DATA) -f "(lambda x: math.sin(x))" -s0 -d -1 1 -n 128 \
+	--x-scaling=$**1*math.pi --file-train=$@ \
+	--file-plot=$(DIR_BUILD)/nets/sin-scale-$*.png
 
 #--------------------------------------- Fixed point net generationg
 $(DIR_BUILD)/nets/%-fixed.net: $(DIR_BUILD)/nets/%-float.net $(NETS_TOOLS) | $(DIR_BUILD)/nets
