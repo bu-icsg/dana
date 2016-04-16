@@ -24,6 +24,8 @@ class AsidUnit(id: Int)(implicit p: Parameters) extends XFilesModule()(p) {
   }
 
   val asidReg = Reg(Valid(new AsidTid))
+  val tid = asidReg.bits.tid
+  val asid = asidReg.bits.asid
 
   val funct = io.cmd.bits.inst.funct
   val updateAsid = io.status.prv.orR & funct === UInt(t_UPDATE_ASID)
@@ -34,8 +36,8 @@ class AsidUnit(id: Int)(implicit p: Parameters) extends XFilesModule()(p) {
   io.cmd.ready := Bool(true)
   when (io.cmd.fire() & updateAsid) {
     asidReg.valid := Bool(true)
-    asidReg.bits.asid := io.cmd.bits.rs1(asidWidth - 1, 0)
-    asidReg.bits.tid := UInt(0)
+    asid := io.cmd.bits.rs1(asidWidth - 1, 0)
+    tid := UInt(0)
     printfInfo("ASID Unit[%d]: supervisor request to update ASID to 0x%x\n",
       UInt(id), io.cmd.bits.rs1(asidWidth - 1, 0));
     // [TODO] This needs to respond to the core with the ASID and TID
@@ -55,7 +57,7 @@ class AsidUnit(id: Int)(implicit p: Parameters) extends XFilesModule()(p) {
   // respond with a generic -1
   io.resp.bits.rd := io.cmd.bits.inst.rd
   io.resp.bits.data := Mux(asidReg.valid,
-    asidReg.bits.asid(asidWidth - 1, 0) ## asidReg.bits.tid(tidWidth - 1, 0),
+    asid(asidWidth - 1, 0) ## tid(tidWidth - 1, 0),
     SInt(-err_XFILES_NOASID, width = xLen).toUInt)
   io.resp.valid := io.cmd.fire() & updateAsid
 
@@ -63,9 +65,11 @@ class AsidUnit(id: Int)(implicit p: Parameters) extends XFilesModule()(p) {
     printfInfo("AsidUnit[%d]: responding to R%d with data 0x%x\n",
       UInt(id), io.resp.bits.rd, io.resp.bits.data)}
 
-  // Increment the TID when a new request shows up
+  // Increment the TID when a new request shows up. Negative TIDs are
+  // reserved for error codes, so the valid ranges of TIDs is then:
+  //   [0, 2^(tidWidth - 1) - 1]
   when (io.cmd.fire() & newRequest & asidReg.valid) {
-    asidReg.bits.tid := asidReg.bits.tid + UInt(1)
+    tid := (tid + UInt(1))(tidWidth - 2, 0)
   }
 
   io.data := asidReg
