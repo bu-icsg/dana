@@ -28,7 +28,7 @@ NETS_XOR=xor-sigmoid-4i xor-sigmoid-8i xor-sigmoid-16i xor-sigmoid-32i \
 	xor-sigmoid-4o xor-sigmoid-8o xor-sigmoid-16o xor-sigmoid-32o \
 	xor-sigmoid-64o xor-sigmoid-128o xor-sigmoid-256o xor-sigmoid-512o \
 	xor-sigmoid-1024o
-NETS_MATH=sin sinc
+NETS_MATH=sin sinc gaussian
 NETS+=$(NETS_GEN) $(NETS_FANN) $(NETS_PARITY) $(NETS_PARITY_SAME) $(NETS_XOR) \
 	$(NETS_MATH)
 NETS_FLOAT=$(addsuffix -float, $(NETS))
