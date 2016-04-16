@@ -28,9 +28,9 @@ NETS_XOR=xor-sigmoid-4i xor-sigmoid-8i xor-sigmoid-16i xor-sigmoid-32i \
 	xor-sigmoid-4o xor-sigmoid-8o xor-sigmoid-16o xor-sigmoid-32o \
 	xor-sigmoid-64o xor-sigmoid-128o xor-sigmoid-256o xor-sigmoid-512o \
 	xor-sigmoid-1024o
-NETS_SIN=sin
+NETS_MATH=sin sinc
 NETS+=$(NETS_GEN) $(NETS_FANN) $(NETS_PARITY) $(NETS_PARITY_SAME) $(NETS_XOR) \
-	$(NETS_SIN)
+	$(NETS_MATH)
 NETS_FLOAT=$(addsuffix -float, $(NETS))
 # Only certain networks have valid training files
 NETS_TRAIN=xorSigmoid xorSigmoidSymmetric xorSigmoidSymmetricPair \
@@ -43,6 +43,7 @@ TRAIN_SIN=sin-scale-0.25 sin-scale-0.50 sin-scale-0.75 sin-scale-1.00 \
 	sin-scale-1.25 sin-scale-1.50 sin-scale-1.75 sin-scale-2.00 \
 	sin-scale-2.25 sin-scale-2.50 sin-scale-2.75 sin-scale-3.00 \
 	sin-scale-3.25 sin-scale-3.50 sin-scale-3.75 sin-scale-4.00
+TRAIN_MATH=gaussian sinc
 NETS_H +=$(addprefix $(DIR_BUILD)/nets/, $(addsuffix -fixed-16bin-32.h, $(NETS)) \
 	$(addsuffix -fixed-32bin-32.h, $(NETS)) \
 	$(addsuffix -fixed-64bin-32.h, $(NETS)) \
@@ -57,6 +58,7 @@ TRAIN_FIXED+=$(addprefix $(DIR_BUILD)/nets/, $(addsuffix -fixed.train, $(NETS_FA
 TRAIN_FIXED+=$(addprefix $(DIR_BUILD)/nets/, $(addsuffix -fixed.train, $(NETS_PARITY)))
 TRAIN_FIXED+=$(addprefix $(DIR_BUILD)/nets/, $(addsuffix -fixed.train, $(NETS_XOR)))
 TRAIN_FIXED+=$(addprefix $(DIR_BUILD)/nets/, $(addsuffix -fixed.train, $(TRAIN_SIN)))
+TRAIN_FIXED+=$(addprefix $(DIR_BUILD)/nets/, $(addsuffix -fixed.train, $(TRAIN_MATH)))
 
 vpath %.train $(DIR_TOP)/src/main/resources
 vpath %.train $(DIR_TOP)/submodules/fann/datasets
@@ -73,7 +75,7 @@ vpath %.train $(DIR_TOP)/submodules/fann/datasets
 	$(DIR_BUILD)/fann/libfann.so
 
 #--------------------------------------- Build floating point NNs
-$(DIR_BUILD)/nets/%-float.net: $(FANN_RANDOM) $(DIR_BUILD)/fann/libfann.so | $(DIR_BUILD)/nets
+$(DIR_BUILD)/nets/%-float.net: $(FANN_RANDOM) $(DIR_BUILD)/fann/libfann.so $(DIR_TOP)/tools/common/nets.txt | $(DIR_BUILD)/nets
 	$(FANN_RANDOM) -s$(SEED) \
 	`$(DIR_TOP)/usr/bin/find-net $* $(DIR_TOP)/tools/common/nets.txt` $@
 
@@ -91,6 +93,17 @@ $(DIR_BUILD)/nets/sin-scale-%-float.train: | $(DIR_BUILD)/nets
 	$(GEN_MATH_DATA) -f "(lambda x: math.sin(x))" -s0 -d -1 1 -n 128 \
 	--x-scaling=$**1*math.pi --file-train=$@ \
 	--file-plot=$(DIR_BUILD)/nets/sin-scale-$*.png
+
+$(DIR_BUILD)/nets/gaussian-float.train: | $(DIR_BUILD)/nets
+	$(GEN_MATH_DATA) -f "(lambda x: math.exp(-x**2/(1/4)**2))" -s0 -d -1 1 \
+	-n128 --file-train=$@ --file-plot=$(DIR_BUILD)/nets/sin-scale-$*.png
+
+$(DIR_BUILD)/nets/sinc-float.train: | $(DIR_BUILD)/nets
+	$(GEN_MATH_DATA) -f "(lambda x: math.sin(x*math.pi*4)/(x*math.pi*4))" \
+	 -s0 -d -1 1 -n128 \
+	--file-train=$@ --file-plot=$(DIR_BUILD)/nets/sin-scale-$*.png
+
+
 
 #--------------------------------------- Fixed point net generationg
 $(DIR_BUILD)/nets/%-fixed.net: $(DIR_BUILD)/nets/%-float.net $(NETS_TOOLS) | $(DIR_BUILD)/nets

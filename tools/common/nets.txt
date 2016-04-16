@@ -75,3 +75,5 @@ sin-scale-3.25,-l1 -l8 -l1 -a3 -o5 -r0.7
 sin-scale-3.50,-l1 -l8 -l1 -a3 -o5 -r0.7
 sin-scale-3.75,-l1 -l8 -l1 -a3 -o5 -r0.7
 sin-scale-4.00,-l1 -l8 -l1 -a3 -o5 -r0.7
+sinc,-l1 -l8 -l1 -a3 -o5 -r0.7
+gaussian,-l1 -l8 -l1 -a3 -o5 -r0.7
