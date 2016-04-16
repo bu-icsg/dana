@@ -1,6 +1,7 @@
 #!/usr/bin/python
 
 import numpy
+from scipy import signal
 import math
 import matplotlib
 import os
