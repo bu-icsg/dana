@@ -1,16 +1,191 @@
+/**********
+ * Author: Craig Einstein
+ * 
+ * File: DANA_BENCHMARK.c
+ *
+ * Description: Contains the definitions for the methods in DANA_BENCHMARK.h
+ *		DANA_BENCHMARK runs transactional testing on the XFILES/DANA System
+ *      The functions contained in this program are defined in xfiles-user.h,
+ *		xfiles-user.c, and DANA_BENCHMARK. These files are located in the
+ *      dana_benchmark/c directory
+ *
+ **********/
 #include <stdio.h>
 #include <pthread.h>
 #include "c/xfiles-user.h"
 #include "c/xfiles-user.c"
-//Struct that holds a net file, a train file, and the thread info
-struct Net{
-	char net_file[100];
-	char train_file[100];
-	int thread_number;
-  //	pthread_t thread;
-};
+#include "c/DANA_BENCHMARK.h"
 
-//Copies a character array into another character array
+int DEBUG = 0;
+
+int main(int argc, char *argv[]){
+    printf("%s: STARTED\n", argv[0]);
+    int amount = argc;
+	if(amount < 4){
+		printf("Not enough input\nExiting ...\n");
+		exit(1);
+	}
+
+	int t_number = argc - 3;
+	int concurrent = atoi(argv[argc - 2]); //Number of transactions to be run concurrently
+	DEBUG = atoi(argv[argc - 1]); //Debug parameter
+	if(concurrent > t_number){
+		printf("Concurrent amount is greater than the total transactions\n");
+		printf("Setting concurrency to the total number of transactions...\n");
+		concurrent = t_number;
+	}
+
+	debug ("%i, %i\n", t_number, concurrent);
+	struct Transaction transactions[t_number];
+	//COMMAND LINE PARSING
+	//Creates the transaction objects
+	int file = 0;
+	int k = 0;
+	int j = 0;
+	char net[50]; 
+	char in[50];
+	char out[50];
+	for(int i = 1; i <= t_number; i++){
+		j = 0;
+		k = 0;
+		file = 0;
+		while (argv[i][j] != '\0'){
+			if(argv[i][j] == ','){
+				file++;
+				if(file == 1){
+					net[k] = '\0';
+				}else if(file == 2){
+					in[k] = '\0';
+				}
+				k = 0;
+			}else{
+				if(file == 0){
+					net[k] = argv[i][j];
+				}else if(file == 1){
+					in[k] = argv[i][j];
+				}else{
+					out[k] = argv[i][j];
+				}
+				k++;
+			}			
+			j++;
+		}
+		out[k] = '\0';
+		strcopy(transactions[i - 1].net, net);
+		transactions[i - 1].input = atoi(in);
+		transactions[i - 1].output = atoi(out);
+	}
+
+
+	debug("\n\n*****Starting XFILES-DANA interaction*****\n");
+
+	debug("\n\nPrinting preliminary information\n");
+	if(DEBUG == 1){
+    	xlen_t trial = xfiles_dana_id(4);
+	}
+	
+	//Table Setup
+	asid_nnid_table * table;
+	asid_type asid = 1;
+
+	//Setting the ASID
+	debug("\n\nSetting the new asid\n");
+    xlen_t old_asid = pk_syscall_set_asid(asid);
+    debug("The old asid was: %i\n", old_asid);
+
+	//Creating the new nnid table
+	debug("\n\nCreating the new nnid_table...\n");
+	asid_nnid_table_create(&table, t_number, t_number);
+
+	//Setting the ANTP
+	debug("\n\nSetting the ANTP...\n");
+	xlen_t antp = pk_syscall_set_antp(table);
+	debug("The old ANTP was: %i\n", antp);
+	
+	//Printing table information
+	debug("\n\nPrinting information about the new nnid_table\n");
+	if(DEBUG == 1){
+		asid_nnid_table_info(table);
+	}
+
+	tid_type tids[t_number];
+
+	for(int i = 0; i < t_number; i += concurrent){ //Assmbles the set amount of transactions for execution
+		for(int j = i; j < i + concurrent; j++){ //Sets up <Concurrent> amount of transactions
+			if(j < t_number){
+				tids[j] = create_transaction(table, asid, &transactions[j]); //Creates tid for transaction
+			}
+		}
+
+		for(int j = i; j < i + concurrent; j++){ //Reads <Concurrent> amount of transactions
+			if(j < t_number){
+				printf("\nReceiving output for TID: %i\n", tids[j]);
+				uint64_t output = read_data_spinlock(tids[j], transactions[j].output_array, transactions[j].output);
+				printArr(transactions[j].output_array, transactions[j].output);
+				debug("read_data_spinlock returned for TID: %i", tids[j]);
+			}
+		}
+
+
+	}
+}
+
+//Creates a transaction on the table
+tid_type create_transaction(asid_nnid_table * table, asid_type asid, Transaction * transaction){
+	//Attaching a neural network
+	debug("\n\nAttaching the neural network file %s to the table...\n", transaction->net);
+	int nn_config = attach_nn_configuration(&table, asid, transaction->net);	
+	debug("NN number = %i\n", nn_config);
+
+	//Creating a new write request
+	printf("\nCreating a new write request...\n");
+	tid_type tid = new_write_request(nn_config - 1, 0, 0);
+	printf("NEW TID: %i\n", tid);
+
+	//Creates input array
+	debug("Creating input and output arrays...\n");
+	transaction->input_array = malloc(transaction->input * sizeof(element_type));
+	for(element_type i = 0; i < transaction->input; i++){
+		transaction->input_array[i] = i;
+	}
+
+	printf("Input Array is: ");
+	printArr(transaction->input_array, transaction->input);
+
+	//Creates output array and fills in indices with a constant number
+	transaction->output_array = malloc(transaction->output * sizeof(element_type));
+	for(element_type i = 0; i < transaction->output; i++){
+		transaction->output_array[i] = 13;
+	}
+	printf("Output Array is: ");
+	printArr(transaction->output_array, transaction->output);
+
+
+	//Writes to the transaction
+	debug("Writing to the transaction...\n");
+	xlen_t write = write_data(tid, transaction->input_array, transaction->input);
+	debug("Write number is: %i\n", write);
+
+	return tid;
+}
+
+void printTransaction(Transaction * transaction){
+	debug("\n\n*****Transaction*****\n");
+	debug("Neural Network: %s\n", transaction->net);
+	debug("Number of Inputs: %i\n", transaction->input);
+	debug("Number of Outputs: %i\n", transaction->output);
+	debug("Input Array: "); printArr(transaction->input_array, transaction->input);
+	debug("Output Array: "); printArr(transaction->output_array, transaction->output);
+	debug("*****End of Transaction*****\n");
+
+}
+
+void debug(const char * output, ...){
+	if (DEBUG == 1){
+		printf(output);
+	}
+}
+
 void strcopy(char *file, char str[]){
 	int i = 0;
 	while(str[i] != '\0'){
@@ -20,169 +195,10 @@ void strcopy(char *file, char str[]){
 	file[i] = '\0';
 }
 
-//Prints the info contained in a thread
-void *print_info(void *net_info){
-	struct Net *nets;
-	nets = (struct Net *) net_info;
-
-	printf("%s, %s\n", nets->net_file, nets->train_file);
-}
-
 void printArr(int * arr, int size){
   printf("[ ");
   for(int i = 0; i < size; i++){
     printf("%i ", arr[i]);
   }
   printf("]\n");
-}
-
-//Converts a character into an integer
-/*int atoi(char directive[]){
-	int i = 0;
-	int ret = 0;
-	while(directive[i] != '\0'){
-		ret = ret*10 +  directive[i] - '0';
-		i++;
-	}
-	return ret;
-	}*/
-
-uint64_t * inputCreation(int size){
-
-  uint64_t * input;
-  input= malloc(size *sizeof(int)); //Allocate space for the array                                       
-  for(uint64_t i = 0; i < size; i++){
-    input[i] = i;
-  }
-
-  return input;
-
-}
-
-int main(int argc, char *argv[]){
-    printf("%s: STARTED\n", argv[0]);
-	if(argc < 3){
-		printf("Not enough input\nExiting ...\n");
-		return 0;
-	}
-	int directive = atoi(argv[argc - 1]);
-	struct Net nets[argc - 2];
-	//Parse input files
-	int file = 0;
-	int k = 0;
-	int j = 0;
-	char n_file[50];
-	char t_file[50];
-	for(int i = 1; i < argc  - 1; i++){
-		j = 0;
-		k = 0;
-		file = 0;
-		while (argv[i][j] != '\0'){
-			if(argv[i][j] == ','){
-				file++;
-				n_file[k] = '\0';
-				k = 0;
-			}else{
-				if(file == 0){
-					n_file[k] = argv[i][j];
-				}else{
-					t_file[k] = argv[i][j];
-				}
-				k++;
-			}			
-			j++;
-		}
-		t_file[k] = '\0';
-		strcopy(nets[i - 1].net_file, n_file);
-		strcopy(nets[i - 1].train_file, t_file);
-
-	}
-
-	/*	//Thread creation and execution
-	for(int i = 0; i < sizeof(nets)/sizeof(struct Net); i += directive){
-		for(int j = i; j < directive + i && j < sizeof(nets)/sizeof(struct Net); j++){
-			nets[j].thread_number = pthread_create(&nets[j].thread, NULL, &print_info, &nets[j]);
-		}
-
-		for(int j = i; j < directive + i && j < sizeof(nets)/sizeof(struct Net); j++){
-			pthread_join(nets[j].thread, NULL);
-		}
-		}*/
-
-	printf("\n\n*****Starting XFILES-DANA interaction*****\n");
-
-	printf("\n\nPrinting preliminary information\n");
-    xlen_t trial = xfiles_dana_id(4);
-	
-	//Table Setup
-	asid_nnid_table * table;
-	asid_type asid_number = 1;
-
-	//Setting the ASID
-	printf("\n\nSetting the new asid\n");
-    xlen_t asid = pk_syscall_set_asid(asid_number);
-    printf("The old asid was: %i\n", asid);
-
-	//Creating the new nnid table
-	printf("\n\nCreating the new nnid_table...\n");
-	asid_nnid_table_create(&table, 2, 1);
-
-	//Setting the ANTP
-	printf("\n\nSetting the ANTP...\n");
-	xlen_t antp = pk_syscall_set_antp(table);
-	printf("The old ANTP was: %i\n", antp);
-	
-	//Printing table information
-	printf("\n\nPrinting information about the new nnid_table\n");
-	asid_nnid_table_info(table);
-
-	//Attaching a neural network
-	printf("\n\nAttaching the neural network file %s to the table...\n", nets[0].net_file);
-	int nn_config = attach_nn_configuration(&table, asid_number, nets[0].net_file);	
-	printf("NN number = %i\n", nn_config);
-
-	//Creating a new write request
-	printf("\n\nCreating a new write request...\n");
-	tid_type tid = new_write_request(nn_config - 1, 0, 0);
-	printf("The tid is: %i\n", tid);
-
-	//Creates the input and output arrays
-	printf("\n\nCreating input and output arrays...\n");
-	int num_input = 10;
-	element_type * inputs = malloc(num_input * sizeof(element_type));
-	for(element_type i = 0; i < num_input; i++){
-		inputs[i] = i;
-	}
-	printf("Input Array is: ");
-	printArr(inputs, num_input);
-	int num_output = 1;
-	element_type * outputs = malloc(num_output * sizeof(element_type));
-	for(element_type i = 0; i < num_output; i++){
-		outputs[i] = 13;
-	}
-	printf("Output Array is: ");
-	printArr(outputs, num_output);
-
-
-	//Writes to the transaction
-	printf("\n\nWriting to the transaction...\n");
-	xlen_t write = write_data(tid, inputs, num_input);
-	printf("Write number is: %i\n", write);
-
-
-	printf("\n\nReading from the transaction\n");
-	int i = 0;
-	uint64_t output;
-	while(1){
-	  printf("Loop Cycle Number %i\n", i++);
-	  output = read_data_spinlock(tid, outputs, num_output);
-	  printArr(outputs, num_output);
-	  printf("read_data_spinlock returning: %i, output array: %i\n", output, outputs[0]);
-	  if(output){
-	    break;
-	  }
-
-	}
-
-	printf("YO!");
 }
