@@ -198,13 +198,16 @@ class AsidNnidTableWalker(implicit p: Parameters) extends DanaModule()(p) {
   when (state === s_IDLE & hasCacheRequests) {
     // Pull data out of the cache request queue and save it in the
     // "current" buffer
-    cacheReqCurrent := cacheReqQueue.io.deq.bits
+    val deq = cacheReqQueue.io.deq.bits
+    cacheReqCurrent := deq
     state := s_CHECK_ASID
     when (!antpReg.valid) {
       state := s_INTERRUPT
       setInterrupt(int_DANA_NOANTP)
     }
     reqSent := Bool(false)
+    printfInfo("ANTW: Dequeue mem req Core/ASID/NNID/Idx 0x%x/0x%x/0x%x/0x%x\n",
+      deq.coreIndex, deq.asid, deq.nnid, deq.cacheIndex)
   }
 
   val asid = cacheReqCurrent.asid
@@ -273,7 +276,10 @@ class AsidNnidTableWalker(implicit p: Parameters) extends DanaModule()(p) {
   }
 
   when (state === s_GET_NN_CONFIG_CLEANUP) {
-    when (configWbCount === configSize) { state := s_IDLE }
+    when (configWbCount === (configSize >> UInt(log2Up(configBufSize)))) {
+      state := s_IDLE
+      printfInfo("ANTW: Cache access finished\n")
+    }
     when (io.xfiles.dcache.mem.resp.valid) { feedConfigRob() }
   }
 
