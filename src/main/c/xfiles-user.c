@@ -118,6 +118,44 @@ xlen_t write_data(tid_type tid, element_type * data, size_t count) {
   }
 }
 
+xlen_t write_data_except_last(tid_type tid, element_type * data, size_t count) {
+  const size_t shift = sizeof(xlen_t) * 8 - RESP_CODE_WIDTH;
+  xlen_t out;
+
+  int write_index = 0;
+  while (write_index != count - 1) {
+    asm volatile ("custom0 %[out], %[rs1], %[rs2], %[type]"
+                  : [out] "=r" (out)
+                  : [rs1] "r" (tid), [rs2] "r" (data[write_index]),
+                   [type] "i" (WRITE_DATA));
+    int exit_code = out >> shift;
+    switch (exit_code) {
+      case resp_OK: write_index++; continue;
+      case resp_QUEUE_ERR: continue;
+      default: return exit_code;
+    }
+  }
+  return 0;
+}
+
+xlen_t write_data_last(tid_type tid, element_type * data, size_t count) {
+  const size_t shift = sizeof(xlen_t) * 8 - RESP_CODE_WIDTH;
+  xlen_t out;
+
+  while (1) {
+    asm volatile ("custom0 %[out], %[rs1], %[rs2], %[type]"
+                  : [out] "=r" (out)
+                  : [rs1] "r" (tid), [rs2] "r" (data[count - 1]),
+                   [type] "i" (WRITE_DATA_LAST));
+    int exit_code = out >> shift;
+    switch (exit_code) {
+      case resp_OK: return 0;
+      case resp_QUEUE_ERR: continue;
+      default: return exit_code;
+    }
+  }
+}
+
 xlen_t write_data_train_incremental(tid_type tid, element_type * input,
                                     element_type * output, size_t count_input,
                                     size_t count_output) {

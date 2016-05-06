@@ -37,6 +37,19 @@ xlen_t write_data(tid_type tid,
                   element_type * input_data_array,
                   size_t count);
 
+// Writes an input array to the X-Files Arbiter, but does not write
+// the last array element. This, coupled with `write_data_last` can be
+// used to start transactions nearly simultaneously.
+xlen_t write_data_except_last(tid_type tid,
+                              element_type * input_data_array,
+                              size_t count);
+
+// Writes the last element of an input array to the X-Files Arbiter.
+// This will implicitly start a transaction.
+xlen_t write_data_last(tid_type tid,
+                              element_type * input_data_array,
+                              size_t count);
+
 // A special write data request used for incremental training. Here,
 // an input and an expected output vector are passed. The
 // configuration cache is updated inside the Configuration Cache.
