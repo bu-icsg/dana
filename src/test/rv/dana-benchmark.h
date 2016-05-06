@@ -1,14 +1,14 @@
 /**********
  * Author: Craig Einstein
- * 
+ *
  * File: DANA_BENCHMARK.h
  *
  * Description: Header file for DANA_BENCHMARK
  *		DANA_BENCHMARK runs transactional testing on the XFILES/DANA System
  *
  **********/
-#ifndef DANA_BENCHMARK
-#define DANA_BENCHMARK
+#ifndef __SRC_TEST_RV_DANA_BENCHMARK__
+#define __SRC_TEST_RV_DANA_BENCHMARK__
 
 /*Struct that contains transactional information
   Each struct contains:
@@ -63,4 +63,4 @@ void printTransaction(Transaction * transaction);
 
 
 
-#endif
+#endif  // __SRC_TEST_RV_DANA_BENCHMARK__

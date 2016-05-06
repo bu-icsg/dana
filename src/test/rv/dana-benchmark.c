@@ -1,6 +1,6 @@
 /**********
  * Author: Craig Einstein
- * 
+ *
  * File: DANA_BENCHMARK.c
  *
  * Description: Contains the definitions for the methods in DANA_BENCHMARK.h
@@ -12,11 +12,11 @@
  **********/
 #include <stdio.h>
 #include <pthread.h>
-#include "c/xfiles-user.h"
-#include "c/xfiles-user.c"
-#include "c/DANA_BENCHMARK.h"
+#include "src/main/c/xfiles-user.h"
+#include "src/main/c/xfiles-user.c"
+#include "src/test/rv/dana-benchmark.h"
 
-int DEBUG = 0;
+#define DEBUG
 
 int main(int argc, char *argv[]){
     printf("%s: STARTED\n", argv[0]);
@@ -28,7 +28,6 @@ int main(int argc, char *argv[]){
 
 	int t_number = argc - 3;
 	int concurrent = atoi(argv[argc - 2]); //Number of transactions to be run concurrently
-	DEBUG = atoi(argv[argc - 1]); //Debug parameter
 	if(concurrent > t_number){
 		printf("Concurrent amount is greater than the total transactions\n");
 		printf("Setting concurrency to the total number of transactions...\n");
@@ -42,7 +41,7 @@ int main(int argc, char *argv[]){
 	int file = 0;
 	int k = 0;
 	int j = 0;
-	char net[50]; 
+	char net[50];
 	char in[50];
 	char out[50];
 	for(int i = 1; i <= t_number; i++){
@@ -67,7 +66,7 @@ int main(int argc, char *argv[]){
 					out[k] = argv[i][j];
 				}
 				k++;
-			}			
+			}
 			j++;
 		}
 		out[k] = '\0';
@@ -80,10 +79,11 @@ int main(int argc, char *argv[]){
 	debug("\n\n*****Starting XFILES-DANA interaction*****\n");
 
 	debug("\n\nPrinting preliminary information\n");
-	if(DEBUG == 1){
+#ifdef DEBUG
     	xlen_t trial = xfiles_dana_id(4);
-	}
-	
+        debug("Trial is: %i\n", trial);
+#endif
+
 	//Table Setup
 	asid_nnid_table * table;
 	asid_type asid = 1;
@@ -101,28 +101,37 @@ int main(int argc, char *argv[]){
 	debug("\n\nSetting the ANTP...\n");
 	xlen_t antp = pk_syscall_set_antp(table);
 	debug("The old ANTP was: %i\n", antp);
-	
+
 	//Printing table information
 	debug("\n\nPrinting information about the new nnid_table\n");
-	if(DEBUG == 1){
+#ifdef DEBUG
 		asid_nnid_table_info(table);
-	}
+#endif
 
 	tid_type tids[t_number];
 
 	for(int i = 0; i < t_number; i += concurrent){ //Assmbles the set amount of transactions for execution
 		for(int j = i; j < i + concurrent; j++){ //Sets up <Concurrent> amount of transactions
 			if(j < t_number){
+                          printf("Net: %s\n", transactions[j].net);
 				tids[j] = create_transaction(table, asid, &transactions[j]); //Creates tid for transaction
 			}
 		}
+                // Start the concurrent transactions
+		for(int j = i; j < i + concurrent; j++){
+			if(j < t_number){
+                          printf("Net: %s\n", transactions[j].net);
+                          write_data_last(tids[j], transactions[j].input_array,
+                                          transactions[j].input);
+			}
+                }
 
 		for(int j = i; j < i + concurrent; j++){ //Reads <Concurrent> amount of transactions
 			if(j < t_number){
 				printf("\nReceiving output for TID: %i\n", tids[j]);
-				uint64_t output = read_data_spinlock(tids[j], transactions[j].output_array, transactions[j].output);
+				read_data_spinlock(tids[j], transactions[j].output_array, transactions[j].output);
 				printArr(transactions[j].output_array, transactions[j].output);
-				debug("read_data_spinlock returned for TID: %i", tids[j]);
+				debug("read_data_spinlock returned for TID: %i\n", tids[j]);
 			}
 		}
 
@@ -134,7 +143,7 @@ int main(int argc, char *argv[]){
 tid_type create_transaction(asid_nnid_table * table, asid_type asid, Transaction * transaction){
 	//Attaching a neural network
 	debug("\n\nAttaching the neural network file %s to the table...\n", transaction->net);
-	int nn_config = attach_nn_configuration(&table, asid, transaction->net);	
+	int nn_config = attach_nn_configuration(&table, asid, transaction->net);
 	debug("NN number = %i\n", nn_config);
 
 	//Creating a new write request
@@ -163,7 +172,8 @@ tid_type create_transaction(asid_nnid_table * table, asid_type asid, Transaction
 
 	//Writes to the transaction
 	debug("Writing to the transaction...\n");
-	xlen_t write = write_data(tid, transaction->input_array, transaction->input);
+	xlen_t write = write_data_except_last(tid, transaction->input_array,
+                                              transaction->input);
 	debug("Write number is: %i\n", write);
 
 	return tid;
@@ -181,9 +191,9 @@ void printTransaction(Transaction * transaction){
 }
 
 void debug(const char * output, ...){
-	if (DEBUG == 1){
+#ifdef DEBUG
 		printf(output);
-	}
+#endif
 }
 
 void strcopy(char *file, char str[]){
