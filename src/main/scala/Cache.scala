@@ -223,13 +223,14 @@ abstract class CacheBase[SramIfType <: SRAMVariantInterface,
           // in the cache. However, if the cache is always sized
           // larger than the Transcation Table, the case where there
           // isn't a free cache entry should never occur.
+          val cacheIdx = Mux(hasFree, nextFree, nextUnused)
           when (hasFree | hasUnused) {
-            tableInit(Mux(hasFree, nextFree, nextUnused))
+            tableInit(cacheIdx)
             // Generate a request to memory
             io.mem.req.valid := Bool(true)
             io.mem.req.bits.asid := asid
             io.mem.req.bits.nnid := nnid
-            io.mem.req.bits.cacheIndex := nextFree
+            io.mem.req.bits.cacheIndex := cacheIdx
             io.mem.req.bits.coreIndex := coreIdx
           } .otherwise {
           }
