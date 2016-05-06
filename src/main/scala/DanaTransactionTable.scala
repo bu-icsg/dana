@@ -895,8 +895,10 @@ class DanaTransactionTableLearn(implicit p: Parameters)
 
     when (entry.flags.done) {
       val entry = table(ioArbiter.chosen)
-      val finished = io.arbiter.queueIO.out.ready &
-        (entry.readIdx === (entry.numOutputs - UInt(1)))
+      val finished = io.arbiter.queueIO.out.ready & Mux(
+        entry.transactionType === e_TTYPE_FEEDFORWARD,
+        entry.readIdx === (entry.nodesInCurrentLayer - UInt(1)),
+        entry.readIdx === (entry.numOutputs - UInt(1)))
       when (finished & (entry.stateLearn =/= e_TTABLE_STATE_LOAD_OUTPUTS)) {
         // This is an "I'm done" response to XF which indicates that all
         // outputs have been read
@@ -913,6 +915,11 @@ class DanaTransactionTableLearn(implicit p: Parameters)
         entry.needsOutputs := Bool(true)
         printfInfo("DANA TTable: Learn TX batch done\n")
       }
+
+      printfInfo("DANA TTable: entry.flags.done asserted\n")
+      printfInfo("DANA TTable:   finished: %d\n", finished)
+      printfInfo("DANA TTable:   entry.readIdx: %d\n", entry.readIdx)
+      printfInfo("DANA TTable:   entry.numOutputs: %d\n", entry.numOutputs)
     }
   }
 

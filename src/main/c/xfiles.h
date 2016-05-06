@@ -23,12 +23,12 @@ typedef enum {
 } xfiles_reg;
 
 typedef enum {
-  READ_DATA = 0,
-  WRITE_DATA = 1,
-  NEW_REQUEST = 3,
-  WRITE_DATA_LAST = 5,
-  WRITE_REGISTER = 7,
-  XFILES_DANA_ID = 16
+  READ_DATA = 0,       // 0 0000
+  WRITE_DATA = 1,      // 0 0001
+  NEW_REQUEST = 3,     // 0 0011
+  WRITE_DATA_LAST = 5, // 0 0101
+  WRITE_REGISTER = 7,  // 0 0111
+  XFILES_DANA_ID = 16  // 1 0000
 } request_t;
 
 typedef enum {
