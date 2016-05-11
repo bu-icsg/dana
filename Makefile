@@ -233,8 +233,8 @@ $(DIR_BUILD)/cache:
 	$(DIR_TOP)/usr/bin/danaCache $@ src/main/resources/fft.net
 
 #------------------- Miscellaneous
-tags: $(shell find src -regex \".+\.[^~#]+\$\")
-	echo ctags -e -R $<
+tags: $(shell find $(DIR_TOP)/src -regex ".+\.[^~#]+\$$")
+	ctags -e -R $?
 
 #------------------- Utility Targets
 clean:
