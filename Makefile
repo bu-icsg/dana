@@ -95,7 +95,8 @@ RV_TESTS             = hello.c \
 	trap-03-request-oob-nnid.c \
 	trap-05-request-nn-config-zero-size.c \
 	trap-06-request-invalid-epb.c \
-	dana-benchmark.c
+	dana-benchmark.c \
+	debug-test.c
 RV_TESTS_EXECUTABLES_NEWLIB	= $(RV_TESTS:%.c=$(DIR_BUILD)/newlib/%.rv)
 RV_TESTS_EXECUTABLES_LINUX	= $(RV_TESTS:%.c=$(DIR_BUILD)/linux/%.rv)
 RV_TESTS_DISASM_NEWLIB		= $(RV_TESTS:%.c=$(DIR_BUILD)/newlib/%.rvS)
@@ -137,7 +138,7 @@ vpath %.v $(DIR_BUILD)
 vpath %-float.net $(DIR_MAIN_RES)
 
 .PHONY: all clean cpp debug doc dot libraries mrproper nets run \
-	run-verilog tools vcd vcd-verilog verilog
+	run-verilog tags tools vcd vcd-verilog verilog
 
 default: all
 
@@ -230,6 +231,10 @@ $(DIR_BUILD)/doc:
 #------------------- Populate a dummy cache (shouldn't be needed!)
 $(DIR_BUILD)/cache:
 	$(DIR_TOP)/usr/bin/danaCache $@ src/main/resources/fft.net
+
+#------------------- Miscellaneous
+tags: $(shell find src -regex \".+\.[^~#]+\$\")
+	echo ctags -e -R $<
 
 #------------------- Utility Targets
 clean:

@@ -432,3 +432,12 @@ int attach_nn_configuration_array(asid_nnid_table ** table, uint16_t asid,
   // Return the new number of valid entries
   return ++(*table)->entry[asid].num_valid;
 }
+
+xlen_t debug_test(xlen_t action, xlen_t data) {
+  xlen_t out;
+  asm volatile("custom0 %[out], %[rs1], %[rs2], %[type]"
+               : [out] "=r" (out)
+               : [rs1] "r" (action), [rs2] "r" (data),
+                 [type] "i" (XFILES_DEBUG));
+  return out;
+}

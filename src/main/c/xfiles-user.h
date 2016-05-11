@@ -109,4 +109,7 @@ int attach_nn_configuration_array(asid_nnid_table ** table, uint16_t asid,
                                   const xlen_t * nn_configuration_array,
                                   size_t size);
 
+//-------------------------------------- Interactions with the Debug Unit
+xlen_t debug_test();
+
 #endif  // SRC_MAIN_C_XFILES_USER_H_
