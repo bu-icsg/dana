@@ -433,11 +433,11 @@ int attach_nn_configuration_array(asid_nnid_table ** table, uint16_t asid,
   return ++(*table)->entry[asid].num_valid;
 }
 
-xlen_t debug_test(xlen_t action, xlen_t data) {
-  xlen_t out;
+xlen_t debug_test(xfiles_debug_action_t action, uint32_t data, xlen_t addr) {
+  xlen_t out, action_and_data = ((uint64_t)action << 32) | (uint32_t)data;
   asm volatile("custom0 %[out], %[rs1], %[rs2], %[type]"
                : [out] "=r" (out)
-               : [rs1] "r" (action), [rs2] "r" (data),
+               : [rs1] "r" (action_and_data), [rs2] "r" (addr),
                  [type] "i" (XFILES_DEBUG));
   return out;
 }

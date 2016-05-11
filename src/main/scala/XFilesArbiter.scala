@@ -247,8 +247,7 @@ class XFilesArbiter(backendInfo: UInt)(implicit p: Parameters)
       io.core(i).resp.bits := debugUnits(i).resp.bits
     } .elsewhen (asidUnits(i).resp.valid) {
       io.core(i).resp.bits := asidUnits(i).resp.bits
-    } .elsewhen (tTable.xfiles.resp.valid &
-      tTable.regIdx.resp === UInt(i)) {
+    } .elsewhen (tTable.xfiles.resp.valid & tTable.regIdx.resp === UInt(i)) {
       io.core(i).resp.bits := tTable.xfiles.resp.bits
     }
 
@@ -322,10 +321,18 @@ class XFilesArbiter(backendInfo: UInt)(implicit p: Parameters)
   // Handle memory request routing
   val allMemReady = io.core.forall((rocc: RoCCInterface) => rocc.mem.req.ready)
   (0 until numCores).map(i => {
-    io.core(i).mem.req.valid := tTable.xfiles.mem.req.valid &&
-      tTable.memIdx.cmd === UInt(i)
+    io.core(i).mem.req.valid := (tTable.xfiles.mem.req.valid &&
+      tTable.memIdx.cmd === UInt(i)) | (
+      debugUnits(i).mem.req.valid)
+
     io.core(i).mem.req.bits := tTable.xfiles.mem.req.bits
     io.core(i).mem.invalidate_lr := tTable.xfiles.mem.invalidate_lr
+
+    when (debugUnits(i).mem.req.valid) {
+      io.core(i).mem.req.bits := debugUnits(i).mem.req.bits
+    }
+    debugUnits(i).mem.req.ready := io.core(i).mem.req.ready
+
     when (io.core(i).mem.req.fire()) {
       printfInfo("XFilesArbiter: Mem request core %d with tag 0x%x for addr 0x%x\n",
         UInt(i), io.core(i).mem.req.bits.tag, io.core(i).mem.req.bits.addr) }
@@ -360,6 +367,8 @@ class XFilesArbiter(backendInfo: UInt)(implicit p: Parameters)
 
   tTable.xfiles.mem.resp.valid := memArbiter.out.valid
   tTable.xfiles.mem.resp.bits := memArbiter.out.bits
+
+  (0 until numCores).map(i => { debugUnits(i).mem.resp := memArbiter.out })
 
   io.backend.rocc.mem.resp.valid := tTable.backend.rocc.mem.resp.valid
   io.backend.rocc.mem.resp.bits := tTable.backend.rocc.mem.resp.bits

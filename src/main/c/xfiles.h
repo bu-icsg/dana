@@ -63,6 +63,14 @@ typedef enum {
   err_INVEPB      = 5
 } dana_err_t;
 
+typedef enum {
+  a_REG,
+  a_MEM_READ,
+  a_MEM_WRITE,
+  a_UTL_READ,
+  a_UTL_WRITE
+} xfiles_debug_action_t;
+
 #define RESP_CODE_WIDTH 3
 
 #endif
