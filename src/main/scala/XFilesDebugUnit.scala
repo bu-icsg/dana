@@ -50,7 +50,7 @@ class DebugUnit(id: Int)(implicit p: Parameters) extends XFilesModule()(p) {
   when (actionUtl) { state := s_UTL_REQ }
 
   io.resp.bits.rd := rd_d
-  io.resp.valid := state === s_REG | io.mem.resp.valid
+  io.resp.valid := state === s_REG | state === s_MEM_WAIT & io.mem.resp.valid
   io.resp.bits.data := data_d
   when (state === s_REG) { state := s_IDLE }
 
@@ -63,7 +63,7 @@ class DebugUnit(id: Int)(implicit p: Parameters) extends XFilesModule()(p) {
   io.mem.req.bits.cmd := Mux(action_d === t_MEM_READ, M_XRD, M_XWR)
   when (io.mem.req.fire()) { state := s_MEM_WAIT }
 
-  when (io.mem.resp.valid) {
+  when (state === s_MEM_WAIT & io.mem.resp.valid) {
     state := s_IDLE
     io.resp.bits.data := io.mem.resp.bits.data
   }
