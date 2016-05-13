@@ -50,7 +50,9 @@ class DebugUnit(id: Int)(implicit p: Parameters) extends XFilesModule()(p) {
   when (actionUtl) { state := s_UTL_REQ }
 
   io.resp.bits.rd := rd_d
-  io.resp.valid := state === s_REG | state === s_MEM_WAIT & io.mem.resp.valid
+  io.resp.valid := state === s_REG | (
+    state === s_MEM_WAIT & io.mem.resp.valid) | (
+    state === s_MEM_WAIT & action_d === t_MEM_WRITE)
   io.resp.bits.data := data_d
   when (state === s_REG) { state := s_IDLE }
 
@@ -74,8 +76,8 @@ class DebugUnit(id: Int)(implicit p: Parameters) extends XFilesModule()(p) {
   }
 
   when (io.mem.req.valid) {
-    printfDebug("DUnit[%d]: mem.req.valid | addr 0x%x\n", UInt(id),
-      io.mem.req.bits.addr) }
+    printfDebug("DUnit[%d]: mem.req.valid | addr 0x%x, cmd 0x%x, data0x%x\n",
+      UInt(id), io.mem.req.bits.addr, io.mem.req.bits.cmd, io.mem.req.bits.data) }
 
   when (io.mem.resp.valid) {
     printfDebug("DUnit[%d]: mem.resp.valid | addr 0x%x, data 0x%x\n", UInt(id),
