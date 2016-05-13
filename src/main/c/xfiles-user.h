@@ -110,6 +110,10 @@ int attach_nn_configuration_array(asid_nnid_table ** table, uint16_t asid,
                                   size_t size);
 
 //-------------------------------------- Interactions with the Debug Unit
-xlen_t debug_test();
+xlen_t debug_test(xfiles_debug_action_t action, uint32_t data, void * addr);
+
+xlen_t debug_echo_via_reg(uint32_t data);
+xlen_t debug_read_mem(void * addr);
+xlen_t debug_write_mem(uint32_t data, void * addr);
 
 #endif  // SRC_MAIN_C_XFILES_USER_H_

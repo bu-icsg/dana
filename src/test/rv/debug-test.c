@@ -10,15 +10,15 @@ int main(int argc, char **argv) {
 
   xlen_t out;
   printf("[TEST] Testing register interface (action 0x%x)...\n", a_REG);
-  out = debug_test(a_REG, data, 0);
+  out = debug_echo_via_reg(data);
   assert(out == data);
 
   printf("[TEST] Testing L1 read (action 0x%x)...\n", a_MEM_READ);
-  out = debug_test(a_MEM_READ, 0, &data);
+  out = debug_read_mem(&data);
   assert(data == out);
 
   printf("[TEST] Testing L1 write (action 0x%x)...\n", a_MEM_WRITE);
-  out = debug_test(a_MEM_WRITE, data, &copy);
+  out = debug_write_mem(data, &copy);
   assert(out == 0);
   assert(data == copy);
 }
