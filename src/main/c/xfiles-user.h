@@ -110,10 +110,28 @@ int attach_nn_configuration_array(asid_nnid_table ** table, uint16_t asid,
                                   size_t size);
 
 //-------------------------------------- Interactions with the Debug Unit
+
+// Enumerated type that defines the action taken by the Debug Unit
+typedef enum {
+  a_REG,       // Return a value written using the cmd interface
+  a_MEM_READ,  // Read a virtual memory location and return it
+  a_MEM_WRITE  // Write some data to a virtual memory location
+} xfiles_debug_action_t;
+
+// Function that accesses the per-core Debug Unit. This can be used
+// manually or the functions below act as aliases to this function.
 xlen_t debug_test(xfiles_debug_action_t action, uint32_t data, void * addr);
 
+// Write data to the accelerator and have the accelerator return it:
+//   data = data
 xlen_t debug_echo_via_reg(uint32_t data);
+
+// Read a specific virtual memory location:
+//   data = [addr]
 xlen_t debug_read_mem(void * addr);
+
+// Write a specific virtual memory location
+//   [addr] = data
 xlen_t debug_write_mem(uint32_t data, void * addr);
 
 #endif  // SRC_MAIN_C_XFILES_USER_H_
