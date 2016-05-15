@@ -4,10 +4,11 @@ package xfiles
 
 import Chisel._
 
-import rocket.{RoCC, RoccNMemChannels}
+import rocket.{RoCC, RoccNMemChannels, HasCoreParameters}
 import cde.{Parameters, Field}
 
-class XFilesDana(implicit p: Parameters) extends RoCC()(p) {
+class XFilesDana(implicit p: Parameters) extends RoCC()(p)
+    with HasCoreParameters {
   // val io = new CoreXFilesInterface
 
   // val dana = Module(new Dana)
@@ -27,7 +28,7 @@ class XFilesDana(implicit p: Parameters) extends RoCC()(p) {
   io.mem.req.valid := xFilesArbiter.io.core(0).mem.req.valid
   xFilesArbiter.io.core(0).mem.req.ready := io.mem.req.ready
   io.mem.req.bits.kill := xFilesArbiter.io.core(0).mem.req.bits.kill
-  // io.mem.req.bits.phys := xFilesArbiter.io.core(0).mem.req.bits.phys
+  io.mem.req.bits.phys := xFilesArbiter.io.core(0).mem.req.bits.phys
   io.mem.req.bits.data := xFilesArbiter.io.core(0).mem.req.bits.data
   io.mem.req.bits.addr := xFilesArbiter.io.core(0).mem.req.bits.addr
   io.mem.req.bits.tag := xFilesArbiter.io.core(0).mem.req.bits.tag
@@ -44,6 +45,10 @@ class XFilesDana(implicit p: Parameters) extends RoCC()(p) {
   // io.mem.ptw.req.ready := Bool(false)
   // io.mem.ptw.invalidate := Bool(false)
   // io.mem.ptw.sret := Bool(false)
+
+  (0 until p(NumCores)).map(i =>
+    io.ptw <> xFilesArbiter.io.core(0).ptw
+  )
 
   io.busy := xFilesArbiter.io.core(0).busy
   xFilesArbiter.io.core(0).status := io.status

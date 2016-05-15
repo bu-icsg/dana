@@ -224,6 +224,9 @@ class XFilesArbiter(backendInfo: UInt)(implicit p: Parameters)
     debugUnits(i).status := io.core(i).status
     debugUnits(i).resp.ready := Bool(true)
 
+    // PTW connectsion for the Deubg Units
+    debugUnits(i).ptw <> io.core(i).ptw
+
     // Core queue connections. We enqueue any user requests, i.e.,
     // anything that hasn't been squashed. The ASID and TID are
     // supplied by this core's ASID unit if this is a new request.

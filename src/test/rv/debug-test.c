@@ -21,4 +21,8 @@ int main(int argc, char **argv) {
   out = debug_write_mem(data, &copy);
   assert(out == 0);
   assert(data == copy);
+
+  printf("[TEST] Testing translation (action 0x%x)...\n", a_VIRT_TO_PHYS);
+  out = debug_virt_to_phys(&data);
+  printf("[INFO] &data: 0x%lx_v -> 0x%lx_p\n", (xlen_t) &data, out);
 }

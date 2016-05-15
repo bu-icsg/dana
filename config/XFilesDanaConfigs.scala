@@ -16,7 +16,8 @@ class XFilesDanaConfig extends Config (
         RoccParameters(
           opcodes = OpcodeSet.custom0,
           generator = (p: Parameters) =>  Module(new XFilesDana()(
-            p.alterPartial({ case CoreName => "XFilesDana" }))))
+            p.alterPartial({ case CoreName => "XFilesDana" }))),
+          nPTWPorts = 1)
       )
       case CacheName => "L1D"
       case RoccMaxTaggedMemXacts => 1
