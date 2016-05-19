@@ -214,7 +214,7 @@ class XFilesArbiter(backendInfo: UInt)(implicit p: Parameters)
 
     when (cmd.fire()) {
       printfDebug("XF Arbiter: funct 0x%x, rs1 0x%x, rs2 0x%x\n",
-        funct, cmd.bits.rs1, cmd.bits.rs1)
+        funct, cmd.bits.rs1, cmd.bits.rs2)
     }
 
     // The Debug Units get the full command, but are expected to
@@ -345,6 +345,9 @@ class XFilesArbiter(backendInfo: UInt)(implicit p: Parameters)
         UInt(i), io.core(i).mem.resp.bits.tag, io.core(i).mem.resp.bits.addr,
         io.core(i).mem.resp.bits.data_word_bypass) }})
   tTable.xfiles.mem.req.ready := allMemReady
+
+  // Just attach the AUTL lines to the X-FILES Arbiter
+  io.core(0).autl <> debugUnits(0).autl
 
   // Handle memory responses. These are sent into a per-core memory
   // response queue and then arbitrated out and passed to the backend.
