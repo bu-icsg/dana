@@ -104,45 +104,43 @@ class DebugUnit(id: Int)(implicit p: Parameters) extends XFilesModule()(p)
 
   io.autl.acquire.valid := state === s_UTL_ACQ
   private val utlBlockOffset = tlBeatAddrBits + tlByteAddrBits
-  // io.autl.acquire.bits := GetBlock(
-  //   addr_block = addr_d(coreMaxAddrBits - 1, utlBlockOffset))
   val utlDataPutVec = Wire(Vec.fill(tlDataBits / xLen)(UInt(width = xLen)))
+  val addr_block = addr_d(coreMaxAddrBits - 1, utlBlockOffset)
+  val addr_beat = addr_d(utlBlockOffset - 1, tlByteAddrBits)
+  val addr_byte = addr_d(tlByteAddrBits - 1, 0)
+  val addr_word = addr_d(tlByteAddrBits - 1, log2Up(xLen/8))
 
   (0 until tlDataBits/xLen).map(i => utlDataPutVec(i) := UInt(0))
-  utlDataPutVec(addr_d(tlByteAddrBits - 1, 0)) := data_d
+  utlDataPutVec(addr_word) := data_d
   io.autl.acquire.bits := Mux(action_d === t_UTL_READ,
     Get(client_xact_id = UInt(0),
-    addr_block = addr_d(coreMaxAddrBits - 1, utlBlockOffset),
-    addr_beat = addr_d(utlBlockOffset - 1, tlByteAddrBits),
-    addr_byte = addr_d(tlByteAddrBits - 1, 0),
-    operand_size = MT_D,
+      addr_block = addr_block,
+      addr_beat = addr_beat,
+      addr_byte = addr_byte,
+      operand_size = MT_D,
       alloc = Bool(false)),
     Put(client_xact_id = UInt(0),
-      addr_block = addr_d(coreMaxAddrBits - 1, utlBlockOffset),
-      addr_beat = addr_d(utlBlockOffset - 1, tlByteAddrBits),
+      addr_block = addr_block,
+      addr_beat = addr_beat,
       data = utlDataPutVec.toBits,
-      wmask = Fill(xLen/8, UInt(1, 1)) << addr_d(tlByteAddrBits - 1, 0),
+      wmask = Fill(xLen/8, UInt(1, 1)) << addr_byte,
       alloc = Bool(false)))
   io.autl.grant.ready := state === s_UTL_GRANT
   when (io.autl.acquire.fire()) { state := s_UTL_GRANT }
 
   val utlData = Reg(UInt(width = tlDataBits))
-  val utlBeat = Reg(UInt(width = tlBeatAddrBits))
   when (io.autl.grant.fire()) {
     utlData := io.autl.grant.bits.data
-    utlBeat := io.autl.grant.bits.addr_beat
     state := s_UTL_RESP
   }
 
-  val utlDataVec = Wire(Vec.fill(tlDataBits / xLen)(UInt(width = xLen)))
+  val utlDataGetVec = Wire(Vec.fill(tlDataBits / xLen)(UInt(width = xLen)))
 
   (0 until tlDataBits/xLen).map(i =>
-    utlDataVec(i) := utlData((i+1) * xLen-1, i * xLen))
+    utlDataGetVec(i) := utlData((i+1) * xLen-1, i * xLen))
   when (state === s_UTL_RESP) {
-    val addr_word = addr_d(tlByteAddrBits - 1, log2Up(xLen/8))
-    io.resp.bits.data := Mux(action_d === t_UTL_READ, utlDataVec(addr_word), UInt(0))
+    io.resp.bits.data := Mux(action_d === t_UTL_READ, utlDataGetVec(addr_word), UInt(0))
     state := s_IDLE
-    // printfDebug("DUnit[%d]: utlOffset 0d%d\n", UInt(id), utlOffset)
     printfDebug("DUnit[%d]: tlBeatAddrBits: 0d%d\n", UInt(id), UInt(tlBeatAddrBits))
     printfDebug("DUnit[%d]: tlByteAddrBits: 0d%d\n", UInt(id), UInt(tlByteAddrBits))
     printfDebug("DUnit[%d]: tlDataBytes:    0d%d\n", UInt(id), UInt(log2Up(tlDataBytes)))

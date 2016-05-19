@@ -25,10 +25,10 @@ int main(int argc, char **argv) {
   }
 
   printf("[TEST] Testing L1 write (action 0x%x)...\n", a_MEM_WRITE);
-  xlen_t copy = 0;
+  xlen_t copy[8];
   out = debug_write_mem(data[0], &copy);
   assert(out == 0);
-  assert(data[0] == copy);
+  assert(data[0] == copy[0]);
 
   printf("[TEST] Testing translation (action 0x%x)...\n", a_VIRT_TO_PHYS);
   out = debug_virt_to_phys(&data);
@@ -41,11 +41,10 @@ int main(int argc, char **argv) {
   }
 
   printf("[TEST] Testing L2 write (action 0x%x)...\n", a_UTL_WRITE);
-  xlen_t * copy_p = (xlen_t *) debug_virt_to_phys(&copy);
   for (size_t i = 0; i < 4; ++i) {
-    copy = -1;
+    xlen_t * copy_p = (xlen_t *) debug_virt_to_phys(&copy[i]);
     out = debug_write_utl(data[i], copy_p);
     assert(out == 0);
-    assert(copy == data[i]);
+    assert(copy[i] == data[i]);
   }
 }

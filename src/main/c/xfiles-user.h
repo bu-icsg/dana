@@ -145,6 +145,8 @@ xlen_t debug_virt_to_phys(void * addr_v);
 //   data = [addr]
 xlen_t debug_read_utl(void * addr);
 
+// Write to a specific memory address using the L2 uncached tilelink port:
+//   [addr] = data
 xlen_t debug_write_utl(uint32_t data, void * addr);
 
 #endif  // SRC_MAIN_C_XFILES_USER_H_
