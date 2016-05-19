@@ -3,7 +3,7 @@
 package xfiles
 import Chisel._
 import uncore.constants.MemoryOpConstants._
-import uncore.{HasTileLinkParameters, Get, GetBlock}
+import uncore.{HasTileLinkParameters, Get, Put, GetBlock}
 import rocket.{RoCCInterface, PTE}
 import cde.Parameters
 
@@ -106,13 +106,23 @@ class DebugUnit(id: Int)(implicit p: Parameters) extends XFilesModule()(p)
   private val utlBlockOffset = tlBeatAddrBits + tlByteAddrBits
   // io.autl.acquire.bits := GetBlock(
   //   addr_block = addr_d(coreMaxAddrBits - 1, utlBlockOffset))
-  io.autl.acquire.bits := Get(
-    client_xact_id = UInt(0),
+  val utlDataPutVec = Wire(Vec.fill(tlDataBits / xLen)(UInt(width = xLen)))
+
+  (0 until tlDataBits/xLen).map(i => utlDataPutVec(i) := UInt(0))
+  utlDataPutVec(addr_d(tlByteAddrBits - 1, 0)) := data_d
+  io.autl.acquire.bits := Mux(action_d === t_UTL_READ,
+    Get(client_xact_id = UInt(0),
     addr_block = addr_d(coreMaxAddrBits - 1, utlBlockOffset),
     addr_beat = addr_d(utlBlockOffset - 1, tlByteAddrBits),
     addr_byte = addr_d(tlByteAddrBits - 1, 0),
     operand_size = MT_D,
-    alloc = Bool(false))
+      alloc = Bool(false)),
+    Put(client_xact_id = UInt(0),
+      addr_block = addr_d(coreMaxAddrBits - 1, utlBlockOffset),
+      addr_beat = addr_d(utlBlockOffset - 1, tlByteAddrBits),
+      data = utlDataPutVec.toBits,
+      wmask = Fill(xLen/8, UInt(1, 1)) << addr_d(tlByteAddrBits - 1, 0),
+      alloc = Bool(false)))
   io.autl.grant.ready := state === s_UTL_GRANT
   when (io.autl.acquire.fire()) { state := s_UTL_GRANT }
 
@@ -130,7 +140,7 @@ class DebugUnit(id: Int)(implicit p: Parameters) extends XFilesModule()(p)
     utlDataVec(i) := utlData((i+1) * xLen-1, i * xLen))
   when (state === s_UTL_RESP) {
     val addr_word = addr_d(tlByteAddrBits - 1, log2Up(xLen/8))
-    io.resp.bits.data := utlDataVec(addr_word)
+    io.resp.bits.data := Mux(action_d === t_UTL_READ, utlDataVec(addr_word), UInt(0))
     state := s_IDLE
     // printfDebug("DUnit[%d]: utlOffset 0d%d\n", UInt(id), utlOffset)
     printfDebug("DUnit[%d]: tlBeatAddrBits: 0d%d\n", UInt(id), UInt(tlBeatAddrBits))
@@ -142,9 +152,9 @@ class DebugUnit(id: Int)(implicit p: Parameters) extends XFilesModule()(p)
 
   when (io.autl.acquire.fire()) {
     val data = io.autl.acquire.bits
-    printfDebug("DUnit[%d]: autl.acquire.valid | addr_d 0x%x, addr_block 0x%x, addr_beat 0x%x, addr_byte 0x%x\n",
-      UInt(id), addr_d, data.addr_block, data.addr_beat,
-      addr_d(tlByteAddrBits - 1, 0)) }
+    printfDebug("DUnit[%d]: autl.acquire.valid | addr_d 0x%x, addr_block 0x%x, addr_beat 0x%x, addr_byte 0x%x, data 0x%x, wmask 0x%x\n",
+      UInt(id), addr_d, data.addr_block, data.addr_beat, data.addr_byte(),
+      data.data, data.wmask()) }
 
   when (io.autl.grant.fire()) {
     printfDebug("DUnit[%d]: autl.grant.valid | data 0x%x, beat 0x%x\n",

@@ -8,7 +8,6 @@
 int main(int argc, char **argv) {
 
   uint64_t data[8];
-  xlen_t copy = 0;
   data[0] = 0xaaaa;
   data[1] = 0xbbbb;
   data[2] = 0xcccc;
@@ -26,17 +25,27 @@ int main(int argc, char **argv) {
   }
 
   printf("[TEST] Testing L1 write (action 0x%x)...\n", a_MEM_WRITE);
+  xlen_t copy = 0;
   out = debug_write_mem(data[0], &copy);
   assert(out == 0);
   assert(data[0] == copy);
 
   printf("[TEST] Testing translation (action 0x%x)...\n", a_VIRT_TO_PHYS);
   out = debug_virt_to_phys(&data);
-  assert(out == (uint64_t) &data);
+  assert(out != -1);
 
   printf("[TEST] Testing L2 read (action 0x%x)...\n", a_UTL_READ);
   for (size_t i = 0; i < 4; ++i) {
     out = debug_read_utl(&(data[i]));
     assert(out == data[i]);
+  }
+
+  printf("[TEST] Testing L2 write (action 0x%x)...\n", a_UTL_WRITE);
+  xlen_t * copy_p = (xlen_t *) debug_virt_to_phys(&copy);
+  for (size_t i = 0; i < 4; ++i) {
+    copy = -1;
+    out = debug_write_utl(data[i], copy_p);
+    assert(out == 0);
+    assert(copy == data[i]);
   }
 }
