@@ -83,7 +83,7 @@ class AsidNnidTableWalker(implicit p: Parameters) extends DanaModule()(p) {
 
   io.xfiles.dcache.mem.req.valid := Bool(false)
   io.xfiles.dcache.mem.req.bits.kill := Bool(false) // testing
-  io.xfiles.dcache.mem.req.bits.phys := Bool(true) // testing
+  io.xfiles.dcache.mem.req.bits.phys := Bool(false) // testing
   io.xfiles.dcache.mem.req.bits.data := Bool(false) // testing
   io.xfiles.dcache.mem.req.bits.addr := UInt(0)
   io.xfiles.dcache.mem.req.bits.tag := UInt(0)

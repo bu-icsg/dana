@@ -67,7 +67,7 @@ class DebugUnit(id: Int)(implicit p: Parameters) extends XFilesModule()(p)
 
   io.mem.req.valid := state === s_MEM_REQ
   io.mem.req.bits.kill := Bool(false)
-  io.mem.req.bits.phys := Bool(true)
+  io.mem.req.bits.phys := Bool(false)
   io.mem.req.bits.addr := addr_d
   io.mem.req.bits.data := data_d
   io.mem.req.bits.typ := MT_D
