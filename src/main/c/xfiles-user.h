@@ -129,19 +129,22 @@ xlen_t debug_test(xfiles_debug_action_t action, uint32_t data, void * addr);
 //   data = data
 xlen_t debug_echo_via_reg(uint32_t data);
 
-// Read a specific virtual memory location:
+// Read from a specific address using the L1 port:
 //   data = [addr]
 xlen_t debug_read_mem(void * addr);
 
-// Write a specific virtual memory location
+// Write to a specific address using the L1 port:
 //   [addr] = data
 xlen_t debug_write_mem(uint32_t data, void * addr);
 
-// Do virtual to physical address translation
+// Do virtual to physical address translation:
 //   addr_phys = virt_to_phys(addr_virt)
 xlen_t debug_virt_to_phys(void * addr_v);
 
+// Read a specific memory address using the L2 uncached tilelink port:
+//   data = [addr]
 xlen_t debug_read_utl(void * addr);
+
 xlen_t debug_write_utl(uint32_t data, void * addr);
 
 #endif  // SRC_MAIN_C_XFILES_USER_H_
