@@ -31,6 +31,14 @@ trait XFilesSupervisorRequests {
   val t_READ_CSR = 2
 }
 
+trait XFilesRequests {
+  // Supervisor requests are < 4
+  val t_SUP_UPDATE_ASID = 0
+  val t_SUP_WRITE_REG = 1
+  val t_SUP_READ_CSR = 2
+  // User requests are >= 4
+}
+
 trait XFilesResponseCodes extends XFilesParameters {
   val respCodeWidth = 3
 

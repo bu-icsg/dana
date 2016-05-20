@@ -312,9 +312,6 @@ class DanaTransactionTableBase[StateType <: TransactionState,
 
   // IO aliases
   lazy val cmd = new DanaBundle {
-    val readOrWrite = io.arbiter.rocc.cmd.bits.inst.funct(0)
-    val isNew = io.arbiter.rocc.cmd.bits.inst.funct(1)
-    val isLast = io.arbiter.rocc.cmd.bits.inst.funct(2)
     val asid = io.arbiter.rocc.cmd.bits.rs1(asidWidth + tidWidth - 1, tidWidth)
     val tid = io.arbiter.rocc.cmd.bits.rs1(tidWidth - 1, 0)
     val coreIdx = io.arbiter.coreIdx
@@ -679,8 +676,8 @@ class DanaTransactionTableBase[StateType <: TransactionState,
     "DANA TTable tried to send a valid response when core was not ready")
 
   // No writes should show up if the transaction is already valid
-  assert(!(newRoccCmd && cmd.readOrWrite && table(derefTidIndex).flags.valid),
-    "DANA TTable saw write requests on valid TID")
+  // assert(!(newRoccCmd && cmd.readOrWrite && table(derefTidIndex).flags.valid),
+  //   "DANA TTable saw write requests on valid TID")
 
   // If learning is disabled we should never see a learning request
   if (!learningEnabled) {
