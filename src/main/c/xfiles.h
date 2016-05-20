@@ -65,8 +65,9 @@ typedef enum {
 
 #define RESP_CODE_WIDTH 3
 
-#define XFILES_INSTRUCTION(rd_, rs1_, rs2_, funct_) \
-  asm volatile ("custom0 %[rd], %[rs1], %[rs2], %[funct]" \
+#define XCUSTOM "custom0"
+#define XFILES_INSTRUCTION(rd_, rs1_, rs2_, funct_)       \
+  asm volatile (XCUSTOM" %[rd], %[rs1], %[rs2], %[funct]" \
                 : [rd] "=r" (rd_) \
                 : [rs1] "r" (rs1_), \
                   [rs2] "r" (rs2_), \
