@@ -21,9 +21,7 @@
 xlen_t xfiles_dana_id(int flag_print) {
   xlen_t out;
 
-  asm volatile ("custom0 %[out], 0, 0, %[type]"
-                : [out] "=r" (out)
-                : [type] "i" (XFILES_DANA_ID));
+  XFILES_INSTRUCTION(out, 0, 0, XFILES_DANA_ID);
 
   if (flag_print) {
     uint64_t transaction_table_num_entries = (out >> 48) & ~((~0) << 4);
@@ -55,9 +53,7 @@ tid_type new_write_request(nnid_type nnid, learning_type_t learning_type,
   // read == 0 / write == 1) and "isNew" (bit 1) flags of "funct",
   // i.e., funct == 3. The nnid goes in rs2. The output will show up
   // in the varaible "out".
-  asm volatile ("custom0 %[out], %[rs1], %[rs2], %[type]"
-                : [out] "=r" (out)
-                : [rs1] "r" (0), [rs2] "r" (rs2), [type] "i" (NEW_REQUEST));
+  XFILES_INSTRUCTION(out, 0, rs2, NEW_REQUEST);
 
   // The TID is in bits [47:32] of what we get back. Pull out this
   // portion and return it. [TODO] This is fragile on tid and element
@@ -71,11 +67,7 @@ xlen_t write_register(tid_type tid, xfiles_reg reg, uint32_t value) {
 
   xlen_t rs2, out;
   rs2 = (uint64_t) value | ((uint64_t) reg << 32);
-
-  asm volatile ("custom0 %[out], %[rs1], %[rs2], %[type]"
-                : [out] "=r" (out)
-                : [rs1] "r" (tid), [rs2] "r" (rs2),
-                 [type] "i" (WRITE_REGISTER));
+  XFILES_INSTRUCTION(out, tid, rs2, WRITE_REGISTER);
   return out;
 }
 
@@ -89,10 +81,7 @@ xlen_t write_data(tid_type tid, element_type * data, size_t count) {
   // rs1 and data goes in rs2.
   int write_index = 0;
   while (write_index != count - 1) {
-    asm volatile ("custom0 %[out], %[rs1], %[rs2], %[type]"
-                  : [out] "=r" (out)
-                  : [rs1] "r" (tid), [rs2] "r" (data[write_index]),
-                   [type] "i" (WRITE_DATA));
+    XFILES_INSTRUCTION(out, tid, data[write_index], WRITE_DATA);
     int exit_code = out >> shift;
     switch (exit_code) {
       case resp_OK: write_index++; continue;
@@ -105,10 +94,7 @@ xlen_t write_data(tid_type tid, element_type * data, size_t count) {
   // 5). When the X-Files Arbiter sees this "isLast" bit, it enables
   // execution of the transaction.
   while (1) {
-    asm volatile ("custom0 %[out], %[rs1], %[rs2], %[type]"
-                  : [out] "=r" (out)
-                  : [rs1] "r" (tid), [rs2] "r" (data[write_index]),
-                   [type] "i" (WRITE_DATA_LAST));
+    XFILES_INSTRUCTION(out, tid, data[write_index], WRITE_DATA_LAST);
     int exit_code = out >> shift;
     switch (exit_code) {
       case resp_OK: return 0;
@@ -124,10 +110,7 @@ xlen_t write_data_except_last(tid_type tid, element_type * data, size_t count) {
 
   int write_index = 0;
   while (write_index != count - 1) {
-    asm volatile ("custom0 %[out], %[rs1], %[rs2], %[type]"
-                  : [out] "=r" (out)
-                  : [rs1] "r" (tid), [rs2] "r" (data[write_index]),
-                   [type] "i" (WRITE_DATA));
+    XFILES_INSTRUCTION(out, tid, data[write_index], WRITE_DATA);
     int exit_code = out >> shift;
     switch (exit_code) {
       case resp_OK: write_index++; continue;
@@ -143,10 +126,7 @@ xlen_t write_data_last(tid_type tid, element_type * data, size_t count) {
   xlen_t out;
 
   while (1) {
-    asm volatile ("custom0 %[out], %[rs1], %[rs2], %[type]"
-                  : [out] "=r" (out)
-                  : [rs1] "r" (tid), [rs2] "r" (data[count - 1]),
-                   [type] "i" (WRITE_DATA_LAST));
+    XFILES_INSTRUCTION(out, tid, data[count - 1], WRITE_DATA_LAST);
     int exit_code = out >> shift;
     switch (exit_code) {
       case resp_OK: return 0;
@@ -173,9 +153,7 @@ xlen_t read_data_spinlock(tid_type tid, element_type * data, size_t count) {
   // responses equal to the count that we're looking for.
   int read_index = 0;
   while (read_index != count) {
-    asm volatile ("custom0 %[out], %[rs1], 0, %[type]"
-                  : [out] "=r" (out)
-                  : [rs1] "r" (tid), [type] "i" (READ_DATA));
+    XFILES_INSTRUCTION(out, tid, 0, READ_DATA);
     int exit_code = out >> (32 + 16 + 16 - RESP_CODE_WIDTH);
     switch (exit_code) {
       case resp_NOT_DONE: continue;
@@ -435,10 +413,7 @@ int attach_nn_configuration_array(asid_nnid_table ** table, uint16_t asid,
 
 xlen_t debug_test(xfiles_debug_action_t action, uint32_t data, void * addr) {
   xlen_t out, action_and_data = ((uint64_t)action << 32) | (uint32_t)data;
-  asm volatile("custom0 %[out], %[rs1], %[rs2], %[type]"
-               : [out] "=r" (out)
-               : [rs1] "r" (action_and_data), [rs2] "r" (addr),
-                 [type] "i" (XFILES_DEBUG));
+  XFILES_INSTRUCTION(out, action_and_data, addr, XFILES_DEBUG);
   return out;
 }
 

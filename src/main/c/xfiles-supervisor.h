@@ -8,8 +8,9 @@
 typedef int16_t asid_type;
 
 typedef enum {
-  UPDATE_ASID = 0,
-  UPDATE_ANTP = 1
+  t_SUP_UPDATE_ASID,
+  t_SUP_WRITE_REG,
+  t_SUP_READ_CSR
 } request_super_t;
 
 typedef enum {
