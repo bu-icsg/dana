@@ -12,7 +12,8 @@ class AsidTid(implicit p: Parameters) extends XFilesBundle()(p) {
   val tid = UInt(width = p(TidWidth))
 }
 
-class AsidUnit(id: Int)(implicit p: Parameters) extends XFilesModule()(p) {
+class AsidUnit(id: Int)(implicit p: Parameters) extends XFilesModule()(p)
+    with XFilesSupervisorRequests{
   val io = new XFilesBundle {
     val cmd = Decoupled(new RoCCCommand).flip
     val status = new MStatus().asInput
@@ -29,7 +30,7 @@ class AsidUnit(id: Int)(implicit p: Parameters) extends XFilesModule()(p) {
 
   val funct = io.cmd.bits.inst.funct
   val updateAsid = io.status.prv.orR & funct === UInt(t_UPDATE_ASID)
-  val newRequest = !io.status.prv.orR & funct === t_NEW_REQUEST
+  val newRequest = !io.status.prv.orR & funct === UInt(t_NEW_REQUEST)
 
   // Snoop on the input RoCCInterface. When you see a new supervisory
   // ASID-update request, set the ASID and reset the TID counter.

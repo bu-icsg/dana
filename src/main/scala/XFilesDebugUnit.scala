@@ -31,7 +31,7 @@ class DebugUnit(id: Int)(implicit p: Parameters) extends XFilesModule()(p)
 
   val action = rs1(xLen - 1, xLen/2)
   val data = rs1(xLen/2 - 1, 0)
-  val isDebug = cmd.fire() & state === s_IDLE & funct === t_XFILES_DEBUG
+  val isDebug = cmd.fire() & state === s_IDLE & funct === UInt(t_XFILES_DEBUG)
   val actionReg = isDebug & action === t_REG
   val actionMem = isDebug & (action === t_MEM_READ | action === t_MEM_WRITE)
   val actionVToP = isDebug & (action === t_VIRT_TO_PHYS)

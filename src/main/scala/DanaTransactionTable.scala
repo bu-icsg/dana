@@ -370,7 +370,7 @@ class DanaTransactionTableBase[StateType <: TransactionState,
   io.arbiter.rocc.resp.valid := Bool(false)
 
   val newRoccCmd = cmd.raw.fire() && !io.arbiter.rocc.status.prv.orR
-  val regWrite = newRoccCmd & cmd.raw.bits.inst.funct === t_WRITE_REGISTER
+  val regWrite = newRoccCmd & cmd.raw.bits.inst.funct === UInt(t_WRITE_REGISTER)
   when (regWrite) {
     printfInfo("DANA TTable: saw reg write TID/Reg/Value 0x%x/0x%x/0x%x\n",
       cmd.tid, cmd.regId, cmd.regValue)
