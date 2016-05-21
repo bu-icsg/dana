@@ -175,11 +175,11 @@ xlen_t pk_syscall_set_asid(asid_type asid) {
   // whenever the OS returns control.
   xlen_t old_asid;
   asm volatile ("mv a0, %[asid]\n\t"
-                "li a7, 512\n\t"
+                "li a7, %[syscall]\n\t"
                 "ecall\n\t"
                 "mv %[old_asid], a0"
                 : [old_asid] "=r" (old_asid)
-                : [asid] "r" (asid)
+                : [asid] "r" (asid), [syscall] "i" (SYSCALL_SET_ASID)
                 : "a0", "a7");
   return old_asid;
 }
@@ -191,13 +191,26 @@ xlen_t pk_syscall_set_antp(asid_nnid_table * os_antp) {
   xlen_t old_antp;
   asm volatile ("mv a0, %[antp]\n\t"
                 "mv a1, %[size]\n\t"
-                "li a7, 513\n\t"
+                "li a7, %[syscall]\n\t"
                 "ecall\n\t"
                 "mv %[old_antp], a0"
                 : [old_antp] "=r" (old_antp)
-                : [antp] "r" (os_antp->entry), [size] "r" (os_antp->size)
+                : [antp] "r" (os_antp->entry), [size] "r" (os_antp->size),
+                  [syscall] "i" (SYSCALL_SET_ANTP)
                 : "a0", "a7");
   return old_antp;
+}
+
+xlen_t pk_syscall_debug_echo(uint32_t data) {
+  xlen_t out;
+  asm volatile ("mv a0, %[data]\n\t"
+                "li a7, %[syscall]\n\t"
+                "ecall\n\t"
+                "mv %[out], a0"
+                : [out] "=r" (out)
+                : [data] "r" (data), [syscall] "i" (SYSCALL_DEBUG_ECHO)
+                : "a0", "a7");
+  return out;
 }
 
 xlen_t kill_transaction(tid_type tid) {

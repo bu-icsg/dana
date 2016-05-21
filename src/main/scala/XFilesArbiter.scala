@@ -200,7 +200,7 @@ class XFilesArbiter(backendInfo: UInt)(implicit p: Parameters)
     // Anything that is a short circuit response or involves a
     // supervisor request gets squashed.
     val squashSup = reqInfo | badRequest | readCsr | isDebug
-    val squashUser = squashSup | sup | !asidValid
+    val squashUser = squashSup | (sup & funct < UInt(4)) | !asidValid
 
     io.core(i).resp.valid := (reqInfo | badRequest | readCsr |
       asidUnits(i).resp.valid | debugUnits(i).resp.valid |
