@@ -34,13 +34,13 @@ trait XFilesSupervisorRequests {
 
 trait XFilesUserRequests {
   // User requests are >= 4
-  val t_USR_READ_DATA = 0
-  val t_USR_WRITE_DATA = 1
-  val t_USR_NEW_REQUEST = 3
-  val t_USR_WRITE_DATA_LAST = 5
-  val t_USR_WRITE_REGISTER = 7
-  val t_USR_XFILES_DEBUG = 8
-  val t_USR_XFILES_ID = 16
+  val t_USR_READ_DATA = 4
+  val t_USR_WRITE_DATA = 5
+  val t_USR_NEW_REQUEST = 6
+  val t_USR_WRITE_DATA_LAST = 7
+  val t_USR_WRITE_REGISTER = 8
+  val t_USR_XFILES_DEBUG = 9
+  val t_USR_XFILES_ID = 10
 }
 
 trait XFilesParameters extends HasCoreParameters with XFilesErrorCodes

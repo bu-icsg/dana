@@ -8,9 +8,9 @@
 typedef int16_t asid_type;
 
 typedef enum {
-  t_SUP_UPDATE_ASID,
-  t_SUP_WRITE_REG,
-  t_SUP_READ_CSR
+  t_SUP_UPDATE_ASID = 0,
+  t_SUP_WRITE_REG = 1,
+  t_SUP_READ_CSR = 2
 } request_super_t;
 
 typedef enum {

@@ -558,7 +558,7 @@ class DanaTransactionTableBase[StateType <: TransactionState,
         printfInfo("DANA TTable: T0d%d got (INPUT:0x%x) from queue\n",
           ioArbiter.chosen, data)
 
-        val isLast = io.arbiter.queueIO.in.bits.funct(2)
+        val isLast = io.arbiter.queueIO.in.bits.funct === UInt(t_USR_WRITE_DATA_LAST)
         when (isLast) {
           val nextIndexBlock = (table(derefTidIndex).indexElement(
             log2Up(regFileNumElements)-1,log2Up(elementsPerBlock)) ##
@@ -650,14 +650,6 @@ class DanaTransactionTableBase[StateType <: TransactionState,
   for (i <- 0 until transactionTableNumEntries)
     assert(!table(i).flags.valid || table(i).flags.reserved,
       "Valid asserted with reserved de-asserted on TTable " + i)
-
-  // Disabled (#7) -- the backend should be dumb and not have any
-  // concept of validity, hence writes to arbitrary registers should
-  // be allowed to go through
-  // // A register write should hit a tid
-  // assert(!(!foundTid && newRoccCmd &&
-  //   cmd.readOrWrite && cmd.isNew && cmd.isLast),
-  //   "DANA TTable saw write register on non-existent ASID/TID")
 
   // A Control response should never have a cacheValid or layerValid
   // asserted when the decoupled valid is deasserted
@@ -840,7 +832,7 @@ class DanaTransactionTableLearn(implicit p: Parameters)
 
     // The learning variant needs to set certain fields when it exits
     // the "needsInputs" state
-    val isLast = io.arbiter.queueIO.in.bits.funct(2)
+    val isLast = io.arbiter.queueIO.in.bits.funct === UInt(t_USR_WRITE_DATA_LAST)
     val numInputs = entry.indexElement
     val numInputsMSBs = numInputs(log2Up(regFileNumElements) - 1,
       log2Up(elementsPerBlock)) ## UInt(0, width=log2Up(elementsPerBlock))

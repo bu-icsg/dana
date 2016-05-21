@@ -23,13 +23,13 @@ typedef enum {
 } xfiles_reg;
 
 typedef enum {
-  t_USR_READ_DATA = 0,       // 0 0000
-  t_USR_WRITE_DATA = 1,      // 0 0001
-  t_USR_NEW_REQUEST = 3,     // 0 0011
-  t_USR_WRITE_DATA_LAST = 5, // 0 0101
-  t_USR_WRITE_REGISTER = 7,  // 0 0111
-  t_USR_XFILES_DEBUG = 8,    // 0 1000
-  t_USR_XFILES_DANA_ID = 16  // 1 0000
+  t_USR_READ_DATA = 4,
+  t_USR_WRITE_DATA = 5,
+  t_USR_NEW_REQUEST = 6,
+  t_USR_WRITE_DATA_LAST = 7,
+  t_USR_WRITE_REGISTER = 8,
+  t_USR_XFILES_DEBUG = 9,
+  t_USR_XFILES_DANA_ID = 10
 } request_t;
 
 typedef enum {
