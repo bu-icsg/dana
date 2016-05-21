@@ -21,7 +21,7 @@
 xlen_t xfiles_dana_id(int flag_print) {
   xlen_t out;
 
-  XFILES_INSTRUCTION(out, 0, 0, t_USR_XFILES_DANA_ID);
+  XFILES_INSTRUCTION_R_I_I(out, 0, 0, t_USR_XFILES_DANA_ID);
 
   if (flag_print) {
     uint64_t transaction_table_num_entries = (out >> 48) & ~((~0) << 4);
@@ -153,7 +153,7 @@ xlen_t read_data_spinlock(tid_type tid, element_type * data, size_t count) {
   // responses equal to the count that we're looking for.
   int read_index = 0;
   while (read_index != count) {
-    XFILES_INSTRUCTION(out, tid, 0, t_USR_READ_DATA);
+    XFILES_INSTRUCTION_R_R_I(out, tid, 0, t_USR_READ_DATA);
     int exit_code = out >> (32 + 16 + 16 - RESP_CODE_WIDTH);
     switch (exit_code) {
       case resp_NOT_DONE: continue;
