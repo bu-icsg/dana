@@ -22,7 +22,7 @@ trait XFilesErrorCodes {
   val err_XFILES_TTABLEFULL = 2
   val err_XFILES_INVALIDTID = 3
 
-  val int_NOASID = 0
+  val int_INVREQ = 0
 }
 
 trait XFilesSupervisorRequests {
@@ -179,8 +179,8 @@ class XFilesArbiter(backendInfo: UInt)(implicit p: Parameters)
     //     or the backend. This is allowed to go through
     //     uncoditionally, i.e., the ASID does not have to be set for
     //     this to succeed.
-    //   * badRequest -- This covers receipt of a request when the
-    //     ASID isn't set
+    //   * badRequest -- This covers all bad requests (ASID is unset,
+    //     user trying to initiate a supervisor request)
     //   * readCsr -- read a CSR, like the exception cause register
     //   * writeReg -- Write a backend register
     //   * writeRegS -- Write a backend supervisor register
@@ -188,8 +188,9 @@ class XFilesArbiter(backendInfo: UInt)(implicit p: Parameters)
     // the requst and prevent it from getting entered in the Core
     // Queue.
     val asidValid = asidUnits(i).data.valid
-    val badRequest = cmd.fire() & !asidValid & !sup &
-      funct =/= UInt(t_USR_XFILES_ID) & funct =/= UInt(t_USR_XFILES_DEBUG)
+    val badRequest = cmd.fire() & ((!asidValid & !sup &
+      funct =/= UInt(t_USR_XFILES_ID) & funct =/= UInt(t_USR_XFILES_DEBUG)) |
+      (!sup & funct < UInt(4)))
 
     val reqInfo = cmd.fire() & !sup & funct === UInt(t_USR_XFILES_ID)
     val readCsr = cmd.fire() & sup & funct === UInt(t_SUP_READ_CSR)
@@ -266,7 +267,7 @@ class XFilesArbiter(backendInfo: UInt)(implicit p: Parameters)
     val backendException = io.backend.interrupt.fire() &
       (io.backend.interrupt.bits.coreIdx === UInt(i))
     exception(i).valid := exception(i).valid | badRequest | backendException
-    when (badRequest) { exception(i).bits := UInt(int_NOASID)
+    when (badRequest) { exception(i).bits := UInt(int_INVREQ)
       printfWarn("XF Arbiter: Saw badRequest\n") }
     when (backendException) { exception(i).bits := io.backend.interrupt.bits.code }
 

@@ -90,6 +90,7 @@ RV_TESTS             = hello.c \
 	read-xfiles-dana-id.c \
 	trap-00-new-request-no-asid.c \
 	trap-00-write-register-no-asid.c \
+	trap-00-supervisor-req-as-user.c \
 	trap-01-request-antp-not-set.c \
 	trap-02-request-oob-asid.c \
 	trap-03-request-oob-nnid.c \
