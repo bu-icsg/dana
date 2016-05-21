@@ -27,20 +27,20 @@ trait XFilesErrorCodes {
 
 trait XFilesSupervisorRequests {
   // Supervisor requests are < 4
-  val t_UPDATE_ASID = 0
+  val t_SUP_UPDATE_ASID = 0
   val t_SUP_WRITE_REG = 1
-  val t_READ_CSR = 2
+  val t_SUP_READ_CSR = 2
 }
 
 trait XFilesUserRequests {
   // User requests are >= 4
-  val t_READ_DATA = 0
-  val t_WRITE_DATA = 1
-  val t_NEW_REQUEST = 3
-  val t_WRITE_DATA_LAST = 5
-  val t_WRITE_REGISTER = 7
-  val t_XFILES_DEBUG = 8
-  val t_XFILES_ID = 16
+  val t_USR_READ_DATA = 0
+  val t_USR_WRITE_DATA = 1
+  val t_USR_NEW_REQUEST = 3
+  val t_USR_WRITE_DATA_LAST = 5
+  val t_USR_WRITE_REGISTER = 7
+  val t_USR_XFILES_DEBUG = 8
+  val t_USR_XFILES_ID = 16
 }
 
 trait XFilesParameters extends HasCoreParameters with XFilesErrorCodes
@@ -189,13 +189,13 @@ class XFilesArbiter(backendInfo: UInt)(implicit p: Parameters)
     // Queue.
     val asidValid = asidUnits(i).data.valid
     val badRequest = cmd.fire() & !asidValid & !sup &
-      funct =/= UInt(t_XFILES_ID) & funct =/= UInt(t_XFILES_DEBUG)
+      funct =/= UInt(t_USR_XFILES_ID) & funct =/= UInt(t_USR_XFILES_DEBUG)
 
-    val reqInfo = cmd.fire() & !sup & funct === UInt(t_XFILES_ID)
-    val readCsr = cmd.fire() & sup & funct === UInt(t_READ_CSR)
+    val reqInfo = cmd.fire() & !sup & funct === UInt(t_USR_XFILES_ID)
+    val readCsr = cmd.fire() & sup & funct === UInt(t_SUP_READ_CSR)
     // val writeReg = cmd.fire() & sup
-    val newRequest = cmd.fire() & !sup & funct === UInt(t_NEW_REQUEST)
-    val isDebug = cmd.fire() & funct === UInt(t_XFILES_DEBUG)
+    val newRequest = cmd.fire() & !sup & funct === UInt(t_USR_NEW_REQUEST)
+    val isDebug = cmd.fire() & funct === UInt(t_USR_XFILES_DEBUG)
     // Anything that is a short circuit response or involves a
     // supervisor request gets squashed.
     val squashSup = reqInfo | badRequest | readCsr | isDebug
@@ -413,7 +413,7 @@ class XFilesArbiter(backendInfo: UInt)(implicit p: Parameters)
     io.core(0).resp.bits.data) }
 
   val newRequestToTransactionTable = RegNext(tTable.xfiles.cmd.fire()&
-    tTable.xfiles.cmd.bits.inst.funct === UInt(t_NEW_REQUEST))
+    tTable.xfiles.cmd.bits.inst.funct === UInt(t_USR_NEW_REQUEST))
   assert(!(newRequestToTransactionTable & !io.core(0).resp.valid),
     "XF Arbiter: TTable failed to generate resposne after newRequest")
 }

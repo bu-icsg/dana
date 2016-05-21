@@ -29,8 +29,8 @@ class AsidUnit(id: Int)(implicit p: Parameters) extends XFilesModule()(p)
   val asid = asidReg.bits.asid
 
   val funct = io.cmd.bits.inst.funct
-  val updateAsid = io.status.prv.orR & funct === UInt(t_UPDATE_ASID)
-  val newRequest = !io.status.prv.orR & funct === UInt(t_NEW_REQUEST)
+  val updateAsid = io.status.prv.orR & funct === UInt(t_SUP_UPDATE_ASID)
+  val newRequest = !io.status.prv.orR & funct === UInt(t_USR_NEW_REQUEST)
 
   // Snoop on the input RoCCInterface. When you see a new supervisory
   // ASID-update request, set the ASID and reset the TID counter.
