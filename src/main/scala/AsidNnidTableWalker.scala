@@ -8,7 +8,7 @@ import rocket.{RoCCCommand, RoCCResponse, HellaCacheReq, HellaCacheIO, MStatus}
 import uncore.{CacheName}
 import uncore.constants.MemoryOpConstants._
 import cde.{Parameters}
-import xfiles.{InterruptBundle}
+import xfiles.{InterruptBundle, XFilesSupervisorRequests}
 
 class ANTWXFilesInterface(implicit p: Parameters) extends DanaBundle()(p) {
   val rocc = new Bundle {
@@ -48,7 +48,8 @@ class antp(implicit p: Parameters) extends DanaBundle()(p) {
   val size = UInt(width = xLen)
 }
 
-class AsidNnidTableWalker(implicit p: Parameters) extends DanaModule()(p) {
+class AsidNnidTableWalker(implicit p: Parameters) extends DanaModule()(p)
+  with XFilesSupervisorRequests {
   val io = new AsidNnidTableWalkerInterface
   val antpReg = Reg(new antp)
 

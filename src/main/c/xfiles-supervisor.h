@@ -5,11 +5,16 @@
 
 #include "src/main/c/xfiles.h"
 
+#define SYSCALL_SET_ASID 512
+#define SYSCALL_SET_ANTP 513
+#define SYSCALL_DEBUG_ECHO 514
+
 typedef int16_t asid_type;
 
 typedef enum {
-  UPDATE_ASID = 0,
-  UPDATE_ANTP = 1
+  t_SUP_UPDATE_ASID = 0,
+  t_SUP_WRITE_REG = 1,
+  t_SUP_READ_CSR = 2
 } request_super_t;
 
 typedef enum {

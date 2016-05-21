@@ -5,6 +5,10 @@
 
 #include "src/main/c/xfiles.h"
 
+#include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
+
 // Temporarily include supervisor data structures to support proxy
 // kernel systemcalls
 #include "src/main/c/xfiles-supervisor.h"
@@ -76,6 +80,9 @@ xlen_t pk_syscall_set_asid(asid_type asid);
 
 // Set the ASID--NNID Table Poitner (ANTP)
 xlen_t pk_syscall_set_antp(asid_nnid_table * os_antp);
+
+// Do a debug echo using a systemcall
+xlen_t pk_syscall_debug_echo(uint32_t data);
 
 // Print a visual organization of a specific ASID--NNIT Table
 void asid_nnid_table_info(asid_nnid_table * table);

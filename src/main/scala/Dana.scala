@@ -5,7 +5,7 @@ package dana
 import Chisel._
 import rocket.HasCoreParameters
 import xfiles.{XFilesParameters, XFilesModule, XFilesBundle, XFilesBackend,
-  TransactionTableNumEntries}
+  TransactionTableNumEntries, XFilesSupervisorRequests}
 import cde.{Parameters, Field}
 
 case object ElementWidth extends Field[Int]
@@ -216,7 +216,7 @@ abstract class DanaBundle(implicit p: Parameters) extends XFilesBundle()(p)
     with DanaParameters
 
 class Dana(implicit p: Parameters) extends XFilesBackend()(p)
-    with DanaParameters {
+    with DanaParameters with XFilesSupervisorRequests {
 
   // Module instantiation
   val control = if (learningEnabled) Module(new ControlLearn) else

@@ -36,8 +36,8 @@ $(DIR_BUILD)/linux/libxfiles-%.a: $(DIR_BUILD)/linux/xfiles-%.o
 #------------------- RISC-V Tests
 
 RV_CFLAGS=-Wall -Werror -static -march=RV64IMAFDXcustom -I$(DIR_TOP) -I$(DIR_BUILD)/nets
-RV_NEWLIB_LFLAGS=-L$(DIR_TOP)/usr/lib-rv-newlib -lxfiles-user
-RV_LINUX_LFLAGS=-L$(DIR_TOP)/usr/lib-rv-linux -lxfiles-user
+RV_NEWLIB_LFLAGS=-L$(DIR_TOP)/usr/lib-rv-newlib -lxfiles-user -lxfiles-supervisor
+RV_LINUX_LFLAGS=-L$(DIR_TOP)/usr/lib-rv-linux -lxfiles-user -lxfiles-supervisor
 
 $(DIR_BUILD)/newlib/fann-soft.rv: fann-soft.c $(XFILES_LIBRARIES_NEWLIB) $(DIR_BUILD)/fann-rv-newlib/libfann.a
 	$(RV_CC) $(RV_CFLAGS) $< -o $@ $(RV_NEWLIB_LFLAGS) -lfann -lm

@@ -1,12 +1,9 @@
 // See LICENSE for license details.
 
-#ifndef __XFILES_H__
-#define __XFILES_H__
+#ifndef SRC_MAIN_C_XFILES_H_
+#define SRC_MAIN_C_XFILES_H_
 
 #include <stdint.h>
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
 
 // [TODO] Any changes to these types need to occur in conjunction with
 // the Chisel code and with the TID extraction part of
@@ -23,13 +20,13 @@ typedef enum {
 } xfiles_reg;
 
 typedef enum {
-  READ_DATA = 0,       // 0 0000
-  WRITE_DATA = 1,      // 0 0001
-  NEW_REQUEST = 3,     // 0 0011
-  WRITE_DATA_LAST = 5, // 0 0101
-  WRITE_REGISTER = 7,  // 0 0111
-  XFILES_DEBUG = 8,    // 0 1000
-  XFILES_DANA_ID = 16  // 1 0000
+  t_USR_READ_DATA = 4,
+  t_USR_WRITE_DATA = 5,
+  t_USR_NEW_REQUEST = 6,
+  t_USR_WRITE_DATA_LAST = 7,
+  t_USR_WRITE_REGISTER = 8,
+  t_USR_XFILES_DEBUG = 9,
+  t_USR_XFILES_DANA_ID = 10
 } request_t;
 
 typedef enum {
@@ -65,4 +62,29 @@ typedef enum {
 
 #define RESP_CODE_WIDTH 3
 
-#endif
+// Macros for using XCustom instructions. Four different macros are
+// provided depending on whether or not the passed arguments should be
+// communicated as registers or immediates.
+#define XCUSTOM "custom0"
+
+// Standard macro that passes rd_, rs1_, and rs2_ via registers
+#define XFILES_INSTRUCTION(rd_, rs1_, rs2_, funct_)     \
+  XFILES_INSTRUCTION_R_R_R(rd_, rs1_, rs2_, funct_)
+#define XFILES_INSTRUCTION_R_R_R(rd_, rs1_, rs2_, funct_)               \
+  asm volatile (XCUSTOM" %[rd], %[rs1], %[rs2], %[funct]"               \
+                : [rd] "=r" (rd_)                                       \
+                : [rs1] "r" (rs1_), [rs2] "r" (rs2_), [funct] "i" (funct_))
+
+// Macro to pass rs2_ as an immediate
+#define XFILES_INSTRUCTION_R_R_I(rd_, rs1_, rs2_, funct_)               \
+  asm volatile (XCUSTOM" %[rd], %[rs1], %[rs2], %[funct]"               \
+                : [rd] "=r" (rd_)                                       \
+                : [rs1] "r" (rs1_), [rs2] "i" (rs2_), [funct] "i" (funct_))
+
+    // Macro to pass rs1_ and rs2_ as immediates
+#define XFILES_INSTRUCTION_R_I_I(rd_, rs1_, rs2_, funct_)               \
+  asm volatile (XCUSTOM" %[rd], %[rs1], %[rs2], %[funct]"               \
+                : [rd] "=r" (rd_)                                       \
+                : [rs1] "i" (rs1_), [rs2] "i" (rs2_), [funct] "i" (funct_))
+
+#endif  // SRC_MAIN_C_XFILES_H_

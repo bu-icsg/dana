@@ -22,13 +22,38 @@ trait XFilesErrorCodes {
   val err_XFILES_TTABLEFULL = 2
   val err_XFILES_INVALIDTID = 3
 
-  val int_NOASID = 0
+  val int_INVREQ = 0
 }
 
 trait XFilesSupervisorRequests {
-  val t_UPDATE_ASID = 0
+  // Supervisor requests are < 4
+  val t_SUP_UPDATE_ASID = 0
   val t_SUP_WRITE_REG = 1
-  val t_READ_CSR = 2
+  val t_SUP_READ_CSR = 2
+}
+
+trait XFilesUserRequests {
+  // User requests are >= 4
+  val t_USR_READ_DATA = 4
+  val t_USR_WRITE_DATA = 5
+  val t_USR_NEW_REQUEST = 6
+  val t_USR_WRITE_DATA_LAST = 7
+  val t_USR_WRITE_REGISTER = 8
+  val t_USR_XFILES_DEBUG = 9
+  val t_USR_XFILES_ID = 10
+}
+
+trait XFilesParameters extends HasCoreParameters with XFilesErrorCodes
+    with XFilesUserRequests {
+  val numCores = p(NumCores)
+  val tidWidth = p(TidWidth)
+  val asidWidth = p(AsidWidth)
+  val transactionTableNumEntries = p(TransactionTableNumEntries)
+
+  val debugEnabled = p(DebugEnabled)
+  val tableDebug = p(TableDebug)
+
+  val k_NULL_ASID = pow(2, asidWidth) - 1
 }
 
 trait XFilesResponseCodes extends XFilesParameters {
@@ -45,26 +70,8 @@ trait XFilesResponseCodes extends XFilesParameters {
   }
 }
 
-trait XFilesParameters extends HasCoreParameters with XFilesErrorCodes
-    with XFilesSupervisorRequests {
-  val numCores = p(NumCores)
-  val tidWidth = p(TidWidth)
-  val asidWidth = p(AsidWidth)
-  val transactionTableNumEntries = p(TransactionTableNumEntries)
-
-  val debugEnabled = p(DebugEnabled)
-  val tableDebug = p(TableDebug)
-
-  val k_NULL_ASID = pow(2, asidWidth) - 1
-}
-
 abstract class XFilesModule(implicit val p: Parameters) extends Module
     with XFilesParameters {
-  val (t_READ_DATA :: t_WRITE_DATA :: t_UNUSED_2 :: t_NEW_REQUEST ::
-    t_UNUSED_4 :: t_WRITE_DATA_LAST :: t_UNUSED_6 :: t_WRITE_REGISTER ::
-    t_XFILES_DEBUG :: t_UNUSED_9 :: t_UNUSED_10 :: t_UNUSED_11 ::
-    t_UNUSED_12 :: t_UNUSED_13 :: t_UNUSED_14 :: t_UNUSED_15 ::
-    t_XFILES_ID :: Nil) = Enum(UInt(), 17)
 
   // Create a tupled version of printf
   val printff = printf _
@@ -138,7 +145,7 @@ class XFilesInterface(implicit p: Parameters) extends Bundle {
 }
 
 class XFilesArbiter(backendInfo: UInt)(implicit p: Parameters)
-    extends XFilesModule()(p) {
+    extends XFilesModule()(p) with XFilesSupervisorRequests {
   val io = new XFilesInterface
 
   val asidUnits = Vec.tabulate(numCores)(id => Module(new AsidUnit(id)).io)
@@ -163,6 +170,7 @@ class XFilesArbiter(backendInfo: UInt)(implicit p: Parameters)
   (0 until numCores).map(i => {
     // Alias out some commonly used signals
     val cmd = io.core(i).cmd
+    val sup = io.core(i).status.prv.orR
     val funct = cmd.bits.inst.funct
 
     // Handle direct, short-circuit responses to the core of the
@@ -171,8 +179,8 @@ class XFilesArbiter(backendInfo: UInt)(implicit p: Parameters)
     //     or the backend. This is allowed to go through
     //     uncoditionally, i.e., the ASID does not have to be set for
     //     this to succeed.
-    //   * badRequest -- This covers receipt of a request when the
-    //     ASID isn't set
+    //   * badRequest -- This covers all bad requests (ASID is unset,
+    //     user trying to initiate a supervisor request)
     //   * readCsr -- read a CSR, like the exception cause register
     //   * writeReg -- Write a backend register
     //   * writeRegS -- Write a backend supervisor register
@@ -180,18 +188,19 @@ class XFilesArbiter(backendInfo: UInt)(implicit p: Parameters)
     // the requst and prevent it from getting entered in the Core
     // Queue.
     val asidValid = asidUnits(i).data.valid
-    val badRequest = cmd.fire() & !asidValid & !io.core(i).status.prv.orR &
-      funct =/= t_XFILES_ID & funct =/= t_XFILES_DEBUG
+    val badRequest = cmd.fire() & ((!asidValid & !sup &
+      funct =/= UInt(t_USR_XFILES_ID) & funct =/= UInt(t_USR_XFILES_DEBUG)) |
+      (!sup & funct < UInt(4)))
 
-    val reqInfo = cmd.fire() & !io.core(i).status.prv.orR & funct === t_XFILES_ID
-    val readCsr = cmd.fire() & io.core(i).status.prv.orR & funct === UInt(t_READ_CSR)
-    val writeReg = cmd.fire() & io.core(i).status.prv.orR
-    val newRequest = cmd.fire() & !io.core(i).status.prv.orR & funct === t_NEW_REQUEST
-    val isDebug = cmd.fire() & funct === t_XFILES_DEBUG
+    val reqInfo = cmd.fire() & !sup & funct === UInt(t_USR_XFILES_ID)
+    val readCsr = cmd.fire() & sup & funct === UInt(t_SUP_READ_CSR)
+    // val writeReg = cmd.fire() & sup
+    val newRequest = cmd.fire() & !sup & funct === UInt(t_USR_NEW_REQUEST)
+    val isDebug = cmd.fire() & funct === UInt(t_USR_XFILES_DEBUG)
     // Anything that is a short circuit response or involves a
     // supervisor request gets squashed.
     val squashSup = reqInfo | badRequest | readCsr | isDebug
-    val squashUser = squashSup | io.core(i).status.prv.orR | !asidValid
+    val squashUser = squashSup | (sup & funct < UInt(4)) | !asidValid
 
     io.core(i).resp.valid := (reqInfo | badRequest | readCsr |
       asidUnits(i).resp.valid | debugUnits(i).resp.valid |
@@ -258,7 +267,7 @@ class XFilesArbiter(backendInfo: UInt)(implicit p: Parameters)
     val backendException = io.backend.interrupt.fire() &
       (io.backend.interrupt.bits.coreIdx === UInt(i))
     exception(i).valid := exception(i).valid | badRequest | backendException
-    when (badRequest) { exception(i).bits := UInt(int_NOASID)
+    when (badRequest) { exception(i).bits := UInt(int_INVREQ)
       printfWarn("XF Arbiter: Saw badRequest\n") }
     when (backendException) { exception(i).bits := io.backend.interrupt.bits.code }
 
@@ -405,7 +414,7 @@ class XFilesArbiter(backendInfo: UInt)(implicit p: Parameters)
     io.core(0).resp.bits.data) }
 
   val newRequestToTransactionTable = RegNext(tTable.xfiles.cmd.fire()&
-    tTable.xfiles.cmd.bits.inst.funct === t_NEW_REQUEST)
+    tTable.xfiles.cmd.bits.inst.funct === UInt(t_USR_NEW_REQUEST))
   assert(!(newRequestToTransactionTable & !io.core(0).resp.valid),
     "XF Arbiter: TTable failed to generate resposne after newRequest")
 }

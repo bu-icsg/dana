@@ -312,9 +312,6 @@ class DanaTransactionTableBase[StateType <: TransactionState,
 
   // IO aliases
   lazy val cmd = new DanaBundle {
-    val readOrWrite = io.arbiter.rocc.cmd.bits.inst.funct(0)
-    val isNew = io.arbiter.rocc.cmd.bits.inst.funct(1)
-    val isLast = io.arbiter.rocc.cmd.bits.inst.funct(2)
     val asid = io.arbiter.rocc.cmd.bits.rs1(asidWidth + tidWidth - 1, tidWidth)
     val tid = io.arbiter.rocc.cmd.bits.rs1(tidWidth - 1, 0)
     val coreIdx = io.arbiter.coreIdx
@@ -373,7 +370,7 @@ class DanaTransactionTableBase[StateType <: TransactionState,
   io.arbiter.rocc.resp.valid := Bool(false)
 
   val newRoccCmd = cmd.raw.fire() && !io.arbiter.rocc.status.prv.orR
-  val regWrite = newRoccCmd & cmd.raw.bits.inst.funct === t_WRITE_REGISTER
+  val regWrite = newRoccCmd & cmd.raw.bits.inst.funct === UInt(t_USR_WRITE_REGISTER)
   when (regWrite) {
     printfInfo("DANA TTable: saw reg write TID/Reg/Value 0x%x/0x%x/0x%x\n",
       cmd.tid, cmd.regId, cmd.regValue)
@@ -561,7 +558,7 @@ class DanaTransactionTableBase[StateType <: TransactionState,
         printfInfo("DANA TTable: T0d%d got (INPUT:0x%x) from queue\n",
           ioArbiter.chosen, data)
 
-        val isLast = io.arbiter.queueIO.in.bits.funct(2)
+        val isLast = io.arbiter.queueIO.in.bits.funct === UInt(t_USR_WRITE_DATA_LAST)
         when (isLast) {
           val nextIndexBlock = (table(derefTidIndex).indexElement(
             log2Up(regFileNumElements)-1,log2Up(elementsPerBlock)) ##
@@ -654,14 +651,6 @@ class DanaTransactionTableBase[StateType <: TransactionState,
     assert(!table(i).flags.valid || table(i).flags.reserved,
       "Valid asserted with reserved de-asserted on TTable " + i)
 
-  // Disabled (#7) -- the backend should be dumb and not have any
-  // concept of validity, hence writes to arbitrary registers should
-  // be allowed to go through
-  // // A register write should hit a tid
-  // assert(!(!foundTid && newRoccCmd &&
-  //   cmd.readOrWrite && cmd.isNew && cmd.isLast),
-  //   "DANA TTable saw write register on non-existent ASID/TID")
-
   // A Control response should never have a cacheValid or layerValid
   // asserted when the decoupled valid is deasserted
   assert(!(!io.control.resp.valid &&
@@ -679,8 +668,8 @@ class DanaTransactionTableBase[StateType <: TransactionState,
     "DANA TTable tried to send a valid response when core was not ready")
 
   // No writes should show up if the transaction is already valid
-  assert(!(newRoccCmd && cmd.readOrWrite && table(derefTidIndex).flags.valid),
-    "DANA TTable saw write requests on valid TID")
+  // assert(!(newRoccCmd && cmd.readOrWrite && table(derefTidIndex).flags.valid),
+  //   "DANA TTable saw write requests on valid TID")
 
   // If learning is disabled we should never see a learning request
   if (!learningEnabled) {
@@ -843,7 +832,7 @@ class DanaTransactionTableLearn(implicit p: Parameters)
 
     // The learning variant needs to set certain fields when it exits
     // the "needsInputs" state
-    val isLast = io.arbiter.queueIO.in.bits.funct(2)
+    val isLast = io.arbiter.queueIO.in.bits.funct === UInt(t_USR_WRITE_DATA_LAST)
     val numInputs = entry.indexElement
     val numInputsMSBs = numInputs(log2Up(regFileNumElements) - 1,
       log2Up(elementsPerBlock)) ## UInt(0, width=log2Up(elementsPerBlock))

@@ -12,7 +12,8 @@ class AsidTid(implicit p: Parameters) extends XFilesBundle()(p) {
   val tid = UInt(width = p(TidWidth))
 }
 
-class AsidUnit(id: Int)(implicit p: Parameters) extends XFilesModule()(p) {
+class AsidUnit(id: Int)(implicit p: Parameters) extends XFilesModule()(p)
+    with XFilesSupervisorRequests{
   val io = new XFilesBundle {
     val cmd = Decoupled(new RoCCCommand).flip
     val status = new MStatus().asInput
@@ -28,13 +29,14 @@ class AsidUnit(id: Int)(implicit p: Parameters) extends XFilesModule()(p) {
   val asid = asidReg.bits.asid
 
   val funct = io.cmd.bits.inst.funct
-  val updateAsid = io.status.prv.orR & funct === UInt(t_UPDATE_ASID)
-  val newRequest = !io.status.prv.orR & funct === t_NEW_REQUEST
+  val sup = io.status.prv.orR
+  val updateAsid = io.cmd.fire() & sup & funct === UInt(t_SUP_UPDATE_ASID)
+  val newRequest = io.cmd.fire() & funct === UInt(t_USR_NEW_REQUEST)
 
   // Snoop on the input RoCCInterface. When you see a new supervisory
   // ASID-update request, set the ASID and reset the TID counter.
   io.cmd.ready := Bool(true)
-  when (io.cmd.fire() & updateAsid) {
+  when (updateAsid) {
     asidReg.valid := Bool(true)
     asid := io.cmd.bits.rs1(asidWidth - 1, 0)
     tid := UInt(0)
@@ -47,7 +49,7 @@ class AsidUnit(id: Int)(implicit p: Parameters) extends XFilesModule()(p) {
   // Forward the command on if we're aren't supposed to touch it. The
   // ready line is ignored as this request has to go through.
   io.cmdFwd.bits := io.cmd.bits
-  io.cmdFwd.valid := (io.cmd.fire() & io.status.prv.orR & !updateAsid)
+  io.cmdFwd.valid := (io.cmd.fire() & sup & funct < UInt(4))
 
   when (io.cmdFwd.valid) {
     printfInfo("ASID Unit[%d] is forwarding request with funct code 0x%x\n",
@@ -59,7 +61,7 @@ class AsidUnit(id: Int)(implicit p: Parameters) extends XFilesModule()(p) {
   io.resp.bits.data := Mux(asidReg.valid,
     asid(asidWidth - 1, 0) ## tid(tidWidth - 1, 0),
     SInt(-err_XFILES_NOASID, width = xLen).toUInt)
-  io.resp.valid := io.cmd.fire() & updateAsid
+  io.resp.valid := updateAsid
 
   when (io.resp.valid) {
     printfInfo("AsidUnit[%d]: responding to R%d with data 0x%x\n",
@@ -68,9 +70,7 @@ class AsidUnit(id: Int)(implicit p: Parameters) extends XFilesModule()(p) {
   // Increment the TID when a new request shows up. Negative TIDs are
   // reserved for error codes, so the valid ranges of TIDs is then:
   //   [0, 2^(tidWidth - 1) - 1]
-  when (io.cmd.fire() & newRequest & asidReg.valid) {
-    tid := (tid + UInt(1))(tidWidth - 2, 0)
-  }
+  when (newRequest & asidReg.valid) { tid := (tid + UInt(1))(tidWidth - 2, 0) }
 
   io.data := asidReg
 
