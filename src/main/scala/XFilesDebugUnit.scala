@@ -74,7 +74,7 @@ class DebugUnit(id: Int = 0)(implicit p: Parameters) extends XFilesModule()(p)
   io.mem.req.bits.cmd := Mux(action_d === t_MEM_READ, M_XRD, M_XWR)
   when (io.mem.req.fire()) { state := s_MEM_WAIT }
 
-  when (state === s_MEM_WAIT & io.mem.resp.valid) {
+  when (state === s_MEM_WAIT & io.mem.resp.fire()) {
     state := s_IDLE
     io.resp.bits.data := io.mem.resp.bits.data
   }
@@ -91,7 +91,7 @@ class DebugUnit(id: Int = 0)(implicit p: Parameters) extends XFilesModule()(p)
   ptw.req.bits.fetch := Bool(false)
   when (ptw.req.fire()) { state := s_TRANSLATE_WAIT }
 
-  when (state === s_TRANSLATE_WAIT & ptw.resp.valid) {
+  when (state === s_TRANSLATE_WAIT & ptw.resp.fire()) {
     pte := ptw.resp.bits.pte
     state := s_TRANSLATE_RESP
   }
@@ -129,7 +129,7 @@ class DebugUnit(id: Int = 0)(implicit p: Parameters) extends XFilesModule()(p)
   when (io.autl.acquire.fire()) { state := s_UTL_GRANT }
 
   val utlData = Reg(UInt(width = tlDataBits))
-  when (io.autl.grant.fire()) {
+  when (state === s_UTL_GRANT & io.autl.grant.fire()) {
     utlData := io.autl.grant.bits.data
     state := s_UTL_RESP
   }
@@ -154,7 +154,7 @@ class DebugUnit(id: Int = 0)(implicit p: Parameters) extends XFilesModule()(p)
       UInt(id), addr_d, data.addr_block, data.addr_beat, data.addr_byte(),
       data.data, data.wmask()) }
 
-  when (io.autl.grant.fire()) {
+  when (state === s_UTL_GRANT & io.autl.grant.fire()) {
     printfDebug("DUnit[%d]: autl.grant.valid | data 0x%x, beat 0x%x\n",
       UInt(id), io.autl.grant.bits.data, io.autl.grant.bits.addr_beat) }
 
@@ -162,14 +162,14 @@ class DebugUnit(id: Int = 0)(implicit p: Parameters) extends XFilesModule()(p)
     printfDebug("DUnit[%d]: ptw.req.valid | addr_v 0x%x\n", UInt(id),
       ptw.req.bits.addr) }
 
-  when (ptw.resp.valid) {
+  when (state === s_TRANSLATE_WAIT & ptw.resp.fire()) {
     printfDebug("DUnit[%d]: ptw.resp.valid\n", UInt(id)) }
 
-  when (io.mem.req.valid) {
+  when (io.mem.req.fire()) {
     printfDebug("DUnit[%d]: mem.req.valid | addr 0x%x, cmd 0x%x, data0x%x\n",
       UInt(id), io.mem.req.bits.addr, io.mem.req.bits.cmd, io.mem.req.bits.data) }
 
-  when (io.mem.resp.valid) {
+  when (state === s_MEM_WAIT & io.mem.resp.fire()) {
     printfDebug("DUnit[%d]: mem.resp.valid | addr 0x%x, data 0x%x\n", UInt(id),
       io.mem.resp.bits.addr, io.mem.resp.bits.data) }
 
