@@ -157,7 +157,7 @@ class XFilesArbiter(backendInfo: UInt)(implicit p: Parameters)
   val coreQueue = Module(new Queue(new RoCCCommand, 2)).io
   val memQueue = Module(new Queue(new HellaCacheResp, 16)).io
 
-  val exception = Reg(Vec(numCores, Valid(UInt(width = xLen))))
+  val exception = Reg(Valid(UInt(width = xLen)))
 
   // Include a debug unit for some debugging operations
   val debugUnit = Module(new DebugUnit).io
@@ -212,8 +212,8 @@ class XFilesArbiter(backendInfo: UInt)(implicit p: Parameters)
     // backend. There shouldn't be anything DANA-specific here.
     io.core(i).resp.bits.data := SInt(-err_XFILES_NOASID, width = xLen).toUInt
     when (reqInfo) { io.core(i).resp.bits.data := backendInfo }
-    when (readCsr) { io.core(i).resp.bits.data := exception(i).bits
-      exception(i).valid := Bool(false) }
+    when (readCsr) { io.core(i).resp.bits.data := exception.bits
+      exception.valid := Bool(false) }
 
     // The ASID Units are provided with the full command, barring that
     // a short-circuit response hasn't been generated
@@ -267,14 +267,14 @@ class XFilesArbiter(backendInfo: UInt)(implicit p: Parameters)
     // Deal with exceptional cases
     val backendException = io.backend.interrupt.fire() &
       (io.backend.interrupt.bits.coreIdx === UInt(i))
-    exception(i).valid := exception(i).valid | badRequest | backendException
-    when (badRequest) { exception(i).bits := UInt(int_INVREQ)
+    exception.valid := exception.valid | badRequest | backendException
+    when (badRequest) { exception.bits := UInt(int_INVREQ)
       printfWarn("XF Arbiter: Saw badRequest\n") }
-    when (backendException) { exception(i).bits := io.backend.interrupt.bits.code }
+    when (backendException) { exception.bits := io.backend.interrupt.bits.code }
 
     // Other connections
     // io.core(i).interrupt := exception(i).valid
-    io.core(i).interrupt := exception(i).valid
+    io.core(i).interrupt := exception.valid
   })
 
   when (io.backend.rocc.interrupt) {
@@ -371,7 +371,7 @@ class XFilesArbiter(backendInfo: UInt)(implicit p: Parameters)
   tTable.xfiles.mem.resp.valid := memQueue.deq.valid
   tTable.xfiles.mem.resp.bits := memQueue.deq.bits
 
-  (0 until numCores).map(i => { debugUnit.mem.resp := memQueue.deq })
+  debugUnit.mem.resp := memQueue.deq
 
   io.backend.rocc.mem.resp.valid := tTable.backend.rocc.mem.resp.valid
   io.backend.rocc.mem.resp.bits := tTable.backend.rocc.mem.resp.bits
@@ -385,7 +385,7 @@ class XFilesArbiter(backendInfo: UInt)(implicit p: Parameters)
   io.backend.xfResp <> tTable.backend.xfResp
   io.backend.queueIO <> tTable.backend.queueIO
 
-  when (reset) { (0 until numCores).map(i => exception(i).valid := Bool(false)) }
+  when (reset) { exception.valid := Bool(false) }
 
   // Assertions
   (0 until numCores).map(i => {
