@@ -4,8 +4,7 @@ package xfiles
 
 import Chisel._
 
-import rocket.{RoCCInterface, RoccNMemChannels, RoCCCommand, HellaCacheResp,
-  HasCoreParameters}
+import rocket.{RoCCInterface, RoccNMemChannels, RoCCCommand, HellaCacheResp}
 import cde.{Parameters}
 
 class XFilesArbiterInterface(implicit p: Parameters) extends Bundle {
@@ -31,50 +30,39 @@ class XFilesArbiter(backendInfo: UInt)(implicit p: Parameters)
   // Include a debug unit for some debugging operations
   val debugUnit = Module(new DebugUnit).io
 
-  // See if the ASID Unit is forwarding a supervisor request to the
-  // backend
-  val supReqToBackend = asidUnit.cmdFwd.valid
-
   // Alias out some commonly used signals
   val cmd = io.core.cmd
   val sup = io.core.status.prv.orR
   val funct = cmd.bits.inst.funct
 
+  val asidValid = asidUnit.data.valid
   // Handle direct, short-circuit responses to the core of the
   // following types:
-  //   * reqInfo -- This is an informational request about X-FILES
-  //     or the backend. This is allowed to go through
-  //     uncoditionally, i.e., the ASID does not have to be set for
-  //     this to succeed.
-  //   * badRequest -- This covers all bad requests (ASID is unset,
-  //     user trying to initiate a supervisor request)
+  //   * reqInfo -- information request that always succeeds
+  //     regardless of ASID state
+  //   * badRequest -- some invalid action (ASID is unset, user trying
+  //     to initiate a supervisor request)
   //   * readCsr -- read a CSR, like the exception cause register
-  //   * writeReg -- Write a backend register
-  //   * writeRegS -- Write a backend supervisor register
-  // Either of these two types of requests means that we "squash"
-  // the requst and prevent it from getting entered in the Core
-  // Queue.
-  val asidValid = asidUnit.data.valid
+  //   * isDebug -- an access to the Debug Unit
+  val reqInfo = cmd.fire() & !sup & funct === UInt(t_USR_XFILES_ID)
   val badRequest = cmd.fire() & ((!asidValid & !sup &
     funct =/= UInt(t_USR_XFILES_ID) & funct =/= UInt(t_USR_XFILES_DEBUG)) |
     (!sup & funct < UInt(4)))
-
-  val reqInfo = cmd.fire() & !sup & funct === UInt(t_USR_XFILES_ID)
   val readCsr = cmd.fire() & sup & funct === UInt(t_SUP_READ_CSR)
-  // val writeReg = cmd.fire() & sup
-  val newRequest = cmd.fire() & !sup & funct === UInt(t_USR_NEW_REQUEST)
   val isDebug = cmd.fire() & funct === UInt(t_USR_XFILES_DEBUG)
   // Anything that is a short circuit response or involves a
   // supervisor request gets squashed.
   val squashSup = reqInfo | badRequest | readCsr | isDebug
   val squashUser = squashSup | (sup & funct < UInt(4)) | !asidValid
 
+  // Alternatively, the request
+  val newRequest = cmd.fire() & !sup & funct === UInt(t_USR_NEW_REQUEST)
+
+
   io.core.resp.valid := (reqInfo | badRequest | readCsr |
     asidUnit.resp.valid | debugUnit.resp.valid | tTable.xfiles.resp.valid)
 
   io.core.resp.bits.rd := cmd.bits.inst.rd
-  // [TODO] The info returned should be about X-FILES or the
-  // backend. There shouldn't be anything DANA-specific here.
   io.core.resp.bits.data := SInt(-err_XFILES_NOASID, width = xLen).toUInt
   when (reqInfo) { io.core.resp.bits.data := backendInfo }
   when (readCsr) { io.core.resp.bits.data := exception.bits
@@ -86,6 +74,10 @@ class XFilesArbiter(backendInfo: UInt)(implicit p: Parameters)
   asidUnit.cmd.bits := cmd.bits
   asidUnit.status := io.core.status
   asidUnit.resp.ready := Bool(true)
+
+  // See if the ASID Unit is forwarding a supervisor request to the
+  // backend
+  val supReqToBackend = asidUnit.cmdFwd.valid
 
   when (cmd.fire()) {
     printfDebug("XF Arbiter: funct 0x%x, rs1 0x%x, rs2 0x%x\n",
@@ -99,7 +91,7 @@ class XFilesArbiter(backendInfo: UInt)(implicit p: Parameters)
   debugUnit.status := io.core.status
   debugUnit.resp.ready := Bool(true)
 
-  // PTW connectsion for the Deubg Units
+  // PTW connections for the Deubg Units
   debugUnit.ptw <> io.core.ptw
 
   // Core queue connections. We enqueue any user requests, i.e.,
@@ -108,26 +100,23 @@ class XFilesArbiter(backendInfo: UInt)(implicit p: Parameters)
   coreQueue.enq.valid := cmd.fire() & !squashUser
   io.core.cmd.ready := coreQueue.enq.ready
   coreQueue.enq.bits := cmd.bits
+  val asid = asidUnit.data.bits.asid
+  val newTid = asidUnit.data.bits.tid
   when (newRequest) {
     // Grab the LSBs of rs1, but get the ASID/TID from the ASID Unit
-    coreQueue.enq.bits.rs1 := cmd.bits.rs1(xLen-asidWidth-tidWidth-1, 0) ##
-    asidUnit.data.bits.asid ## asidUnit.data.bits.tid
+    val rs1Data = cmd.bits.rs1(xLen-asidWidth-tidWidth-1, 0)
+    coreQueue.enq.bits.rs1 := rs1Data ## asid ## newTid
   } .otherwise {
-    coreQueue.enq.bits.rs1 := asidUnit.data.bits.asid ##
-    cmd.bits.rs1(tidWidth - 1, 0)
+    coreQueue.enq.bits.rs1 := asid ## cmd.bits.rs1(tidWidth - 1, 0)
   }
 
   // Entries in the Core Queue are pulled out by the Core Arbiter
   coreQueue.deq.ready := tTable.xfiles.cmd.ready & !supReqToBackend
 
-  // Deal with responses in priority order
-  when (debugUnit.resp.valid) {
-    io.core.resp.bits := debugUnit.resp.bits
-  } .elsewhen (asidUnit.resp.valid) {
-    io.core.resp.bits := asidUnit.resp.bits
-  } .elsewhen (tTable.xfiles.resp.valid) {
-    io.core.resp.bits := tTable.xfiles.resp.bits
-  }
+  // Deal with responses with an implied priority
+  io.core.resp.bits := tTable.xfiles.resp.bits
+  when (asidUnit.resp.valid)  { io.core.resp.bits := asidUnit.resp.bits  }
+  when (debugUnit.resp.valid) { io.core.resp.bits := debugUnit.resp.bits }
 
   // Deal with exceptional cases
   val backendException = io.backend.interrupt.fire()
@@ -150,10 +139,7 @@ class XFilesArbiter(backendInfo: UInt)(implicit p: Parameters)
   // Connections to the backend. [TODO] Clean these up such that the
   // backend gets a single RoCC interface and some special lines for
   // dealing with Transactions.
-
-  val userReqToBackend = coreQueue.deq.fire()
-
-  tTable.xfiles.cmd.valid := userReqToBackend
+  tTable.xfiles.cmd.valid := coreQueue.deq.fire()
   tTable.xfiles.cmd.bits := coreQueue.deq.bits
   tTable.xfiles.resp.ready := Bool(true)
   tTable.backend.rocc.resp <> io.backend.rocc.resp
@@ -171,7 +157,6 @@ class XFilesArbiter(backendInfo: UInt)(implicit p: Parameters)
   when (asidUnit.cmdFwd.valid) {
     printfInfo("XFiles Arbiter: cmdFwd asserted\n")
     io.backend.rocc.cmd.bits := asidUnit.cmdFwd.bits
-    // [TODO] All the status bits other than prv are left unconnected
     io.backend.rocc.status.prv := io.core.status.prv
   }
 
@@ -241,14 +226,15 @@ class XFilesArbiter(backendInfo: UInt)(implicit p: Parameters)
 
   when (reset) { exception.valid := Bool(false) }
 
-  // Assertions
-  val totalResponses = Vec(asidUnit.resp.valid, tTable.xfiles.resp.valid)
-  assert(!(totalResponses.count((x: Bool) => x) > UInt(1)),
-    "X-FILES Arbiter: AsidUnit just aliased a TTable response")
-
   when (io.core.resp.valid) {
     printf("XF Arbiter: Responding to core 0 with data 0x%x\n",
       io.core.resp.bits.data) }
+
+  // Assertions
+  val totalResponses = Vec(asidUnit.resp.valid, debugUnit.resp.valid,
+    tTable.xfiles.resp.valid)
+  assert(!(totalResponses.count((x: Bool) => x) > UInt(1)),
+    "X-FILES Arbiter: A response to the core was aliased")
 
   val newRequestToTransactionTable = RegNext(tTable.xfiles.cmd.fire()&
     tTable.xfiles.cmd.bits.inst.funct === UInt(t_USR_NEW_REQUEST))
