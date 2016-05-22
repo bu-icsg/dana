@@ -4,6 +4,7 @@
 #define SRC_MAIN_C_XFILES_H_
 
 #include <stdint.h>
+#include <stddef.h>
 
 // [TODO] Any changes to these types need to occur in conjunction with
 // the Chisel code and with the TID extraction part of
