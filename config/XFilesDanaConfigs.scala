@@ -3,7 +3,7 @@ package rocketchip
 import Chisel._
 import uncore._
 import rocket._
-import xfiles.{XFilesDana, DefaultXFilesDanaFPGAConfig, XFilesDebugConfig}
+import xfiles.{XFiles, DefaultXFilesDanaFPGAConfig, XFilesDebugConfig}
 import dana.{DanaNoLearningConfig}
 import cde.{Parameters, Config}
 
@@ -15,8 +15,8 @@ class XFilesDanaConfig extends Config (
       case BuildRoCC => Seq(
         RoccParameters(
           opcodes = OpcodeSet.custom0,
-          generator = (p: Parameters) =>  Module(new XFilesDana()(
-            p.alterPartial({ case CoreName => "XFilesDana" }))),
+          generator = (p: Parameters) =>  Module(new XFiles()(
+            p.alterPartial({ case CoreName => "XFiles" }))),
           nPTWPorts = 1)
       )
       case CacheName => "L1D"

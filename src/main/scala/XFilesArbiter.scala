@@ -3,148 +3,19 @@
 package xfiles
 
 import Chisel._
-import junctions.ParameterizedBundle
 
-import rocket.{RoCCInterface, RoCCCommand, HellaCacheResp, HasCoreParameters}
-import cde.{Parameters, Field}
-import math.pow
+import rocket.{RoCCInterface, RoccNMemChannels, RoCCCommand, HellaCacheResp,
+  HasCoreParameters}
+import cde.{Parameters}
 
-case object TidWidth extends Field[Int]
-case object AsidWidth extends Field[Int]
-case object DebugEnabled extends Field[Boolean]
-case object TableDebug extends Field[Boolean]
-case object TransactionTableNumEntries extends Field[Int]
-
-trait XFilesErrorCodes {
-  val err_XFILES_UNKNOWN = 0
-  val err_XFILES_NOASID = 1
-  val err_XFILES_TTABLEFULL = 2
-  val err_XFILES_INVALIDTID = 3
-
-  val int_INVREQ = 0
-}
-
-trait XFilesSupervisorRequests {
-  // Supervisor requests are < 4
-  val t_SUP_UPDATE_ASID = 0
-  val t_SUP_WRITE_REG = 1
-  val t_SUP_READ_CSR = 2
-}
-
-trait XFilesUserRequests {
-  // User requests are >= 4
-  val t_USR_READ_DATA = 4
-  val t_USR_WRITE_DATA = 5
-  val t_USR_NEW_REQUEST = 6
-  val t_USR_WRITE_DATA_LAST = 7
-  val t_USR_WRITE_REGISTER = 8
-  val t_USR_XFILES_DEBUG = 9
-  val t_USR_XFILES_ID = 10
-}
-
-trait XFilesParameters extends HasCoreParameters with XFilesErrorCodes
-    with XFilesUserRequests {
-  val tidWidth = p(TidWidth)
-  val asidWidth = p(AsidWidth)
-  val transactionTableNumEntries = p(TransactionTableNumEntries)
-
-  val debugEnabled = p(DebugEnabled)
-  val tableDebug = p(TableDebug)
-
-  val k_NULL_ASID = pow(2, asidWidth) - 1
-}
-
-trait XFilesResponseCodes extends XFilesParameters {
-  val respCodeWidth = 3
-
-  val (resp_OK :: resp_TID :: resp_READ :: resp_NOT_DONE :: resp_QUEUE_ERR ::
-    resp_XFILES :: Nil) =  Enum(UInt(), 6)
-
-  def genResp[T <: Bits](resp: T, respCode: T, tid: T,
-    data: T = Bits(0, width = xLen)) {
-    resp := data.toBits
-    resp(xLen - 1, xLen - respCodeWidth) := UInt(respCode)
-    resp(xLen - respCodeWidth - 1, xLen - respCodeWidth - tidWidth) := tid
-  }
-}
-
-abstract class XFilesModule(implicit val p: Parameters) extends Module
-    with XFilesParameters {
-
-  // Create a tupled version of printf
-  val printff = printf _
-  val printft = printff.tupled
-
-  // Info method that will dump the state of a table
-  def info[T <: XFilesBundle](x: Vec[T], prepend: String = "") = {
-    if (tableDebug) {
-      printf(x(0).printElements(prepend))
-        (0 until x.length).map(i => printft(x(i).printAll(","))) }}
-
-  def printfInfo(message: String, args: Node*): Unit = {
-    if (debugEnabled) { printff("[INFO] " + message, args) }}
-
-  def printfWarn(message: String, args: Node*) {
-    if (debugEnabled) { printff("[WARN] " + message, args) }}
-
-  def printfError(message: String, args: Node*) {
-    if (debugEnabled) { printff("[ERROR] " + message, args) }}
-
-  def printfDebug(message: String, args: Node*) {
-    if (debugEnabled) { printff("[DEBUG] " + message, args) }}
-
-  def printfTodo(message: String, args: Node*) {
-    if (debugEnabled) { printff("[TODO] " + message, args) }}
-}
-
-abstract class XFilesBundle(implicit val p: Parameters)
-    extends ParameterizedBundle()(p) with XFilesParameters {
-
-  val aliasList = scala.collection.mutable.Map[String, String]()
-  def alias (name: String): String = {
-    if (aliasList.contains(name)) {
-      return aliasList(name)
-    } else {
-      return name
-    }
-  }
-
-  // Return a CSV list of all the elements in this bundle
-  def printElements(prepend: String = ""): String = {
-    var res = "[DEBUG]" + prepend
-    var sep = ""
-    for ((n, i) <- elements) {
-      res += sep + alias(n)
-      sep = ","
-    }
-    res += "\n"
-    res
-  }
-
-  // Return a (String, Seq[Node]) tuple suitable for passing to printf
-  // that contains the values of all the elements in the bundle
-  def printAll(prepend: String = ""): (String, Seq[Node]) = {
-    var format = "[DEBUG]" + prepend
-    var sep = ""
-    var argsIn = Seq[Node]()
-    for ((n, i) <- elements) {
-      format += sep + "%x"
-      sep = ","
-      argsIn = argsIn :+ i.toNode
-    }
-    format += "\n"
-    (format, argsIn)
-  }
-}
-
-class XFilesInterface(implicit p: Parameters) extends Bundle {
+class XFilesArbiterInterface(implicit p: Parameters) extends Bundle {
   val core = new RoCCInterface
   val backend = (new XFilesBackendInterface).flip
 }
 
 class XFilesArbiter(backendInfo: UInt)(implicit p: Parameters)
     extends XFilesModule()(p) with XFilesSupervisorRequests {
-  val io = new XFilesInterface
+  val io = new XFilesArbiterInterface
 
   val asidUnit = Module(new AsidUnit).io
   val tTable = Module(new XFilesTransactionTable).io
@@ -160,10 +31,8 @@ class XFilesArbiter(backendInfo: UInt)(implicit p: Parameters)
   // Include a debug unit for some debugging operations
   val debugUnit = Module(new DebugUnit).io
 
-  // The supervisor requests forwarded from the ASID Units get
-  // processed in reverse order (i.e., Core 0 > Core 1 > ... Core N).
-  // Aliasing is consequently possible and the OS has to be
-  // intelligent about throwing around supervisor requests.
+  // See if the ASID Unit is forwarding a supervisor request to the
+  // backend
   val supReqToBackend = asidUnit.cmdFwd.valid
 
   // Alias out some commonly used signals
@@ -330,6 +199,10 @@ class XFilesArbiter(backendInfo: UInt)(implicit p: Parameters)
 
   // Just attach the AUTL lines to the X-FILES Arbiter
   io.core.autl <> debugUnit.autl
+
+  for (i <- 0 until p(RoccNMemChannels)) {
+    io.core.utl(i).acquire.valid := Bool(false)
+    io.core.utl(i).grant.ready := Bool(true) }
 
   // Handle memory responses. These are sent into a per-core memory
   // response queue and then arbitrated out and passed to the backend.
