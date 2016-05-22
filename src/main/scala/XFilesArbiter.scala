@@ -183,7 +183,13 @@ class XFilesArbiter(backendInfo: UInt)(implicit p: Parameters)
   tTable.xfiles.mem.req.ready := io.core.mem.req.ready
 
   // Just attach the AUTL lines to the X-FILES Arbiter
-  io.core.autl <> debugUnit.autl
+  io.core.autl.acquire.valid := debugUnit.autl.acquire.valid
+  io.core.autl.acquire.bits := debugUnit.autl.acquire.bits
+  debugUnit.autl.acquire.ready := io.core.autl.acquire.ready
+
+  debugUnit.autl.grant.valid := io.core.autl.grant.valid
+  debugUnit.autl.grant.bits := io.core.autl.grant.bits
+  io.core.autl.grant.ready := debugUnit.autl.grant.ready
 
   for (i <- 0 until p(RoccNMemChannels)) {
     io.core.utl(i).acquire.valid := Bool(false)
