@@ -26,7 +26,6 @@ class CacheMemReq(implicit p: Parameters) extends DanaBundle()(p) {
   val asid = UInt(width = asidWidth)
   val nnid = UInt(width = nnidWidth)
   val cacheIndex = UInt(width = log2Up(cacheNumEntries))
-  val coreIndex = UInt(width = log2Up(numCores))
 }
 
 class CacheMemResp(implicit p: Parameters) extends DanaBundle()(p) {
@@ -150,7 +149,6 @@ abstract class CacheBase[SramIfType <: SRAMVariantInterface,
   io.mem.req.bits.asid := UInt(0)
   io.mem.req.bits.nnid := UInt(0)
   io.mem.req.bits.cacheIndex := UInt(0)
-  io.mem.req.bits.coreIndex := UInt(0)
 
   controlRespPipe(0).valid := Bool(false)
   controlRespPipe(0).bits.fetch := Bool(false)
@@ -197,7 +195,6 @@ abstract class CacheBase[SramIfType <: SRAMVariantInterface,
   val tableIndex = tTableReqQueue.deq.bits.tableIndex
   val layer = tTableReqQueue.deq.bits.currentLayer
   val location = tTableReqQueue.deq.bits.regFileLocationBit
-  val coreIdx = tTableReqQueue.deq.bits.coreIdx
   // Blind assignments
   controlRespPipe(0).bits.tableIndex := tableIndex
   controlRespPipe(0).bits.regFileLocationBit := location
@@ -231,7 +228,6 @@ abstract class CacheBase[SramIfType <: SRAMVariantInterface,
             io.mem.req.bits.asid := asid
             io.mem.req.bits.nnid := nnid
             io.mem.req.bits.cacheIndex := cacheIdx
-            io.mem.req.bits.coreIndex := coreIdx
           } .otherwise {
           }
 

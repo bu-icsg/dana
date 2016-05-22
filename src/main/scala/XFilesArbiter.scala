@@ -9,7 +9,6 @@ import rocket.{RoCCInterface, RoCCCommand, HellaCacheResp, HasCoreParameters}
 import cde.{Parameters, Field}
 import math.pow
 
-case object NumCores extends Field[Int]
 case object TidWidth extends Field[Int]
 case object AsidWidth extends Field[Int]
 case object DebugEnabled extends Field[Boolean]
@@ -45,7 +44,6 @@ trait XFilesUserRequests {
 
 trait XFilesParameters extends HasCoreParameters with XFilesErrorCodes
     with XFilesUserRequests {
-  val numCores = p(NumCores)
   val tidWidth = p(TidWidth)
   val asidWidth = p(AsidWidth)
   val transactionTableNumEntries = p(TransactionTableNumEntries)
@@ -273,13 +271,12 @@ class XFilesArbiter(backendInfo: UInt)(implicit p: Parameters)
   io.core.interrupt := exception.valid
 
   when (io.backend.rocc.interrupt) {
-    printfError("XF Arbiter: RoCC Exception asserted w/ regIdx 0d%d\n",
-      io.backend.regIdx.resp)
+    printfError("XF Arbiter: RoCC Exception asserted\n")
   }
 
   when (io.backend.interrupt.fire()) {
-    printfError("XF Arbiter: Backend interrupt asserted on core 0d%d w/ code 0d%d\n",
-      io.backend.interrupt.bits.coreIdx, io.backend.interrupt.bits.code) }
+    printfError("XF Arbiter: Backend interrupt asserted w/ code 0d%d\n",
+      io.backend.interrupt.bits.code) }
 
   // Connections to the backend. [TODO] Clean these up such that the
   // backend gets a single RoCC interface and some special lines for
@@ -289,7 +286,6 @@ class XFilesArbiter(backendInfo: UInt)(implicit p: Parameters)
 
   tTable.xfiles.cmd.valid := userReqToBackend
   tTable.xfiles.cmd.bits := coreQueue.deq.bits
-  tTable.regIdx.cmd := UInt(0)
   tTable.xfiles.resp.ready := Bool(true)
   tTable.backend.rocc.resp <> io.backend.rocc.resp
   tTable.backend.rocc.cmd.ready := io.backend.rocc.cmd.ready
@@ -302,13 +298,10 @@ class XFilesArbiter(backendInfo: UInt)(implicit p: Parameters)
   // for setting the privilege bits (prv) to ONE if we're sending a
   // supervisor request.
   io.backend.rocc.status.prv := supReqToBackend
-  io.backend.regIdx.cmd := tTable.backend.regIdx.cmd
-  tTable.backend.regIdx.resp := io.backend.regIdx.resp
 
   when (asidUnit.cmdFwd.valid) {
     printfInfo("XFiles Arbiter: cmdFwd asserted\n")
     io.backend.rocc.cmd.bits := asidUnit.cmdFwd.bits
-    io.backend.regIdx.cmd := UInt(0)
     // [TODO] All the status bits other than prv are left unconnected
     io.backend.rocc.status.prv := io.core.status.prv
   }
@@ -367,9 +360,6 @@ class XFilesArbiter(backendInfo: UInt)(implicit p: Parameters)
   io.backend.rocc.mem.resp.valid := tTable.backend.rocc.mem.resp.valid
   io.backend.rocc.mem.resp.bits := tTable.backend.rocc.mem.resp.bits
 
-  tTable.memIdx.resp := UInt(0)
-
-  io.backend.memIdx <> tTable.backend.memIdx
   tTable.backend.rocc.mem.req <> io.backend.rocc.mem.req
 
   io.backend.xfReq <> tTable.backend.xfReq
@@ -379,10 +369,9 @@ class XFilesArbiter(backendInfo: UInt)(implicit p: Parameters)
   when (reset) { exception.valid := Bool(false) }
 
   // Assertions
-  (0 until numCores).map(i => {
-    val totalResponses = Vec(asidUnit.resp.valid, tTable.xfiles.resp.valid)
-    assert(!(totalResponses.count((x: Bool) => x) > UInt(1)),
-      "X-FILES Arbiter: AsidUnit just aliased a TTable response")})
+  val totalResponses = Vec(asidUnit.resp.valid, tTable.xfiles.resp.valid)
+  assert(!(totalResponses.count((x: Bool) => x) > UInt(1)),
+    "X-FILES Arbiter: AsidUnit just aliased a TTable response")
 
   when (io.core.resp.valid) {
     printf("XF Arbiter: Responding to core 0 with data 0x%x\n",

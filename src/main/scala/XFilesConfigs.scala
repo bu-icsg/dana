@@ -9,7 +9,6 @@ import dana.DefaultDanaConfig
 class DefaultXFilesConfig extends Config (
   topDefinitions = { (pname,site,here) =>
     pname match {
-      case NumCores => Dump(Knob("NUM_CORES"))
       case TidWidth => Dump("TID_WIDTH", 16)
       case AsidWidth => Dump("ASID_WIDTH", 16)
       case DebugEnabled => false
@@ -18,7 +17,6 @@ class DefaultXFilesConfig extends Config (
       case TransactionTableQueueSize => 32
     }},
   knobValues = {
-    case "NUM_CORES" => 1
     case "TRANSACTION_TABLE_NUM_ENTRIES" => 1
   }
 )

@@ -40,7 +40,6 @@ class TransactionState(implicit p: Parameters) extends TableEntry()(p)
   val regFileAddrIn = UInt(width = log2Up(regFileNumElements))
   val regFileAddrOut = UInt(width = log2Up(regFileNumElements))
   val readIdx = UInt(width = log2Up(regFileNumElements))
-  val coreIdx = UInt(width = log2Up(numCores))
   val indexElement = UInt(width = log2Up(regFileNumElements))
   val countFeedback = UInt(width = feedbackWidth)
   //-------- Can be possibly moved over to a learning-only config
@@ -68,7 +67,6 @@ class TransactionState(implicit p: Parameters) extends TableEntry()(p)
     "regFileAddrIn" -> "AIn",
     "regFileAddrOut" -> "AOut",
     "readIdx" -> "R#",
-    "coreIdx" -> "Co#",
     "indexElement" -> "#E",
     "countFeedback" -> "CF",
     "regFileAddrOutFixed" -> "AOutF"
@@ -208,7 +206,6 @@ class ControlReq(implicit p: Parameters) extends DanaBundle()(p) {
   val cacheIndex = UInt(width = log2Up(cacheNumEntries))
   val asid = UInt(width = asidWidth)
   val nnid = UInt(width = nnidWidth) // formerly nn_hash
-  val coreIdx = UInt(width = log2Up(numCores))
   // State info
   val currentNodeInLayer = UInt(width = 16) // [TODO] fragile
   val currentLayer = UInt(width = 16) // [TODO] fragile
@@ -285,8 +282,6 @@ class TTableArbiter(implicit p: Parameters) extends DanaBundle()(p) {
     val resp = Decoupled(new RoCCResponse)
     val status = new MStatus().asInput
   }
-  val coreIdx = UInt(INPUT, width = log2Up(numCores))
-  val indexOut = UInt(OUTPUT, width = log2Up(numCores))
   val xfReq = (new XFilesBackendReq).flip
   val xfResp = new XFilesBackendResp
   val queueIO = new XFilesQueueInterface
@@ -314,7 +309,6 @@ class DanaTransactionTableBase[StateType <: TransactionState,
   lazy val cmd = new DanaBundle {
     val asid = io.arbiter.rocc.cmd.bits.rs1(asidWidth + tidWidth - 1, tidWidth)
     val tid = io.arbiter.rocc.cmd.bits.rs1(tidWidth - 1, 0)
-    val coreIdx = io.arbiter.coreIdx
     val countFeedback =
       io.arbiter.rocc.cmd.bits.rs1(feedbackWidth + asidWidth + tidWidth - 1,
         asidWidth + tidWidth)
@@ -344,7 +338,6 @@ class DanaTransactionTableBase[StateType <: TransactionState,
     entry.validIO := Bool(true)
     when (!entry.flags.reserved) {
       entry.reserve()
-      entry.coreIdx := io.arbiter.coreIdx
     }
   }
 
