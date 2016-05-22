@@ -148,7 +148,7 @@ class XFilesArbiter(backendInfo: UInt)(implicit p: Parameters)
     extends XFilesModule()(p) with XFilesSupervisorRequests {
   val io = new XFilesInterface
 
-  val asidUnit = Module(new AsidUnit(0)).io
+  val asidUnit = Module(new AsidUnit).io
   val tTable = Module(new XFilesTransactionTable).io
 
   // Each user request from a core gets entered into a queue. This is
@@ -160,8 +160,7 @@ class XFilesArbiter(backendInfo: UInt)(implicit p: Parameters)
   val exception = Reg(Vec(numCores, Valid(UInt(width = xLen))))
 
   // Include a debug unit for some debugging operations
-  val debugUnits = Vec.tabulate(numCores)(id => Module(new DebugUnit(id)).io)
-
+  val debugUnit = Module(new DebugUnit).io
 
   // The supervisor requests forwarded from the ASID Units get
   // processed in reverse order (i.e., Core 0 > Core 1 > ... Core N).
@@ -205,7 +204,7 @@ class XFilesArbiter(backendInfo: UInt)(implicit p: Parameters)
     val squashUser = squashSup | (sup & funct < UInt(4)) | !asidValid
 
     io.core(i).resp.valid := (reqInfo | badRequest | readCsr |
-      asidUnit.resp.valid | debugUnits(i).resp.valid |
+      asidUnit.resp.valid | debugUnit.resp.valid |
       (tTable.xfiles.resp.valid & tTable.regIdx.resp === UInt(i)))
 
     io.core(i).resp.bits.rd := cmd.bits.inst.rd
@@ -230,13 +229,13 @@ class XFilesArbiter(backendInfo: UInt)(implicit p: Parameters)
 
     // The Debug Units get the full command, but are expected to
     // behave...
-    debugUnits(i).cmd.valid := cmd.fire()
-    debugUnits(i).cmd.bits := cmd.bits
-    debugUnits(i).status := io.core(i).status
-    debugUnits(i).resp.ready := Bool(true)
+    debugUnit.cmd.valid := cmd.fire()
+    debugUnit.cmd.bits := cmd.bits
+    debugUnit.status := io.core(i).status
+    debugUnit.resp.ready := Bool(true)
 
     // PTW connectsion for the Deubg Units
-    debugUnits(i).ptw <> io.core(i).ptw
+    debugUnit.ptw <> io.core(i).ptw
 
     // Core queue connections. We enqueue any user requests, i.e.,
     // anything that hasn't been squashed. The ASID and TID are
@@ -257,8 +256,8 @@ class XFilesArbiter(backendInfo: UInt)(implicit p: Parameters)
     coreQueue.deq.ready := tTable.xfiles.cmd.ready & !supReqToBackend
 
     // Deal with responses in priority order
-    when (debugUnits(i).resp.valid) {
-      io.core(i).resp.bits := debugUnits(i).resp.bits
+    when (debugUnit.resp.valid) {
+      io.core(i).resp.bits := debugUnit.resp.bits
     } .elsewhen (asidUnit.resp.valid) {
       io.core(i).resp.bits := asidUnit.resp.bits
     } .elsewhen (tTable.xfiles.resp.valid & tTable.regIdx.resp === UInt(i)) {
@@ -324,15 +323,15 @@ class XFilesArbiter(backendInfo: UInt)(implicit p: Parameters)
   (0 until numCores).map(i => {
     io.core(i).mem.req.valid := (tTable.xfiles.mem.req.valid &&
       tTable.memIdx.cmd === UInt(i)) | (
-      debugUnits(i).mem.req.valid)
+      debugUnit.mem.req.valid)
 
     io.core(i).mem.req.bits := tTable.xfiles.mem.req.bits
     io.core(i).mem.invalidate_lr := tTable.xfiles.mem.invalidate_lr
 
-    when (debugUnits(i).mem.req.valid) {
-      io.core(i).mem.req.bits := debugUnits(i).mem.req.bits
+    when (debugUnit.mem.req.valid) {
+      io.core(i).mem.req.bits := debugUnit.mem.req.bits
     }
-    debugUnits(i).mem.req.ready := io.core(i).mem.req.ready
+    debugUnit.mem.req.ready := io.core(i).mem.req.ready
 
     when (io.core(i).mem.req.fire()) {
       printfInfo("XFilesArbiter: Mem request core %d with tag 0x%x for addr 0x%x\n",
@@ -345,7 +344,7 @@ class XFilesArbiter(backendInfo: UInt)(implicit p: Parameters)
   tTable.xfiles.mem.req.ready := allMemReady
 
   // Just attach the AUTL lines to the X-FILES Arbiter
-  io.core(0).autl <> debugUnits(0).autl
+  io.core(0).autl <> debugUnit.autl
 
   // Handle memory responses. These are sent into a per-core memory
   // response queue and then arbitrated out and passed to the backend.
@@ -372,7 +371,7 @@ class XFilesArbiter(backendInfo: UInt)(implicit p: Parameters)
   tTable.xfiles.mem.resp.valid := memQueue.deq.valid
   tTable.xfiles.mem.resp.bits := memQueue.deq.bits
 
-  (0 until numCores).map(i => { debugUnits(i).mem.resp := memQueue.deq })
+  (0 until numCores).map(i => { debugUnit.mem.resp := memQueue.deq })
 
   io.backend.rocc.mem.resp.valid := tTable.backend.rocc.mem.resp.valid
   io.backend.rocc.mem.resp.bits := tTable.backend.rocc.mem.resp.bits
