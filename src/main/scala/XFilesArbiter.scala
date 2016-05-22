@@ -154,8 +154,8 @@ class XFilesArbiter(backendInfo: UInt)(implicit p: Parameters)
   // Each user request from a core gets entered into a queue. This is
   // not used for any supervisory requests which are routed through
   // the ASID Unit.
-  val coreQueue = Vec.fill(numCores){ Module(new Queue(new RoCCCommand, 2)).io }
-  val memQueue = Vec.fill(numCores){ Module(new Queue(new HellaCacheResp, 16)).io }
+  val coreQueue = Module(new Queue(new RoCCCommand, 2)).io
+  val memQueue = Module(new Queue(new HellaCacheResp, 16)).io
 
   val exception = Reg(Vec(numCores, Valid(UInt(width = xLen))))
 
@@ -241,20 +241,20 @@ class XFilesArbiter(backendInfo: UInt)(implicit p: Parameters)
     // Core queue connections. We enqueue any user requests, i.e.,
     // anything that hasn't been squashed. The ASID and TID are
     // supplied by this core's ASID unit if this is a new request.
-    coreQueue(i).enq.valid := cmd.fire() & !squashUser
-    io.core(i).cmd.ready := coreQueue(i).enq.ready
-    coreQueue(i).enq.bits := cmd.bits
+    coreQueue.enq.valid := cmd.fire() & !squashUser
+    io.core(i).cmd.ready := coreQueue.enq.ready
+    coreQueue.enq.bits := cmd.bits
     when (newRequest) {
       // Grab the LSBs of rs1, but get the ASID/TID from the ASID Unit
-      coreQueue(i).enq.bits.rs1 := cmd.bits.rs1(xLen-asidWidth-tidWidth-1, 0) ##
+      coreQueue.enq.bits.rs1 := cmd.bits.rs1(xLen-asidWidth-tidWidth-1, 0) ##
         asidUnit.data.bits.asid ## asidUnit.data.bits.tid
     } .otherwise {
-      coreQueue(i).enq.bits.rs1 := asidUnit.data.bits.asid ##
+      coreQueue.enq.bits.rs1 := asidUnit.data.bits.asid ##
         cmd.bits.rs1(tidWidth - 1, 0)
     }
 
     // Entries in the Core Queue are pulled out by the Core Arbiter
-    coreQueue(i).deq.ready := tTable.xfiles.cmd.ready & !supReqToBackend
+    coreQueue.deq.ready := tTable.xfiles.cmd.ready & !supReqToBackend
 
     // Deal with responses in priority order
     when (debugUnits(i).resp.valid) {
@@ -291,10 +291,10 @@ class XFilesArbiter(backendInfo: UInt)(implicit p: Parameters)
   // backend gets a single RoCC interface and some special lines for
   // dealing with Transactions.
 
-  val userReqToBackend = coreQueue(0).deq.fire()
+  val userReqToBackend = coreQueue.deq.fire()
 
   tTable.xfiles.cmd.valid := userReqToBackend
-  tTable.xfiles.cmd.bits := coreQueue(0).deq.bits
+  tTable.xfiles.cmd.bits := coreQueue.deq.bits
   tTable.regIdx.cmd := UInt(0)
   tTable.xfiles.resp.ready := Bool(true)
   tTable.backend.rocc.resp <> io.backend.rocc.resp
@@ -358,10 +358,10 @@ class XFilesArbiter(backendInfo: UInt)(implicit p: Parameters)
   // number of outstanding transactions.
 
   (0 until numCores).map(i => {
-    memQueue(i).enq.valid := io.core(i).mem.resp.valid
-    memQueue(i).enq.bits := io.core(i).mem.resp.bits
-    memQueue(i).deq.ready := Bool(true)
-    assert(!(io.core(i).mem.resp.valid & !memQueue(i).enq.ready),
+    memQueue.enq.valid := io.core(i).mem.resp.valid
+    memQueue.enq.bits := io.core(i).mem.resp.bits
+    memQueue.deq.ready := Bool(true)
+    assert(!(io.core(i).mem.resp.valid & !memQueue.enq.ready),
       "XFilesArbiter memory queue missed a memory response")})
 
   // The backend uses a Valid interface, but the arbiter wants a
@@ -369,10 +369,10 @@ class XFilesArbiter(backendInfo: UInt)(implicit p: Parameters)
   // telling the arbiter that the backend can always accept data (we
   // then just have guarantee that this is true on the backend).
 
-  tTable.xfiles.mem.resp.valid := memQueue(0).deq.valid
-  tTable.xfiles.mem.resp.bits := memQueue(0).deq.bits
+  tTable.xfiles.mem.resp.valid := memQueue.deq.valid
+  tTable.xfiles.mem.resp.bits := memQueue.deq.bits
 
-  (0 until numCores).map(i => { debugUnits(i).mem.resp := memQueue(0).deq })
+  (0 until numCores).map(i => { debugUnits(i).mem.resp := memQueue.deq })
 
   io.backend.rocc.mem.resp.valid := tTable.backend.rocc.mem.resp.valid
   io.backend.rocc.mem.resp.bits := tTable.backend.rocc.mem.resp.bits
