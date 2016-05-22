@@ -71,20 +71,16 @@ class XFilesTransactionTableCmdResp(implicit p: Parameters) extends
   val cmd = Decoupled(new RoCCCommand).flip
   val resp = Decoupled(new RoCCResponse)
   val busy = Bool(OUTPUT)
-  val regIdx = (new CoreIdx).flip
 }
 
 class RespBundle(implicit p: Parameters) extends XFilesBundle()(p) {
   val rocc = new RoCCResponse
-  val idx = UInt(width = numCores)
 }
 
 class XFilesTransactionTable(implicit p: Parameters) extends XFilesModule()(p)
     with HasTable with XFilesResponseCodes {
   val io = new Bundle { // The portion of the RoCCInterface this uses
     val xfiles = new RoCCInterface
-    val regIdx = (new CoreIdx).flip
-    val memIdx = new CoreIdx
     val backend = (new XFilesBackendInterface).flip
     // val xfiles = new XFilesTransactionTableCmdResp
     // val backend = (new XFilesTransactionTableCmdResp).flip
@@ -142,7 +138,6 @@ class XFilesTransactionTable(implicit p: Parameters) extends XFilesModule()(p)
 
   // memory connections
   io.backend.rocc.mem <> io.xfiles.mem
-  io.backend.memIdx <> io.memIdx
   // io.backned.rocc.autl <> io.xfiles.autl
   // io.backend.rocc.utl <> io.xfiles.utl
   // io.backend.rocc.fpu_req <> io.xfiles.fpu_req
@@ -157,16 +152,10 @@ class XFilesTransactionTable(implicit p: Parameters) extends XFilesModule()(p)
 
   resp_d.valid := cmd.fire()
   resp_d.bits.rocc.rd := cmd.bits.inst.rd
-  resp_d.bits.idx := io.regIdx.cmd
-
-  // regIdx
-  io.regIdx.resp := io.backend.regIdx.resp
-  io.backend.regIdx.cmd := io.regIdx.cmd
 
   when (resp_d.valid) {
     io.xfiles.resp.bits.rd := resp_d.bits.rocc.rd
     io.xfiles.resp.bits.data := resp_d.bits.rocc.data
-    io.regIdx.resp := resp_d.bits.idx
   }
 
   // Queue connections

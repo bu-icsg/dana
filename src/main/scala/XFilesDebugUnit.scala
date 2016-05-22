@@ -9,7 +9,7 @@ import cde.Parameters
 
 class DebugUnitInterface(implicit p: Parameters) extends RoCCInterface
 
-class DebugUnit(id: Int)(implicit p: Parameters) extends XFilesModule()(p)
+class DebugUnit(id: Int = 0)(implicit p: Parameters) extends XFilesModule()(p)
   with HasTileLinkParameters {
   val io = new DebugUnitInterface
 

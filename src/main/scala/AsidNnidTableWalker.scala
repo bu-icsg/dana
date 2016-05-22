@@ -15,13 +15,9 @@ class ANTWXFilesInterface(implicit p: Parameters) extends DanaBundle()(p) {
     val cmd = Decoupled(new RoCCCommand).flip
     val resp = Decoupled(new RoCCResponse)
     val status = new MStatus().asInput
-    val coreIdxCmd = UInt(INPUT, width = log2Up(numCores))
-    val coreIdxResp = UInt(OUTPUT, width = log2Up(numCores))
   }
   val dcache = new Bundle {
     val mem = new HellaCacheIO()(p.alterPartial({ case CacheName => "L1D" }))
-    val coreIdxReq = UInt(OUTPUT, width = log2Up(numCores))
-    val coreIdxResp = UInt(INPUT, width = log2Up(numCores))
   }
   val interrupt = Valid(new InterruptBundle)
 }
@@ -39,7 +35,6 @@ class ConfigRobEntry(implicit p: Parameters) extends DanaBundle()(p) {
 
 class HellaCacheReqWithCore(implicit p: Parameters) extends DanaBundle()(p) {
   val req = new HellaCacheReq()(p)
-  val core = UInt(width = log2Up(numCores))
 }
 
 class antp(implicit p: Parameters) extends DanaBundle()(p) {
@@ -154,19 +149,17 @@ class AsidNnidTableWalker(implicit p: Parameters) extends DanaModule()(p)
   io.xfiles.rocc.resp.bits.rd := io.xfiles.rocc.cmd.bits.inst.rd
   io.xfiles.rocc.resp.bits.data := Mux(antpReg.valid, antpReg.antp,
     SInt(-int_DANA_NOANTP, width = xLen).toUInt)
-  io.xfiles.rocc.coreIdxResp := io.xfiles.rocc.coreIdxCmd
   io.xfiles.rocc.resp.valid := io.xfiles.rocc.cmd.fire() && updateAntp
 
   when (io.xfiles.rocc.resp.valid) {
-    printfInfo("ANTW: Responding to core %d, R%d with data 0x%x\n",
-      io.xfiles.rocc.coreIdxResp, io.xfiles.rocc.resp.bits.rd,
-      io.xfiles.rocc.resp.bits.data) }
+    printfInfo("ANTW: Responding to core R%d with data 0x%x\n",
+      io.xfiles.rocc.resp.bits.rd, io.xfiles.rocc.resp.bits.data) }
 
   // New cache requests get entered on the queue
   when (io.cache.req.fire()) {
-    printfInfo("ANTW: Enqueue mem req Core/ASID/NNID/Idx 0x%x/0x%x/0x%x/0x%x\n",
-      io.cache.req.bits.coreIndex, io.cache.req.bits.asid,
-      io.cache.req.bits.nnid, io.cache.req.bits.cacheIndex) }
+    printfInfo("ANTW: Enqueue mem req ASID/NNID/Idx 0x%x/0x%x/0x%x\n",
+      io.cache.req.bits.asid, io.cache.req.bits.nnid,
+      io.cache.req.bits.cacheIndex) }
 
   val interruptCode = Reg(Valid(UInt()))
   def setInterrupt(code: Int) {
@@ -207,8 +200,8 @@ class AsidNnidTableWalker(implicit p: Parameters) extends DanaModule()(p)
       setInterrupt(int_DANA_NOANTP)
     }
     reqSent := Bool(false)
-    printfInfo("ANTW: Dequeue mem req Core/ASID/NNID/Idx 0x%x/0x%x/0x%x/0x%x\n",
-      deq.coreIndex, deq.asid, deq.nnid, deq.cacheIndex)
+    printfInfo("ANTW: Dequeue mem req ASID/NNID/Idx 0x%x/0x%x/0x%x\n",
+      deq.asid, deq.nnid, deq.cacheIndex)
   }
 
   val asid = cacheReqCurrent.asid
@@ -221,7 +214,6 @@ class AsidNnidTableWalker(implicit p: Parameters) extends DanaModule()(p)
     }
   }
 
-  io.xfiles.dcache.coreIdxReq := cacheReqCurrent.coreIndex
   when (state === s_GET_VALID_NNIDS) {
     val reqAddr = antpReg.antp + asid * UInt(24)
     val numValidNnids = respData(63, 32)
@@ -286,7 +278,6 @@ class AsidNnidTableWalker(implicit p: Parameters) extends DanaModule()(p)
 
   io.xfiles.interrupt.valid := state === s_INTERRUPT
   io.xfiles.interrupt.bits.code := interruptCode.bits
-  io.xfiles.interrupt.bits.coreIdx := cacheReqCurrent.coreIndex
   when (state === s_INTERRUPT) {
     // Add interrupt/exception support (#4)
 
@@ -296,21 +287,19 @@ class AsidNnidTableWalker(implicit p: Parameters) extends DanaModule()(p)
     // Table and kill whatever is there?
 
     state := s_IDLE
-    printfError("ANTW: Exception code 0d%d for core 0d%d\n", interruptCode.bits,
-      cacheReqCurrent.coreIndex)
+    printfError("ANTW: Exception code 0d%d\n", interruptCode.bits)
   }
 
   assert(!(state === s_INTERRUPT & interruptCode.bits > UInt(int_INVEPB)),
     "ANTW: hit interrupt")
 
   when (io.xfiles.dcache.mem.req.fire()) {
-    printfInfo("ANTW: Mem req to Core %d with tag 0x%x for addr 0x%x\n",
-      io.xfiles.dcache.coreIdxReq, io.xfiles.dcache.mem.req.bits.tag,
-      io.xfiles.dcache.mem.req.bits.addr) }
+    printfInfo("ANTW: Mem req to core with tag 0x%x for addr 0x%x\n",
+      io.xfiles.dcache.mem.req.bits.tag, io.xfiles.dcache.mem.req.bits.addr) }
 
   when (io.xfiles.dcache.mem.resp.fire()) {
-    printfInfo("ANTW: Mem resp from Core %d with tag 0x%x data 0x%x\n",
-      io.xfiles.dcache.coreIdxResp, io.xfiles.dcache.mem.resp.bits.tag,
+    printfInfo("ANTW: Mem resp from Core with tag 0x%x data 0x%x\n",
+      io.xfiles.dcache.mem.resp.bits.tag,
       io.xfiles.dcache.mem.resp.bits.data_word_bypass) }
 
   // We need to look at the Config ROB and determine if anything is

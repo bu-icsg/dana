@@ -12,7 +12,7 @@ class AsidTid(implicit p: Parameters) extends XFilesBundle()(p) {
   val tid = UInt(width = p(TidWidth))
 }
 
-class AsidUnit(id: Int)(implicit p: Parameters) extends XFilesModule()(p)
+class AsidUnit(id: Int = 0)(implicit p: Parameters) extends XFilesModule()(p)
     with XFilesSupervisorRequests{
   val io = new XFilesBundle {
     val cmd = Decoupled(new RoCCCommand).flip

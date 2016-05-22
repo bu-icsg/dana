@@ -11,14 +11,8 @@ case class XFilesBackendParameters(
   generator: Parameters => XFilesBackend,
   info: Int = 0)
 
-class CoreIdx(implicit p: Parameters) extends XFilesBundle()(p) {
-  val cmd = UInt(OUTPUT, width = log2Up(numCores))
-  val resp = UInt(INPUT, width = log2Up(numCores))
-}
-
 class InterruptBundle(implicit p: Parameters) extends XFilesBundle()(p) {
   val code = UInt(OUTPUT, width = xLen)
-  val coreIdx = UInt(OUTPUT, width = log2Up(numCores))
 }
 
 class XFilesBackendReq(implicit p: Parameters) extends XFilesBundle()(p) {
@@ -49,8 +43,6 @@ class XFilesQueueInterface(implicit p: Parameters) extends XFilesBundle()(p) {
 class XFilesBackendInterface(implicit p: Parameters)
     extends XFilesBundle()(p) {
   val rocc = new RoCCInterface
-  val regIdx = (new CoreIdx).flip
-  val memIdx = new CoreIdx
   val xfReq = (new XFilesBackendReq).flip
   val xfResp = new XFilesBackendResp
   val queueIO = new XFilesQueueInterface

@@ -29,7 +29,6 @@ class ControlCacheInterfaceReq(implicit p: Parameters) extends DanaBundle()(p) {
   val tableIndex = UInt(width = log2Up(transactionTableNumEntries))
   val currentLayer = UInt(width = 16) // [TODO] fragile
   val regFileLocationBit = UInt(width = 1) // [TODO] fragile
-  val coreIdx = UInt(width = log2Up(numCores))
 }
 
 class ControlCacheInterfaceReqLearn(implicit p: Parameters)
