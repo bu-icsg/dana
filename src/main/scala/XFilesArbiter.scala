@@ -148,7 +148,7 @@ class XFilesArbiter(backendInfo: UInt)(implicit p: Parameters)
     extends XFilesModule()(p) with XFilesSupervisorRequests {
   val io = new XFilesInterface
 
-  val asidUnits = Vec.tabulate(numCores)(id => Module(new AsidUnit(id)).io)
+  val asidUnit = Module(new AsidUnit(0)).io
   val tTable = Module(new XFilesTransactionTable).io
 
   // Each user request from a core gets entered into a queue. This is
@@ -167,8 +167,7 @@ class XFilesArbiter(backendInfo: UInt)(implicit p: Parameters)
   // processed in reverse order (i.e., Core 0 > Core 1 > ... Core N).
   // Aliasing is consequently possible and the OS has to be
   // intelligent about throwing around supervisor requests.
-  val supReqToBackend = Vec.tabulate(numCores)(
-    i => asidUnits(i).cmdFwd.valid).exists((x: Bool) => x)
+  val supReqToBackend = asidUnit.cmdFwd.valid
 
   (0 until numCores).map(i => {
     // Alias out some commonly used signals
@@ -190,7 +189,7 @@ class XFilesArbiter(backendInfo: UInt)(implicit p: Parameters)
     // Either of these two types of requests means that we "squash"
     // the requst and prevent it from getting entered in the Core
     // Queue.
-    val asidValid = asidUnits(i).data.valid
+    val asidValid = asidUnit.data.valid
     val badRequest = cmd.fire() & ((!asidValid & !sup &
       funct =/= UInt(t_USR_XFILES_ID) & funct =/= UInt(t_USR_XFILES_DEBUG)) |
       (!sup & funct < UInt(4)))
@@ -206,7 +205,7 @@ class XFilesArbiter(backendInfo: UInt)(implicit p: Parameters)
     val squashUser = squashSup | (sup & funct < UInt(4)) | !asidValid
 
     io.core(i).resp.valid := (reqInfo | badRequest | readCsr |
-      asidUnits(i).resp.valid | debugUnits(i).resp.valid |
+      asidUnit.resp.valid | debugUnits(i).resp.valid |
       (tTable.xfiles.resp.valid & tTable.regIdx.resp === UInt(i)))
 
     io.core(i).resp.bits.rd := cmd.bits.inst.rd
@@ -219,10 +218,10 @@ class XFilesArbiter(backendInfo: UInt)(implicit p: Parameters)
 
     // The ASID Units are provided with the full command, barring that
     // a short-circuit response hasn't been generated
-    asidUnits(i).cmd.valid := cmd.fire() & !squashSup
-    asidUnits(i).cmd.bits := cmd.bits
-    asidUnits(i).status := io.core(i).status
-    asidUnits(i).resp.ready := Bool(true)
+    asidUnit.cmd.valid := cmd.fire() & !squashSup
+    asidUnit.cmd.bits := cmd.bits
+    asidUnit.status := io.core(i).status
+    asidUnit.resp.ready := Bool(true)
 
     when (cmd.fire()) {
       printfDebug("XF Arbiter: funct 0x%x, rs1 0x%x, rs2 0x%x\n",
@@ -248,9 +247,9 @@ class XFilesArbiter(backendInfo: UInt)(implicit p: Parameters)
     when (newRequest) {
       // Grab the LSBs of rs1, but get the ASID/TID from the ASID Unit
       coreQueue(i).enq.bits.rs1 := cmd.bits.rs1(xLen-asidWidth-tidWidth-1, 0) ##
-        asidUnits(i).data.bits.asid ## asidUnits(i).data.bits.tid
+        asidUnit.data.bits.asid ## asidUnit.data.bits.tid
     } .otherwise {
-      coreQueue(i).enq.bits.rs1 := asidUnits(i).data.bits.asid ##
+      coreQueue(i).enq.bits.rs1 := asidUnit.data.bits.asid ##
         cmd.bits.rs1(tidWidth - 1, 0)
     }
 
@@ -260,8 +259,8 @@ class XFilesArbiter(backendInfo: UInt)(implicit p: Parameters)
     // Deal with responses in priority order
     when (debugUnits(i).resp.valid) {
       io.core(i).resp.bits := debugUnits(i).resp.bits
-    } .elsewhen (asidUnits(i).resp.valid) {
-      io.core(i).resp.bits := asidUnits(i).resp.bits
+    } .elsewhen (asidUnit.resp.valid) {
+      io.core(i).resp.bits := asidUnit.resp.bits
     } .elsewhen (tTable.xfiles.resp.valid & tTable.regIdx.resp === UInt(i)) {
       io.core(i).resp.bits := tTable.xfiles.resp.bits
     }
@@ -312,14 +311,13 @@ class XFilesArbiter(backendInfo: UInt)(implicit p: Parameters)
   io.backend.regIdx.cmd := tTable.backend.regIdx.cmd
   tTable.backend.regIdx.resp := io.backend.regIdx.resp
 
-  (numCores -1 to 0 by -1).map(i => {
-    when (asidUnits(i).cmdFwd.valid) {
+    when (asidUnit.cmdFwd.valid) {
       printfInfo("XFiles Arbiter: cmdFwd asserted\n")
-      io.backend.rocc.cmd.bits := asidUnits(i).cmdFwd.bits
-      io.backend.regIdx.cmd := UInt(i)
+      io.backend.rocc.cmd.bits := asidUnit.cmdFwd.bits
+      io.backend.regIdx.cmd := UInt(0)
       // [TODO] All the status bits other than prv are left unconnected
-      io.backend.rocc.status.prv := io.core(i).status.prv
-    }})
+      io.backend.rocc.status.prv := io.core(0).status.prv
+    }
 
   // Handle memory request routing
   val allMemReady = io.core.forall((rocc: RoCCInterface) => rocc.mem.req.ready)
@@ -392,7 +390,7 @@ class XFilesArbiter(backendInfo: UInt)(implicit p: Parameters)
 
   // Assertions
   (0 until numCores).map(i => {
-    val totalResponses = Vec(asidUnits(i).resp.valid,
+    val totalResponses = Vec(asidUnit.resp.valid,
       tTable.xfiles.resp.valid &
         tTable.regIdx.resp === UInt(i))
     assert(!(totalResponses.count((x: Bool) => x) > UInt(1)),
