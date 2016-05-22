@@ -157,8 +157,6 @@ class XFilesArbiter(backendInfo: UInt)(implicit p: Parameters)
   val coreQueue = Vec.fill(numCores){ Module(new Queue(new RoCCCommand, 2)).io }
   val memQueue = Vec.fill(numCores){ Module(new Queue(new HellaCacheResp, 16)).io }
 
-  val memArbiter = Module(new RRArbiter(new HellaCacheResp, numCores)).io
-
   val exception = Reg(Vec(numCores, Valid(UInt(width = xLen))))
 
   // Include a debug unit for some debugging operations
@@ -364,7 +362,7 @@ class XFilesArbiter(backendInfo: UInt)(implicit p: Parameters)
   (0 until numCores).map(i => {
     memQueue(i).enq.valid := io.core(i).mem.resp.valid
     memQueue(i).enq.bits := io.core(i).mem.resp.bits
-    memQueue(i).deq <> memArbiter.in(i)
+    memQueue(i).deq.ready := Bool(true)
     assert(!(io.core(i).mem.resp.valid & !memQueue(i).enq.ready),
       "XFilesArbiter memory queue missed a memory response")})
 
@@ -373,17 +371,15 @@ class XFilesArbiter(backendInfo: UInt)(implicit p: Parameters)
   // telling the arbiter that the backend can always accept data (we
   // then just have guarantee that this is true on the backend).
 
-  tTable.xfiles.mem.resp.valid := memArbiter.out.valid
-  tTable.xfiles.mem.resp.bits := memArbiter.out.bits
+  tTable.xfiles.mem.resp.valid := memQueue(0).deq.valid
+  tTable.xfiles.mem.resp.bits := memQueue(0).deq.bits
 
-  (0 until numCores).map(i => { debugUnits(i).mem.resp := memArbiter.out })
+  (0 until numCores).map(i => { debugUnits(i).mem.resp := memQueue(0).deq })
 
   io.backend.rocc.mem.resp.valid := tTable.backend.rocc.mem.resp.valid
   io.backend.rocc.mem.resp.bits := tTable.backend.rocc.mem.resp.bits
 
-  memArbiter.out.ready := Bool(true)
-
-  tTable.memIdx.resp := memArbiter.chosen
+  tTable.memIdx.resp := UInt(0)
 
   io.backend.memIdx <> tTable.backend.memIdx
   tTable.backend.rocc.mem.req <> io.backend.rocc.mem.req
