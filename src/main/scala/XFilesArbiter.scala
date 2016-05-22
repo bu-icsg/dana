@@ -157,15 +157,20 @@ class XFilesArbiter(backendInfo: UInt)(implicit p: Parameters)
   val coreQueue = Vec.fill(numCores){ Module(new Queue(new RoCCCommand, 2)).io }
   val memQueue = Vec.fill(numCores){ Module(new Queue(new HellaCacheResp, 16)).io }
 
-  // Use round robin arbitration for valid requests sitting in the
-  // core queues
-  val coreArbiter = Module(new RRArbiter(new RoCCCommand, numCores)).io
   val memArbiter = Module(new RRArbiter(new HellaCacheResp, numCores)).io
 
   val exception = Reg(Vec(numCores, Valid(UInt(width = xLen))))
 
   // Include a debug unit for some debugging operations
   val debugUnits = Vec.tabulate(numCores)(id => Module(new DebugUnit(id)).io)
+
+
+  // The supervisor requests forwarded from the ASID Units get
+  // processed in reverse order (i.e., Core 0 > Core 1 > ... Core N).
+  // Aliasing is consequently possible and the OS has to be
+  // intelligent about throwing around supervisor requests.
+  val supReqToBackend = Vec.tabulate(numCores)(
+    i => asidUnits(i).cmdFwd.valid).exists((x: Bool) => x)
 
   (0 until numCores).map(i => {
     // Alias out some commonly used signals
@@ -252,7 +257,7 @@ class XFilesArbiter(backendInfo: UInt)(implicit p: Parameters)
     }
 
     // Entries in the Core Queue are pulled out by the Core Arbiter
-    coreQueue(i).deq <> coreArbiter.in(i)
+    coreQueue(i).deq.ready := tTable.xfiles.cmd.ready & !supReqToBackend
 
     // Deal with responses in priority order
     when (debugUnits(i).resp.valid) {
@@ -289,23 +294,11 @@ class XFilesArbiter(backendInfo: UInt)(implicit p: Parameters)
   // backend gets a single RoCC interface and some special lines for
   // dealing with Transactions.
 
-  // The supervisor requests forwarded from the ASID Units get
-  // processed in reverse order (i.e., Core 0 > Core 1 > ... Core N).
-  // Aliasing is consequently possible and the OS has to be
-  // intelligent about throwing around supervisor requests.
-  val supReqToBackend = Vec.tabulate(numCores)(
-    i => asidUnits(i).cmdFwd.valid).exists((x: Bool) => x)
-
-  // We can pull things out of the Core Arbiter if the backend is
-  // telling us it's okay and if the Core Arbiter isn't getting
-  // superseded by a forwarded supervisor request.
-  coreArbiter.out.ready := tTable.xfiles.cmd.ready & !supReqToBackend
-
-  val userReqToBackend = coreArbiter.out.valid
+  val userReqToBackend = coreQueue(0).deq.fire()
 
   tTable.xfiles.cmd.valid := userReqToBackend
-  tTable.xfiles.cmd.bits := coreArbiter.out.bits
-  tTable.regIdx.cmd := coreArbiter.chosen
+  tTable.xfiles.cmd.bits := coreQueue(0).deq.bits
+  tTable.regIdx.cmd := UInt(0)
   tTable.xfiles.resp.ready := Bool(true)
   tTable.backend.rocc.resp <> io.backend.rocc.resp
   tTable.backend.rocc.cmd.ready := io.backend.rocc.cmd.ready
