@@ -19,24 +19,18 @@ class XFilesDana(implicit p: Parameters) extends RoCC()(p)
   val xFilesArbiter = Module(new XFilesArbiter(backendInfo)(p))
 
   // io.arbiter <> xFilesArbiter.io.core
-  io.cmd <> xFilesArbiter.io.core(0).cmd
-  io.resp <> xFilesArbiter.io.core(0).resp
+  io.cmd <> xFilesArbiter.io.core.cmd
+  io.resp <> xFilesArbiter.io.core.resp
 
   // io.mem.req.valid := Bool(false)
   // io.mem.invalidate_lr := Bool(false)
   // io.mem <> xFilesArbiter.io.core(0).mem
-  io.mem.req.valid := xFilesArbiter.io.core(0).mem.req.valid
-  xFilesArbiter.io.core(0).mem.req.ready := io.mem.req.ready
-  io.mem.req.bits.kill := xFilesArbiter.io.core(0).mem.req.bits.kill
-  io.mem.req.bits.phys := xFilesArbiter.io.core(0).mem.req.bits.phys
-  io.mem.req.bits.data := xFilesArbiter.io.core(0).mem.req.bits.data
-  io.mem.req.bits.addr := xFilesArbiter.io.core(0).mem.req.bits.addr
-  io.mem.req.bits.tag := xFilesArbiter.io.core(0).mem.req.bits.tag
-  io.mem.req.bits.cmd := xFilesArbiter.io.core(0).mem.req.bits.cmd
-  io.mem.req.bits.typ := xFilesArbiter.io.core(0).mem.req.bits.typ
-  io.mem.invalidate_lr := xFilesArbiter.io.core(0).mem.invalidate_lr
+  io.mem.req.valid := xFilesArbiter.io.core.mem.req.valid
+  xFilesArbiter.io.core.mem.req.ready := io.mem.req.ready
+  io.mem.req.bits := xFilesArbiter.io.core.mem.req.bits
+  io.mem.invalidate_lr := xFilesArbiter.io.core.mem.invalidate_lr
 
-  io.mem.resp <> xFilesArbiter.io.core(0).mem.resp
+  io.mem.resp <> xFilesArbiter.io.core.mem.resp
 
   io.busy := Bool(false)
 
@@ -46,19 +40,15 @@ class XFilesDana(implicit p: Parameters) extends RoCC()(p)
   // io.mem.ptw.invalidate := Bool(false)
   // io.mem.ptw.sret := Bool(false)
 
-  (0 until p(NumCores)).map(i =>
-    io.ptw <> xFilesArbiter.io.core(0).ptw
-  )
+  io.ptw <> xFilesArbiter.io.core.ptw
 
-  io.busy := xFilesArbiter.io.core(0).busy
-  xFilesArbiter.io.core(0).status := io.status
-  io.interrupt := xFilesArbiter.io.core(0).interrupt
+  io.busy := xFilesArbiter.io.core.busy
+  xFilesArbiter.io.core.status := io.status
+  io.interrupt := xFilesArbiter.io.core.interrupt
 
   // io.autl.acquire.valid := Bool(false)
   // io.autl.grant.ready := Bool(true)
-  (0 until p(NumCores)).map(i =>
-    io.autl <> xFilesArbiter.io.core(0).autl
-  )
+  io.autl <> xFilesArbiter.io.core.autl
 
   for (i <- 0 until p(RoccNMemChannels)) {
     io.utl(i).acquire.valid := Bool(false)
