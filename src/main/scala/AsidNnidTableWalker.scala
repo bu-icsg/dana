@@ -5,7 +5,7 @@ package dana
 import Chisel._
 
 import rocket.{RoCCCommand, RoCCResponse, HellaCacheReq, HellaCacheIO, MStatus}
-import uncore.{CacheName, ClientUncachedTileLinkIO}
+import uncore.{HasTileLinkParameters, CacheName, ClientUncachedTileLinkIO, Get}
 import uncore.constants.MemoryOpConstants._
 import cde.{Parameters}
 import xfiles.{InterruptBundle, XFilesSupervisorRequests}
@@ -45,7 +45,7 @@ class antp(implicit p: Parameters) extends DanaBundle()(p) {
 }
 
 class AsidNnidTableWalker(implicit p: Parameters) extends DanaModule()(p)
-  with XFilesSupervisorRequests {
+  with XFilesSupervisorRequests with HasTileLinkParameters {
   val io = new AsidNnidTableWalkerInterface
   val antpReg = Reg(new antp)
 
@@ -93,6 +93,19 @@ class AsidNnidTableWalker(implicit p: Parameters) extends DanaModule()(p)
   def memRead(addr: UInt) {
     io.xfiles.dcache.mem.req.bits.addr := addr
     io.xfiles.dcache.mem.req.bits.tag := addr(coreDCacheReqTagBits - 1, 0) }
+
+  def autlReadWord(addr: UInt) {
+    val utlBlockOffset = tlBeatAddrBits + tlByteAddrBits
+    val addr_block = addr(coreMaxAddrBits - 1, utlBlockOffset)
+    val addr_beat = addr(utlBlockOffset - 1, tlByteAddrBits)
+    val addr_byte = addr(tlByteAddrBits - 1, 0)
+    val addr_word = addr(tlByteAddrBits - 1, log2Up(xLen/8))
+    Get(client_xact_id = UInt(0),
+      addr_block = addr_block,
+      addr_beat = addr_beat,
+      addr_byte = addr_byte,
+      operand_size = MT_D,
+      alloc = Bool(false)) }
 
   val respData = io.xfiles.dcache.mem.resp.bits.data_word_bypass
 
