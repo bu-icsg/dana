@@ -5,7 +5,7 @@ package dana
 import Chisel._
 
 import rocket.{RoCCCommand, RoCCResponse, HellaCacheReq, HellaCacheIO, MStatus}
-import uncore.{CacheName}
+import uncore.{CacheName, ClientUncachedTileLinkIO}
 import uncore.constants.MemoryOpConstants._
 import cde.{Parameters}
 import xfiles.{InterruptBundle, XFilesSupervisorRequests}
@@ -16,6 +16,7 @@ class ANTWXFilesInterface(implicit p: Parameters) extends DanaBundle()(p) {
     val resp = Decoupled(new RoCCResponse)
     val status = new MStatus().asInput
   }
+  val autl = new ClientUncachedTileLinkIO
   val dcache = new Bundle {
     val mem = new HellaCacheIO()(p.alterPartial({ case CacheName => "L1D" }))
   }
@@ -76,6 +77,9 @@ class AsidNnidTableWalker(implicit p: Parameters) extends DanaModule()(p)
   io.cache.resp.bits.data := UInt(0)
   io.cache.resp.bits.cacheIndex := UInt(0)
   io.cache.resp.bits.addr := UInt(0)
+
+  io.xfiles.autl.acquire.valid := Bool(false)
+  io.xfiles.autl.grant.ready := Bool(true)
 
   io.xfiles.dcache.mem.req.valid := Bool(false)
   io.xfiles.dcache.mem.req.bits.kill := Bool(false) // testing

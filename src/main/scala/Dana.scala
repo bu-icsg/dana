@@ -247,9 +247,7 @@ class Dana(implicit p: Parameters) extends XFilesBackend()(p)
 
   antw.io.cache <> cache.io.mem
   antw.io.xfiles.dcache.mem <> io.rocc.mem
-
-  io.rocc.autl.acquire.valid := Bool(false)
-  io.rocc.autl.grant.ready := Bool(true)
+  antw.io.xfiles.autl <> io.rocc.autl
 
   // Arbitration between TTable and ANTW
   io.rocc.cmd.ready := antw.io.xfiles.rocc.cmd.ready &
