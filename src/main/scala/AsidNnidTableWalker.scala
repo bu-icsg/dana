@@ -78,8 +78,10 @@ class AsidNnidTableWalker(implicit p: Parameters) extends DanaModule()(p)
   io.cache.resp.bits.cacheIndex := UInt(0)
   io.cache.resp.bits.addr := UInt(0)
 
-  io.xfiles.autl.acquire.valid := Bool(false)
-  io.xfiles.autl.grant.ready := Bool(true)
+  val acq = io.xfiles.autl.acquire
+  val gnt = io.xfiles.autl.grant
+  acq.valid := Bool(false)
+  gnt.ready := Bool(true)
 
   io.xfiles.dcache.mem.req.valid := Bool(false)
   io.xfiles.dcache.mem.req.bits.kill := Bool(false) // testing
@@ -93,19 +95,6 @@ class AsidNnidTableWalker(implicit p: Parameters) extends DanaModule()(p)
   def memRead(addr: UInt) {
     io.xfiles.dcache.mem.req.bits.addr := addr
     io.xfiles.dcache.mem.req.bits.tag := addr(coreDCacheReqTagBits - 1, 0) }
-
-  def autlReadWord(addr: UInt) {
-    val utlBlockOffset = tlBeatAddrBits + tlByteAddrBits
-    val addr_block = addr(coreMaxAddrBits - 1, utlBlockOffset)
-    val addr_beat = addr(utlBlockOffset - 1, tlByteAddrBits)
-    val addr_byte = addr(tlByteAddrBits - 1, 0)
-    val addr_word = addr(tlByteAddrBits - 1, log2Up(xLen/8))
-    Get(client_xact_id = UInt(0),
-      addr_block = addr_block,
-      addr_beat = addr_beat,
-      addr_byte = addr_byte,
-      operand_size = MT_D,
-      alloc = Bool(false)) }
 
   val respData = io.xfiles.dcache.mem.resp.bits.data_word_bypass
 
@@ -204,6 +193,55 @@ class AsidNnidTableWalker(implicit p: Parameters) extends DanaModule()(p)
       state := Mux(cond, nextState, s_INTERRUPT)
       setInterrupt(code) }}
 
+  val autlBlockOffset = tlBeatAddrBits + tlByteAddrBits
+  val autlAddr = Wire(UInt(width = xLen))
+  val addr_block = autlAddr(coreMaxAddrBits - 1, autlBlockOffset)
+  val addr_beat = autlAddr(autlBlockOffset - 1, tlByteAddrBits)
+  val addr_byte = autlAddr(tlByteAddrBits - 1, 0)
+  acq.bits := Get(client_xact_id = UInt(0),
+      addr_block = addr_block,
+      addr_beat = addr_beat,
+      addr_byte = addr_byte,
+      operand_size = MT_D,
+      alloc = Bool(false))
+
+  val autlAddr_d = Reg(UInt(width = xLen))
+  val autlAddrWord_d = autlAddr_d(tlByteAddrBits - 1, log2Up(xLen/8))
+  val autlDataGetVec = Wire(Vec.fill(tlDataBits / xLen)(UInt(width = xLen)))
+  (0 until tlDataBits/xLen).map(i =>
+    autlDataGetVec(i).toBits := gnt.bits.data((i+1) * xLen-1, i * xLen))
+  val autlDataWord = autlDataGetVec(autlAddrWord_d)
+  def autlAcqGrant(nextState: UInt, cond: => Bool = Bool(true),
+    code: Int = int_UNKNOWN) = {
+    when (!reqSent) {
+      acq.valid := Bool(true)
+      reqSent := acq.fire()
+      autlAddr_d := autlAddr
+    }
+
+    when (gnt.fire()) {
+      reqSent := Bool(false)
+      state := Mux(cond, nextState, s_INTERRUPT)
+      setInterrupt(code)
+    }
+  }
+
+  when (acq.fire()) {
+    printfInfo("ANTW: AUTL ACQ | addr 0x%x, addr_block 0x%x, addr_beat 0x%x, addr_byte 0x%x\n",
+      autlAddr, acq.bits.addr_block, acq.bits.addr_beat, acq.bits.addr_byte())
+  }
+  when (gnt.fire()) {
+    printfInfo("ANTW: AUTL GNT | data 0x%x, addr_word 0x%x, word 0x%x\n",
+      gnt.bits.data, autlAddrWord_d, autlDataWord)
+  }
+
+  // assert(!(state === s_GET_NN_EPB), "Fail 0")
+  // assert(!(state === s_GET_NN_EPB & acq.fire()), "Fail 1")
+  // assert(!(state === s_GET_NN_EPB & gnt.fire()), "Fail 2")
+  // assert(!(state === s_GET_CONFIG_POINTER, "Fail 3"))
+  // assert(!(state === s_GET_CONFIG_POINTER & acq.fire()), "Fail 4")
+  // assert(!(state === s_GET_CONFIG_POINTER & gnt.fire()), "Fail 5")
+
   val hasCacheRequests = cacheReqQueue.io.count > UInt(0)
   cacheReqQueue.io.deq.ready := state === s_IDLE & hasCacheRequests
   when (state === s_IDLE & hasCacheRequests) {
@@ -231,35 +269,35 @@ class AsidNnidTableWalker(implicit p: Parameters) extends DanaModule()(p)
     }
   }
 
+  autlAddr := antpReg.antp + asid * UInt(24)
   when (state === s_GET_VALID_NNIDS) {
     val reqAddr = antpReg.antp + asid * UInt(24)
-    val numValidNnids = respData(63, 32)
-    memRead(reqAddr)
-    reqWaitForResp(s_GET_NN_POINTER, nnid < numValidNnids, int_INVNNID)
+    val numValidNnids = autlDataWord(63, 32)
+    autlAcqGrant(s_GET_NN_POINTER, nnid < numValidNnids, int_INVNNID)
   }
 
   val nnidPointer = Reg(UInt())
   nnidPointer := nnidPointer
   when (state === s_GET_NN_POINTER) {
     val reqAddr = antpReg.antp + asid * UInt(24) + UInt(8)
-    nnidPointer := respData + nnid * UInt(24)
-    memRead(reqAddr)
-    reqWaitForResp(s_GET_NN_SIZE, respData =/= UInt(0), int_NULLREAD)
+    nnidPointer := autlDataWord + nnid * UInt(24)
+    autlAddr := reqAddr
+    autlAcqGrant(s_GET_NN_SIZE, autlDataWord =/= UInt(0), int_NULLREAD)
   }
 
   val configSize = Reg(UInt())
   configSize := configSize
   when (state === s_GET_NN_SIZE) {
     val reqAddr = nnidPointer
-    memRead(reqAddr)
-    configSize := respData
-    reqWaitForResp(s_GET_NN_EPB, respData =/= UInt(0), int_ZEROSIZE)
+    autlAddr := reqAddr
+    configSize := autlDataWord
+    autlAcqGrant(s_GET_NN_EPB, autlDataWord =/= UInt(0), int_ZEROSIZE)
   }
 
   when (state === s_GET_NN_EPB) {
     val reqAddr = nnidPointer + UInt(8)
-    memRead(reqAddr)
-    reqWaitForResp(s_GET_CONFIG_POINTER, respData === UInt(elementsPerBlock),
+    autlAddr := reqAddr
+    autlAcqGrant(s_GET_CONFIG_POINTER, autlDataWord === UInt(elementsPerBlock),
       int_INVEPB)
   }
 
@@ -268,9 +306,9 @@ class AsidNnidTableWalker(implicit p: Parameters) extends DanaModule()(p)
     val reqAddr = nnidPointer + UInt(16)
     configReqCount := UInt(0)
     configWbCount := UInt(0)
-    memRead(reqAddr)
-    configPointer := respData
-    reqWaitForResp(s_GET_NN_CONFIG)
+    autlAddr := reqAddr
+    configPointer := autlDataWord
+    autlAcqGrant(s_GET_NN_CONFIG)
   }
 
   when (state === s_GET_NN_CONFIG) {
@@ -354,7 +392,7 @@ class AsidNnidTableWalker(implicit p: Parameters) extends DanaModule()(p)
   // Assertions
   assert(!(io.cache.req.fire() && !io.cache.req.ready),
     "ANTW saw a cache request, but it's cache queue is full")
-  assert(!(state === s_ERROR),
+  assert(!(RegNext(RegNext(RegNext(state === s_ERROR)))),
     "ANTW is in an error state")
   assert(Bool(isPow2(configBufSize)),
     "ANTW derived parameter configBufSize must be a power of 2")

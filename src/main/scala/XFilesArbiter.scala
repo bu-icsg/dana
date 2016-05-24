@@ -196,7 +196,7 @@ class XFilesArbiter(backendInfo: UInt)(implicit p: Parameters)
   debugUnit.autl.grant.bits := io.core.autl.grant.bits
   io.backend.rocc.autl.grant.valid := io.core.autl.grant.valid
   io.backend.rocc.autl.grant.bits := io.core.autl.grant.bits
-  io.core.autl.grant.ready := (debugUnit.autl.grant.ready &
+  io.core.autl.grant.ready := (debugUnit.autl.grant.ready |
     io.backend.rocc.autl.grant.ready)
 
   for (i <- 0 until p(RoccNMemChannels)) {
