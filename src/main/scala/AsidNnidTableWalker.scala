@@ -87,55 +87,6 @@ class AsidNnidTableWalker(implicit p: Parameters) extends DanaModule()(p)
   gnt.ready := Bool(true)
 
   io.xfiles.dcache.mem.req.valid := Bool(false)
-  io.xfiles.dcache.mem.req.bits.kill := Bool(false) // testing
-  io.xfiles.dcache.mem.req.bits.phys := Bool(false) // testing
-  io.xfiles.dcache.mem.req.bits.data := Bool(false) // testing
-  io.xfiles.dcache.mem.req.bits.addr := UInt(0)
-  io.xfiles.dcache.mem.req.bits.tag := UInt(0)
-  io.xfiles.dcache.mem.req.bits.cmd := M_XRD
-  io.xfiles.dcache.mem.req.bits.typ := MT_D
-  io.xfiles.dcache.mem.invalidate_lr := Bool(false)
-  def memRead(addr: UInt) {
-    io.xfiles.dcache.mem.req.bits.addr := addr
-    io.xfiles.dcache.mem.req.bits.tag := addr(coreDCacheReqTagBits - 1, 0) }
-
-  val respData = io.xfiles.dcache.mem.resp.bits.data_word_bypass
-
-  // def feedConfigRob() {
-  //   // Compute the response index in terms of a logical index into
-  //   // the array that we're reading
-  //   val respIdx = (io.xfiles.dcache.mem.resp.bits.addr - configPointer) >>
-  //     UInt(log2Up(xLen/8))
-  //   // Based on this response index, compute the slot and offset
-  //   // in the Config ROB buffer
-  //   val configRobSlot = respIdx(log2Up(antwRobEntries) +
-  //     log2Up(configBufSize) - 1, log2Up(configBufSize))
-  //   val configRobOffset = respIdx(log2Up(configBufSize) - 1, 0)
-
-  //   // Write the data to the appropriate slot and offset in the
-  //   // Config ROB setting the valid flags appropriately
-  //   configRob(configRobSlot).valid := configRob(configRobSlot).valid |
-  //     UInt(1, width = configBufSize) << configRobOffset
-  //   val cacheAddr = respIdx >> UInt(log2Up(configBufSize))
-  //   configRob(configRobSlot).cacheAddr := cacheAddr
-  //   configRob(configRobSlot).data(configRobOffset) := respData
-
-  //   // Check that we aren't overwriting valid data
-  //   val overwrite = (configRob(configRobSlot).valid &
-  //     UInt(1, width = configBufSize) << configRobOffset) =/= UInt(0)
-  //   when (overwrite) {
-  //     printfWarn("ANTW: overWr (old/new) addr 0x%x/0x%x, data 0x%x/0x%x\n",
-  //       configRob(configRobSlot).cacheAddr, cacheAddr,
-  //       configRob(configRobSlot).data(configRobOffset), respData) }
-  //   when (overwrite & (configRob(configRobSlot).cacheAddr === cacheAddr) &
-  //     (configRob(configRobSlot).data(configRobOffset) === respData)) {
-  //     printfWarn("ANTW: Overwriting existing entry with the same addr/data\n") }
-  //   assert(!(overwrite & (configRob(configRobSlot).cacheAddr =/= cacheAddr)),
-  //     "ANTW about to overwrite a valid Config ROB entry with different addr")
-  //   assert(!(overwrite &
-  //     (configRob(configRobSlot).data(configRobOffset) =/= respData)),
-  //     "ANTW about to overwrite a valid Config ROB entry with different data") }
-
 
   // RoCC requests that come in for changing the ANTP are handled
   // here. The old ASID value will be returned to the operating
@@ -233,6 +184,7 @@ class AsidNnidTableWalker(implicit p: Parameters) extends DanaModule()(p)
       acq.bits.a_type, autlAddr, acq.bits.addr_block, acq.bits.addr_beat,
       acq.bits.addr_byte())
   }
+
   when (gnt.fire()) {
     printfInfo("ANTW: AUTL GNT | data 0x%x, addr_beat 0x%x, addr_word 0x%x, word 0x%x\n",
       gnt.bits.data, gnt.bits.addr_beat, autlAddrWord_d, autlDataWord)
@@ -411,7 +363,6 @@ class AsidNnidTableWalker(implicit p: Parameters) extends DanaModule()(p)
   // val configRobValidIdx = configRob.indexWhere(configRobEntryValid(_))
 
   when (configRob.valid.toBits.andR) {
-// val done = configWbCount === (configSize >> UInt(log2Up(configBufSize))) - UInt(1)
     val done = cacheAddr >= (configSize >> UInt(log2Up(configBufSize))) - UInt(1)
     val cacheIdx = cacheReqCurrent.cacheIndex
     io.cache.resp.valid := Bool(true)
