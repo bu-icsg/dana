@@ -70,8 +70,6 @@ class AsidNnidTableWalker(implicit p: Parameters) extends DanaModule()(p)
   cacheReqQueue.io.enq <> io.cache.req
   val cacheReqCurrent = Reg(new CacheMemReq)
 
-  val cacheRespQueue = Module(new Queue(new CacheMemResp, cacheNumEntries))
-
   // Default values
   io.xfiles.rocc.cmd.ready := Bool(true)
 
