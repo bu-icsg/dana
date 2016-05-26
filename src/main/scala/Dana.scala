@@ -75,6 +75,7 @@ trait DanaParameters extends HasCoreParameters with XFilesParameters {
   val int_NULLREAD    = 4
   val int_ZEROSIZE    = 5
   val int_INVEPB      = 6
+  val int_MISALIGNED  = 7
   val int_UNKNOWN     = -1
 }
 

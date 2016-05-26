@@ -45,8 +45,9 @@ class XFilesArbiter(backendInfo: UInt)(implicit p: Parameters)
   //   * readCsr -- read a CSR, like the exception cause register
   //   * isDebug -- an access to the Debug Unit
   val reqInfo = cmd.fire() & !sup & funct === UInt(t_USR_XFILES_ID)
+  when (reqInfo) { printfInfo("XF Arbiter: Received reqInfo\n") }
   val badRequest = cmd.fire() & ((!asidValid & !sup &
-    funct =/= UInt(t_USR_XFILES_ID) & funct =/= UInt(t_USR_XFILES_DEBUG)) |
+    (funct =/= UInt(t_USR_XFILES_ID)) & (funct =/= UInt(t_USR_XFILES_DEBUG))) |
     (!sup & funct < UInt(4)))
   val readCsr = cmd.fire() & sup & funct === UInt(t_SUP_READ_CSR)
   val isDebug = cmd.fire() & funct === UInt(t_USR_XFILES_DEBUG)
@@ -58,9 +59,8 @@ class XFilesArbiter(backendInfo: UInt)(implicit p: Parameters)
   // Alternatively, the request
   val newRequest = cmd.fire() & !sup & funct === UInt(t_USR_NEW_REQUEST)
 
-
-  io.core.resp.valid := (reqInfo | badRequest | readCsr |
-    asidUnit.resp.valid | debugUnit.resp.valid | tTable.xfiles.resp.valid)
+  io.core.resp.valid := reqInfo | badRequest | readCsr |
+    asidUnit.resp.valid | debugUnit.resp.valid | tTable.xfiles.resp.valid
 
   io.core.resp.bits.rd := cmd.bits.inst.rd
   io.core.resp.bits.data := SInt(-err_XFILES_NOASID, width = xLen).toUInt
@@ -114,7 +114,7 @@ class XFilesArbiter(backendInfo: UInt)(implicit p: Parameters)
   coreQueue.deq.ready := tTable.xfiles.cmd.ready & !supReqToBackend
 
   // Deal with responses with an implied priority
-  io.core.resp.bits := tTable.xfiles.resp.bits
+  when (tTable.xfiles.resp.valid) { io.core.resp.bits := tTable.xfiles.resp.bits }
   when (asidUnit.resp.valid)  { io.core.resp.bits := asidUnit.resp.bits  }
   when (debugUnit.resp.valid) { io.core.resp.bits := debugUnit.resp.bits }
 
@@ -128,7 +128,7 @@ class XFilesArbiter(backendInfo: UInt)(implicit p: Parameters)
   // Other connections
   io.core.interrupt := exception.valid
 
-  when (io.backend.rocc.interrupt) {
+  when (backendException) {
     printfError("XF Arbiter: RoCC Exception asserted\n")
   }
 
@@ -241,8 +241,8 @@ class XFilesArbiter(backendInfo: UInt)(implicit p: Parameters)
   when (reset) { exception.valid := Bool(false) }
 
   when (io.core.resp.valid) {
-    printf("XF Arbiter: Responding to core 0 with data 0x%x\n",
-      io.core.resp.bits.data) }
+    printfInfo("XF Arbiter: Responding to core rd 0d%d with data 0x%x\n",
+      io.core.resp.bits.rd, io.core.resp.bits.data) }
 
   // Assertions
   val totalResponses = Vec(asidUnit.resp.valid, debugUnit.resp.valid,
