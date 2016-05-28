@@ -61,6 +61,18 @@ typedef enum {
   err_INVEPB      = 5
 } dana_err_t;
 
+typedef enum {
+  int_INVREQ      = 0,
+  int_DANA_NOANTP = 1,
+  int_INVASID     = 2,
+  int_INVNNID     = 3,
+  int_NULLREAD    = 4,
+  int_ZEROSIZE    = 5,
+  int_INVEPB      = 6,
+  int_MISALIGNED  = 7,
+  int_UNKNOWN     = -1
+} xfiles_interrupt_t;
+
 #define RESP_CODE_WIDTH 3
 
 // Macros for using XCustom instructions. Four different macros are

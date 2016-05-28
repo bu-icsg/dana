@@ -81,7 +81,8 @@ typedef struct {                 // |----------------|   |    |
 typedef struct {                 // |--------------------|               |
   size_t size;                   // | size of config     |               |
   size_t elements_per_block;     // | elements per block |               |
-  xlen_t * config;               // | * config           |-> [NN Config] |
+  xlen_t * config_raw;           // | * config unaligned |               |
+  xlen_t * config;               // | * config aligned   |-> [NN Config] |
 } nn_configuration;              // |--------------------| <---|         |
                                  //                            |         |
 typedef struct {                 // |-------------------|      |         |

@@ -5,10 +5,17 @@ package dana
 import Chisel._
 
 import rocket.{RoCCCommand, RoCCResponse, HellaCacheReq, HellaCacheIO, MStatus}
-import uncore.{CacheName}
+import uncore.{HasTileLinkParameters, CacheName, ClientUncachedTileLinkIO, Get,
+  GetBlock, CacheBlockBytes}
 import uncore.constants.MemoryOpConstants._
 import cde.{Parameters}
 import xfiles.{InterruptBundle, XFilesSupervisorRequests}
+
+trait AntParameters {
+  // Parameters that must match xfiles-supervisor.h
+  val sizeAsidStruct = 24  // sizeof(asid_nnid_table_entry)
+  val sizeNnidStruct = 32  // sizeof(nn_configuration)
+}
 
 class ANTWXFilesInterface(implicit p: Parameters) extends DanaBundle()(p) {
   val rocc = new Bundle {
@@ -16,6 +23,7 @@ class ANTWXFilesInterface(implicit p: Parameters) extends DanaBundle()(p) {
     val resp = Decoupled(new RoCCResponse)
     val status = new MStatus().asInput
   }
+  val autl = new ClientUncachedTileLinkIO
   val dcache = new Bundle {
     val mem = new HellaCacheIO()(p.alterPartial({ case CacheName => "L1D" }))
   }
@@ -25,12 +33,6 @@ class ANTWXFilesInterface(implicit p: Parameters) extends DanaBundle()(p) {
 class AsidNnidTableWalkerInterface(implicit p: Parameters) extends DanaBundle()(p) {
   val cache = (new CacheMemInterface).flip
   val xfiles = new ANTWXFilesInterface
-}
-
-class ConfigRobEntry(implicit p: Parameters) extends DanaBundle()(p) {
-  val valid = UInt(width = bitsPerBlock / xLen)
-  val cacheAddr = UInt(width = log2Up(cacheDataSize * 8 / bitsPerBlock))
-  val data = Vec.fill(bitsPerBlock / xLen){UInt(width = xLen)}
 }
 
 class HellaCacheReqWithCore(implicit p: Parameters) extends DanaBundle()(p) {
@@ -43,8 +45,15 @@ class antp(implicit p: Parameters) extends DanaBundle()(p) {
   val size = UInt(width = xLen)
 }
 
+class ConfigRobEntry(implicit p: Parameters) extends DanaBundle()(p)
+    with HasTileLinkParameters {
+  val valid = UInt(width = bitsPerBlock / tlDataBits)
+  val data = Vec.fill(bitsPerBlock / tlDataBits){UInt(width = tlDataBits)}
+}
+
 class AsidNnidTableWalker(implicit p: Parameters) extends DanaModule()(p)
-  with XFilesSupervisorRequests {
+    with XFilesSupervisorRequests with HasTileLinkParameters
+    with AntParameters {
   val io = new AsidNnidTableWalkerInterface
   val antpReg = Reg(new antp)
 
@@ -77,60 +86,12 @@ class AsidNnidTableWalker(implicit p: Parameters) extends DanaModule()(p)
   io.cache.resp.bits.cacheIndex := UInt(0)
   io.cache.resp.bits.addr := UInt(0)
 
+  val acq = io.xfiles.autl.acquire
+  val gnt = io.xfiles.autl.grant
+  acq.valid := Bool(false)
+  gnt.ready := Bool(true)
+
   io.xfiles.dcache.mem.req.valid := Bool(false)
-  io.xfiles.dcache.mem.req.bits.kill := Bool(false) // testing
-  io.xfiles.dcache.mem.req.bits.phys := Bool(false) // testing
-  io.xfiles.dcache.mem.req.bits.data := Bool(false) // testing
-  io.xfiles.dcache.mem.req.bits.addr := UInt(0)
-  io.xfiles.dcache.mem.req.bits.tag := UInt(0)
-  io.xfiles.dcache.mem.req.bits.cmd := M_XRD
-  io.xfiles.dcache.mem.req.bits.typ := MT_D
-  io.xfiles.dcache.mem.invalidate_lr := Bool(false)
-  def memRead(addr: UInt) {
-    io.xfiles.dcache.mem.req.bits.addr := addr
-    io.xfiles.dcache.mem.req.bits.tag := addr(coreDCacheReqTagBits - 1, 0) }
-
-  val respData = io.xfiles.dcache.mem.resp.bits.data_word_bypass
-
-  // Entries can come back in any order, so we use a Config Reorder
-  // Buffer (ROB) to pack the xLen-sized responses into blocks before
-  // sending them back to the configuration cache.
-  val configPointer = Reg(UInt())
-  val configRob = Vec.fill(antwRobEntries){ Reg(new ConfigRobEntry) }
-  def feedConfigRob() {
-    // Compute the response index in terms of a logical index into
-    // the array that we're reading
-    val respIdx = (io.xfiles.dcache.mem.resp.bits.addr - configPointer) >>
-      UInt(log2Up(xLen/8))
-    // Based on this response index, compute the slot and offset
-    // in the Config ROB buffer
-    val configRobSlot = respIdx(log2Up(antwRobEntries) +
-      log2Up(configBufSize) - 1, log2Up(configBufSize))
-    val configRobOffset = respIdx(log2Up(configBufSize) - 1, 0)
-
-    // Write the data to the appropriate slot and offset in the
-    // Config ROB setting the valid flags appropriately
-    configRob(configRobSlot).valid := configRob(configRobSlot).valid |
-      UInt(1, width = configBufSize) << configRobOffset
-    val cacheAddr = respIdx >> UInt(log2Up(configBufSize))
-    configRob(configRobSlot).cacheAddr := cacheAddr
-    configRob(configRobSlot).data(configRobOffset) := respData
-
-    // Check that we aren't overwriting valid data
-    val overwrite = (configRob(configRobSlot).valid &
-      UInt(1, width = configBufSize) << configRobOffset) =/= UInt(0)
-    when (overwrite) {
-      printfWarn("ANTW: overWr (old/new) addr 0x%x/0x%x, data 0x%x/0x%x\n",
-        configRob(configRobSlot).cacheAddr, cacheAddr,
-        configRob(configRobSlot).data(configRobOffset), respData) }
-    when (overwrite & (configRob(configRobSlot).cacheAddr === cacheAddr) &
-      (configRob(configRobSlot).data(configRobOffset) === respData)) {
-      printfWarn("ANTW: Overwriting existing entry with the same addr/data\n") }
-    assert(!(overwrite & (configRob(configRobSlot).cacheAddr =/= cacheAddr)),
-      "ANTW about to overwrite a valid Config ROB entry with different addr")
-    assert(!(overwrite &
-      (configRob(configRobSlot).data(configRobOffset) =/= respData)),
-      "ANTW about to overwrite a valid Config ROB entry with different data") }
 
   // RoCC requests that come in for changing the ANTP are handled
   // here. The old ASID value will be returned to the operating
@@ -187,6 +148,53 @@ class AsidNnidTableWalker(implicit p: Parameters) extends DanaModule()(p)
       state := Mux(cond, nextState, s_INTERRUPT)
       setInterrupt(code) }}
 
+  val autlBlockOffset = tlBeatAddrBits + tlByteAddrBits
+  val autlAddr = Wire(UInt(width = xLen))
+  val addr_block = autlAddr(coreMaxAddrBits - 1, autlBlockOffset)
+  val addr_beat = autlAddr(autlBlockOffset - 1, tlByteAddrBits)
+  val addr_byte = autlAddr(tlByteAddrBits - 1, 0)
+  val get = Get(client_xact_id = UInt(0),
+      addr_block = addr_block,
+      addr_beat = addr_beat,
+      addr_byte = addr_byte,
+      operand_size = MT_D,
+      alloc = Bool(false))
+  val getBlock = GetBlock(addr_block = addr_block, alloc = Bool(false))
+
+  acq.bits := Mux(state <= s_GET_CONFIG_POINTER, get, getBlock)
+
+  val autlAddr_d = Reg(UInt(width = xLen))
+  val autlAddrWord_d = autlAddr_d(tlByteAddrBits - 1, log2Up(xLen/8))
+  val autlDataGetVec = Wire(Vec.fill(tlDataBits / xLen)(UInt(width = xLen)))
+  (0 until tlDataBits/xLen).map(i =>
+    autlDataGetVec(i).toBits := gnt.bits.data((i+1) * xLen-1, i * xLen))
+  val autlDataWord = autlDataGetVec(autlAddrWord_d)
+  def autlAcqGrant(nextState: UInt, cond: => Bool = Bool(true),
+    code: Int = int_UNKNOWN) = {
+    when (!reqSent) {
+      acq.valid := Bool(true)
+      reqSent := acq.fire()
+      autlAddr_d := autlAddr
+    }
+
+    when (gnt.fire()) {
+      reqSent := Bool(false)
+      state := Mux(cond, nextState, s_INTERRUPT)
+      setInterrupt(code)
+    }
+  }
+
+  when (acq.fire()) {
+    printfInfo("ANTW: AUTL ACQ.%d | addr 0x%x, addr_block 0x%x, addr_beat 0x%x, addr_byte 0x%x\n",
+      acq.bits.a_type, autlAddr, acq.bits.addr_block, acq.bits.addr_beat,
+      acq.bits.addr_byte())
+  }
+
+  when (gnt.fire()) {
+    printfInfo("ANTW: AUTL GNT | data 0x%x, addr_beat 0x%x, addr_word 0x%x, word 0x%x\n",
+      gnt.bits.data, gnt.bits.addr_beat, autlAddrWord_d, autlDataWord)
+  }
+
   val hasCacheRequests = cacheReqQueue.io.count > UInt(0)
   cacheReqQueue.io.deq.ready := state === s_IDLE & hasCacheRequests
   when (state === s_IDLE & hasCacheRequests) {
@@ -200,6 +208,7 @@ class AsidNnidTableWalker(implicit p: Parameters) extends DanaModule()(p)
       setInterrupt(int_DANA_NOANTP)
     }
     reqSent := Bool(false)
+
     printfInfo("ANTW: Dequeue mem req ASID/NNID/Idx 0x%x/0x%x/0x%x\n",
       deq.asid, deq.nnid, deq.cacheIndex)
   }
@@ -214,66 +223,114 @@ class AsidNnidTableWalker(implicit p: Parameters) extends DanaModule()(p)
     }
   }
 
+  autlAddr := antpReg.antp + asid * UInt(sizeAsidStruct)
   when (state === s_GET_VALID_NNIDS) {
-    val reqAddr = antpReg.antp + asid * UInt(24)
-    val numValidNnids = respData(63, 32)
-    memRead(reqAddr)
-    reqWaitForResp(s_GET_NN_POINTER, nnid < numValidNnids, int_INVNNID)
+    val reqAddr = antpReg.antp + asid * UInt(sizeAsidStruct)
+    val numValidNnids = autlDataWord(63, 32)
+    autlAcqGrant(s_GET_NN_POINTER, nnid < numValidNnids, int_INVNNID)
   }
 
   val nnidPointer = Reg(UInt())
   nnidPointer := nnidPointer
   when (state === s_GET_NN_POINTER) {
-    val reqAddr = antpReg.antp + asid * UInt(24) + UInt(8)
-    nnidPointer := respData + nnid * UInt(24)
-    memRead(reqAddr)
-    reqWaitForResp(s_GET_NN_SIZE, respData =/= UInt(0), int_NULLREAD)
+    val reqAddr = antpReg.antp + asid * UInt(sizeAsidStruct) + UInt(8)
+    nnidPointer := autlDataWord + nnid * UInt(sizeNnidStruct)
+    autlAddr := reqAddr
+    autlAcqGrant(s_GET_NN_SIZE, autlDataWord =/= UInt(0), int_NULLREAD)
   }
 
   val configSize = Reg(UInt())
   configSize := configSize
   when (state === s_GET_NN_SIZE) {
     val reqAddr = nnidPointer
-    memRead(reqAddr)
-    configSize := respData
-    reqWaitForResp(s_GET_NN_EPB, respData =/= UInt(0), int_ZEROSIZE)
+    autlAddr := reqAddr
+    configSize := autlDataWord
+    autlAcqGrant(s_GET_NN_EPB, autlDataWord =/= UInt(0), int_ZEROSIZE)
   }
 
   when (state === s_GET_NN_EPB) {
     val reqAddr = nnidPointer + UInt(8)
-    memRead(reqAddr)
-    reqWaitForResp(s_GET_CONFIG_POINTER, respData === UInt(elementsPerBlock),
+    autlAddr := reqAddr
+    autlAcqGrant(s_GET_CONFIG_POINTER, autlDataWord === UInt(elementsPerBlock),
       int_INVEPB)
   }
 
+  val configPointer = Reg(UInt())
+  val cacheAddr = Reg(UInt(width = log2Up(cacheNumBlocks)))
   configPointer := configPointer
   when (state === s_GET_CONFIG_POINTER) {
-    val reqAddr = nnidPointer + UInt(16)
+    val reqAddr = nnidPointer + UInt(24)
     configReqCount := UInt(0)
     configWbCount := UInt(0)
-    memRead(reqAddr)
-    configPointer := respData
-    reqWaitForResp(s_GET_NN_CONFIG)
+    autlAddr := reqAddr
+    configPointer := autlDataWord
+    def misaligned(addr: UInt): Bool = {
+      addr(log2Up(p(CacheBlockBytes)) - 1, 0) === UInt(0) }
+
+    autlAcqGrant(s_GET_NN_CONFIG, misaligned(autlDataWord), int_MISALIGNED)
+    cacheAddr := UInt(0)
+  }
+
+  def autlAcqGrantBlock(nextState: UInt, cond: => Bool = Bool(true),
+    code: Int = int_UNKNOWN) = {
+    when (!reqSent) {
+      acq.valid := Bool(true)
+      reqSent := acq.fire()
+      autlAddr_d := autlAddr
+    }
+
+    when (gnt.fire() & gnt.bits.addr_beat === UInt(tlDataBeats - 1)) {
+      reqSent := Bool(false)
+      state := Mux(cond, nextState, s_INTERRUPT)
+      setInterrupt(code)
+    }
+  }
+
+  // Entries can come back in any order, so we use a Config Reorder
+  // Buffer (ROB) to pack the beat-sized responses into blocks before
+  // sending them back to the configuration cache.
+  val configRob = Reg(new ConfigRobEntry)
+  def feedConfigRob(addr_beat: UInt) {
+    val autlAddrWithBeat_d = autlAddr_d | (addr_beat << tlByteAddrBits)
+    val beatsPerResp = bitsPerBlock/tlDataBits
+    // The index of the block that we're writing back to the cache
+    val respIdx = (autlAddrWithBeat_d - configPointer) >> UInt(log2Up(xLen/8))
+    // The beatOffset is the index into the configRob.data vector.
+    val beatOffset = bitsPerBlock compare tlDataBits match {
+      case 0 => UInt(0)
+      case 1 => autlAddrWithBeat_d(tlByteAddrBits + log2Up(beatsPerResp) - 1,
+        tlByteAddrBits)
+      case -1 => throwException("bits per DANA block < ANTW L2 bits per beat")
+    }
+    configRob.data(beatOffset) := gnt.bits.data
+    configRob.valid(beatOffset) := Bool(true)
+
+    printfInfo("ANTW: feedConfigRob[%d] data 0x%x\n", beatOffset, gnt.bits.data)
+    printfInfo("ANTW:   autlAddrWithBeat_d 0x%x, (%d, %d) 0x%x\n",
+      autlAddrWithBeat_d,
+      UInt(tlByteAddrBits + log2Up(beatsPerResp) - 1), UInt(tlByteAddrBits),
+      autlAddrWithBeat_d(tlByteAddrBits + log2Up(beatsPerResp) - 1, tlByteAddrBits))
+    assert(!(configRob.valid(beatOffset)), "ANTW: overwrite occurred in configRob" )
   }
 
   when (state === s_GET_NN_CONFIG) {
-    io.xfiles.dcache.mem.req.valid := Bool(true)
-    memRead(configPointer + configReqCount * UInt(xLen / 8))
-    when (io.xfiles.dcache.mem.req.fire()) {
-      configReqCount := configReqCount + UInt(1)
-      when (configReqCount === configSize - UInt(1)) {
-        state := s_GET_NN_CONFIG_CLEANUP
-      }
-    }
-    when (io.xfiles.dcache.mem.resp.valid) { feedConfigRob() }
-  }
+    autlAddr := configPointer
+    val started = Bool(true)
+    val finished = configReqCount >= configSize - UInt(1)
+    val nextState = Mux(finished, s_IDLE, s_GET_NN_CONFIG)
+    autlAcqGrantBlock(nextState)
 
-  when (state === s_GET_NN_CONFIG_CLEANUP) {
-    when (configWbCount === (configSize >> UInt(log2Up(configBufSize)))) {
-      state := s_IDLE
-      printfInfo("ANTW: Cache access finished\n")
+    when (gnt.fire() & started & !finished) {
+      feedConfigRob(gnt.bits.addr_beat)
+      configReqCount := configReqCount + UInt(tlDataBits / xLen)
+      printfInfo("ANTW: configReqCount 0x%x\n",
+        configReqCount + UInt(tlDataBits / xLen))
     }
-    when (io.xfiles.dcache.mem.resp.valid) { feedConfigRob() }
+
+    when (gnt.fire() & gnt.bits.addr_beat === UInt(tlDataBeats - 1)) {
+      configPointer := configPointer + (UInt(1) << autlBlockOffset)
+      printfInfo("ANTW: configPointer 0x%x\n",
+        configPointer + (UInt(1) << autlBlockOffset)) }
   }
 
   io.xfiles.interrupt.valid := state === s_INTERRUPT
@@ -290,8 +347,11 @@ class AsidNnidTableWalker(implicit p: Parameters) extends DanaModule()(p)
     printfError("ANTW: Exception code 0d%d\n", interruptCode.bits)
   }
 
-  assert(!(state === s_INTERRUPT & interruptCode.bits > UInt(int_INVEPB)),
+  assert(!((state === s_INTERRUPT) & (interruptCode.bits > UInt(int_MISALIGNED))),
     "ANTW: hit interrupt")
+  val interruptDelay = Module(new Pipe(UInt(width=1), 500))
+  interruptDelay.io.enq.valid := state === s_INTERRUPT
+  // assert(!(interruptDelay.io.deq.valid), "ANTW: hit interrupt")
 
   when (io.xfiles.dcache.mem.req.fire()) {
     printfInfo("ANTW: Mem req to core with tag 0x%x for addr 0x%x\n",
@@ -305,39 +365,33 @@ class AsidNnidTableWalker(implicit p: Parameters) extends DanaModule()(p)
   // We need to look at the Config ROB and determine if anything is
   // valid to write back to the cache. A slot is valid if all its
   // valid bits are asserted.
-  def configRobEntryValid(x: ConfigRobEntry): Bool = {
-    x.valid === ~UInt(0, width = configBufSize)}
-  val configRobHasValidEntries = configRob.exists(configRobEntryValid(_))
-  val configRobValidIdx = configRob.indexWhere(configRobEntryValid(_))
-
-  io.cache.resp.valid := configRobHasValidEntries
-  when (configRobHasValidEntries) {
-    val done = configWbCount === (configSize >> UInt(log2Up(configBufSize))) - UInt(1)
-    val data = configRob(configRobValidIdx).data.toBits
+  when (configRob.valid.toBits.andR) {
+    val done = cacheAddr >= (configSize >> UInt(log2Up(configBufSize))) - UInt(1)
     val cacheIdx = cacheReqCurrent.cacheIndex
-    val cacheAddr = configRob(configRobValidIdx).cacheAddr
+    io.cache.resp.valid := Bool(true)
     io.cache.resp.bits.done := done
-    io.cache.resp.bits.data := data
-    io.cache.resp.bits.cacheIndex := cacheIdx
+    io.cache.resp.bits.data := configRob.data.toBits
     io.cache.resp.bits.addr := cacheAddr
+    cacheAddr := cacheAddr + UInt(1)
 
-    configRob(configRobValidIdx).valid := UInt(0)
-    configWbCount := configWbCount + UInt(1)
+    configRob.valid.toBits := UInt(0)
+    printfInfo("ANTW: Cache[%d] Resp: done 0x%x, addr 0x%x, data 0x%x\n",
+      cacheIdx, done, cacheAddr, configRob.data.toBits)
+    printfInfo("ANTW:   cacheAddr/configSize/cS>>cbs 0x%x/0x%x/0x%x\n",
+      cacheAddr, configSize, (configSize >> UInt(log2Up(configBufSize))) - UInt(1))
 
-    printfInfo("ANTW: configWbCount: 0x%x of 0x%x\n", configWbCount,
-      configSize >> UInt(log2Up(configBufSize)))
   }
 
   // Reset conditions
   when (reset) {
     antpReg.valid := Bool(false)
-    (0 until antwRobEntries).map(i => configRob(i).valid := UInt(0))
+    configRob.valid.toBits := UInt(0)
   }
 
   // Assertions
   assert(!(io.cache.req.fire() && !io.cache.req.ready),
     "ANTW saw a cache request, but it's cache queue is full")
-  assert(!(state === s_ERROR),
+  assert(!(RegNext(RegNext(RegNext(state === s_ERROR)))),
     "ANTW is in an error state")
   assert(Bool(isPow2(configBufSize)),
     "ANTW derived parameter configBufSize must be a power of 2")

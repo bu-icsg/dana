@@ -72,31 +72,14 @@ index 8babada..9cec4ed 100644
  dist_files = \
    $(sprojs) \
 diff --git a/configure b/configure
-index 6386de0..833c854 100755
+index 6386de0..2d6e6df 100755
 --- a/configure
 +++ b/configure
-@@ -3977,7 +3977,7 @@ fi
- 
- CFLAGS="-Wall -Werror -D__NO_INLINE__ -mcmodel=medany -O2 -std=gnu99 -Wno-unused -Wno-attributes -fno-delete-null-pointer-checks"
- 
--LIBS="-lgcc"
-+LIBS="-lgcc -L../../../xfiles-dana/usr/lib-rv-newlib -lxfiles-supervisor"
- 
- 
- #-------------------------------------------------------------------------
-diff --git a/configure.ac b/configure.ac
-index 6253228..23b1659 100644
---- a/configure.ac
-+++ b/configure.ac
-@@ -72,7 +72,7 @@ AC_HEADER_STDC
- #-------------------------------------------------------------------------
- 
- AC_SUBST([CFLAGS],  ["-Wall -Werror -D__NO_INLINE__ -mcmodel=medany -O2 -std=gnu99 -Wno-unused -Wno-attributes -fno-delete-null-pointer-checks"])
--AC_SUBST([LIBS],  ["-lgcc"])
-+AC_SUBST([LIBS],  ["-lgcc -L../../../xfiles-dana/usr/lib-rv-newlib -lxfiles-supervisor"])
- 
- #-------------------------------------------------------------------------
- # MCPPBS subproject list
+@@ -5627,4 +5627,3 @@ if test -n "$ac_unrecognized_opts" && test "$enable_option_checking" != no; then
+   { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: unrecognized options: $ac_unrecognized_opts" >&5
+ $as_echo "$as_me: WARNING: unrecognized options: $ac_unrecognized_opts" >&2;}
+ fi
+-
 diff --git a/machine/encoding.h b/machine/encoding.h
 index 6139bb0..c923cb7 100644
 --- a/machine/encoding.h
@@ -109,6 +92,26 @@ index 6139bb0..c923cb7 100644
  #endif
  #ifdef DECLARE_INSN
  DECLARE_INSN(beq, MATCH_BEQ, MASK_BEQ)
+diff --git a/machine/machine.mk.in b/machine/machine.mk.in
+index 4628954..c045d64 100644
+--- a/machine/machine.mk.in
++++ b/machine/machine.mk.in
+@@ -13,6 +13,7 @@ machine_hdrs = \
+   sbi.h \
+   unprivileged_memory.h \
+   vm.h \
++  xfiles-supervisor.h \
+ 
+ machine_c_srcs = \
+   mtrap.c \
+@@ -24,6 +25,7 @@ machine_c_srcs = \
+   misaligned_ldst.c \
+   sbi_impl.c \
+   configstring.c \
++  xfiles-supervisor.c \
+ 
+ machine_asm_srcs = \
+   mentry.S \
 diff --git a/machine/mentry.S b/machine/mentry.S
 index 50ce9ca..3c77dbb 100644
 --- a/machine/mentry.S
@@ -138,14 +141,14 @@ index 055fdb3..aa03338 100644
  
    // Make sure the hart actually supports the VM mode we want
 diff --git a/machine/mtrap.c b/machine/mtrap.c
-index 1c310f9..9490cad 100644
+index 1c310f9..5dbd9d0 100644
 --- a/machine/mtrap.c
 +++ b/machine/mtrap.c
 @@ -7,6 +7,8 @@
  #include <stdarg.h>
  #include <stdio.h>
  
-+#include "src/main/c/xfiles-supervisor.h"
++#include "xfiles-supervisor.h"
 +
  void __attribute__((noreturn)) bad_trap()
  {
@@ -170,15 +173,31 @@ index 1c310f9..9490cad 100644
      default:
        bad_trap();
    }
+diff --git a/machine/xfiles-supervisor.c b/machine/xfiles-supervisor.c
+new file mode 120000
+index 0000000..5b012bc
+--- /dev/null
++++ b/machine/xfiles-supervisor.c
+@@ -0,0 +1 @@
++../../../xfiles-dana/src/main/c/xfiles-supervisor.c
+\ No newline at end of file
+diff --git a/machine/xfiles-supervisor.h b/machine/xfiles-supervisor.h
+new file mode 120000
+index 0000000..1fd714e
+--- /dev/null
++++ b/machine/xfiles-supervisor.h
+@@ -0,0 +1 @@
++../../../xfiles-dana/src/main/c/xfiles-supervisor.h
+\ No newline at end of file
 diff --git a/pk/syscall.c b/pk/syscall.c
-index de11a0a..c157cdb 100644
+index de11a0a..f5c9e75 100644
 --- a/pk/syscall.c
 +++ b/pk/syscall.c
 @@ -9,6 +9,8 @@
  #include <string.h>
  #include <errno.h>
  
-+#include "src/main/c/xfiles-supervisor.h"
++#include "xfiles-supervisor.h"
 +
  typedef long (*syscall_t)(long, long, long, long, long, long, long);
  

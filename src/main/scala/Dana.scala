@@ -75,6 +75,7 @@ trait DanaParameters extends HasCoreParameters with XFilesParameters {
   val int_NULLREAD    = 4
   val int_ZEROSIZE    = 5
   val int_INVEPB      = 6
+  val int_MISALIGNED  = 7
   val int_UNKNOWN     = -1
 }
 
@@ -247,6 +248,7 @@ class Dana(implicit p: Parameters) extends XFilesBackend()(p)
 
   antw.io.cache <> cache.io.mem
   antw.io.xfiles.dcache.mem <> io.rocc.mem
+  antw.io.xfiles.autl <> io.rocc.autl
 
   // Arbitration between TTable and ANTW
   io.rocc.cmd.ready := antw.io.xfiles.rocc.cmd.ready &
