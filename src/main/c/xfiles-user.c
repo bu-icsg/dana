@@ -244,6 +244,9 @@ void asid_nnid_table_info(asid_nnid_table * table) {
       printf("[INFO]         |         |       0x%lx: elements_per_block: 0d%ld\n",
              (uint64_t) &table->entry[i].asid_nnid[j].elements_per_block,
              (uint64_t) table->entry[i].asid_nnid[j].elements_per_block);
+      printf("[INFO]         |         |       0x%lx: * config_raw:       0x%lx\n",
+             (uint64_t) &table->entry[i].asid_nnid[j].config_raw,
+             (uint64_t) table->entry[i].asid_nnid[j].config_raw);
       printf("[INFO]         |         |       0x%lx: * config:           0x%lx\n",
              (uint64_t) &table->entry[i].asid_nnid[j].config,
              (uint64_t) table->entry[i].asid_nnid[j].config);
@@ -312,7 +315,7 @@ void asid_nnid_table_destroy(asid_nnid_table ** old_table) {
     // Destroy the configuration region
     for (j = 0; j < (*old_table)->entry[i].num_valid; j++)
       if ((*old_table)->entry[i].asid_nnid[j].config != NULL)
-        free((*old_table)->entry[i].asid_nnid[j].config);
+        free((*old_table)->entry[i].asid_nnid[j].config_raw);
     free((*old_table)->entry[i].asid_nnid);
 
     // Destroy the IO region
@@ -370,8 +373,12 @@ int attach_nn_configuration(asid_nnid_table ** table, asid_type asid,
   (*table)->entry[asid].asid_nnid[nnid].elements_per_block = 1 << (block_64 + 2);
 
   // Allocate space for this configuraiton
-  (*table)->entry[asid].asid_nnid[nnid].config =
-    (xlen_t *) malloc(file_size * sizeof(xlen_t));
+  alloc_config_aligned(&(*table)->entry[asid].asid_nnid[nnid].config_raw,
+                       &(*table)->entry[asid].asid_nnid[nnid].config,
+                       file_size * sizeof(xlen_t));
+  assert((*table)->entry[asid].asid_nnid[nnid].config_raw != NULL);
+  assert((*table)->entry[asid].asid_nnid[nnid].config != NULL);
+
   // Write the configuration
   fread((*table)->entry[asid].asid_nnid[nnid].config, sizeof(xlen_t),
         file_size, fp);
@@ -414,14 +421,27 @@ int attach_nn_configuration_array(asid_nnid_table ** table, uint16_t asid,
 
   // Allocate memory for the array and copy in the input array. Update
   // the size following.
-  (*table)->entry[asid].asid_nnid[nnid].config =
-    (xlen_t *) malloc(size * sizeof(xlen_t));
+  alloc_config_aligned(&(*table)->entry[asid].asid_nnid[nnid].config_raw,
+                       &(*table)->entry[asid].asid_nnid[nnid].config,
+                       size * sizeof(xlen_t));
+  assert((*table)->entry[asid].asid_nnid[nnid].config_raw != NULL);
+  assert((*table)->entry[asid].asid_nnid[nnid].config != NULL);
+
   memcpy((*table)->entry[asid].asid_nnid[nnid].config, array,
          size * sizeof(xlen_t));
   (*table)->entry[asid].asid_nnid[nnid].size = size;
 
   // Return the new number of valid entries
   return ++(*table)->entry[asid].num_valid;
+}
+
+int alloc_config_aligned(xlen_t ** raw, xlen_t ** aligned, size_t size) {
+  *raw = (xlen_t *) malloc(size * sizeof(xlen_t) + TILELINK_L2_BYTES - 1);
+  if (*raw == NULL) return -1;
+  const size_t mask = ~(~0 << TILELINK_L2_ADDR_BITS);
+  size_t offset = (-((size_t) *raw & mask) & mask);
+  *aligned = (xlen_t *) ((char*) *raw + offset);
+  return 0;
 }
 
 xlen_t debug_test(xfiles_debug_action_t action, uint32_t data, void * addr) {

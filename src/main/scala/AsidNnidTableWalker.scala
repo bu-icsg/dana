@@ -11,6 +11,12 @@ import uncore.constants.MemoryOpConstants._
 import cde.{Parameters}
 import xfiles.{InterruptBundle, XFilesSupervisorRequests}
 
+trait AntParameters {
+  // Parameters that must match xfiles-supervisor.h
+  val sizeAsidStruct = 24  // sizeof(asid_nnid_table_entry)
+  val sizeNnidStruct = 32  // sizeof(nn_configuration)
+}
+
 class ANTWXFilesInterface(implicit p: Parameters) extends DanaBundle()(p) {
   val rocc = new Bundle {
     val cmd = Decoupled(new RoCCCommand).flip
@@ -46,7 +52,8 @@ class ConfigRobEntry(implicit p: Parameters) extends DanaBundle()(p)
 }
 
 class AsidNnidTableWalker(implicit p: Parameters) extends DanaModule()(p)
-  with XFilesSupervisorRequests with HasTileLinkParameters {
+    with XFilesSupervisorRequests with HasTileLinkParameters
+    with AntParameters {
   val io = new AsidNnidTableWalkerInterface
   val antpReg = Reg(new antp)
 
@@ -216,9 +223,9 @@ class AsidNnidTableWalker(implicit p: Parameters) extends DanaModule()(p)
     }
   }
 
-  autlAddr := antpReg.antp + asid * UInt(24)
+  autlAddr := antpReg.antp + asid * UInt(sizeAsidStruct)
   when (state === s_GET_VALID_NNIDS) {
-    val reqAddr = antpReg.antp + asid * UInt(24)
+    val reqAddr = antpReg.antp + asid * UInt(sizeAsidStruct)
     val numValidNnids = autlDataWord(63, 32)
     autlAcqGrant(s_GET_NN_POINTER, nnid < numValidNnids, int_INVNNID)
   }
@@ -226,8 +233,8 @@ class AsidNnidTableWalker(implicit p: Parameters) extends DanaModule()(p)
   val nnidPointer = Reg(UInt())
   nnidPointer := nnidPointer
   when (state === s_GET_NN_POINTER) {
-    val reqAddr = antpReg.antp + asid * UInt(24) + UInt(8)
-    nnidPointer := autlDataWord + nnid * UInt(24)
+    val reqAddr = antpReg.antp + asid * UInt(sizeAsidStruct) + UInt(8)
+    nnidPointer := autlDataWord + nnid * UInt(sizeNnidStruct)
     autlAddr := reqAddr
     autlAcqGrant(s_GET_NN_SIZE, autlDataWord =/= UInt(0), int_NULLREAD)
   }
@@ -252,7 +259,7 @@ class AsidNnidTableWalker(implicit p: Parameters) extends DanaModule()(p)
   val cacheAddr = Reg(UInt(width = log2Up(cacheNumBlocks)))
   configPointer := configPointer
   when (state === s_GET_CONFIG_POINTER) {
-    val reqAddr = nnidPointer + UInt(16)
+    val reqAddr = nnidPointer + UInt(24)
     configReqCount := UInt(0)
     configWbCount := UInt(0)
     autlAddr := reqAddr
@@ -308,11 +315,12 @@ class AsidNnidTableWalker(implicit p: Parameters) extends DanaModule()(p)
 
   when (state === s_GET_NN_CONFIG) {
     autlAddr := configPointer
+    val started = Bool(true)
     val finished = configReqCount >= configSize - UInt(1)
     val nextState = Mux(finished, s_IDLE, s_GET_NN_CONFIG)
     autlAcqGrantBlock(nextState)
 
-    when (gnt.fire() & !finished) {
+    when (gnt.fire() & started & !finished) {
       feedConfigRob(gnt.bits.addr_beat)
       configReqCount := configReqCount + UInt(tlDataBits / xLen)
       printfInfo("ANTW: configReqCount 0x%x\n",
@@ -357,9 +365,6 @@ class AsidNnidTableWalker(implicit p: Parameters) extends DanaModule()(p)
   // We need to look at the Config ROB and determine if anything is
   // valid to write back to the cache. A slot is valid if all its
   // valid bits are asserted.
-  // val configRobHasValidEntries = configRob.exists(configRobEntryValid(_))
-  // val configRobValidIdx = configRob.indexWhere(configRobEntryValid(_))
-
   when (configRob.valid.toBits.andR) {
     val done = cacheAddr >= (configSize >> UInt(log2Up(configBufSize))) - UInt(1)
     val cacheIdx = cacheReqCurrent.cacheIndex
