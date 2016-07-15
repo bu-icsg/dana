@@ -3,7 +3,7 @@
 package xfiles
 import Chisel._
 import uncore.constants.MemoryOpConstants._
-import uncore.{HasTileLinkParameters, Get, Put, GetBlock}
+import uncore.tilelink.{HasTileLinkParameters, Get, Put, GetBlock}
 import rocket.{RoCCInterface, PTE}
 import cde.Parameters
 
@@ -66,7 +66,7 @@ class DebugUnit(id: Int = 0)(implicit p: Parameters) extends XFilesModule()(p)
   when (state === s_REG) { state := s_IDLE }
 
   io.mem.req.valid := state === s_MEM_REQ
-  io.mem.req.bits.kill := Bool(false)
+  // io.mem.req.bits.kill := Bool(false)
   io.mem.req.bits.phys := Bool(false)
   io.mem.req.bits.addr := addr_d
   io.mem.req.bits.data := data_d
@@ -104,11 +104,15 @@ class DebugUnit(id: Int = 0)(implicit p: Parameters) extends XFilesModule()(p)
 
   io.autl.acquire.valid := state === s_UTL_ACQ
   private val utlBlockOffset = tlBeatAddrBits + tlByteAddrBits
-  val utlDataPutVec = Wire(Vec.fill(tlDataBits / xLen)(UInt(width = xLen)))
+  val utlDataPutVec = Wire(Vec(tlDataBits / xLen, UInt(width = xLen)))
   val addr_block = addr_d(coreMaxAddrBits - 1, utlBlockOffset)
   val addr_beat = addr_d(utlBlockOffset - 1, tlByteAddrBits)
   val addr_byte = addr_d(tlByteAddrBits - 1, 0)
-  val addr_word = addr_d(tlByteAddrBits - 1, log2Up(xLen/8))
+  val addr_word = tlDataBits compare xLen match {
+    case 1 => addr_d(tlByteAddrBits - 1, log2Up(xLen/8))
+    case 0 => addr_d(tlByteAddrBits, log2Up(xLen/8))
+    case -1 => throwException("XLen > tlByteAddrBits (this doesn't make sense!)")
+  }
 
   (0 until tlDataBits/xLen).map(i => utlDataPutVec(i) := UInt(0))
   utlDataPutVec(addr_word) := data_d
@@ -123,7 +127,7 @@ class DebugUnit(id: Int = 0)(implicit p: Parameters) extends XFilesModule()(p)
       addr_block = addr_block,
       addr_beat = addr_beat,
       data = utlDataPutVec.toBits,
-      wmask = Fill(xLen/8, UInt(1, 1)) << addr_byte,
+      wmask = Option(Fill(xLen/8, UInt(1, 1)) << addr_byte),
       alloc = Bool(false)))
   io.autl.grant.ready := state === s_UTL_GRANT
   when (io.autl.acquire.fire()) { state := s_UTL_GRANT }
@@ -134,7 +138,7 @@ class DebugUnit(id: Int = 0)(implicit p: Parameters) extends XFilesModule()(p)
     state := s_UTL_RESP
   }
 
-  val utlDataGetVec = Wire(Vec.fill(tlDataBits / xLen)(UInt(width = xLen)))
+  val utlDataGetVec = Wire(Vec(tlDataBits / xLen, UInt(width = xLen)))
 
   (0 until tlDataBits/xLen).map(i =>
     utlDataGetVec(i) := utlData((i+1) * xLen-1, i * xLen))

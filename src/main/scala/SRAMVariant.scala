@@ -13,10 +13,10 @@ class SRAMVariantInterface(
     dataWidth = dataWidth,
     sramDepth = sramDepth,
     numPorts = numPorts).asInstanceOf[this.type]
-  val we = Vec.fill(numPorts){ Bool(OUTPUT) }
-  val din = Vec.fill(numPorts){ UInt(OUTPUT, width = dataWidth)}
-  val addr = Vec.fill(numPorts){ UInt(OUTPUT, width = log2Up(sramDepth))}
-  val dout = Vec.fill(numPorts){ UInt(INPUT, width = dataWidth)}
+  val we = Vec(numPorts, Bool(OUTPUT) )
+  val din = Vec(numPorts, UInt(OUTPUT, width = dataWidth))
+  val addr = Vec(numPorts, UInt(OUTPUT, width = log2Up(sramDepth)))
+  val dout = Vec(numPorts, UInt(INPUT, width = dataWidth))
 }
 
 class SRAMVariant(
@@ -40,10 +40,11 @@ class SRAMVariant(
     numReadWritePorts = 0))
 
   // Set the name of the verilog backend
-  if (numPorts == 1)
-    sram.setModuleName("sram_r" + numPorts + "_w" + numPorts + "_rw" + 0);
-  else
-    sram.setModuleName("UNDEFINED_SRAM_BACKEND_FOR_NUM_PORTS_" + numPorts);
+  // [TODO] issue-37, these aren't supported in Chisel 3
+  // if (numPorts == 1)
+  //   sram.setModuleName("sram_r" + numPorts + "_w" + numPorts + "_rw" + 0);
+  // else
+  //   sram.setModuleName("UNDEFINED_SRAM_BACKEND_FOR_NUM_PORTS_" + numPorts);
 
   def divUp (dividend: Int, divisor: Int): Int = {
     (dividend + divisor - 1) / divisor}

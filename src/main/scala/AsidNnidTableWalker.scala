@@ -5,8 +5,9 @@ package dana
 import Chisel._
 
 import rocket.{RoCCCommand, RoCCResponse, HellaCacheReq, HellaCacheIO, MStatus}
-import uncore.{HasTileLinkParameters, CacheName, ClientUncachedTileLinkIO, Get,
-  GetBlock, CacheBlockBytes}
+import uncore.tilelink.{HasTileLinkParameters, ClientUncachedTileLinkIO, Get,
+  GetBlock}
+import uncore.agents.{CacheName, CacheBlockBytes}
 import uncore.constants.MemoryOpConstants._
 import cde.{Parameters}
 import xfiles.{InterruptBundle, XFilesSupervisorRequests}
@@ -48,7 +49,7 @@ class antp(implicit p: Parameters) extends DanaBundle()(p) {
 class ConfigRobEntry(implicit p: Parameters) extends DanaBundle()(p)
     with HasTileLinkParameters {
   val valid = UInt(width = bitsPerBlock / tlDataBits)
-  val data = Vec.fill(bitsPerBlock / tlDataBits){UInt(width = tlDataBits)}
+  val data = Vec(bitsPerBlock / tlDataBits, UInt(width = tlDataBits))
 }
 
 class AsidNnidTableWalker(implicit p: Parameters) extends DanaModule()(p)
@@ -164,8 +165,12 @@ class AsidNnidTableWalker(implicit p: Parameters) extends DanaModule()(p)
   acq.bits := Mux(state <= s_GET_CONFIG_POINTER, get, getBlock)
 
   val autlAddr_d = Reg(UInt(width = xLen))
-  val autlAddrWord_d = autlAddr_d(tlByteAddrBits - 1, log2Up(xLen/8))
-  val autlDataGetVec = Wire(Vec.fill(tlDataBits / xLen)(UInt(width = xLen)))
+  val autlAddrWord_d = tlDataBits compare xLen match {
+    case 1 => autlAddr_d(tlByteAddrBits - 1, log2Up(xLen/8))
+    case 0 => autlAddr_d(tlByteAddrBits, log2Up(xLen/8))
+    case -1 => throwException("XLen > tlByteAddrBits (this doesn't make sense!)")
+  }
+  val autlDataGetVec = Wire(Vec(tlDataBits / xLen, UInt(width = xLen)))
   (0 until tlDataBits/xLen).map(i =>
     autlDataGetVec(i).toBits := gnt.bits.data((i+1) * xLen-1, i * xLen))
   val autlDataWord = autlDataGetVec(autlAddrWord_d)

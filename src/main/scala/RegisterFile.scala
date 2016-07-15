@@ -30,8 +30,8 @@ abstract class RegisterFileBase[SramIf <: SRAMElementInterface](
   lazy val io = new RegisterFileInterface
   val mem = genSram
 
-  val state = Vec.fill(transactionTableNumEntries * 2){Reg(new RegisterFileState)}
-  val stateToggle = Reg(Vec.fill(transactionTableNumEntries){UInt(width=1)})
+  val state = Reg(Vec(transactionTableNumEntries * 2, new RegisterFileState))
+  val stateToggle = Reg(Vec(transactionTableNumEntries, UInt(width=1)))
   val tTableRespValid = Reg(Bool())
   val tTableRespTIdx = Reg(UInt(width=log2Up(transactionTableNumEntries)))
   val tTableRespAddr = Reg(UInt(width=log2Up(regFileNumElements)))
@@ -61,7 +61,7 @@ abstract class RegisterFileBase[SramIf <: SRAMElementInterface](
     when (io.pe.req.bits.isWrite) { // This is a Write
       mem(tIdx).we(0) := Bool(true)
       mem(tIdx).addr(0) := io.pe.req.bits.addr
-      mem(tIdx).dinElement(0) := io.pe.req.bits.data
+      mem(tIdx).dinElement(0) := io.pe.req.bits.data.toBits
       printf("[INFO] RegFile: PE write element tIdx/Addr/Data 0x%x/0x%x/0x%x\n",
         tIdx, io.pe.req.bits.addr, io.pe.req.bits.data)
       // Increment the write count and generate a response to the
@@ -97,8 +97,8 @@ abstract class RegisterFileBase[SramIf <: SRAMElementInterface](
 
   // Requests form the Transaction Table
   when (io.tTable.req.valid) {
+    val tIdx = io.tTable.req.bits.tidIdx
     switch (io.tTable.req.bits.reqType) {
-      val tIdx = io.tTable.req.bits.tidIdx
       is (e_TTABLE_REGFILE_WRITE) {
         printf("[INFO] RegFile: Saw TTable write idx/Addr/Data 0x%x/0x%x/0x%x\n",
           tIdx, io.tTable.req.bits.addr, io.tTable.req.bits.data)
@@ -205,11 +205,11 @@ class RegisterFileLearn(implicit p: Parameters)
     val tIdx = io.pe.req.bits.tIdx
     val sIdx = io.pe.req.bits.tIdx ## io.pe.req.bits.location
     when (io.pe.req.bits.isWrite) { // This is a Write
+      mem(tIdx).addr(0) := io.pe.req.bits.addr
       switch (io.pe.req.bits.reqType) {
-        mem(tIdx).addr(0) := io.pe.req.bits.addr
         is (e_PE_WRITE_ELEMENT) {
           mem(tIdx).wType(0) := UInt(0)
-          mem(tIdx).dinElement(0) := io.pe.req.bits.data
+          mem(tIdx).dinElement(0) := io.pe.req.bits.data.toBits
           printf("[INFO] RegFile: PE write element tIdx/Addr/Data 0x%x/0x%x/0x%x\n",
             tIdx, io.pe.req.bits.addr, io.pe.req.bits.data)
         }

@@ -57,13 +57,13 @@ class CompressedNeuron(implicit p: Parameters) extends DanaBundle()(p) {
   val numWeights = UInt(width = 8)
   val activationFunction = Wire(UInt(width = activationFunctionWidth))
   val steepness = Wire(UInt(width = steepnessWidth))
-  val bias = Wire(UInt(width = elementWidth))
+  val bias = Wire(SInt(width = elementWidth))
   def populate(data: UInt, out: CompressedNeuron) {
     out.weightPtr := data(15, 0)
     out.numWeights := data(23, 16)
     out.activationFunction := data(28, 24)
     out.steepness := data(31, 29)
-    out.bias := data(63, 32)
+    out.bias := data(63, 32).toSInt
   }
 }
 
@@ -80,7 +80,7 @@ abstract class CacheBase[SramIfType <: SRAMVariantInterface,
   lazy val io = new CacheInterface
 
   // Create the table of cache entries
-  val table = Reg(Vec.fill(cacheNumEntries){new CacheState})
+  val table = Reg(Vec(cacheNumEntries, new CacheState))
 
   when (io.control.req.valid || io.control.resp.valid) {
     info(table, "cache,") }
@@ -97,10 +97,9 @@ abstract class CacheBase[SramIfType <: SRAMVariantInterface,
   // cycles to generate due to the fact that data needs to be read out
   // of the individual cache SRAMs so we construct a pipeline that
   // builds up the responses.
-  val controlRespPipe = Vec.fill(2){Reg(Valid(genControlResp))}
-  val peRespPipe = Vec.fill(2){Reg(Valid(genPEResp))}
-  val cacheRead = Reg(Vec.fill(cacheNumEntries){
-    (UInt(width=log2Up(cacheNumBlocks)))})
+  val controlRespPipe = Reg(Vec(2, Valid(genControlResp)))
+  val peRespPipe = Reg(Vec(2, Valid(genPEResp)))
+  val cacheRead = Reg(Vec(cacheNumEntries, UInt(width=log2Up(cacheNumBlocks))))
   // We also need to store the cache index of an inbound request by a
   // PE so that we can dereference it one cycle later when the cache
   // line SRAM output is valid. [TODO] Should this be gated by the PE
@@ -155,7 +154,7 @@ abstract class CacheBase[SramIfType <: SRAMVariantInterface,
   controlRespPipe(0).bits.tableIndex := UInt(0)
   controlRespPipe(0).bits.tableMask := UInt(0)
   controlRespPipe(0).bits.cacheIndex := UInt(0)
-  controlRespPipe(0).bits.data := Vec.fill(6){UInt(0)}
+  controlRespPipe(0).bits.data := Vec.fill(6)(UInt(0))
   controlRespPipe(0).bits.decimalPoint := UInt(0)
   controlRespPipe(0).bits.field := UInt(0)
   controlRespPipe(0).bits.regFileLocationBit := UInt(0)
@@ -270,47 +269,31 @@ abstract class CacheBase[SramIfType <: SRAMVariantInterface,
     table(idxNotify).notifyFlag := Bool(false)
   }
 
-  val dataDecode = new Bundle{
-    val cacheIdx = controlRespPipe(0).bits.cacheIndex
-    val memData = mem(cacheIdx).dout(0)
-    val dpw = decimalPointWidth
-    val efw = errorFunctionWidth
-    val decimalPoint =      memData(      dpw - 1,         0)
-    val errorFunction =     memData(dpw + efw - 1,       dpw)
-    val unused_0 =          memData(       16 - 1, dpw + efw)
-    val totalWeightBlocks = memData(  16 + 16 - 1,        16)
-    val totalNeurons =      memData(  32 + 16 - 1,        32)
-    val totalLayers =       memData(  48 + 16 - 1,        48)
-    val firstLayerPointer = memData(  64 + 16 - 1,        64)
-    val weightsPointer =    memData(  80 + 16 - 1,        80)
-    val learningRate =      memData(  96 + 16 - 1,        96)
-    val lambda =            memData( 112 + 16 - 1,       112)
-    val layers =
-      Vec((0 until bitsPerBlock/32).map(i => memData(32*(i + 1) - 1, 32*i))) }
-
   // Pipeline second stage (SRAM read)
   switch (controlRespPipe(0).bits.field) {
     is (e_CACHE_INFO) {
+      val thisCache = mem(controlRespPipe(0).bits.cacheIndex).dout(0)
+      val dataDecode = (new nnConfigHeader).fromBits(thisCache)
+
       controlRespPipe(1).bits.decimalPoint := dataDecode.decimalPoint
       controlRespPipe(1).bits.data(0) := dataDecode.totalLayers
       controlRespPipe(1).bits.data(1) := dataDecode.totalNeurons
-      // Pass back the error function in LSBs of data(2)
+     // Pass back the error function in LSBs of data(2)
       controlRespPipe(1).bits.data(2) :=
-        UInt(0, width=16-dataDecode.efw) ## dataDecode.errorFunction
+        UInt(0, width=16-errorFunctionWidth) ## dataDecode.errorFunction
       controlRespPipe(1).bits.data(3) := dataDecode.learningRate
       controlRespPipe(1).bits.data(4) := dataDecode.lambda
       controlRespPipe(1).bits.data(5) := dataDecode.totalWeightBlocks
     }
     is (e_CACHE_LAYER_INFO) {
-      // Number of neurons in this layer
-      controlRespPipe(1).bits.data(0) :=
-        dataDecode.layers(controlRespPipe(0).bits.data(0))(12 + 10 - 1, 12)
-      // Number of neurons in the previous layer
-      controlRespPipe(1).bits.data(1) :=
-        dataDecode.layers(controlRespPipe(0).bits.data(0))(22 + 10 - 1, 22)
-      // Pointer to the first neuron
-      controlRespPipe(1).bits.data(2) :=
-        dataDecode.layers(controlRespPipe(0).bits.data(0))(12 - 1, 0)
+      val thisCache = mem(controlRespPipe(0).bits.cacheIndex).dout(0)
+      // [TODO] fragile
+      val dataDecode = Vec(bitsPerBlock/32, new nnConfigNeuron).fromBits(thisCache)
+      val neuronIdx = controlRespPipe(0).bits.data(0)
+
+      controlRespPipe(1).bits.data(0) := dataDecode(neuronIdx).neuronsInLayer
+      controlRespPipe(1).bits.data(1) := dataDecode(neuronIdx).neuronsInPreviousLayer
+      controlRespPipe(1).bits.data(2) := dataDecode(neuronIdx).neuronPointer
     }
   }
 
@@ -411,7 +394,7 @@ abstract class CacheBase[SramIfType <: SRAMVariantInterface,
 }
 
 class Cache(implicit p: Parameters)
-    extends CacheBase(Vec(p(CacheNumEntries),
+    extends CacheBase(Vec.fill(p(CacheNumEntries))(
       Module(new SRAMVariant(
         dataWidth = p(BitsPerBlock),
         sramDepth = p(CacheNumBlocks),
@@ -424,7 +407,7 @@ class Cache(implicit p: Parameters)
 }
 
 class CacheLearn(implicit p: Parameters)
-    extends CacheBase(Vec(p(CacheNumEntries),
+    extends CacheBase(Vec.fill(p(CacheNumEntries))(
       Module(new SRAMBlockIncrement(
         dataWidth = p(BitsPerBlock),
         sramDepth = p(CacheNumBlocks),
@@ -447,6 +430,10 @@ class CacheLearn(implicit p: Parameters)
   controlRespPipe(0).bits.totalWritesMul := UInt(0)
   controlRespPipe(0).bits.totalWritesMul :=
     tTableReqQueue.deq.bits.totalWritesMul
+
+  // [TODO] Why is this always assigned?
+  val thisCache = mem(controlRespPipe(0).bits.cacheIndex).dout(0)
+  val dataDecode = (new nnConfigHeader).fromBits(thisCache)
   controlRespPipe(1).bits.globalWtptr := dataDecode.weightsPointer
 
   when (io.pe.req.valid) {
@@ -462,7 +449,7 @@ class CacheLearn(implicit p: Parameters)
         printfInfo("       block: 0x%x\n", io.pe.req.bits.data)
         mem(io.pe.req.bits.cacheIndex).we(0) := Bool(true)
         mem(io.pe.req.bits.cacheIndex).inc(0) := Bool(true)
-        mem(io.pe.req.bits.cacheIndex).din(0) := io.pe.req.bits.data
+        mem(io.pe.req.bits.cacheIndex).din(0) := io.pe.req.bits.data.toBits
       }
     }
   }

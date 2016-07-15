@@ -19,18 +19,18 @@ class SRAMInterface(
     sramDepth = sramDepth
   ).asInstanceOf[this.type]
   // Data Input
-  val din = Vec.fill(numReadWritePorts){UInt(OUTPUT, width = dataWidth)}
-  val dinW = Vec.fill(numWritePorts){UInt(OUTPUT, width = dataWidth)}
+  val din = Vec(UInt(OUTPUT, width = dataWidth), numReadWritePorts)
+  val dinW = Vec(UInt(OUTPUT, width = dataWidth), numWritePorts)
   // Data Output
-  val dout = Vec.fill(numReadWritePorts){UInt(INPUT, width = dataWidth)}
-  val doutR = Vec.fill(numReadPorts){UInt(INPUT, width = dataWidth)}
+  val dout = Vec(UInt(INPUT, width = dataWidth), numReadWritePorts)
+  val doutR = Vec(UInt(INPUT, width = dataWidth), numReadPorts)
   // Addresses
-  val addr = Vec.fill(numReadWritePorts){UInt(OUTPUT, width = log2Up(sramDepth))}
-  val addrR = Vec.fill(numReadPorts){UInt(OUTPUT, width = log2Up(sramDepth))}
-  val addrW = Vec.fill(numWritePorts){UInt(OUTPUT, width = log2Up(sramDepth))}
+  val addr = Vec(UInt(OUTPUT, width = log2Up(sramDepth)), numReadWritePorts)
+  val addrR = Vec(UInt(OUTPUT, width = log2Up(sramDepth)), numReadPorts)
+  val addrW = Vec(UInt(OUTPUT, width = log2Up(sramDepth)), numWritePorts)
   // Write enable
-  val we = Vec.fill(numReadWritePorts){Bool(OUTPUT)}
-  val weW = Vec.fill(numWritePorts){Bool(OUTPUT)}
+  val we = Vec(Bool(OUTPUT), numReadWritePorts)
+  val weW = Vec(Bool(OUTPUT), numWritePorts)
 }
 
 class SRAM (
@@ -42,20 +42,21 @@ class SRAM (
   val initSwitch: Int = -1,
   val elementsPerBlock: Int = -1
 ) extends BlackBox {
-  if (initSwitch >= 0) {
-    setVerilogParameters(
-      "#(.WIDTH(" + dataWidth + ")," +
-        ".DEPTH(" + sramDepth + ")," +
-        ".LG_DEPTH(" + log2Up(sramDepth) + ")," +
-        ".INIT_SWITCH(" + initSwitch + ")," +
-        ".ELEMENTS_PER_BLOCK(" + elementsPerBlock + "))\n")
-    setName("sram_infer_preloaded_cache")}
-  else {
-    setVerilogParameters(
-      "#(.WIDTH(" + dataWidth + ")," +
-        ".DEPTH(" + sramDepth + ")," +
-        ".LG_DEPTH(" + log2Up(sramDepth) + "))\n ")
-    setName("sram")}
+  // [TODO] issue-37, chisel3 does not have support for setVerilogParameters
+  // if (initSwitch >= 0) {
+  //   setVerilogParameters(
+  //     "#(.WIDTH(" + dataWidth + ")," +
+  //       ".DEPTH(" + sramDepth + ")," +
+  //       ".LG_DEPTH(" + log2Up(sramDepth) + ")," +
+  //       ".INIT_SWITCH(" + initSwitch + ")," +
+  //       ".ELEMENTS_PER_BLOCK(" + elementsPerBlock + "))\n")
+  //   setName("sram_infer_preloaded_cache")}
+  // else {
+  //   setVerilogParameters(
+  //     "#(.WIDTH(" + dataWidth + ")," +
+  //       ".DEPTH(" + sramDepth + ")," +
+  //       ".LG_DEPTH(" + log2Up(sramDepth) + "))\n ")
+  //   setName("sram")}
 
   val io = new SRAMInterface(
     numReadPorts = numReadPorts,
@@ -65,27 +66,34 @@ class SRAM (
     sramDepth = sramDepth
   ).flip
   val mem = Mem(sramDepth, UInt(width = dataWidth))
-  val buf = Reg(Vec.fill(numReadWritePorts){UInt(width = dataWidth)})
-  val bufR = Reg(Vec.fill(numReadPorts){UInt(width = dataWidth)})
 
-  for (i <- 0 until numReadPorts) {
-    bufR(i) := mem(io.addrR(i))
-    io.doutR(i) := bufR(i)
-  }
-
-  for (i <- 0 until numWritePorts) {
-    when (io.weW(i)) {
-      mem(io.addrW(i)) := io.dinW(i)
+  if (numReadWritePorts > 0) {
+    val buf = Reg(Vec(numReadWritePorts, UInt(width = dataWidth)))
+    for (i <- 0 until numReadWritePorts) {
+      when (io.we(i)) {
+        mem(io.addr(i)) := io.din(i)
+      }
+      buf(i) := mem(io.addr(i))
+      io.dout(i) := buf(i)
     }
   }
 
-  for (i <- 0 until numReadWritePorts) {
-    when (io.we(i)) {
-      mem(io.addr(i)) := io.din(i)
+  if (numReadPorts > 0) {
+    val bufR = Reg(Vec(numReadPorts, UInt(width = dataWidth)))
+    for (i <- 0 until numReadPorts) {
+      bufR(i) := mem(io.addrR(i))
+      io.doutR(i) := bufR(i)
     }
-    buf(i) := mem(io.addr(i))
-    io.dout(i) := buf(i)
   }
+
+  if (numWritePorts > 0) {
+    for (i <- 0 until numWritePorts) {
+      when (io.weW(i)) {
+        mem(io.addrW(i)) := io.dinW(i)
+      }
+    }
+  }
+
 }
 
 class SRAMSinglePortInterface(
@@ -138,25 +146,25 @@ class SRAMDualPort(
   }
 }
 
-class SRAMTests(uut: SRAM, isTrace: Boolean = true)
-    extends Tester(uut, isTrace) {
-  // Generate a local copy of the memory in a vector
-  val copy = Array.fill(uut.sramDepth){0}
-  for (i <- 0 until uut.sramDepth) {
-    copy(i) = rnd.nextInt((Math.pow(2, uut.dataWidth) - 1).toInt)
-  }
-  // Write all the data into the memory
-  for (i <- 0 until uut.sramDepth) {
-    poke(uut.io.we(0), 1)
-    poke(uut.io.addr(0), i)
-    poke(uut.io.din(0), copy(i))
-    step(1)
-    poke(uut.io.we(0), 0)
-  }
-  // Verify that all the data is correct
-  for (i <- 0 until uut.sramDepth) {
-    poke(uut.io.addr(1), i)
-    step(1)
-    expect(uut.io.dout(1), copy(i))
-  }
-}
+// class SRAMTests(uut: SRAM, isTrace: Boolean = true)
+//     extends Tester(uut, isTrace) {
+//   // Generate a local copy of the memory in a vector
+//   val copy = Array.fill(uut.sramDepth){0}
+//   for (i <- 0 until uut.sramDepth) {
+//     copy(i) = rnd.nextInt((Math.pow(2, uut.dataWidth) - 1).toInt)
+//   }
+//   // Write all the data into the memory
+//   for (i <- 0 until uut.sramDepth) {
+//     poke(uut.io.we(0), 1)
+//     poke(uut.io.addr(0), i)
+//     poke(uut.io.din(0), copy(i))
+//     step(1)
+//     poke(uut.io.we(0), 0)
+//   }
+//   // Verify that all the data is correct
+//   for (i <- 0 until uut.sramDepth) {
+//     poke(uut.io.addr(1), i)
+//     step(1)
+//     expect(uut.io.dout(1), copy(i))
+//   }
+// }

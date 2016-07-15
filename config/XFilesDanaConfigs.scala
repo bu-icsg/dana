@@ -1,13 +1,11 @@
 package rocketchip
 
 import Chisel._
-import uncore._
+import uncore.agents.{CacheName}
 import rocket._
 import xfiles.{XFiles, XFilesDebugConfig, DefaultXFilesConfig}
 import dana.{DefaultDanaConfig, DanaNoLearningConfig, DanaConfig}
 import cde.{Parameters, Config}
-
-import Implicits._
 
 class XFilesDanaConfig extends Config (
   topDefinitions = { (pname,site,here) =>
@@ -53,8 +51,8 @@ class XFilesDanaNoLearningSmallScratchpadVLSIConfig extends Config(
 
 // CPP Configs (these are the same as VLSI Configs)
 class XFilesDanaCPPConfig extends Config(new XFilesDebugConfig ++
-  new XFilesDanaConfig ++ new DefaultXFilesDanaConfig ++
-  new DefaultCPPConfig)
+  new XFilesDanaConfig ++ new DefaultXFilesDanaFPGAConfig ++
+  new DefaultConfig)
 
 class XFilesDanaNoLearningCPPConfig extends Config(
   new DanaNoLearningConfig ++ new XFilesDanaCPPConfig)

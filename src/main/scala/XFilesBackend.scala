@@ -3,8 +3,9 @@
 package xfiles
 
 import Chisel._
-import rocket.RoCCInterface
+import rocket.{RoCCInterface, HasCoreParameters}
 import cde.{Parameters, Field}
+import junctions.ParameterizedBundle
 
 case object BuildXFilesBackend extends Field[XFilesBackendParameters]
 case class XFilesBackendParameters(
@@ -24,7 +25,14 @@ class XFilesBackendResp(implicit p: Parameters) extends XFilesBundle()(p) {
   val flags = (new Bundle with FlagsVDIO).asOutput
 }
 
-class XFilesRs1Rs2Funct(implicit p: Parameters) extends XFilesBundle()(p) {
+// class XFilesRs1Rs2Funct(implicit p: Parameters) extends XFilesBundle()(p) {
+//   val rs1 = UInt(width = xLen)
+//   val rs2 = UInt(width = xLen)
+//   val funct = UInt(width = 7)
+// }
+
+class XFilesRs1Rs2Funct(implicit val p: Parameters)
+    extends ParameterizedBundle()(p) with HasCoreParameters {
   val rs1 = UInt(width = xLen)
   val rs2 = UInt(width = xLen)
   val funct = UInt(width = 7)
@@ -45,7 +53,7 @@ class XFilesBackendInterface(implicit p: Parameters)
   val rocc = new RoCCInterface
   val xfReq = (new XFilesBackendReq).flip
   val xfResp = new XFilesBackendResp
-  val queueIO = new XFilesQueueInterface
+  val xfQueue = new XFilesQueueInterface
   val interrupt = Valid(new InterruptBundle)
 }
 

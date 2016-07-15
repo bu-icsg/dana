@@ -10,13 +10,7 @@ import cde.{Parameters, Field}
 
 case object ElementWidth extends Field[Int]
 case object ElementsPerBlock extends Field[Int]
-case object ActivationFunctionWidth extends Field[Int]
 case object NnidWidth extends Field[Int]
-case object DecimalPointOffset extends Field[Int]
-case object DecimalPointWidth extends Field[Int]
-case object SteepnessWidth extends Field[Int]
-case object SteepnessOffset extends Field[Int]
-case object ErrorFunctionWidth extends Field[Int]
 case object FeedbackWidth extends Field[Int]
 case object PeTableNumEntries extends Field[Int]
 case object CacheNumEntries extends Field[Int]
@@ -28,21 +22,60 @@ case object RegFileNumBlocks extends Field[Int]
 case object CacheNumBlocks extends Field[Int]
 case object NNConfigNeuronWidth extends Field[Int]
 case object AntwRobEntries extends Field[Int]
+// NN Config Global Info
+case object DecimalPointOffset extends Field[Int]
+case object DecimalPointWidth extends Field[Int]
+case object ActivationFunctionWidth extends Field[Int]
+case object SteepnessWidth extends Field[Int]
+case object SteepnessOffset extends Field[Int]
+case object LambdaWidth extends Field[Int]
+case object LearningRateWidth extends Field[Int]
+case object NNConfigPointerWidth extends Field[Int]
+case object TotalLayersWidth extends Field[Int]
+case object TotalNeuronsWidth extends Field[Int]
+case object TotalWeightBlocksWidth extends Field[Int]
+case object ElementsPerBlockCodeWidth extends Field[Int]
+case object ErrorFunctionWidth extends Field[Int]
+case object NNConfigUnusedWidth extends Field[Int]
+// NN Config Layer Info
+case object NumberOfWeightsWidth extends Field[Int]
+// NN Config Neuron Info
+case object NeuronsInPrevLayerWidth extends Field[Int]
+case object NeuronsInLayerWidth extends Field[Int]
+case object NeuronPointerWidth extends Field[Int]
 
-trait DanaParameters extends HasCoreParameters with XFilesParameters {
-  val elementWidth = p(ElementWidth)
-  val elementsPerBlock = p(ElementsPerBlock)
-  // Activation Function width increases will break:
-  //   * ProcessingElementTable logic for indexing into cache data
-  val activationFunctionWidth = p(ActivationFunctionWidth)
-  val nnidWidth = p(NnidWidth)
+trait DanaParameters {
+  implicit val p: Parameters
+
+  // Neural network configuration parameters
   val decimalPointOffset = p(DecimalPointOffset)
   val decimalPointWidth = p(DecimalPointWidth)
-  // Steepness width increases will break:
-  //   * ProcessingElementTable logic for indexing into cache data
+  val lambdaWidth = p(LambdaWidth)
+  val learningRateWidth = p(LearningRateWidth)
+  val nnConfigPointerWidth = p(NNConfigPointerWidth)
+  val totalLayersWidth = p(TotalLayersWidth)
+  val totalNeuronsWidth = p(TotalNeuronsWidth)
+  val totalWeightBlocksWidth = p(TotalWeightBlocksWidth)
+  val elementsPerBlockCodeWidth = p(ElementsPerBlockCodeWidth)
+  val errorFunctionWidth = p(ErrorFunctionWidth)
+  val nnConfigUnusedWidth = p(NNConfigUnusedWidth)
+  // Layer Info
+  //   * Activation Function width increases will break
+  //     ProcessingElementTable logic for indexing into cache data
+  //   * Steepness width increases will break ProcessingElementTable
+  //     logic for indexing into cache data
+  val activationFunctionWidth = p(ActivationFunctionWidth)
   val steepnessWidth = p(SteepnessWidth)
   val steepnessOffset = p(SteepnessOffset)
-  val errorFunctionWidth = p(ErrorFunctionWidth)
+  val numberOfWeightsWidth = p(NumberOfWeightsWidth)
+  val elementWidth = p(ElementWidth)
+  val elementsPerBlock = p(ElementsPerBlock)
+  // Neuron Info
+  val neuronsInPrevLayerWidth = p(NeuronsInPrevLayerWidth)
+  val neuronsInLayerWidth = p(NeuronsInLayerWidth)
+  val neuronPointerWidth = p(NeuronPointerWidth)
+
+  val nnidWidth = p(NnidWidth)
   val feedbackWidth = p(FeedbackWidth)
   val antwRobEntries = p(AntwRobEntries)
 
@@ -274,7 +307,7 @@ class Dana(implicit p: Parameters) extends XFilesBackend()(p)
 
   tTable.io.arbiter.xfReq <> io.xfReq
   tTable.io.arbiter.xfResp <> io.xfResp
-  tTable.io.arbiter.queueIO <> io.queueIO
+  tTable.io.arbiter.xfQueue <> io.xfQueue
 
   // There is a difference between the RoCC interrupt (which is tied
   // off) and the interruptBundle which includes more information
@@ -285,41 +318,77 @@ class Dana(implicit p: Parameters) extends XFilesBackend()(p)
     printfInfo("Dana: io.tTable.rocc.cmd.valid asserted\n")}
 }
 
-object Testbench {
-  def main(args: Array[String]): Unit = {
-    val cliArgs = args.slice(1, args.length)
-    val res =
-      args(0) match {
-        // case "ProcessingElement" =>
-        //   chiselMainTest(cliArgs, () => Module(new ProcessingElement)) {
-        //     c => new ProcessingElementTests(c, false)}
-        // case "ActivationFunction" =>
-        //   chiselMain.run(cliArgs, () => new ActivationFunction)
-        //   // chiselMainTest(cliArgs, () => Module(new ActivationFunction)){
-        //   //   c => new ActivationFunctionTests(c, false)}
-        // case "TransactionTable" =>
-        //   chiselMainTest(cliArgs, () => Module(new TransactionTable)){
-        //     c => new TransactionTableTests(c, false)}
-        case "SRAM" =>
-          chiselMainTest(cliArgs, () => Module(new SRAM(
-            numReadPorts = 0,
-            numWritePorts = 0,
-            numReadWritePorts = 2,
-            dataWidth = 8,
-            sramDepth = 8))){
-            c => new SRAMTests(c, false)}
-        case "SRAMElement" =>
-          chiselMainTest(cliArgs, () => Module(new SRAMElement(
-            elementWidth = 16,
-            dataWidth = 32,
-            numPorts = 1,
-            sramDepth = 8))){
-            c => new SRAMElementTests(c, false)}
-        // case "XFilesDana" =>
-        //   chiselMain.run(cliArgs, () => new XFilesDana)
-      }
-  }
+// These must match the configuration specified in
+// doc/binary-encodings-data-structures.md.
+
+// [TODO] Create a better way for only specifying the encodings in
+// one place and pulling them in to generate this.
+class nnConfigHeader(implicit p: Parameters) extends DanaBundle()(p) {
+  // [TODO] Fragile
+  val lambda               = UInt(width = lambdaWidth)
+  val learningRate         = UInt(width = learningRateWidth)
+  val weightsPointer       = UInt(width = nnConfigPointerWidth)
+  val firstLayerPointer    = UInt(width = nnConfigPointerWidth)
+  val totalLayers          = UInt(width = totalLayersWidth)
+  val totalNeurons         = UInt(width = totalNeuronsWidth)
+  val totalWeightBlocks    = UInt(width = totalWeightBlocksWidth)
+  val _unused              = UInt(width = nnConfigUnusedWidth)
+  val elementsPerBlockCode = UInt(width = elementsPerBlockCodeWidth)
+  val errorFunction        = UInt(width = errorFunctionWidth)
+  val decimalPoint         = UInt(width = decimalPointWidth)
 }
+
+class nnConfigLayer(implicit p: Parameters) extends DanaBundle()(p) {
+  // [TODO] Fragile
+  val bias               = UInt(width = elementWidth)
+  val steepness          = UInt(width = steepnessWidth)
+  val activationFunction = UInt(width = activationFunctionWidth)
+  val numberOfWeights    = UInt(width = numberOfWeightsWidth)
+  val weightOffset       = UInt(width = nnConfigPointerWidth)
+}
+
+class nnConfigNeuron(implicit p: Parameters) extends DanaBundle()(p) {
+  // [TODO] Fragile
+  val neuronsInPreviousLayer = UInt(width = neuronsInPrevLayerWidth)
+  val neuronsInLayer         = UInt(width = neuronsInLayerWidth)
+  val neuronPointer          = UInt(width = neuronPointerWidth)
+}
+
+// object Testbench {
+//   def main(args: Array[String]): Unit = {
+//     val cliArgs = args.slice(1, args.length)
+//     val res =
+//       args(0) match {
+//         // case "ProcessingElement" =>
+//         //   chiselMainTest(cliArgs, () => Module(new ProcessingElement)) {
+//         //     c => new ProcessingElementTests(c, false)}
+//         // case "ActivationFunction" =>
+//         //   chiselMain.run(cliArgs, () => new ActivationFunction)
+//         //   // chiselMainTest(cliArgs, () => Module(new ActivationFunction)){
+//         //   //   c => new ActivationFunctionTests(c, false)}
+//         // case "TransactionTable" =>
+//         //   chiselMainTest(cliArgs, () => Module(new TransactionTable)){
+//         //     c => new TransactionTableTests(c, false)}
+//         case "SRAM" =>
+//           chiselMainTest(cliArgs, () => Module(new SRAM(
+//             numReadPorts = 0,
+//             numWritePorts = 0,
+//             numReadWritePorts = 2,
+//             dataWidth = 8,
+//             sramDepth = 8))){
+//             c => new SRAMTests(c, false)}
+//         case "SRAMElement" =>
+//           chiselMainTest(cliArgs, () => Module(new SRAMElement(
+//             elementWidth = 16,
+//             dataWidth = 32,
+//             numPorts = 1,
+//             sramDepth = 8))){
+//             c => new SRAMElementTests(c, false)}
+//         // case "XFilesDana" =>
+//         //   chiselMain.run(cliArgs, () => new XFilesDana)
+//       }
+//   }
+// }
 
 // [TODO] These are all unused legacy interfaces that were originally
 // used for testing. These need to be cleaned up.
@@ -342,84 +411,84 @@ class XFilesArbiterInterface(implicit p: Parameters) extends DanaBundle()(p) {
 }
 
 // Contains things common to all DANA testbenches
-abstract class DanaTester[+T <: Module](c: T, isTrace: Boolean = true)
-    extends Tester(c, isTrace) {
-  // Generate a new request to a Transaction Table module for a
-  // specified TID and NNID.
-  def newWriteRequest(x: XFilesArbiterInterface, tid: Int, nnid: Int) {
-    poke(x.req.valid, 1)
-    poke(x.req.bits.isNew, 1)
-    poke(x.req.bits.readOrWrite, 1)
-    poke(x.req.bits.isLast, 0)
-    poke(x.req.bits.tid, tid)
-    poke(x.req.bits.data, nnid)
-    step(1)
-    poke(x.req.valid, 0)
-  }
+// abstract class DanaTester[+T <: Module](c: T, isTrace: Boolean = true)
+//     extends Tester(c, isTrace) {
+//   // Generate a new request to a Transaction Table module for a
+//   // specified TID and NNID.
+//   def newWriteRequest(x: XFilesArbiterInterface, tid: Int, nnid: Int) {
+//     poke(x.req.valid, 1)
+//     poke(x.req.bits.isNew, 1)
+//     poke(x.req.bits.readOrWrite, 1)
+//     poke(x.req.bits.isLast, 0)
+//     poke(x.req.bits.tid, tid)
+//     poke(x.req.bits.data, nnid)
+//     step(1)
+//     poke(x.req.valid, 0)
+//   }
 
-  // Send `num` amount of random data to a specific Transaction Table
-  // instance with the specified TID and NNID.
-  def writeRndData(x: XFilesArbiterInterface, tid: Int, nnid: Int, num: Int,
-    decimal: Int) {
-    // Send `num` data elements to DANA
-    for (i <- 0 until num) {
-      poke(x.req.valid, 1)
-      poke(x.req.bits.isNew, 0)
-      poke(x.req.bits.readOrWrite, 1)
-      if (i == num - 1)
-        poke(x.req.bits.isLast, 1)
-      else
-        poke(x.req.bits.isLast, 0)
-      val data = rnd.nextInt(Math.pow(2, decimal + 2).toInt) -
-        Math.pow(2, decimal + 1).toInt
-      printf("[INFO] Input data: %d\n", data)
-      poke(x.req.bits.data, data)
-      step(1)
-      poke(x.req.valid, 0)
-    }
-  }
+//   // Send `num` amount of random data to a specific Transaction Table
+//   // instance with the specified TID and NNID.
+//   def writeRndData(x: XFilesArbiterInterface, tid: Int, nnid: Int, num: Int,
+//     decimal: Int) {
+//     // Send `num` data elements to DANA
+//     for (i <- 0 until num) {
+//       poke(x.req.valid, 1)
+//       poke(x.req.bits.isNew, 0)
+//       poke(x.req.bits.readOrWrite, 1)
+//       if (i == num - 1)
+//         poke(x.req.bits.isLast, 1)
+//       else
+//         poke(x.req.bits.isLast, 0)
+//       val data = rnd.nextInt(Math.pow(2, decimal + 2).toInt) -
+//         Math.pow(2, decimal + 1).toInt
+//       printf("[INFO] Input data: %d\n", data)
+//       poke(x.req.bits.data, data)
+//       step(1)
+//       poke(x.req.valid, 0)
+//     }
+//   }
 
-  // Generic info function. This prints out module-specific
-  // information based on the type of module that it sees. The intent
-  // here is that all modules will be defined as cases in this case
-  // statement and the function will print something different based
-  // on the type.
-  def info(dut : Any) {
-    dut match {
-      case _: DanaTransactionTable =>
-        val c = dut.asInstanceOf[DanaTransactionTable]
-        printf("|V|R|CV|WC|NL|NR|D|Tid|Nnid| <- TTable\n")
-        printf("----------------------------\n")
-        for (i <- 0 until c.table.length) {
-          printf("|%d|%d|%2d|%2d|%2d|%s|%3d|%4x|",
-            peek(c.table(i).flags.valid),
-            peek(c.table(i).flags.reserved),
-            peek(c.table(i).cacheValid),
-            peek(c.table(i).waiting),
-            peek(c.table(i).needsLayerInfo),
-            peek(c.table(i).flags.done),
-            peek(c.table(i).tid),
-            peek(c.table(i).nnid)
-          )
-          printf("\n")
-        }
-        printf("| hasFree: %d | nextFree: %d |\n",
-          peek(c.hasFree),
-          peek(c.nextFree))
-        printf("\n");
-      case _ => printf("No info() function for specified DUT\n")
-    }
-  }
-}
+//   // Generic info function. This prints out module-specific
+//   // information based on the type of module that it sees. The intent
+//   // here is that all modules will be defined as cases in this case
+//   // statement and the function will print something different based
+//   // on the type.
+//   def info(dut : Any) {
+//     dut match {
+//       case _: DanaTransactionTable =>
+//         val c = dut.asInstanceOf[DanaTransactionTable]
+//         printf("|V|R|CV|WC|NL|NR|D|Tid|Nnid| <- TTable\n")
+//         printf("----------------------------\n")
+//         for (i <- 0 until c.table.length) {
+//           printf("|%d|%d|%2d|%2d|%2d|%s|%3d|%4x|",
+//             peek(c.table(i).flags.valid),
+//             peek(c.table(i).flags.reserved),
+//             peek(c.table(i).cacheValid),
+//             peek(c.table(i).waiting),
+//             peek(c.table(i).needsLayerInfo),
+//             peek(c.table(i).flags.done),
+//             peek(c.table(i).tid),
+//             peek(c.table(i).nnid)
+//           )
+//           printf("\n")
+//         }
+//         printf("| hasFree: %d | nextFree: %d |\n",
+//           peek(c.hasFree),
+//           peek(c.nextFree))
+//         printf("\n");
+//       case _ => printf("No info() function for specified DUT\n")
+//     }
+//   }
+// }
 
-class DanaTests(uut: Dana, isTrace: Boolean = true)
-    extends DanaTester(uut, isTrace) {
-  for (t <- 0 until 3) {
-    val tid = t
-    val nnid = t + 15 * 16
-    // newWriteRequest(uut.io.arbiter, tid, nnid)
-    // writeRndData(uut.io.arbiter, tid, nnid, 5, 10)
-    // info(uut.tTable)
-    step(3)
-  }
-}
+// class DanaTests(uut: Dana, isTrace: Boolean = true)
+//     extends DanaTester(uut, isTrace) {
+//   for (t <- 0 until 3) {
+//     val tid = t
+//     val nnid = t + 15 * 16
+//     // newWriteRequest(uut.io.arbiter, tid, nnid)
+//     // writeRndData(uut.io.arbiter, tid, nnid, 5, 10)
+//     // info(uut.tTable)
+//     step(3)
+//   }
+// }

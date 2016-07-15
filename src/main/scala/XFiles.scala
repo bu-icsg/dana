@@ -4,10 +4,10 @@ package xfiles
 
 import Chisel._
 
-import rocket.{RoCC, HasCoreParameters}
+import rocket.{RoCC, HasCoreParameters, CoreModule, CoreBundle}
 import cde.{Parameters, Field}
 import math.pow
-import junctions.ParameterizedBundle
+import junctions.{ParameterizedBundle, HasAddrMapParameters}
 
 case object TidWidth extends Field[Int]
 case object AsidWidth extends Field[Int]
@@ -42,8 +42,9 @@ trait XFilesUserRequests {
   val t_USR_XFILES_ID = 10
 }
 
-trait XFilesParameters extends HasCoreParameters with XFilesErrorCodes
-    with XFilesUserRequests {
+trait XFilesParameters {
+  implicit val p: Parameters
+
   val tidWidth = p(TidWidth)
   val asidWidth = p(AsidWidth)
   val transactionTableNumEntries = p(TransactionTableNumEntries)
@@ -54,7 +55,7 @@ trait XFilesParameters extends HasCoreParameters with XFilesErrorCodes
   val k_NULL_ASID = pow(2, asidWidth) - 1
 }
 
-trait XFilesResponseCodes extends XFilesParameters {
+trait XFilesResponseCodes extends HasCoreParameters with XFilesParameters {
   val respCodeWidth = 3
 
   val (resp_OK :: resp_TID :: resp_READ :: resp_NOT_DONE :: resp_QUEUE_ERR ::
@@ -63,36 +64,15 @@ trait XFilesResponseCodes extends XFilesParameters {
   def genResp[T <: Bits](resp: T, respCode: T, tid: T,
     data: T = Bits(0, width = xLen)) {
     resp := data.toBits
-    resp(xLen - 1, xLen - respCodeWidth) := UInt(respCode)
-    resp(xLen - respCodeWidth - 1, xLen - respCodeWidth - tidWidth) := tid
+    resp(xLen - 1, xLen - respCodeWidth) := respCode.toBits
+    resp(xLen - respCodeWidth - 1, xLen - respCodeWidth - tidWidth) := tid.toBits
   }
 }
 
-abstract class XFilesModule(implicit val p: Parameters) extends Module
-    with XFilesParameters {
-
-  // Create a tupled version of printf
-  val printff = printf _
-  val printft = printff.tupled
-
-  // Info method that will dump the state of a table
-  def info[T <: XFilesBundle](x: Vec[T], prepend: String = "") = {
-    if (tableDebug) {
-      printf(x(0).printElements(prepend))
-        (0 until x.length).map(i => printft(x(i).printAll(","))) }}
-
-  def printfPrefix(prefix: String, message: String, args: Node*): Unit = {
-    if (debugEnabled) { printff(prefix + message, args) }}
-
-  def printfInfo (m: String, a: Node*) { printfPrefix("[INFO]",  m, a:_*) }
-  def printfWarn (m: String, a: Node*) { printfPrefix("[WARN]",  m, a:_*) }
-  def printfError(m: String, a: Node*) { printfPrefix("[ERROR]", m, a:_*) }
-  def printfDebug(m: String, a: Node*) { printfPrefix("[DEBUG]", m, a:_*) }
-  def printfTodo (m: String, a: Node*) { printfPrefix("[TODO]",  m, a:_*) }
-}
-
 abstract class XFilesBundle(implicit val p: Parameters)
-    extends ParameterizedBundle()(p) with XFilesParameters {
+    extends ParameterizedBundle()(p) with HasAddrMapParameters
+    with HasCoreParameters with XFilesParameters with XFilesErrorCodes
+    with XFilesUserRequests {
 
   val aliasList = scala.collection.mutable.Map[String, String]()
   def alias (name: String): String = {
@@ -115,20 +95,43 @@ abstract class XFilesBundle(implicit val p: Parameters)
     res
   }
 
-  // Return a (String, Seq[Node]) tuple suitable for passing to printf
+  // Return a (String, Seq[Bits]) tuple suitable for passing to printf
   // that contains the values of all the elements in the bundle
-  def printAll(prepend: String = ""): (String, Seq[Node]) = {
+  def printAll(prepend: String = ""): (String, Seq[Bits]) = {
     var format = "[DEBUG]" + prepend
     var sep = ""
-    var argsIn = Seq[Node]()
+    var argsIn = Seq[Bits]()
     for ((n, i) <- elements) {
       format += sep + "%x"
       sep = ","
-      argsIn = argsIn :+ i.toNode
+      argsIn = argsIn :+ i.toBits
     }
     format += "\n"
     (format, argsIn)
   }
+}
+
+abstract class XFilesModule(implicit p: Parameters) extends CoreModule()(p)
+    with XFilesParameters with XFilesErrorCodes with XFilesUserRequests {
+
+  // Create a tupled version of printf
+  val printff = (printf.apply _)
+  val printft = printff.tupled
+
+  // Info method that will dump the state of a table
+  def info[T <: XFilesBundle](x: Vec[T], prepend: String = "") = {
+    if (tableDebug) {
+      printf(x(0).printElements(prepend))
+        (0 until x.length).map(i => printft(x(i).printAll(","))) }}
+
+  def printfPrefix(prefix: String, message: String, args: Bits*): Unit = {
+    if (debugEnabled) { printff(prefix + message, args) }}
+
+  def printfInfo (m: String, a: Bits*) { printfPrefix("[INFO]",  m, a:_*) }
+  def printfWarn (m: String, a: Bits*) { printfPrefix("[WARN]",  m, a:_*) }
+  def printfError(m: String, a: Bits*) { printfPrefix("[ERROR]", m, a:_*) }
+  def printfDebug(m: String, a: Bits*) { printfPrefix("[DEBUG]", m, a:_*) }
+  def printfTodo (m: String, a: Bits*) { printfPrefix("[TODO]",  m, a:_*) }
 }
 
 class XFiles(implicit p: Parameters) extends RoCC()(p)

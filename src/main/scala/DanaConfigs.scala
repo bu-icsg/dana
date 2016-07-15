@@ -16,20 +16,33 @@ class DefaultDanaConfig extends Config (
       x = x | site(CacheNumEntries);
       x}
     pname match {
+      // NN Config Global Info
+      case DecimalPointOffset => Dump("NNCONFIG_DECIMAL_POINT_OFFSET", 7)
+      case DecimalPointWidth => Dump("NNCONFIG_DECIMAL_POINT_WIDTH", 3)
+      case SteepnessOffset => Dump("NNCONFIG_SteepnessOffset", 4)
+      case LambdaWidth => Dump("NNCONFIG_LambdaWidth", 16)
+      case LearningRateWidth => Dump("NNCONFIG_LearningRateWidth", 16)
+      case NNConfigPointerWidth => Dump("NNCONFIG_NNConfigPointerWidth", 16)
+      case TotalLayersWidth => Dump("NNCONFIG_TotalLayersWidth", 16)
+      case TotalNeuronsWidth => Dump("NNCONFIG_TotalNeuronsWidth", 16)
+      case TotalWeightBlocksWidth => Dump("NNCONFIG_TotalWeightBlocksWidth", 16)
+      case ElementsPerBlockCodeWidth => Dump("NNCONFIG_ElementsPerBlockCodeWidth", 2)
+      case ErrorFunctionWidth => Dump("NNCONFIG_ErrorFunctionWidth", 1)
+      case NNConfigUnusedWidth => Dump("NNCONFIG_UnusedWidth", 10)
+      // NN Config Layer Info
+      case ElementWidth => Dump("ELEMENT_WIDTH", 32)
+      case ElementsPerBlock => Dump(Knob("ELEMENTS_PER_BLOCK"))
+      case SteepnessWidth => Dump("NNCONFIG_SteepnessWidth", 3)
+      case ActivationFunctionWidth => Dump("NNCONFIG_ActivationFunctionWidth", 5)
+      case NumberOfWeightsWidth => Dump("NNCONFIG_NumberOfWeightsWidth", 8)
+      // NN Config Neuron Info
+      case NeuronsInPrevLayerWidth => Dump("NNCONFIG_neuronsInPrevLayerWidth", 10)
+      case NeuronsInLayerWidth => Dump("NNCONFIG_neuronsInLayerWidth", 10)
+      case NeuronPointerWidth => Dump("NNCONFIG_neuronPointerWidth", 12)
       // ANTW Parameters
       case AntwRobEntries => 32
       // Field widths
-      case ElementWidth => Dump("ELEMENT_WIDTH", 32)
-      case ElementsPerBlock => Dump(Knob("ELEMENTS_PER_BLOCK"))
-      case ActivationFunctionWidth => 5
       case NnidWidth => Dump("NNID_WIDTH", 16)
-      case DecimalPointOffset => Dump("DECIMAL_POINT_OFFSET", 7)
-      case DecimalPointWidth => Dump("DECIMAL_POINT_WIDTH", 3)
-      case SteepnessWidth => 3
-      // The steepness offset is the value you subtract from the
-      // steepness to get the actual steepness
-      case SteepnessOffset => 4
-      case ErrorFunctionWidth => 1
       case FeedbackWidth => Dump("FEEDBACK_WIDTH", 12)
       // Processing Element Table
       case PeTableNumEntries => Dump(Knob("NUM_PES"))

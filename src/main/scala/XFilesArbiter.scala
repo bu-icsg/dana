@@ -236,7 +236,7 @@ class XFilesArbiter(backendInfo: UInt)(implicit p: Parameters)
 
   io.backend.xfReq <> tTable.backend.xfReq
   io.backend.xfResp <> tTable.backend.xfResp
-  io.backend.queueIO <> tTable.backend.queueIO
+  io.backend.xfQueue <> tTable.backend.xfQueue
 
   when (reset) { exception.valid := Bool(false) }
 
