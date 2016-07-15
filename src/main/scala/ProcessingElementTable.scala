@@ -14,7 +14,7 @@ class PECacheInterfaceResp(implicit p: Parameters) extends DanaBundle()(p) {
 
 class PECacheInterfaceReq(implicit p: Parameters) extends DanaBundle()(p) {
   val field = UInt(width = log2Up(6)) // [TODO] fragile on Cache Req Enum
-  val data = SInt(width = bitsPerBlock)
+  val data = UInt(width = bitsPerBlock)
   val peIndex = UInt(width = log2Up(peTableNumEntries))
   val cacheIndex = UInt(width = log2Up(cacheNumEntries))
   val cacheAddr = UInt(width =
@@ -35,7 +35,7 @@ class PERegisterFileReq(implicit p: Parameters) extends DanaBundle()(p) {
   val addr = UInt(width = log2Up(regFileNumElements))
   val peIndex = UInt(width = log2Up(peTableNumEntries))
   val tIdx = UInt(width = log2Up(transactionTableNumEntries))
-  val data = UInt(width = elementWidth)
+  val data = SInt(width = elementWidth)
   val location = UInt(width = 1)
   val incWriteCount = Bool()
 }
@@ -106,7 +106,7 @@ class ProcessingElementState(implicit p: Parameters) extends DanaBundle()(p) {
   val numWeights = UInt(width = 8)            // [TODO] fragile
   val activationFunction = UInt(width = activationFunctionWidth)
   val steepness = UInt(width = steepnessWidth)
-  val bias = UInt(width = elementWidth)
+  val bias = SInt(width = elementWidth)
   val weightoffset = UInt(width = 16)
 }
 
@@ -124,7 +124,7 @@ class ProcessingElementStateLearn(implicit p: Parameters)
   val dw_in = SInt(width = elementWidth)
   val errorFunction = UInt(width = log2Up(2)) // [TODO] fragile
   val learningRate = UInt(width = 16)         // [TODO] fragile
-  val lambda = UInt(width = 16)               // [TODO] fragile
+  val lambda = SInt(width = 16)               // [TODO] fragile
   val globalWtptr = UInt(width = 16)          // [TODO] fragile
   val numWeightBlocks = UInt(width = 16)
   val stateLearn = UInt(width = log2Up(7))    // [TODO] fragile
@@ -159,9 +159,9 @@ class ProcessingElementTableBase[PeStateType <: ProcessingElementState,
     pe(i).req.bits.bias := table(i).bias
     for (j <- 0 until elementsPerBlock) {
       pe(i).req.bits.iBlock(j) :=
-        table(i).inBlock(elementWidth * (j + 1) - 1, elementWidth * j)
+        (table(i).inBlock(elementWidth * (j + 1) - 1, elementWidth * j)).toSInt
       pe(i).req.bits.wBlock(j) :=
-        table(i).weightBlock(elementWidth * (j + 1) - 1, elementWidth * j)
+        (table(i).weightBlock(elementWidth * (j + 1) - 1, elementWidth * j)).toSInt
     }
   }
 
@@ -214,7 +214,7 @@ class ProcessingElementTableBase[PeStateType <: ProcessingElementState,
   io.regFile.req.bits.addr := UInt(0)
   io.regFile.req.bits.peIndex := UInt(0)
   io.regFile.req.bits.tIdx := UInt(0)
-  io.regFile.req.bits.data := UInt(0)
+  io.regFile.req.bits.data := SInt(0)
   io.regFile.req.bits.location := UInt(0)
   io.regFile.req.bits.incWriteCount := Bool(false)
   io.regFile.resp.ready := Bool(true) // [TOOD] placeholder
@@ -229,7 +229,7 @@ class ProcessingElementTableBase[PeStateType <: ProcessingElementState,
     table(nextFree).inAddr := io.control.req.bits.inAddr
     table(nextFree).outAddr := io.control.req.bits.outAddr
     table(nextFree).location := io.control.req.bits.location
-    table(nextFree).numWeights := SInt(-1)
+    table(nextFree).numWeights := (SInt(-1)).toUInt // [TODO] Bad design?
     table(nextFree).weightValid := Bool(false)
     table(nextFree).inValid := Bool(false)
     // Kick the PE
@@ -434,7 +434,7 @@ class ProcessingElementTableLearn(implicit p: Parameters)
   when (io.control.req.valid) {
     table(nextFree).errorFunction := io.control.req.bits.errorFunction
     table(nextFree).learningRate := io.control.req.bits.learningRate
-    table(nextFree).lambda := io.control.req.bits.lambda
+    table(nextFree).lambda := io.control.req.bits.lambda.toSInt
     table(nextFree).globalWtptr := io.control.req.bits.globalWtptr
     table(nextFree).numWeightBlocks := io.control.req.bits.numWeightBlocks
     table(nextFree).stateLearn := io.control.req.bits.stateLearn
@@ -516,7 +516,7 @@ class ProcessingElementTableLearn(implicit p: Parameters)
         val addr = table(peIndex).learnAddr(log2Up(elementsPerBlock)-1,0)
         val dataVec = Vec((0 until elementsPerBlock).map(i =>
           (io.regFile.resp.bits.data)(elementWidth * (i + 1) - 1, elementWidth * i)))
-        table(peIndex).learnReg := dataVec(addr)
+        table(peIndex).learnReg := dataVec(addr).toSInt
         pe(peIndex).req.valid := Bool(true)
         printfInfo("PETable: Valid RegFile E[out] resp PE/data 0x%x/0x%x\n",
           peIndex, io.regFile.resp.bits.data)
@@ -527,7 +527,7 @@ class ProcessingElementTableLearn(implicit p: Parameters)
         val addr = table(peIndex).inAddr(log2Up(elementsPerBlock)-1,0)
         val dataVec = Vec((0 until elementsPerBlock).map(i =>
           (io.regFile.resp.bits.data)(elementWidth * (i + 1) - 1, elementWidth * i)))
-        table(peIndex).learnReg := dataVec(addr)
+        table(peIndex).learnReg := dataVec(addr).toSInt
         pe(peIndex).req.valid := Bool(true)
         printfInfo("PETable: Valid RegFile out resp PE/data 0x%x/0x%x\n",
           peIndex, io.regFile.resp.bits.data)
@@ -538,7 +538,7 @@ class ProcessingElementTableLearn(implicit p: Parameters)
         val addr = table(peIndex).outAddr(log2Up(elementsPerBlock)-1,0)
         val dataVec = Vec((0 until elementsPerBlock).map(i =>
           (io.regFile.resp.bits.data)(elementWidth * (i + 1) - 1, elementWidth * i)))
-        table(peIndex).dw_in := dataVec(addr)
+        table(peIndex).dw_in := dataVec(addr).toSInt
         pe(peIndex).req.valid := Bool(true)
         printfInfo("PETable: Valid RegFile delta--weight resp PE/data 0x%x/0x%x\n",
           peIndex, io.regFile.resp.bits.data)
@@ -549,7 +549,7 @@ class ProcessingElementTableLearn(implicit p: Parameters)
         val addr = table(peIndex).outAddr(log2Up(elementsPerBlock)-1,0)
         val dataVec = Vec((0 until elementsPerBlock).map(i =>
           (io.regFile.resp.bits.data)(elementWidth * (i + 1) - 1, elementWidth * i)))
-        table(peIndex).dw_in := dataVec(addr)
+        table(peIndex).dw_in := dataVec(addr).toSInt
         pe(peIndex).req.valid := Bool(true)
         printfInfo("PETable: Valid RegFile bias resp PE/data 0x%x/0x%x\n",
           peIndex, io.regFile.resp.bits.data)
@@ -567,15 +567,15 @@ class ProcessingElementTableLearn(implicit p: Parameters)
 
   val biasIndex = table(peArbiter.io.out.bits.index).neuronPtr(
     log2Up(bitsPerBlock) - 3 - 1, log2Up(64) - 3)
-  val biasUpdateVec = Wire(Vec.fill(elementsPerBlock){UInt(width=elementWidth)})
+  val biasUpdateVec = Wire(Vec.fill(elementsPerBlock){SInt(width=elementWidth)})
   biasUpdateVec := UInt(0)
   biasUpdateVec(biasIndex * UInt(2) + UInt(1)) := peArbiter.io.out.bits.data
 
   val biasAddrLSBs = table(peArbiter.io.out.bits.index).biasAddr(
     log2Up(elementsPerBlock)-1,0)
-  val biasUpdateVecSlope = Wire(Vec.fill(elementsPerBlock){UInt(width=elementWidth)})
+  val biasUpdateVecSlope = Wire(Vec.fill(elementsPerBlock){SInt(width=elementWidth)})
   biasUpdateVecSlope := UInt(0)
-  biasUpdateVecSlope(biasAddrLSBs) := peArbiter.io.out.bits.data
+  biasUpdateVecSlope(biasAddrLSBs) := peArbiter.io.out.bits.data.toSInt
 
   when (peArbiter.io.out.valid) {
     val peIdx = peArbiter.io.out.bits.index

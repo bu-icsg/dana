@@ -64,9 +64,13 @@ class SRAMBlockIncrement (
 
   def index(j: Int): (Int, Int) = (elementWidth*(j+1) - 1, elementWidth * j)
   def writeBlock(a: Vec[UInt], b: UInt) {
-    (0 until elementsPerBlock).map(j => a(j) := b(index(j))) }
+    val bTupled = (((x: Int, y: Int) => b.apply(x, y)) tupled)
+    (0 until elementsPerBlock).map(j => a(j) := bTupled(index(j))) }
   def writeBlockIncrement(a: Vec[UInt], b: UInt, c: UInt) {
-    (0 until elementsPerBlock).map(j => a(j) := b(index(j)) + c(index(j))) }
+    val bTupled = (((x: Int, y: Int) => b.apply(x, y)) tupled)
+    val cTupled = (((x: Int, y: Int) => c.apply(x, y)) tupled)
+    (0 until elementsPerBlock).map(j => a(j) :=
+      bTupled(index(j)) + cTupled(index(j))) }
 
   val writePending = Vec.fill(numPorts){Reg(new WritePendingBlockIncrementBundle(
     elementWidth = elementWidth,
@@ -89,7 +93,8 @@ class SRAMBlockIncrement (
     io.dout(i) := sram.io.doutR(i)
 
     // Defaults
-    (0 until elementsPerBlock).map(j => tmp0(i)(j) := sram.io.doutR(i)(index(j)))
+    val doutRTupled = (((x: Int, y: Int) => sram.io.doutR(i)(x, y)) tupled)
+    (0 until elementsPerBlock).map(j => tmp0(i)(j) := doutRTupled(index(j)))
     tmp1(i) := tmp0(i)
     forwarding(i) := writePending(i).valid && io.we(i) &&
       io.addr(i) === writePending(i).addr

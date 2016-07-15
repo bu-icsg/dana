@@ -57,13 +57,13 @@ class CompressedNeuron(implicit p: Parameters) extends DanaBundle()(p) {
   val numWeights = UInt(width = 8)
   val activationFunction = Wire(UInt(width = activationFunctionWidth))
   val steepness = Wire(UInt(width = steepnessWidth))
-  val bias = Wire(UInt(width = elementWidth))
+  val bias = Wire(SInt(width = elementWidth))
   def populate(data: UInt, out: CompressedNeuron) {
     out.weightPtr := data(15, 0)
     out.numWeights := data(23, 16)
     out.activationFunction := data(28, 24)
     out.steepness := data(31, 29)
-    out.bias := data(63, 32)
+    out.bias := data(63, 32).toSInt
   }
 }
 
@@ -462,7 +462,7 @@ class CacheLearn(implicit p: Parameters)
         printfInfo("       block: 0x%x\n", io.pe.req.bits.data)
         mem(io.pe.req.bits.cacheIndex).we(0) := Bool(true)
         mem(io.pe.req.bits.cacheIndex).inc(0) := Bool(true)
-        mem(io.pe.req.bits.cacheIndex).din(0) := io.pe.req.bits.data
+        mem(io.pe.req.bits.cacheIndex).din(0) := io.pe.req.bits.data.toBits
       }
     }
   }

@@ -67,14 +67,27 @@ class SRAMElementIncrement (
 
   def index(j: Int): (Int, Int) = (elementWidth*(j+1) - 1, elementWidth * j)
   def writeBlock(a: Vec[UInt], b: UInt) {
-    (0 until elementsPerBlock).map(j => a(j) := b(index(j))) }
+    val bTupled = (((x: Int, y: Int) => b.apply(x, y)) tupled)
+    (0 until elementsPerBlock).map(j => a(j) := bTupled(index(j))) }
   def writeBlockIncrement(a: Vec[UInt], b: UInt, c: UInt) {
-    (0 until elementsPerBlock).map(j => a(j) := b(index(j)) + c(index(j))) }
+    val bTupled = (((x: Int, y: Int) => b.apply(x, y)) tupled)
+    val cTupled = (((x: Int, y: Int) => c.apply(x, y)) tupled)
+    (0 until elementsPerBlock).map(j => a(j) :=
+      bTupled(index(j)) + cTupled(index(j))) }
 
-  val addr = Vec.fill(numPorts){ new Bundle{
-    // [TODO] Use of Wire inside Vec may be verboten
-    val addrHi = Wire(UInt(width = log2Up(sramDepth)))
-    val addrLo = Wire(UInt(width = log2Up(elementsPerBlock)))}}
+  class AddrBundle(
+    val sramDepth: Int,
+    val elementsPerBlock: Int
+  ) extends Bundle {
+    val addrHi = UInt(width = log2Up(sramDepth))
+    val addrLo = UInt(width = log2Up(elementsPerBlock))
+    override def cloneType = new AddrBundle(
+      sramDepth = sramDepth,
+      elementsPerBlock = elementsPerBlock).asInstanceOf[this.type]
+  }
+
+  val addr = Wire(Vec.fill(numPorts){
+    new AddrBundle(sramDepth,elementsPerBlock) })
 
   val writePending = Vec.fill(numPorts){Reg(new WritePendingIncrementBundle(
     elementWidth = elementWidth,
@@ -102,7 +115,8 @@ class SRAMElementIncrement (
     io.dout(i) := sram.io.doutR(i)
 
     // Defaults
-    (0 until elementsPerBlock).map(j => tmp0(i)(j) := sram.io.doutR(i)(index(j)))
+    val doutRTupled = (((x: Int, y: Int) => sram.io.doutR(i)(x, y)) tupled)
+    (0 until elementsPerBlock).map(j => tmp0(i)(j) := doutRTupled(index(j)))
     tmp1(i) := tmp0(i)
     forwarding(i) := addr(i).addrHi === writePending(i).addrHi && io.we(i) &&
       writePending(i).valid

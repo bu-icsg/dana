@@ -111,8 +111,9 @@ class XFilesTransactionTable(implicit p: Parameters) extends XFilesModule()(p)
   val queueOutput = Vec.fill(numEntries){
     Module(new QueueAf(UInt(width = xLen), queueSize,
       almostFullEntries = queueSize - 1)).io }
-  val arbiter = Module(new RRArbiter(UInt(width = 0), numEntries,
-    needsHold = true)).io
+  // val arbiter = Module(new RRArbiter(UInt(width = 0), numEntries,
+  //   needsHold = true)).io
+  val arbiter = Module(new RRArbiter(UInt(width = 0), numEntries)).io
 
   val hasFree = table.exists(isFree(_: TableEntry))
   val idxFree = table.indexWhere(isFree(_: TableEntry))

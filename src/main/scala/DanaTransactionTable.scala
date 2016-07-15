@@ -1256,16 +1256,16 @@ class DanaTransactionTableLearn(implicit p: Parameters)
       "DANA TTable Transaction is in error state"))
 }
 
-class DanaTransactionTableTests(uut: DanaTransactionTable, isTrace: Boolean = true)
-    extends DanaTester(uut, isTrace) {
-  for (t <- 0 until 3) {
-    peek(uut.hasFree)
-    peek(uut.nextFree)
-    val tid = t
-    val nnid = t + 15 * 16
-    // newWriteRequest(uut.io.arbiter.rocc, tid, nnid)
-    // writeRndData(uut.io.arbiter.rocc, tid, nnid, 5, 10)
-    info(uut)
-    poke(uut.io.control.req.ready, 1)
-  }
-}
+// class DanaTransactionTableTests(uut: DanaTransactionTable, isTrace: Boolean = true)
+//     extends DanaTester(uut, isTrace) {
+//   for (t <- 0 until 3) {
+//     peek(uut.hasFree)
+//     peek(uut.nextFree)
+//     val tid = t
+//     val nnid = t + 15 * 16
+//     // newWriteRequest(uut.io.arbiter.rocc, tid, nnid)
+//     // writeRndData(uut.io.arbiter.rocc, tid, nnid, 5, 10)
+//     info(uut)
+//     poke(uut.io.control.req.ready, 1)
+//   }
+// }

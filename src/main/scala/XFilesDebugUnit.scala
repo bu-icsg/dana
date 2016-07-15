@@ -3,7 +3,7 @@
 package xfiles
 import Chisel._
 import uncore.constants.MemoryOpConstants._
-import uncore.{HasTileLinkParameters, Get, Put, GetBlock}
+import uncore.tilelink.{HasTileLinkParameters, Get, Put, GetBlock}
 import rocket.{RoCCInterface, PTE}
 import cde.Parameters
 
@@ -66,7 +66,7 @@ class DebugUnit(id: Int = 0)(implicit p: Parameters) extends XFilesModule()(p)
   when (state === s_REG) { state := s_IDLE }
 
   io.mem.req.valid := state === s_MEM_REQ
-  io.mem.req.bits.kill := Bool(false)
+  // io.mem.req.bits.kill := Bool(false)
   io.mem.req.bits.phys := Bool(false)
   io.mem.req.bits.addr := addr_d
   io.mem.req.bits.data := data_d
@@ -123,7 +123,7 @@ class DebugUnit(id: Int = 0)(implicit p: Parameters) extends XFilesModule()(p)
       addr_block = addr_block,
       addr_beat = addr_beat,
       data = utlDataPutVec.toBits,
-      wmask = Fill(xLen/8, UInt(1, 1)) << addr_byte,
+      wmask = Option(Fill(xLen/8, UInt(1, 1)) << addr_byte),
       alloc = Bool(false)))
   io.autl.grant.ready := state === s_UTL_GRANT
   when (io.autl.acquire.fire()) { state := s_UTL_GRANT }

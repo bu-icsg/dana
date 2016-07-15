@@ -111,7 +111,7 @@ class ProcessingElement(implicit p: Parameters) extends DanaModule()(p) {
     dsp.c := c
   }
   DSP(SInt(0), SInt(0), UInt(0))
-  dsp.d := ((dsp.a * dsp.b) >> dsp.c)(elementWidth - 1, 0)
+  dsp.d := (((dsp.a * dsp.b) >> dsp.c)(elementWidth - 1, 0)).toSInt
 
   // Default values
   acc := acc
@@ -125,7 +125,7 @@ class ProcessingElement(implicit p: Parameters) extends DanaModule()(p) {
   index := index
   // Activation function unit default values
   af.io.req.valid := Bool(false)
-  af.io.req.bits.in := UInt(0)
+  af.io.req.bits.in := SInt(0)
   af.io.req.bits.decimal := io.req.bits.decimalPoint
   af.io.req.bits.steepness := io.req.bits.steepness
   af.io.req.bits.activationFunction := io.req.bits.activationFunction
@@ -155,7 +155,7 @@ class ProcessingElement(implicit p: Parameters) extends DanaModule()(p) {
       reqSent := Bool(false)
     }
     is (PE_states('e_PE_GET_INFO)) {
-      dataOut := UInt(0)
+      dataOut := SInt(0)
       index := UInt(0)
       nextState := PE_states('e_PE_REQUEST_INPUTS_AND_WEIGHTS)
       reqWaitForResp()
@@ -209,7 +209,7 @@ class ProcessingElementLearn(implicit p: Parameters)
   val weightWB = Reg(Vec.fill(elementsPerBlock){SInt(width=elementWidth)})
   val derivative = Reg(SInt(width = elementWidth)) //delta
   val errorOut = Reg(SInt(width = elementWidth)) //ek
-  val mse = Reg(UInt(width = elementWidth))
+  val mse = Reg(SInt(width = elementWidth))
   val dwWritebackDone = Reg(Bool())
   val stateLearn = io.req.bits.stateLearn
 
@@ -558,79 +558,79 @@ class ProcessingElementLearn(implicit p: Parameters)
 
 // [TODO] This whole testbench is broken due to the integration with
 // the PE Table
-class ProcessingElementTests(uut: ProcessingElement, isTrace: Boolean = true)
-    extends DanaTester(uut, isTrace) {
-  // Helper functions
-  def getDecimal(): Int = {
-    peek(uut.io.req.bits.decimalPoint).intValue + uut.decimalPointOffset }
-  def getSteepness(): Int = {
-    peek(uut.io.req.bits.steepness).intValue - 4 }
-  def fixedConvert(data: Bits): Double = {
-    peek(data).floatValue() / Math.pow(2, getDecimal) }
-  def fixedConvert(data: Int): Double = {
-    data.floatValue() / Math.pow(2, getDecimal) }
-  def activationFunction(af: Int, data: Bits, steepness: Int = 1): Double = {
-    val x = fixedConvert(data)
-    // printf("[INFO]   af:   %d\n", af)
-    // printf("[INFO]   data: %f\n", x)
-    // printf("[INFO]   stee: %d\n", steepness)
-    af match {
-      // FANN_THRESHOLD
-      case 1 => if (x > 0) 1 else 0
-      // FANN_THRESHOLD_SYMMETRIC
-      case 2 => if (x > 0) 1 else if (x == 0) 0 else -1
-      // FANN_SIGMOID
-      case 3 => 1 / (1 + Math.exp(-Math.pow(2, steepness.toFloat) * x / 0.5))
-      case 4 => 1 / (1 + Math.exp(-Math.pow(2, steepness.toFloat) * x / 0.5))
-      // FANN_SIGMOID_SYMMETRIC
-      case 5 => 2 / (1 + Math.exp(-Math.pow(2, steepness.toFloat) * x / 0.5)) - 1
-      case 6 => 2 / (1 + Math.exp(-Math.pow(2, steepness.toFloat) * x / 0.5)) - 1
-      case _ => 0
-    }
-  }
+// class ProcessingElementTests(uut: ProcessingElement, isTrace: Boolean = true)
+//     extends DanaTester(uut, isTrace) {
+//   // Helper functions
+//   def getDecimal(): Int = {
+//     peek(uut.io.req.bits.decimalPoint).intValue + uut.decimalPointOffset }
+//   def getSteepness(): Int = {
+//     peek(uut.io.req.bits.steepness).intValue - 4 }
+//   def fixedConvert(data: Bits): Double = {
+//     peek(data).floatValue() / Math.pow(2, getDecimal) }
+//   def fixedConvert(data: Int): Double = {
+//     data.floatValue() / Math.pow(2, getDecimal) }
+//   def activationFunction(af: Int, data: Bits, steepness: Int = 1): Double = {
+//     val x = fixedConvert(data)
+//     // printf("[INFO]   af:   %d\n", af)
+//     // printf("[INFO]   data: %f\n", x)
+//     // printf("[INFO]   stee: %d\n", steepness)
+//     af match {
+//       // FANN_THRESHOLD
+//       case 1 => if (x > 0) 1 else 0
+//       // FANN_THRESHOLD_SYMMETRIC
+//       case 2 => if (x > 0) 1 else if (x == 0) 0 else -1
+//       // FANN_SIGMOID
+//       case 3 => 1 / (1 + Math.exp(-Math.pow(2, steepness.toFloat) * x / 0.5))
+//       case 4 => 1 / (1 + Math.exp(-Math.pow(2, steepness.toFloat) * x / 0.5))
+//       // FANN_SIGMOID_SYMMETRIC
+//       case 5 => 2 / (1 + Math.exp(-Math.pow(2, steepness.toFloat) * x / 0.5)) - 1
+//       case 6 => 2 / (1 + Math.exp(-Math.pow(2, steepness.toFloat) * x / 0.5)) - 1
+//       case _ => 0
+//     }
+//   }
 
-  val dataIn = Array.fill(uut.elementsPerBlock){0}
-  val weight = Array.fill(uut.elementsPerBlock){0}
-  var correct = 0
-  printf("[INFO] Sigmoid Activation Function Test\n")
-  for (t <- 0 until 100) {
-    // poke(uut.io.req.bits.decimalPoint, 3)
-    poke(uut.io.req.bits.decimalPoint, rnd.nextInt(8))
-    // poke(uut.io.req.bits.steepness, 4)
-    poke(uut.io.req.bits.steepness, rnd.nextInt(8))
-    // poke(uut.io.req.bits.activationFunction, 5)
-    poke(uut.io.req.bits.activationFunction, rnd.nextInt(5) + 1)
-    correct = 0
-    for (i <- 0 until uut.elementsPerBlock) {
-      dataIn(i) = rnd.nextInt(Math.pow(2, getDecimal + 2).toInt) -
-        Math.pow(2, getDecimal + 1).toInt
-      weight(i) = rnd.nextInt(Math.pow(2, getDecimal + 2).toInt) -
-        Math.pow(2, getDecimal + 1).toInt
-      correct = correct + (dataIn(i) * weight(i) >> getDecimal)
-      // printf("[INFO] In(%d): %f, %f\n", i, fixedConvert(dataIn(i)),
-      //   fixedConvert(weight(i)))
-    }
-    // printf("[INFO] Correct Acc: %f\n", fixedConvert(correct))
-    for (i <- 0 until uut.elementsPerBlock) {
-      poke(uut.io.req.bits.iBlock(i), dataIn(i))
-      poke(uut.io.req.bits.wBlock(i), weight(i))
-    }
-    poke(uut.io.req.valid, 1)
-    step(1)
-    poke(uut.io.req.valid, 0)
-    while(peek(uut.io.resp.valid) == 0) {
-      step(1)
-      // printf("[INFO]   acc: %f\n", fixedConvert(uut.acc))
-    }
-    // printf("[INFO] Acc:         %f\n", fixedConvert(uut.acc))
-    // printf("[INFO] Output:      %f\n", fixedConvert(uut.io.req.bitsOut))
-    // printf("[INFO] AF Good:     %f\n",
-    //   activationFunction(peek(uut.io.activationFunction).toInt, uut.acc,
-    //     getSteepness))
-    expect(uut.acc, correct)
-    expect(Math.abs(fixedConvert(uut.io.resp.bits.data) -
-      activationFunction(peek(uut.io.req.bits.activationFunction).toInt, uut.acc,
-        getSteepness)) < 0.1, "Activation Function Check")
-    step(1)
-  }
-}
+//   val dataIn = Array.fill(uut.elementsPerBlock){0}
+//   val weight = Array.fill(uut.elementsPerBlock){0}
+//   var correct = 0
+//   printf("[INFO] Sigmoid Activation Function Test\n")
+//   for (t <- 0 until 100) {
+//     // poke(uut.io.req.bits.decimalPoint, 3)
+//     poke(uut.io.req.bits.decimalPoint, rnd.nextInt(8))
+//     // poke(uut.io.req.bits.steepness, 4)
+//     poke(uut.io.req.bits.steepness, rnd.nextInt(8))
+//     // poke(uut.io.req.bits.activationFunction, 5)
+//     poke(uut.io.req.bits.activationFunction, rnd.nextInt(5) + 1)
+//     correct = 0
+//     for (i <- 0 until uut.elementsPerBlock) {
+//       dataIn(i) = rnd.nextInt(Math.pow(2, getDecimal + 2).toInt) -
+//         Math.pow(2, getDecimal + 1).toInt
+//       weight(i) = rnd.nextInt(Math.pow(2, getDecimal + 2).toInt) -
+//         Math.pow(2, getDecimal + 1).toInt
+//       correct = correct + (dataIn(i) * weight(i) >> getDecimal)
+//       // printf("[INFO] In(%d): %f, %f\n", i, fixedConvert(dataIn(i)),
+//       //   fixedConvert(weight(i)))
+//     }
+//     // printf("[INFO] Correct Acc: %f\n", fixedConvert(correct))
+//     for (i <- 0 until uut.elementsPerBlock) {
+//       poke(uut.io.req.bits.iBlock(i), dataIn(i))
+//       poke(uut.io.req.bits.wBlock(i), weight(i))
+//     }
+//     poke(uut.io.req.valid, 1)
+//     step(1)
+//     poke(uut.io.req.valid, 0)
+//     while(peek(uut.io.resp.valid) == 0) {
+//       step(1)
+//       // printf("[INFO]   acc: %f\n", fixedConvert(uut.acc))
+//     }
+//     // printf("[INFO] Acc:         %f\n", fixedConvert(uut.acc))
+//     // printf("[INFO] Output:      %f\n", fixedConvert(uut.io.req.bitsOut))
+//     // printf("[INFO] AF Good:     %f\n",
+//     //   activationFunction(peek(uut.io.activationFunction).toInt, uut.acc,
+//     //     getSteepness))
+//     expect(uut.acc, correct)
+//     expect(Math.abs(fixedConvert(uut.io.resp.bits.data) -
+//       activationFunction(peek(uut.io.req.bits.activationFunction).toInt, uut.acc,
+//         getSteepness)) < 0.1, "Activation Function Check")
+//     step(1)
+//   }
+// }

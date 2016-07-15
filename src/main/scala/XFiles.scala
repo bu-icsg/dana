@@ -63,8 +63,8 @@ trait XFilesResponseCodes extends XFilesParameters {
   def genResp[T <: Bits](resp: T, respCode: T, tid: T,
     data: T = Bits(0, width = xLen)) {
     resp := data.toBits
-    resp(xLen - 1, xLen - respCodeWidth) := UInt(respCode)
-    resp(xLen - respCodeWidth - 1, xLen - respCodeWidth - tidWidth) := tid
+    resp(xLen - 1, xLen - respCodeWidth) := respCode.toBits
+    resp(xLen - respCodeWidth - 1, xLen - respCodeWidth - tidWidth) := tid.toBits
   }
 }
 
@@ -72,7 +72,7 @@ abstract class XFilesModule(implicit val p: Parameters) extends Module
     with XFilesParameters {
 
   // Create a tupled version of printf
-  val printff = printf _
+  val printff = (printf.apply _)
   val printft = printff.tupled
 
   // Info method that will dump the state of a table
@@ -81,17 +81,17 @@ abstract class XFilesModule(implicit val p: Parameters) extends Module
       printf(x(0).printElements(prepend))
         (0 until x.length).map(i => printft(x(i).printAll(","))) }}
 
-  def printfPrefix(prefix: String, message: String, args: Node*): Unit = {
+  def printfPrefix(prefix: String, message: String, args: Bits*): Unit = {
     if (debugEnabled) { printff(prefix + message, args) }}
 
-  def printfInfo (m: String, a: Node*) { printfPrefix("[INFO]",  m, a:_*) }
-  def printfWarn (m: String, a: Node*) { printfPrefix("[WARN]",  m, a:_*) }
-  def printfError(m: String, a: Node*) { printfPrefix("[ERROR]", m, a:_*) }
-  def printfDebug(m: String, a: Node*) { printfPrefix("[DEBUG]", m, a:_*) }
-  def printfTodo (m: String, a: Node*) { printfPrefix("[TODO]",  m, a:_*) }
+  def printfInfo (m: String, a: Bits*) { printfPrefix("[INFO]",  m, a:_*) }
+  def printfWarn (m: String, a: Bits*) { printfPrefix("[WARN]",  m, a:_*) }
+  def printfError(m: String, a: Bits*) { printfPrefix("[ERROR]", m, a:_*) }
+  def printfDebug(m: String, a: Bits*) { printfPrefix("[DEBUG]", m, a:_*) }
+  def printfTodo (m: String, a: Bits*) { printfPrefix("[TODO]",  m, a:_*) }
 }
 
-abstract class XFilesBundle(implicit val p: Parameters)
+abstract class XFilesBundle(implicit p: Parameters)
     extends ParameterizedBundle()(p) with XFilesParameters {
 
   val aliasList = scala.collection.mutable.Map[String, String]()
@@ -115,16 +115,16 @@ abstract class XFilesBundle(implicit val p: Parameters)
     res
   }
 
-  // Return a (String, Seq[Node]) tuple suitable for passing to printf
+  // Return a (String, Seq[Bits]) tuple suitable for passing to printf
   // that contains the values of all the elements in the bundle
-  def printAll(prepend: String = ""): (String, Seq[Node]) = {
+  def printAll(prepend: String = ""): (String, Seq[Bits]) = {
     var format = "[DEBUG]" + prepend
     var sep = ""
-    var argsIn = Seq[Node]()
+    var argsIn = Seq[Bits]()
     for ((n, i) <- elements) {
       format += sep + "%x"
       sep = ","
-      argsIn = argsIn :+ i.toNode
+      argsIn = argsIn :+ i.toBits
     }
     format += "\n"
     (format, argsIn)

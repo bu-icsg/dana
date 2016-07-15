@@ -5,8 +5,9 @@ package dana
 import Chisel._
 
 import rocket.{RoCCCommand, RoCCResponse, HellaCacheReq, HellaCacheIO, MStatus}
-import uncore.{HasTileLinkParameters, CacheName, ClientUncachedTileLinkIO, Get,
-  GetBlock, CacheBlockBytes}
+import uncore.tilelink.{HasTileLinkParameters, ClientUncachedTileLinkIO, Get,
+  GetBlock}
+import uncore.agents.{CacheName, CacheBlockBytes}
 import uncore.constants.MemoryOpConstants._
 import cde.{Parameters}
 import xfiles.{InterruptBundle, XFilesSupervisorRequests}
