@@ -29,7 +29,9 @@ case object CacheNumBlocks extends Field[Int]
 case object NNConfigNeuronWidth extends Field[Int]
 case object AntwRobEntries extends Field[Int]
 
-trait DanaParameters extends HasCoreParameters with XFilesParameters {
+trait DanaParameters {
+  implicit val p: Parameters
+
   val elementWidth = p(ElementWidth)
   val elementsPerBlock = p(ElementsPerBlock)
   // Activation Function width increases will break:
@@ -274,7 +276,7 @@ class Dana(implicit p: Parameters) extends XFilesBackend()(p)
 
   tTable.io.arbiter.xfReq <> io.xfReq
   tTable.io.arbiter.xfResp <> io.xfResp
-  tTable.io.arbiter.queueIO <> io.queueIO
+  tTable.io.arbiter.xfQueue <> io.xfQueue
 
   // There is a difference between the RoCC interrupt (which is tied
   // off) and the interruptBundle which includes more information

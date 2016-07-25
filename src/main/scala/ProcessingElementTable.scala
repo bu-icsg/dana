@@ -414,8 +414,7 @@ class ProcessingElementTableLearn(implicit p: Parameters)
   // the highest index delta--weight _block_ that has been written.
   // This is needed to know when a a block is the first to be written
   // back. If it is not the first, then it should be accumulated.
-  val regFileBlockWbTable = Reg(Vec.fill(transactionTableNumEntries){
-    UInt(log2Up(regFileNumElements))})
+  val regFileBlockWbTable = Reg(Vec(transactionTableNumEntries, UInt(log2Up(regFileNumElements))))
   (0 until transactionTableNumEntries).map(i =>
     regFileBlockWbTable(i) := regFileBlockWbTable(i))
 
@@ -567,14 +566,14 @@ class ProcessingElementTableLearn(implicit p: Parameters)
 
   val biasIndex = table(peArbiter.io.out.bits.index).neuronPtr(
     log2Up(bitsPerBlock) - 3 - 1, log2Up(64) - 3)
-  val biasUpdateVec = Wire(Vec.fill(elementsPerBlock){SInt(width=elementWidth)})
-  biasUpdateVec := UInt(0)
+  val biasUpdateVec = Wire(Vec(elementsPerBlock, SInt(width=elementWidth)))
+  biasUpdateVec.toBits := UInt(0)
   biasUpdateVec(biasIndex * UInt(2) + UInt(1)) := peArbiter.io.out.bits.data
 
   val biasAddrLSBs = table(peArbiter.io.out.bits.index).biasAddr(
     log2Up(elementsPerBlock)-1,0)
-  val biasUpdateVecSlope = Wire(Vec.fill(elementsPerBlock){SInt(width=elementWidth)})
-  biasUpdateVecSlope := UInt(0)
+  val biasUpdateVecSlope = Wire(Vec(elementsPerBlock, SInt(width=elementWidth)))
+  biasUpdateVecSlope.toBits := UInt(0)
   biasUpdateVecSlope(biasAddrLSBs) := peArbiter.io.out.bits.data.toSInt
 
   when (peArbiter.io.out.valid) {

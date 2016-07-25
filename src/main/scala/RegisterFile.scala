@@ -30,8 +30,8 @@ abstract class RegisterFileBase[SramIf <: SRAMElementInterface](
   lazy val io = new RegisterFileInterface
   val mem = genSram
 
-  val state = Vec.fill(transactionTableNumEntries * 2){Reg(new RegisterFileState)}
-  val stateToggle = Reg(Vec.fill(transactionTableNumEntries){UInt(width=1)})
+  val state = Reg(Vec(transactionTableNumEntries * 2, new RegisterFileState))
+  val stateToggle = Reg(Vec(transactionTableNumEntries, UInt(width=1)))
   val tTableRespValid = Reg(Bool())
   val tTableRespTIdx = Reg(UInt(width=log2Up(transactionTableNumEntries)))
   val tTableRespAddr = Reg(UInt(width=log2Up(regFileNumElements)))

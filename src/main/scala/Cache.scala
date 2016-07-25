@@ -80,7 +80,7 @@ abstract class CacheBase[SramIfType <: SRAMVariantInterface,
   lazy val io = new CacheInterface
 
   // Create the table of cache entries
-  val table = Reg(Vec.fill(cacheNumEntries){new CacheState})
+  val table = Reg(Vec(cacheNumEntries, new CacheState))
 
   when (io.control.req.valid || io.control.resp.valid) {
     info(table, "cache,") }
@@ -97,10 +97,9 @@ abstract class CacheBase[SramIfType <: SRAMVariantInterface,
   // cycles to generate due to the fact that data needs to be read out
   // of the individual cache SRAMs so we construct a pipeline that
   // builds up the responses.
-  val controlRespPipe = Vec.fill(2){Reg(Valid(genControlResp))}
-  val peRespPipe = Vec.fill(2){Reg(Valid(genPEResp))}
-  val cacheRead = Reg(Vec.fill(cacheNumEntries){
-    (UInt(width=log2Up(cacheNumBlocks)))})
+  val controlRespPipe = Reg(Vec(2, Valid(genControlResp)))
+  val peRespPipe = Reg(Vec(2, Valid(genPEResp)))
+  val cacheRead = Reg(Vec(cacheNumEntries, UInt(width=log2Up(cacheNumBlocks))))
   // We also need to store the cache index of an inbound request by a
   // PE so that we can dereference it one cycle later when the cache
   // line SRAM output is valid. [TODO] Should this be gated by the PE
@@ -155,7 +154,7 @@ abstract class CacheBase[SramIfType <: SRAMVariantInterface,
   controlRespPipe(0).bits.tableIndex := UInt(0)
   controlRespPipe(0).bits.tableMask := UInt(0)
   controlRespPipe(0).bits.cacheIndex := UInt(0)
-  controlRespPipe(0).bits.data := Vec.fill(6){UInt(0)}
+  controlRespPipe(0).bits.data := Vec(6, UInt(0))
   controlRespPipe(0).bits.decimalPoint := UInt(0)
   controlRespPipe(0).bits.field := UInt(0)
   controlRespPipe(0).bits.regFileLocationBit := UInt(0)

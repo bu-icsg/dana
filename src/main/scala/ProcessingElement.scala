@@ -11,8 +11,8 @@ class ProcessingElementReq(implicit p: Parameters) extends DanaBundle()(p) {
   val decimalPoint = UInt(INPUT, decimalPointWidth)
   val steepness = UInt(INPUT, steepnessWidth)
   val activationFunction = UInt(INPUT, activationFunctionWidth)
-  val iBlock = Vec.fill(elementsPerBlock){SInt(INPUT, elementWidth)}
-  val wBlock = Vec.fill(elementsPerBlock){SInt(INPUT, elementWidth)}
+  val iBlock = Vec(elementsPerBlock, SInt(INPUT, elementWidth))
+  val wBlock = Vec(elementsPerBlock, SInt(INPUT, elementWidth))
   val bias = SInt(INPUT, elementWidth)
 }
 
@@ -38,7 +38,7 @@ class ProcessingElementResp(implicit p: Parameters) extends DanaBundle()(p) {
 
 class ProcessingElementRespLearn(implicit p: Parameters)
     extends ProcessingElementResp()(p) {
-  val dataBlock = Vec.fill(elementsPerBlock){SInt(width = elementWidth)}
+  val dataBlock = Vec(elementsPerBlock, SInt(width = elementWidth))
   val error = SInt(width = elementWidth)
   val resetWeightPtr = Bool()
 }
@@ -206,7 +206,7 @@ class ProcessingElementLearn(implicit p: Parameters)
   override lazy val io = new ProcessingElementInterfaceLearn
   override lazy val af = Module(new ActivationFunctionLearn)
 
-  val weightWB = Reg(Vec.fill(elementsPerBlock){SInt(width=elementWidth)})
+  val weightWB = Reg(Vec(elementsPerBlock, SInt(width=elementWidth)))
   val derivative = Reg(SInt(width = elementWidth)) //delta
   val errorOut = Reg(SInt(width = elementWidth)) //ek
   val mse = Reg(SInt(width = elementWidth))

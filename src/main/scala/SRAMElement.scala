@@ -20,9 +20,9 @@ class SRAMElementInterface (
     sramDepth = sramDepth,
     numPorts = numPorts,
     elementWidth = elementWidth).asInstanceOf[this.type]
-  val dinElement = Vec.fill(numPorts){ UInt(OUTPUT, width = elementWidth)}
-  override val addr = Vec.fill(numPorts){ UInt(OUTPUT,
-    width = log2Up(sramDepth) + log2Up(dataWidth / elementWidth))}
+  val dinElement = Vec(numPorts, UInt(OUTPUT, width = elementWidth))
+  override val addr = Vec(numPorts, UInt(OUTPUT,
+    width = log2Up(sramDepth) + log2Up(dataWidth / elementWidth)))
 }
 
 class WritePendingBundle (
@@ -62,18 +62,17 @@ class SRAMElement (
 
   def index(j: Int): (Int, Int) = (elementWidth*(j+1) - 1, elementWidth * j)
 
-  val addr = Vec.fill(numPorts){ new Bundle{
+  val addr = Vec(numPorts, new Bundle {
     val addrHi = Wire(UInt(width = log2Up(sramDepth)))
-    val addrLo = Wire(UInt(width = log2Up(elementsPerBlock)))}}
+    val addrLo = Wire(UInt(width = log2Up(elementsPerBlock)))})
 
-  val writePending = Vec.fill(numPorts){Reg(new WritePendingBundle(
+  val writePending = Reg(Vec(numPorts, new WritePendingBundle(
     elementWidth = elementWidth,
     dataWidth = dataWidth,
-    sramDepth = sramDepth))}
+    sramDepth = sramDepth)))
 
-  val tmp = Wire(Vec.fill(numPorts){
-    Vec.fill(elementsPerBlock){ UInt(width = elementWidth) }})
-  val forwarding = Wire(Vec.fill(numPorts){ Bool() })
+  val tmp = Wire(Vec(numPorts, Vec(elementsPerBlock, UInt(width = elementWidth) )))
+  val forwarding = Wire(Vec(numPorts, Bool()))
 
   // Combinational Logic
   for (i <- 0 until numPorts) {

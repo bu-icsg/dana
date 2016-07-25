@@ -31,18 +31,18 @@ class SRAMElementCounterInterface (
     sramDepth = sramDepth,
     numPorts = numPorts,
     elementWidth = elementWidth).asInstanceOf[this.type]
-  val we = Vec.fill(numPorts){ Bool(OUTPUT) }
-  val din = Vec.fill(numPorts){ UInt(OUTPUT, width = elementWidth)}
-  val addr = Vec.fill(numPorts){ UInt(OUTPUT,
-    width = log2Up(sramDepth * dataWidth / elementWidth))}
-  val dout = Vec.fill(numPorts){ UInt(INPUT, width = dataWidth)}
+  val we = Vec(numPorts, Bool(OUTPUT))
+  val din = Vec(numPorts, UInt(OUTPUT, width = elementWidth))
+  val addr = Vec(numPorts, UInt(OUTPUT,
+    width = log2Up(sramDepth * dataWidth / elementWidth)))
+  val dout = Vec(numPorts, UInt(INPUT, width = dataWidth))
   // lastBlock sets which is the last block in the SRAM
-  val lastBlock = Vec.fill(numPorts){ UInt(INPUT, width = log2Up(sramDepth)) }
+  val lastBlock = Vec(numPorts, UInt(INPUT, width = log2Up(sramDepth)) )
   // lastCount sets the number of elements in the last block
-  val lastCount = Vec.fill(numPorts){
-    UInt(INPUT, width = log2Up(dataWidth / elementWidth) + 1) }
-  val resp = Vec.fill(numPorts){ Decoupled(new SRAMElementCounterResp (
-    sramDepth = sramDepth)) }
+  val lastCount = Vec(numPorts,
+    UInt(INPUT, width = log2Up(dataWidth / elementWidth) + 1))
+  val resp = Vec(numPorts, Decoupled(new SRAMElementCounterResp (
+    sramDepth = sramDepth)) )
 }
 
 
@@ -70,19 +70,18 @@ class SRAMElementCounter (
     numReadWritePorts = 0
   ))
 
-  val addr = Vec.fill(numPorts){ new Bundle{
+  val addr = Vec(numPorts, new Bundle{
     val addrHi = UInt(width = log2Up(sramDepth))
-    val addrLo = UInt(width = log2Up(dataWidth / elementWidth))}}
+    val addrLo = UInt(width = log2Up(dataWidth / elementWidth))})
 
-  val writePending = Vec.fill(numPorts){Reg(new WritePendingBundle(
+  val writePending = Reg(Vec(numPorts, new WritePendingBundle(
     elementWidth = elementWidth,
     dataWidth = dataWidth,
-    sramDepth = sramDepth))}
+    sramDepth = sramDepth)))
 
-  val tmp = Vec.fill(numPorts){
-    Vec.fill(dataWidth / elementWidth){ UInt(width = elementWidth) }}
-  val count = Vec.fill(numPorts){ UInt(width = log2Up(dataWidth / elementWidth) + 1) }
-  val forwarding = Vec.fill(numPorts){ Bool() }
+  val tmp = Vec(numPorts, Vec(dataWidth/elementWidth, UInt(width=elementWidth)))
+  val count = Vec(numPorts, UInt(width = log2Up(dataWidth / elementWidth) + 1))
+  val forwarding = Vec(numPorts, Bool())
 
   // Combinational Logic
   for (i <- 0 until numPorts) {

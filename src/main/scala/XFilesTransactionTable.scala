@@ -104,15 +104,15 @@ class XFilesTransactionTable(implicit p: Parameters) extends XFilesModule()(p)
   val numEntries = transactionTableNumEntries
 
   val table = Reg(Vec(numEntries, new TableEntry))
-  val queueInput = Vec.fill(numEntries){
-    Module(new Queue(new XFilesRs1Rs2Funct, queueSize)).io }
+  val testQueue = Module(new Queue(new XFilesRs1Rs2Funct, queueSize))
+  val queueInput = Vec.tabulate(numEntries)(
+    x => Module(new Queue(new XFilesRs1Rs2Funct, queueSize)).io)
+  // val queueInput = Vec(numEntries,
+  //   Module(new Queue(new XFilesRs1Rs2Funct, queueSize)).io)
   // We use a Queue with an "almost full" high water mark to provide
   // flow control for the backend.
-  val queueOutput = Vec.fill(numEntries){
-    Module(new QueueAf(UInt(width = xLen), queueSize,
-      almostFullEntries = queueSize - 1)).io }
-  // val arbiter = Module(new RRArbiter(UInt(width = 0), numEntries,
-  //   needsHold = true)).io
+  val queueOutput = Vec(numEntries, Module(new QueueAf(UInt(width = xLen), queueSize,
+    almostFullEntries = queueSize - 1)).io)
   val arbiter = Module(new RRArbiter(UInt(width = 0), numEntries)).io
 
   val hasFree = table.exists(isFree(_: TableEntry))
@@ -164,7 +164,7 @@ class XFilesTransactionTable(implicit p: Parameters) extends XFilesModule()(p)
     val hitNew = newRequest & hasFree & (idxFree === UInt(i))
     val hitOld = (writeData|writeDataLast) & hitAsidTid & idxAsidTid===UInt(i)
     val enq = (hitNew | hitOld) & queueInput(i).enq.ready
-    val deq = io.backend.queueIO.in.ready & io.backend.queueIO.tidxIn === UInt(i)
+    val deq = io.backend.xfQueue.in.ready & io.backend.xfQueue.tidxIn === UInt(i)
     queueInput(i).enq.valid := enq
     queueInput(i).enq.bits.rs1 := cmd.bits.rs1
     queueInput(i).enq.bits.rs2 := cmd.bits.rs2
@@ -172,18 +172,18 @@ class XFilesTransactionTable(implicit p: Parameters) extends XFilesModule()(p)
 
     queueInput(i).deq.ready := deq
   })
-  io.backend.queueIO.in.bits := queueInput(io.backend.queueIO.tidxIn).deq.bits
-  io.backend.queueIO.in.valid := queueInput(io.backend.queueIO.tidxIn).deq.valid
+  io.backend.xfQueue.in.bits := queueInput(io.backend.xfQueue.tidxIn).deq.bits
+  io.backend.xfQueue.in.valid := queueInput(io.backend.xfQueue.tidxIn).deq.valid
 
   (0 until numEntries).map(i => {
-    val enq = io.backend.queueIO.out.valid & io.backend.queueIO.tidxOut===UInt(i)
+    val enq = io.backend.xfQueue.out.valid & io.backend.xfQueue.tidxOut===UInt(i)
     val deq = readDataPoll & hitAsidTid & (idxAsidTid === UInt(i))
     queueOutput(i).enq.valid := enq
-    queueOutput(i).enq.bits := io.backend.queueIO.out.bits
+    queueOutput(i).enq.bits := io.backend.xfQueue.out.bits
 
     queueOutput(i).deq.ready := deq
   })
-  io.backend.queueIO.out.ready := !queueOutput(io.backend.queueIO.tidxOut).almostFull
+  io.backend.xfQueue.out.ready := !queueOutput(io.backend.xfQueue.tidxOut).almostFull
 
   // Hook up the arbiter to the table
   (0 until numEntries).map(i => {

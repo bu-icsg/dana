@@ -10,7 +10,7 @@ class ControlCacheInterfaceResp(implicit p: Parameters) extends DanaBundle()(p) 
   val tableIndex = UInt(width = log2Up(transactionTableNumEntries))
   val tableMask = UInt(width = transactionTableNumEntries)
   val cacheIndex = UInt(width = log2Up(cacheNumEntries))
-  val data = Vec.fill(6){UInt(width = 16)} // [TODO] possibly fragile
+  val data = Vec(6, UInt(width = 16)) // [TODO] possibly fragile
   val decimalPoint = UInt(INPUT, decimalPointWidth)
   val field = UInt(width = log2Up(7)) // [TODO] fragile on Constants.scala
   val regFileLocationBit = UInt(width = 1)

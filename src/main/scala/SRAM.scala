@@ -19,18 +19,18 @@ class SRAMInterface(
     sramDepth = sramDepth
   ).asInstanceOf[this.type]
   // Data Input
-  val din = Vec.fill(numReadWritePorts){UInt(OUTPUT, width = dataWidth)}
-  val dinW = Vec.fill(numWritePorts){UInt(OUTPUT, width = dataWidth)}
+  val din = Vec(UInt(OUTPUT, width = dataWidth), numReadWritePorts)
+  val dinW = Vec(UInt(OUTPUT, width = dataWidth), numWritePorts)
   // Data Output
-  val dout = Vec.fill(numReadWritePorts){UInt(INPUT, width = dataWidth)}
-  val doutR = Vec.fill(numReadPorts){UInt(INPUT, width = dataWidth)}
+  val dout = Vec(UInt(INPUT, width = dataWidth), numReadWritePorts)
+  val doutR = Vec(UInt(INPUT, width = dataWidth), numReadPorts)
   // Addresses
-  val addr = Vec.fill(numReadWritePorts){UInt(OUTPUT, width = log2Up(sramDepth))}
-  val addrR = Vec.fill(numReadPorts){UInt(OUTPUT, width = log2Up(sramDepth))}
-  val addrW = Vec.fill(numWritePorts){UInt(OUTPUT, width = log2Up(sramDepth))}
+  val addr = Vec(UInt(OUTPUT, width = log2Up(sramDepth)), numReadWritePorts)
+  val addrR = Vec(UInt(OUTPUT, width = log2Up(sramDepth)), numReadPorts)
+  val addrW = Vec(UInt(OUTPUT, width = log2Up(sramDepth)), numWritePorts)
   // Write enable
-  val we = Vec.fill(numReadWritePorts){Bool(OUTPUT)}
-  val weW = Vec.fill(numWritePorts){Bool(OUTPUT)}
+  val we = Vec(Bool(OUTPUT), numReadWritePorts)
+  val weW = Vec(Bool(OUTPUT), numWritePorts)
 }
 
 class SRAM (
@@ -68,7 +68,7 @@ class SRAM (
   val mem = Mem(sramDepth, UInt(width = dataWidth))
 
   if (numReadWritePorts > 0) {
-    val buf = Reg(Vec.fill(numReadWritePorts){UInt(width = dataWidth)})
+    val buf = Reg(Vec(numReadWritePorts, UInt(width = dataWidth)))
     for (i <- 0 until numReadWritePorts) {
       when (io.we(i)) {
         mem(io.addr(i)) := io.din(i)
@@ -79,7 +79,7 @@ class SRAM (
   }
 
   if (numReadPorts > 0) {
-    val bufR = Reg(Vec.fill(numReadPorts){UInt(width = dataWidth)})
+    val bufR = Reg(Vec(numReadPorts, UInt(width = dataWidth)))
     for (i <- 0 until numReadPorts) {
       bufR(i) := mem(io.addrR(i))
       io.doutR(i) := bufR(i)

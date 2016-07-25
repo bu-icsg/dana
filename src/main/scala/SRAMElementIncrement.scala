@@ -25,7 +25,7 @@ class SRAMElementIncrementInterface (
     sramDepth = sramDepth,
     numPorts = numPorts,
     elementWidth = elementWidth).asInstanceOf[this.type]
-  val wType = Vec.fill(numPorts){ UInt(OUTPUT, width = log2Up(3)) }
+  val wType = Vec(numPorts, UInt(OUTPUT, width = log2Up(3)))
 }
 
 class WritePendingIncrementBundle (
@@ -86,19 +86,16 @@ class SRAMElementIncrement (
       elementsPerBlock = elementsPerBlock).asInstanceOf[this.type]
   }
 
-  val addr = Wire(Vec.fill(numPorts){
-    new AddrBundle(sramDepth,elementsPerBlock) })
+  val addr = Wire(Vec(numPorts, new AddrBundle(sramDepth,elementsPerBlock)))
 
-  val writePending = Vec.fill(numPorts){Reg(new WritePendingIncrementBundle(
+  val writePending = Reg(Vec(numPorts, new WritePendingIncrementBundle(
     elementWidth = elementWidth,
     dataWidth = dataWidth,
-    sramDepth = sramDepth))}
+    sramDepth = sramDepth)))
 
-  val tmp0 = Wire(Vec.fill(numPorts){
-    Vec.fill(elementsPerBlock){ UInt(width = elementWidth) }})
-  val tmp1 = Wire(Vec.fill(numPorts){
-    Vec.fill(elementsPerBlock){ UInt(width = elementWidth) }})
-  val forwarding = Wire(Vec.fill(numPorts){ Bool() })
+  val tmp0 = Wire(Vec(numPorts,Vec(elementsPerBlock,UInt(width=elementWidth))))
+  val tmp1 = Wire(Vec(numPorts,Vec(elementsPerBlock,UInt(width=elementWidth))))
+  val forwarding = Wire(Vec(numPorts, Bool()))
 
   // Combinational Logic
   for (i <- 0 until numPorts) {

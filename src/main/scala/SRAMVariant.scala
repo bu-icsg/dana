@@ -13,10 +13,10 @@ class SRAMVariantInterface(
     dataWidth = dataWidth,
     sramDepth = sramDepth,
     numPorts = numPorts).asInstanceOf[this.type]
-  val we = Vec.fill(numPorts){ Bool(OUTPUT) }
-  val din = Vec.fill(numPorts){ UInt(OUTPUT, width = dataWidth)}
-  val addr = Vec.fill(numPorts){ UInt(OUTPUT, width = log2Up(sramDepth))}
-  val dout = Vec.fill(numPorts){ UInt(INPUT, width = dataWidth)}
+  val we = Vec(numPorts, Bool(OUTPUT) )
+  val din = Vec(numPorts, UInt(OUTPUT, width = dataWidth))
+  val addr = Vec(numPorts, UInt(OUTPUT, width = log2Up(sramDepth)))
+  val dout = Vec(numPorts, UInt(INPUT, width = dataWidth))
 }
 
 class SRAMVariant(
