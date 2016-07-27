@@ -111,7 +111,8 @@ class XFilesTransactionTable(implicit p: Parameters) extends XFilesModule()(p)
   //   Module(new Queue(new XFilesRs1Rs2Funct, queueSize)).io)
   // We use a Queue with an "almost full" high water mark to provide
   // flow control for the backend.
-  val queueOutput = Vec(numEntries, Module(new QueueAf(UInt(width = xLen), queueSize,
+  val queueOutput = Vec.fill(numEntries)(
+    Module(new QueueAf(UInt(width = xLen), queueSize,
     almostFullEntries = queueSize - 1)).io)
   val arbiter = Module(new RRArbiter(UInt(width = 0), numEntries)).io
 

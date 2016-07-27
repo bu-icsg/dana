@@ -146,7 +146,7 @@ class ProcessingElementTableBase[PeStateType <: ProcessingElementState,
   // parameters should not be touched.
   val table = Reg(Vec(peTableNumEntries, genPeState))
   // Create the processing elements
-  // val pe = Vec(peTableNumEntries, Module(new ProcessingElementLearn()).io)
+  // val pe = Vec.fill(peTableNumEntries)(Module(new ProcessingElementLearn()).io)
   val pe = genPeVec
 
   // Wire up the PE data connections
@@ -370,7 +370,7 @@ class ProcessingElementTable(implicit p: Parameters)
       ProcessingElementResp, ProcessingElementInterface,
       Vec[ProcessingElementInterface]](new ProcessingElementState,
         new ProcessingElementResp,
-        Vec(p(PeTableNumEntries), Module(new ProcessingElement).io))(p) {
+        Vec.fill(p(PeTableNumEntries))(Module(new ProcessingElement).io))(p) {
   when (io.regFile.resp.valid) {
     val peIndex = io.regFile.resp.bits.peIndex
     table(peIndex).inBlock := io.regFile.resp.bits.data
