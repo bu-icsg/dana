@@ -97,21 +97,13 @@ class ProcessingElement(implicit p: Parameters) extends DanaModule()(p) {
   }
 
   // DSP Unit
-  val dsp = new Bundle {
-    // [TODO] These internal wires **may** be completely wrong.
-    // Constructors are generally forbidden inside of Bundle!
-    val a = Wire(SInt(width = elementWidth))
-    val b = Wire(SInt(width = elementWidth))
-    val c = Wire(UInt(width = elementWidth))
-    val d = Wire(SInt(width = elementWidth))
-  }
+  val dsp = Module(new DSP).io
   def DSP(a: SInt, b: SInt, c: UInt) {
     dsp.a := a
     dsp.b := b
     dsp.c := c
   }
   DSP(SInt(0), SInt(0), UInt(0))
-  dsp.d := (((dsp.a * dsp.b) >> dsp.c)(elementWidth - 1, 0)).toSInt
 
   // Default values
   acc := acc
