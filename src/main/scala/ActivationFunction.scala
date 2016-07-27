@@ -36,6 +36,16 @@ class ActivationFunctionInterfaceLearn(implicit p: Parameters)
   override val req = Valid(new ActivationFunctionReqLearn).flip
 }
 
+class DSP(implicit p: Parameters) extends DanaModule()(p) {
+  val io = new Bundle {
+    val a = SInt(INPUT, width = elementWidth)
+    val b = SInt(INPUT, width = elementWidth)
+    val c = UInt(INPUT, width = elementWidth)
+    val d = SInt(OUTPUT, width = elementWidth)
+  }
+  io.d := (((io.a * io.b) >> io.c)(elementWidth - 1, 0)).toSInt
+}
+
 class ActivationFunction(implicit p: Parameters) extends DanaModule()(p) {
   lazy val io = new ActivationFunctionInterface
 
@@ -115,20 +125,12 @@ class ActivationFunction(implicit p: Parameters) extends DanaModule()(p) {
     width = decimalPointWidth + log2Up(decimalPointOffset)) + io.req.bits.decimal
 
   // DSP Unit
-  val dsp = new Bundle {
-    // [TODO] These internal wires **may** be completely wrong.
-    // Constructors are generally forbidden inside of Bundle!
-    val a = Wire(SInt(width = elementWidth))
-    val b = Wire(SInt(width = elementWidth))
-    val c = Wire(UInt(width = elementWidth))
-    val d = Wire(SInt(width = elementWidth))
-  }
+  val dsp = Module(new DSP).io
   def DSP(a: SInt, b: SInt, c: UInt) {
     dsp.a := a
     dsp.b := b
     dsp.c := c
   }
-  dsp.d := (((dsp.a * dsp.b) >> dsp.c)(elementWidth - 1, 0)).toSInt
 
   // All activation functions currently take two cycles, so the output
   // valid signal is delayed by two cycles.
