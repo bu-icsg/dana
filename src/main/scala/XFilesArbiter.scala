@@ -32,7 +32,7 @@ class XFilesArbiter(backendInfo: UInt)(implicit p: Parameters)
 
   // Alias out some commonly used signals
   val cmd = io.core.cmd
-  val sup = io.core.status.prv.orR
+  val sup = io.core.cmd.bits.status.prv.orR
   val funct = cmd.bits.inst.funct
 
   val asidValid = asidUnit.data.valid
@@ -72,7 +72,7 @@ class XFilesArbiter(backendInfo: UInt)(implicit p: Parameters)
   // a short-circuit response hasn't been generated
   asidUnit.cmd.valid := cmd.fire() & !squashSup
   asidUnit.cmd.bits := cmd.bits
-  asidUnit.status := io.core.status
+  asidUnit.status := io.core.cmd.bits.status
   asidUnit.resp.ready := Bool(true)
 
   // See if the ASID Unit is forwarding a supervisor request to the
@@ -88,7 +88,7 @@ class XFilesArbiter(backendInfo: UInt)(implicit p: Parameters)
   // behave...
   debugUnit.cmd.valid := cmd.fire()
   debugUnit.cmd.bits := cmd.bits
-  debugUnit.status := io.core.status
+  debugUnit.cmd.bits.status := io.core.cmd.bits.status
   debugUnit.resp.ready := Bool(true)
 
   // PTW connections for the Deubg Units
@@ -152,12 +152,12 @@ class XFilesArbiter(backendInfo: UInt)(implicit p: Parameters)
   // [TODO] Kludge that zeros all the status fields of MStatus except
   // for setting the privilege bits (prv) to ONE if we're sending a
   // supervisor request.
-  io.backend.rocc.status.prv := supReqToBackend
+  io.backend.rocc.cmd.bits.status.prv := supReqToBackend
 
   when (asidUnit.cmdFwd.valid) {
     printfInfo("XFiles Arbiter: cmdFwd asserted\n")
     io.backend.rocc.cmd.bits := asidUnit.cmdFwd.bits
-    io.backend.rocc.status.prv := io.core.status.prv
+    io.backend.rocc.cmd.bits.status.prv := io.core.cmd.bits.status.prv
   }
 
   io.core.mem.req.valid := (tTable.xfiles.mem.req.valid) | (
