@@ -135,9 +135,8 @@ class ProcessingElementStateLearn(implicit p: Parameters)
 }
 
 class ProcessingElementTableBase[PeStateType <: ProcessingElementState,
-  PeRespType <: ProcessingElementResp, PeIfType <: ProcessingElementInterface,
-  PeVecType <: Vec[PeIfType]](
-  genPeState: => PeStateType, genPeResp: => PeRespType, genPeVec: => PeVecType)(
+  PeRespType <: ProcessingElementResp, PeIfType <: ProcessingElementInterface](
+  genPeState: => PeStateType, genPeResp: => PeRespType, genPeVec: => Vec[PeIfType])(
   implicit p: Parameters)
     extends DanaModule()(p) {
   lazy val io = new PETableInterface
@@ -367,8 +366,7 @@ class ProcessingElementTableBase[PeStateType <: ProcessingElementState,
 
 class ProcessingElementTable(implicit p: Parameters)
     extends ProcessingElementTableBase[ProcessingElementState,
-      ProcessingElementResp, ProcessingElementInterface,
-      Vec[ProcessingElementInterface]](new ProcessingElementState,
+      ProcessingElementResp, ProcessingElementInterface](new ProcessingElementState,
         new ProcessingElementResp,
         Vec.fill(p(PeTableNumEntries))(Module(new ProcessingElement).io))(p) {
   when (io.regFile.resp.valid) {
@@ -389,10 +387,10 @@ class ProcessingElementTable(implicit p: Parameters)
 
 class ProcessingElementTableLearn(implicit p: Parameters)
     extends ProcessingElementTableBase[ProcessingElementStateLearn,
-      ProcessingElementRespLearn, ProcessingElementInterfaceLearn,
-      Vec[ProcessingElementInterfaceLearn]](new ProcessingElementStateLearn,
+      ProcessingElementRespLearn, ProcessingElementInterfaceLearn](
+  new ProcessingElementStateLearn,
         new ProcessingElementRespLearn,
-        Vec(p(PeTableNumEntries), Module(new ProcessingElementLearn).io))(p) {
+        Vec.fill(p(PeTableNumEntries))(Module(new ProcessingElementLearn).io))(p) {
   override lazy val io = new PETableInterfaceLearn
 
   def regFileReadReq(addr: UInt, peIndex:UInt, tIdx: UInt,

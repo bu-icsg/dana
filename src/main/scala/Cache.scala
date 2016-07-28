@@ -55,9 +55,9 @@ class CacheInterfaceLearn(implicit p: Parameters)
 class CompressedNeuron(implicit p: Parameters) extends DanaBundle()(p) {
   val weightPtr = UInt(width = 16)
   val numWeights = UInt(width = 8)
-  val activationFunction = Wire(UInt(width = activationFunctionWidth))
-  val steepness = Wire(UInt(width = steepnessWidth))
-  val bias = Wire(SInt(width = elementWidth))
+  val activationFunction = UInt(width = activationFunctionWidth)
+  val steepness = UInt(width = steepnessWidth)
+  val bias = SInt(width = elementWidth)
   def populate(data: UInt, out: CompressedNeuron) {
     out.weightPtr := data(15, 0)
     out.numWeights := data(23, 16)
