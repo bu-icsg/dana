@@ -5,7 +5,7 @@ package dana
 import Chisel._
 import rocket.HasCoreParameters
 import xfiles.{XFilesParameters, XFilesModule, XFilesBundle, XFilesBackend,
-  TransactionTableNumEntries, XFilesSupervisorRequests}
+  TransactionTableNumEntries, XFilesSupervisorRequests, AsidWidth}
 import cde.{Parameters, Field}
 
 case object ElementWidth extends Field[Int]
@@ -353,6 +353,20 @@ class NnConfigNeuron(implicit p: Parameters) extends DanaBundle()(p) {
   val neuronsInLayer         = UInt(width = neuronsInLayerWidth)
   val neuronPointer          = UInt(width = neuronPointerWidth)
 }
+
+trait UsrCmdRs1 {
+  implicit val p: Parameters
+  val asid = UInt(width = p(AsidWidth))
+  val tid = UInt(width = p(AsidWidth))
+}
+
+trait UsrCmdRegWriteRs2 {
+  val regId = UInt(width = 32)
+  val regValue = UInt(width = 32)
+}
+
+class UsrCmdRegWrite(implicit p: Parameters) extends DanaBundle()(p)
+    with UsrCmdRegWriteRs2 with UsrCmdRs1
 
 // object Testbench {
 //   def main(args: Array[String]): Unit = {

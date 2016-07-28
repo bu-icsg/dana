@@ -12,7 +12,7 @@ class XFilesArbiterInterface(implicit p: Parameters) extends Bundle {
   val backend = (new XFilesBackendInterface).flip
 }
 
-class XFilesArbiter(backendInfo: UInt)(implicit p: Parameters)
+class XFilesArbiter(genInfo: => UInt)(implicit p: Parameters)
     extends XFilesModule()(p) with XFilesSupervisorRequests {
   val io = new XFilesArbiterInterface
 
@@ -64,7 +64,8 @@ class XFilesArbiter(backendInfo: UInt)(implicit p: Parameters)
 
   io.core.resp.bits.rd := cmd.bits.inst.rd
   io.core.resp.bits.data := SInt(-err_XFILES_NOASID, width = xLen).toUInt
-  when (reqInfo) { io.core.resp.bits.data := backendInfo }
+  val infoBits = genInfo
+  when (reqInfo) { io.core.resp.bits.data := infoBits }
   when (readCsr) { io.core.resp.bits.data := exception.bits
     exception.valid := Bool(false) }
 

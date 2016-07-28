@@ -42,7 +42,6 @@ class TransactionState(implicit p: Parameters) extends TableEntry()(p)
   val regFileAddrOut = UInt(width = log2Up(regFileNumElements))
   val readIdx = UInt(width = log2Up(regFileNumElements))
   val indexElement = UInt(width = log2Up(regFileNumElements))
-  val countFeedback = UInt(width = feedbackWidth)
   //-------- Can be possibly moved over to a learning-only config
   val regFileAddrOutFixed = UInt(width = log2Up(regFileNumElements))
 
@@ -69,7 +68,6 @@ class TransactionState(implicit p: Parameters) extends TableEntry()(p)
     "regFileAddrOut" -> "AOut",
     "readIdx" -> "R#",
     "indexElement" -> "#E",
-    "countFeedback" -> "CF",
     "regFileAddrOutFixed" -> "AOutF"
   )
   override def reset() {
@@ -171,7 +169,6 @@ class TransactionStateLearn(implicit p: Parameters)
     this.needsOutputs := Bool(false)
     this.inLastEarly := Bool(false)
     this.regFileAddrIn := UInt(0)
-    // table(derefTidIndex).regFileAddrDelta := UInt(0)
     this.regFileAddrDW := UInt(0)
     this.regFileAddrSlope := UInt(0)
     this.offsetBias := UInt(0)
@@ -186,7 +183,6 @@ class TransactionStateLearn(implicit p: Parameters)
     super.enable()
     this.inLastEarly := Bool(false)
     this.regFileAddrIn := UInt(0)
-    // table(derefTidIndex).regFileAddrDelta := UInt(0)
     this.regFileAddrDW := UInt(0)
     this.regFileAddrSlope := UInt(0)
     this.offsetBias := UInt(0)
@@ -308,21 +304,21 @@ class DanaTransactionTableBase[StateType <: TransactionState,
   lazy val io = new DanaTransactionTableInterface
 
   // IO aliases
-  val cmd = new DanaBundle {
-    val asid = io.arbiter.rocc.cmd.bits.rs1(asidWidth + tidWidth - 1, tidWidth)
-    val tid = io.arbiter.rocc.cmd.bits.rs1(tidWidth - 1, 0)
-    val countFeedback =
-      io.arbiter.rocc.cmd.bits.rs1(feedbackWidth + asidWidth + tidWidth - 1,
-        asidWidth + tidWidth)
-    val nnid = io.arbiter.rocc.cmd.bits.rs2(nnidWidth - 1, 0)
-    val data = io.arbiter.rocc.cmd.bits.rs2
-    val rd = io.arbiter.rocc.cmd.bits.inst.rd
-    val regId = io.arbiter.rocc.cmd.bits.rs2(63,32)
-    val regValue = io.arbiter.rocc.cmd.bits.rs2(31,0)
-    // Only used with learning, but maintained for assertion checking
-    val transactionType = io.arbiter.rocc.cmd.bits.rs2(49,48)
-    val numTrainOutputs = io.arbiter.rocc.cmd.bits.rs2(47,32)
-    val raw = io.arbiter.rocc.cmd }
+  // val cmd = new DanaBundle {
+  //   val asid = io.arbiter.rocc.cmd.bits.rs1(asidWidth + tidWidth - 1, tidWidth)
+  //   val tid = io.arbiter.rocc.cmd.bits.rs1(tidWidth - 1, 0)
+  //   val countFeedback =
+  //     io.arbiter.rocc.cmd.bits.rs1(feedbackWidth + asidWidth + tidWidth - 1,
+  //       asidWidth + tidWidth)
+  //   val nnid = io.arbiter.rocc.cmd.bits.rs2(nnidWidth - 1, 0)
+  //   val data = io.arbiter.rocc.cmd.bits.rs2
+  //   val rd = io.arbiter.rocc.cmd.bits.inst.rd
+  //   val regId = io.arbiter.rocc.cmd.bits.rs2(63,32)
+  //   val regValue = io.arbiter.rocc.cmd.bits.rs2(31,0)
+  //   // Only used with learning, but maintained for assertion checking
+  //   val transactionType = io.arbiter.rocc.cmd.bits.rs2(49,48)
+  //   val numTrainOutputs = io.arbiter.rocc.cmd.bits.rs2(47,32)
+  //   val raw = io.arbiter.rocc.cmd }
 
   // Create the actual Transaction Table
   val table = Reg(genStateVec)
@@ -346,12 +342,6 @@ class DanaTransactionTableBase[StateType <: TransactionState,
 
   // Determine if there exits a free entry in the table and the index
   // of the next availble free entry
-  val hasFree = table.exists(isFree(_: StateType))
-  val nextFree = table.indexWhere(isFree(_: StateType))
-  val foundTid = table.exists(findAsidTid(_: StateType, cmd.asid, cmd.tid))
-  val derefTidIndex = table.indexWhere(findAsidTid(_: StateType, cmd.asid,
-    cmd.tid))
-  // io.arbiter.rocc.cmd.ready := hasFree
   io.arbiter.rocc.cmd.ready := Bool(true)
   io.arbiter.rocc.resp.bits.rd := UInt(0)
   io.arbiter.rocc.resp.bits.data := UInt(0)
@@ -364,12 +354,9 @@ class DanaTransactionTableBase[StateType <: TransactionState,
 
   io.arbiter.rocc.resp.valid := Bool(false)
 
-  val newRoccCmd = cmd.raw.fire() && !io.arbiter.rocc.status.prv.orR
-  val regWrite = newRoccCmd & cmd.raw.bits.inst.funct === UInt(t_USR_WRITE_REGISTER)
-  when (regWrite) {
-    printfInfo("DANA TTable: saw reg write TID/Reg/Value 0x%x/0x%x/0x%x\n",
-      cmd.tid, cmd.regId, cmd.regValue)
-  }
+  val roccCmd = io.arbiter.rocc.cmd
+  val newRoccCmd = roccCmd.fire() && !io.arbiter.rocc.status.prv.orR
+  val regWrite = newRoccCmd & roccCmd.bits.inst.funct === UInt(t_USR_WRITE_REGISTER)
 
   // Update the table when we get a request from DANA
   when (io.control.resp.valid) {
@@ -536,6 +523,7 @@ class DanaTransactionTableBase[StateType <: TransactionState,
     }
 
     when (entry.needsInputs) {
+      val tidIdx = io.arbiter.xfResp.tidx.bits
       when (!io.arbiter.xfQueue.in.valid) {
         io.arbiter.xfResp.tidx.valid := Bool(true)
         io.arbiter.xfResp.flags.set("vi")
@@ -548,7 +536,7 @@ class DanaTransactionTableBase[StateType <: TransactionState,
         io.arbiter.xfQueue.in.ready := Bool(true)
         io.regFile.req.valid := Bool(true)
         io.regFile.req.bits.reqType := e_TTABLE_REGFILE_WRITE
-        io.regFile.req.bits.tidIdx := derefTidIndex
+        io.regFile.req.bits.tidIdx := tidIdx
         io.regFile.req.bits.addr := entry.indexElement
         val data = io.arbiter.xfQueue.in.bits.rs2
         io.regFile.req.bits.data := data
@@ -557,7 +545,7 @@ class DanaTransactionTableBase[StateType <: TransactionState,
 
         val isLast = io.arbiter.xfQueue.in.bits.funct === UInt(t_USR_WRITE_DATA_LAST)
         when (isLast) {
-          val nextIndexBlock = (table(derefTidIndex).indexElement(
+          val nextIndexBlock = (table(tidIdx).indexElement(
             log2Up(regFileNumElements)-1,log2Up(elementsPerBlock)) ##
             UInt(0, width=log2Up(elementsPerBlock))) + UInt(elementsPerBlock)
           entry.indexElement := nextIndexBlock
@@ -667,13 +655,6 @@ class DanaTransactionTableBase[StateType <: TransactionState,
   // No writes should show up if the transaction is already valid
   // assert(!(newRoccCmd && cmd.readOrWrite && table(derefTidIndex).flags.valid),
   //   "DANA TTable saw write requests on valid TID")
-
-  // If learning is disabled we should never see a learning request
-  if (!learningEnabled) {
-    assert(!(newRoccCmd &&
-      (cmd.transactionType === e_TTYPE_INCREMENTAL ||
-        cmd.transactionType === e_TTYPE_BATCH)),
-      "Built DANA does not support learning") }
 
   // Temporary printfs and assertions
   when (io.arbiter.xfReq.tidx.fire()) {
@@ -801,12 +782,18 @@ class DanaTransactionTableLearn(implicit p: Parameters)
   })
 
   when (regWrite) {
+    val cmd = (new UsrCmdRegWrite).fromBits(io.arbiter.rocc.cmd.bits.rs2 ##
+      io.arbiter.rocc.cmd.bits.rs1)
+    val derefTidIndex = table.indexWhere(findAsidTid(_: TransactionStateLearn,
+      cmd.asid, cmd.tid))
     val e = table(derefTidIndex)
     switch(cmd.regId) {
       is (e_TTABLE_WRITE_REG_BATCH_ITEMS) {  e.numBatchItems := cmd.regValue }
       is (e_TTABLE_WRITE_REG_LEARNING_RATE) { e.learningRate := cmd.regValue }
       is (e_TTABLE_WRITE_REG_WEIGHT_DECAY_LAMBDA) { e.lambda := cmd.regValue }
     }
+    printfInfo("DANA TTable: saw reg write TID/Reg/Value 0x%x/0x%x/0x%x\n",
+      cmd.tid, cmd.regId, cmd.regValue)
   }
 
   // IO Arbiter
@@ -843,6 +830,7 @@ class DanaTransactionTableLearn(implicit p: Parameters)
     }
 
     when (entry.needsOutputs) {
+      val tidIdx = io.arbiter.xfResp.tidx.bits
       when (!io.arbiter.xfQueue.in.valid) {
         io.arbiter.xfResp.tidx.valid := Bool(true)
         io.arbiter.xfResp.flags.set("vi")
@@ -855,7 +843,7 @@ class DanaTransactionTableLearn(implicit p: Parameters)
         io.arbiter.xfQueue.in.ready := Bool(true)
         io.regFile.req.valid := Bool(true)
         io.regFile.req.bits.reqType := e_TTABLE_REGFILE_WRITE
-        io.regFile.req.bits.tidIdx := derefTidIndex
+        io.regFile.req.bits.tidIdx := tidIdx
         io.regFile.req.bits.addr := entry.indexElement
         val data = io.arbiter.xfQueue.in.bits.rs2
         io.regFile.req.bits.data := data
@@ -1259,17 +1247,3 @@ class DanaTransactionTableLearn(implicit p: Parameters)
       table(i).stateLearn === e_TTABLE_STATE_ERROR),
       "DANA TTable Transaction is in error state"))
 }
-
-// class DanaTransactionTableTests(uut: DanaTransactionTable, isTrace: Boolean = true)
-//     extends DanaTester(uut, isTrace) {
-//   for (t <- 0 until 3) {
-//     peek(uut.hasFree)
-//     peek(uut.nextFree)
-//     val tid = t
-//     val nnid = t + 15 * 16
-//     // newWriteRequest(uut.io.arbiter.rocc, tid, nnid)
-//     // writeRndData(uut.io.arbiter.rocc, tid, nnid, 5, 10)
-//     info(uut)
-//     poke(uut.io.control.req.ready, 1)
-//   }
-// }
