@@ -24,7 +24,7 @@ class RegisterFileState(implicit p: Parameters) extends DanaBundle()(p) {
   val countWrites = UInt(width = 16) // [TODO] fragile
 }
 
-abstract class RegisterFileBase[SramIf <: SRAMElementInterface](
+class RegisterFileBase[SramIf <: SRAMElementInterface](
   genSram: => Vec[SramIf])(implicit p: Parameters)
     extends DanaModule()(p) {
   lazy val io = new RegisterFileInterface
@@ -174,21 +174,19 @@ abstract class RegisterFileBase[SramIf <: SRAMElementInterface](
 
 }
 
-class RegisterFile(implicit p: Parameters)
-    extends RegisterFileBase(Vec(p(TransactionTableNumEntries),
-      Module(new SRAMElement(
-        dataWidth = p(BitsPerBlock),
-        sramDepth = pow(2, log2Up(p(RegFileNumBlocks))).toInt,
-        numPorts = 1,
-        elementWidth = p(ElementWidth))).io))(p)
+class RegisterFile(implicit p: Parameters) extends RegisterFileBase (
+  Vec.fill(p(TransactionTableNumEntries))(Module(new SRAMElement(
+    dataWidth = p(BitsPerBlock),
+    sramDepth = pow(2, log2Up(p(RegFileNumBlocks))).toInt,
+    numPorts = 1,
+    elementWidth = p(ElementWidth))).io))(p)
 
-class RegisterFileLearn(implicit p: Parameters)
-    extends RegisterFileBase(Vec(p(TransactionTableNumEntries),
-      Module(new SRAMElementIncrement(
-        dataWidth = p(BitsPerBlock),
-        sramDepth = pow(2, log2Up(p(RegFileNumBlocks))).toInt,
-        numPorts = 1,
-        elementWidth = p(ElementWidth))).io))(p) {
+class RegisterFileLearn(implicit p: Parameters) extends RegisterFileBase (
+  Vec.fill(p(TransactionTableNumEntries))(Module(new SRAMElementIncrement(
+    dataWidth = p(BitsPerBlock),
+    sramDepth = pow(2, log2Up(p(RegFileNumBlocks))).toInt,
+    numPorts = 1,
+    elementWidth = p(ElementWidth))).io))(p) {
   override lazy val io = new RegisterFileInterfaceLearn
 
   val readReqType_d0 = Reg(next = io.pe.req.bits.reqType)

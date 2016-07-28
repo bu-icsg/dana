@@ -273,7 +273,7 @@ abstract class CacheBase[SramIfType <: SRAMVariantInterface,
   switch (controlRespPipe(0).bits.field) {
     is (e_CACHE_INFO) {
       val thisCache = mem(controlRespPipe(0).bits.cacheIndex).dout(0)
-      val dataDecode = (new nnConfigHeader).fromBits(thisCache)
+      val dataDecode = (new NnConfigHeader).fromBits(thisCache)
 
       controlRespPipe(1).bits.decimalPoint := dataDecode.decimalPoint
       controlRespPipe(1).bits.data(0) := dataDecode.totalLayers
@@ -288,7 +288,7 @@ abstract class CacheBase[SramIfType <: SRAMVariantInterface,
     is (e_CACHE_LAYER_INFO) {
       val thisCache = mem(controlRespPipe(0).bits.cacheIndex).dout(0)
       // [TODO] fragile
-      val dataDecode = Vec(bitsPerBlock/32, new nnConfigNeuron).fromBits(thisCache)
+      val dataDecode = Vec(bitsPerBlock/32, new NnConfigNeuron).fromBits(thisCache)
       val neuronIdx = controlRespPipe(0).bits.data(0)
 
       controlRespPipe(1).bits.data(0) := dataDecode(neuronIdx).neuronsInLayer
@@ -433,7 +433,7 @@ class CacheLearn(implicit p: Parameters)
 
   // [TODO] Why is this always assigned?
   val thisCache = mem(controlRespPipe(0).bits.cacheIndex).dout(0)
-  val dataDecode = (new nnConfigHeader).fromBits(thisCache)
+  val dataDecode = (new NnConfigHeader).fromBits(thisCache)
   controlRespPipe(1).bits.globalWtptr := dataDecode.weightsPointer
 
   when (io.pe.req.valid) {
