@@ -48,14 +48,14 @@ class ProcessingElementInterface(implicit p: Parameters) extends DanaBundle()(p)
   // components: requests from the PE Table (really kicks to do
   // something), responses to the PE Table, and semi-static data which
   // th PE Table manages and is used by the PEs for computation.
-  lazy val req = Decoupled(new ProcessingElementReq).flip
-  lazy val resp = Decoupled(new ProcessingElementResp)
+  val req = Decoupled(new ProcessingElementReq).flip
+  val resp = Decoupled(new ProcessingElementResp)
 }
 
 class ProcessingElementInterfaceLearn(implicit p: Parameters)
     extends ProcessingElementInterface()(p) {
-  override lazy val req = Decoupled(new ProcessingElementReqLearn).flip
-  override lazy val resp = Decoupled(new ProcessingElementRespLearn)
+  override val req = Decoupled(new ProcessingElementReqLearn).flip
+  override val resp = Decoupled(new ProcessingElementRespLearn)
 }
 
 class ProcessingElement(implicit p: Parameters) extends DanaModule()(p) {
