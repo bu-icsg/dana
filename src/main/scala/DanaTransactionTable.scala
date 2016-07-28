@@ -308,7 +308,7 @@ class DanaTransactionTableBase[StateType <: TransactionState,
   lazy val io = new DanaTransactionTableInterface
 
   // IO aliases
-  lazy val cmd = new DanaBundle {
+  val cmd = new DanaBundle {
     val asid = io.arbiter.rocc.cmd.bits.rs1(asidWidth + tidWidth - 1, tidWidth)
     val tid = io.arbiter.rocc.cmd.bits.rs1(tidWidth - 1, 0)
     val countFeedback =
@@ -489,9 +489,11 @@ class DanaTransactionTableBase[StateType <: TransactionState,
   }
 
   // Input/Output arbitration happens separately from arbitration
-  // related to communication with the Cache and the PEs
-  val ioArbiter = Module(new RRArbiter(UInt(width = 0),
-    transactionTableNumEntries)).io
+  // related to communication with the Cache and the PEs. Note that
+  // this UInt is technically not used. The RRArbiter is just used to
+  // get an index. [TODO] Perhaps a better solution could be achieved
+  // here?
+  val ioArbiter = Module(new RRArbiter(UInt(), transactionTableNumEntries)).io
 
   (0 until transactionTableNumEntries).map(i => {
     val entry = table(i)
