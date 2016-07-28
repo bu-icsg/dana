@@ -323,7 +323,7 @@ class Dana(implicit p: Parameters) extends XFilesBackend()(p)
 
 // [TODO] Create a better way for only specifying the encodings in
 // one place and pulling them in to generate this.
-class nnConfigHeader(implicit p: Parameters) extends DanaBundle()(p) {
+class NnConfigHeader(implicit p: Parameters) extends DanaBundle()(p) {
   // [TODO] Fragile
   val lambda               = UInt(width = lambdaWidth)
   val learningRate         = UInt(width = learningRateWidth)
@@ -338,7 +338,7 @@ class nnConfigHeader(implicit p: Parameters) extends DanaBundle()(p) {
   val decimalPoint         = UInt(width = decimalPointWidth)
 }
 
-class nnConfigLayer(implicit p: Parameters) extends DanaBundle()(p) {
+class NnConfigLayer(implicit p: Parameters) extends DanaBundle()(p) {
   // [TODO] Fragile
   val bias               = UInt(width = elementWidth)
   val steepness          = UInt(width = steepnessWidth)
@@ -347,7 +347,7 @@ class nnConfigLayer(implicit p: Parameters) extends DanaBundle()(p) {
   val weightOffset       = UInt(width = nnConfigPointerWidth)
 }
 
-class nnConfigNeuron(implicit p: Parameters) extends DanaBundle()(p) {
+class NnConfigNeuron(implicit p: Parameters) extends DanaBundle()(p) {
   // [TODO] Fragile
   val neuronsInPreviousLayer = UInt(width = neuronsInPrevLayerWidth)
   val neuronsInLayer         = UInt(width = neuronsInLayerWidth)
