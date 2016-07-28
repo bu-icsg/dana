@@ -138,9 +138,9 @@ class XFiles(implicit p: Parameters) extends RoCC()(p)
     with HasCoreParameters {
   val buildBackend = p(BuildXFilesBackend)
   val backend = buildBackend.generator(p)
-  val backendInfo = UInt(p(TransactionTableNumEntries)) ##
+  def info = UInt(p(TransactionTableNumEntries)) ##
     UInt(buildBackend.info, width = xLen - 16)
-  val xFilesArbiter = Module(new XFilesArbiter(backendInfo)(p))
+  val xFilesArbiter = Module(new XFilesArbiter(info)(p))
 
   // Core -> Arbiter connections
   io.cmd <> xFilesArbiter.io.core.cmd

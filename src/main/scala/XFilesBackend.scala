@@ -10,7 +10,7 @@ import junctions.ParameterizedBundle
 case object BuildXFilesBackend extends Field[XFilesBackendParameters]
 case class XFilesBackendParameters(
   generator: Parameters => XFilesBackend,
-  info: Int = 0)
+  info: Long = 0)
 
 class InterruptBundle(implicit p: Parameters) extends XFilesBundle()(p) {
   val code = UInt(OUTPUT, width = xLen)
