@@ -7,7 +7,7 @@ import cde.Parameters
 
 class ProcessingElementReq(implicit p: Parameters) extends DanaBundle()(p) {
   val numWeights = UInt(INPUT, width = 8)            // [TODO] fragile
-  val index = UInt(INPUT)
+  val index = UInt(INPUT, width = log2Up(peTableNumEntries))
   val decimalPoint = UInt(INPUT, decimalPointWidth)
   val steepness = UInt(INPUT, steepnessWidth)
   val activationFunction = UInt(INPUT, activationFunctionWidth)
@@ -31,8 +31,8 @@ class ProcessingElementReqLearn(implicit p: Parameters)
 
 class ProcessingElementResp(implicit p: Parameters) extends DanaBundle()(p) {
   val data = SInt(width = elementWidth)
-  val state = UInt()
-  val index = UInt()
+  val state = UInt(width = log2Up(PE_states.size))
+  val index = UInt(width = log2Up(peTableNumEntries))
   val incWriteCount = Bool()
 }
 
@@ -72,8 +72,9 @@ class ProcessingElement(implicit p: Parameters) extends DanaModule()(p) {
   val eleIndex = index(log2Up(elementsPerBlock) - 1, 0)
 
   // [TODO] fragile on PE stateu enum (Common.scala)
-  val state = Reg(UInt(), init = PE_states('e_PE_UNALLOCATED))
-  val nextState = Wire(UInt())
+  val state = Reg(UInt(width = log2Up(PE_states.size)),
+    init = PE_states('e_PE_UNALLOCATED))
+  val nextState = Wire(UInt(width = log2Up(PE_states.size)))
   nextState := state
 
   // Local state storage. Any and all of these are possible kludges

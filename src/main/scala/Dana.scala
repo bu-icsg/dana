@@ -112,10 +112,40 @@ trait DanaParameters {
   val int_UNKNOWN     = -1
 }
 
+trait DanaEnums {
+  // PE State
+  val PE_states = Enum(UInt(),
+    List('e_PE_UNALLOCATED,                               // 0
+      'e_PE_GET_INFO,                                     // 1
+      'e_PE_REQUEST_INPUTS_AND_WEIGHTS,                   // 2
+      'e_PE_RUN,                                          // 3
+      'e_PE_ACTIVATION_FUNCTION,                          // 4
+      'e_PE_COMPUTE_DERIVATIVE,                           // 5
+      'e_PE_REQUEST_EXPECTED_OUTPUT,                      // 6
+      'e_PE_COMPUTE_ERROR,                                // 7
+      'e_PE_ERROR_FUNCTION,                               // 8
+      'e_PE_COMPUTE_DELTA,                                // 9
+      'e_PE_ERROR_BACKPROP_REQUEST_WEIGHTS,               // 10
+      'e_PE_ERROR_BACKPROP_DELTA_WEIGHT_MUL,              // 11
+      'e_PE_ERROR_BACKPROP_WEIGHT_WB,                     // 12
+      'e_PE_REQUEST_OUTPUTS_ERROR_BACKPROP,               // 13
+      'e_PE_REQUEST_DELTA_WEIGHT_PRODUCT_ERROR_BACKPROP,  // 14
+      'e_PE_RUN_UPDATE_SLOPE,                             // 15
+      'e_PE_SLOPE_WB,                                     // 16
+      'e_PE_SLOPE_BIAS_WB,                                // 17
+      'e_PE_RUN_WEIGHT_UPDATE,                            // 19
+      'e_PE_WEIGHT_UPDATE_WRITE_BACK,                     // 20
+      'e_PE_WEIGHT_UPDATE_WRITE_BIAS,                     // 21
+      'e_PE_WEIGHT_UPDATE_REQUEST_BIAS,                   // 22
+      'e_PE_WEIGHT_UPDATE_COMPUTE_BIAS,                   // 23
+      'e_PE_DONE,                                         // 24
+      'e_PE_ERROR))                                       // 25
+}
+
 // An abstract base class for anything associated with DANA (and the
 // X-FILES framework?). This defines all shared DANA parameters.
 abstract class DanaModule(implicit p: Parameters) extends XFilesModule()(p)
-    with DanaParameters {
+    with DanaParameters with DanaEnums {
   // Transaction Table State Entries. nnsim-hdl equivalent:
   //   controL_types::field_enum
   val (e_TTABLE_VALID ::       // 0
@@ -167,33 +197,6 @@ abstract class DanaModule(implicit p: Parameters) extends XFilesModule()(p)
   val (e_PE_NEURON :: // 0
     e_PE_WEIGHT ::    // 1
     Nil) = Enum(UInt(), 2)
-  // PE State
-  val PE_states = Enum(UInt(),
-    List('e_PE_UNALLOCATED,                               // 0
-      'e_PE_GET_INFO,                                     // 1
-      'e_PE_REQUEST_INPUTS_AND_WEIGHTS,                   // 2
-      'e_PE_RUN,                                          // 3
-      'e_PE_ACTIVATION_FUNCTION,                          // 4
-      'e_PE_COMPUTE_DERIVATIVE,                           // 5
-      'e_PE_REQUEST_EXPECTED_OUTPUT,                      // 6
-      'e_PE_COMPUTE_ERROR,                                // 7
-      'e_PE_ERROR_FUNCTION,                               // 8
-      'e_PE_COMPUTE_DELTA,                                // 9
-      'e_PE_ERROR_BACKPROP_REQUEST_WEIGHTS,               // 10
-      'e_PE_ERROR_BACKPROP_DELTA_WEIGHT_MUL,              // 11
-      'e_PE_ERROR_BACKPROP_WEIGHT_WB,                     // 12
-      'e_PE_REQUEST_OUTPUTS_ERROR_BACKPROP,               // 13
-      'e_PE_REQUEST_DELTA_WEIGHT_PRODUCT_ERROR_BACKPROP,  // 14
-      'e_PE_RUN_UPDATE_SLOPE,                             // 15
-      'e_PE_SLOPE_WB,                                     // 16
-      'e_PE_SLOPE_BIAS_WB,                                // 17
-      'e_PE_RUN_WEIGHT_UPDATE,                            // 19
-      'e_PE_WEIGHT_UPDATE_WRITE_BACK,                     // 20
-      'e_PE_WEIGHT_UPDATE_WRITE_BIAS,                     // 21
-      'e_PE_WEIGHT_UPDATE_REQUEST_BIAS,                   // 22
-      'e_PE_WEIGHT_UPDATE_COMPUTE_BIAS,                   // 23
-      'e_PE_DONE,                                         // 24
-      'e_PE_ERROR))                                       // 25
   val (e_PE_REQ_INPUT ::             // 0
     e_PE_REQ_EXPECTED_OUTPUT ::      // 1
     e_PE_REQ_OUTPUT ::               // 2
@@ -247,7 +250,7 @@ abstract class DanaModule(implicit p: Parameters) extends XFilesModule()(p)
 // parameters that should be shared. All parameters defined here
 // should be the same as in DanaModule.
 abstract class DanaBundle(implicit p: Parameters) extends XFilesBundle()(p)
-    with DanaParameters
+    with DanaParameters with DanaEnums
 
 class Dana(implicit p: Parameters) extends XFilesBackend()(p)
     with DanaParameters with XFilesSupervisorRequests {
