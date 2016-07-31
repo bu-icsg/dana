@@ -93,7 +93,7 @@ class XFilesArbiter(genInfo: => UInt)(implicit p: Parameters)
   debugUnit.resp.ready := Bool(true)
 
   // PTW connections for the Deubg Units
-  debugUnit.ptw <> io.core.ptw
+  io.core.ptw <> debugUnit.ptw
 
   // Core queue connections. We enqueue any user requests, i.e.,
   // anything that hasn't been squashed. The ASID and TID are
@@ -236,8 +236,8 @@ class XFilesArbiter(genInfo: => UInt)(implicit p: Parameters)
   tTable.backend.rocc.mem.req <> io.backend.rocc.mem.req
 
   io.backend.xfReq <> tTable.backend.xfReq
-  io.backend.xfResp <> tTable.backend.xfResp
-  io.backend.xfQueue <> tTable.backend.xfQueue
+  tTable.backend.xfResp <> io.backend.xfResp
+  tTable.backend.xfQueue <> io.backend.xfQueue
 
   when (reset) { exception.valid := Bool(false) }
 

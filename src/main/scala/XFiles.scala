@@ -149,9 +149,9 @@ class XFiles(implicit p: Parameters) extends RoCC()(p)
   val xFilesArbiter = Module(new XFilesArbiter(info)(p))
 
   // Core -> Arbiter connections
-  io.cmd <> xFilesArbiter.io.core.cmd
+  xFilesArbiter.io.core.cmd <> io.cmd
   io.resp <> xFilesArbiter.io.core.resp
-  io.mem.resp <> xFilesArbiter.io.core.mem.resp
+  xFilesArbiter.io.core.mem.resp <> io.mem.resp
   io.ptw <> xFilesArbiter.io.core.ptw
   io.autl <> xFilesArbiter.io.core.autl
   io.utl <> xFilesArbiter.io.core.utl
