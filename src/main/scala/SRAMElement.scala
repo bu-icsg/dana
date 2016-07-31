@@ -20,8 +20,8 @@ class SRAMElementInterface (
     sramDepth = sramDepth,
     numPorts = numPorts,
     elementWidth = elementWidth).asInstanceOf[this.type]
-  val dinElement = Vec(numPorts, UInt(OUTPUT, width = elementWidth))
-  override val addr = Vec(numPorts, UInt(OUTPUT,
+  val dinElement = Vec(numPorts, UInt(INPUT, width = elementWidth))
+  override val addr = Vec(numPorts, UInt(INPUT,
     width = log2Up(sramDepth) + log2Up(dataWidth / elementWidth)))
 }
 
@@ -56,7 +56,7 @@ class SRAMElement (
     sramDepth = sramDepth,
     numPorts = numPorts,
     elementWidth = elementWidth
-  ).flip
+  )
 
   val elementsPerBlock = divUp(dataWidth, elementWidth)
 

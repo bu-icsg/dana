@@ -19,18 +19,18 @@ class SRAMInterface(
     sramDepth = sramDepth
   ).asInstanceOf[this.type]
   // Data Input
-  val din = Vec(UInt(OUTPUT, width = dataWidth), numReadWritePorts)
-  val dinW = Vec(UInt(OUTPUT, width = dataWidth), numWritePorts)
+  val din = Vec(UInt(INPUT, width = dataWidth), numReadWritePorts)
+  val dinW = Vec(UInt(INPUT, width = dataWidth), numWritePorts)
   // Data Output
-  val dout = Vec(UInt(INPUT, width = dataWidth), numReadWritePorts)
-  val doutR = Vec(UInt(INPUT, width = dataWidth), numReadPorts)
+  val dout = Vec(UInt(OUTPUT, width = dataWidth), numReadWritePorts)
+  val doutR = Vec(UInt(OUTPUT, width = dataWidth), numReadPorts)
   // Addresses
-  val addr = Vec(UInt(OUTPUT, width = log2Up(sramDepth)), numReadWritePorts)
-  val addrR = Vec(UInt(OUTPUT, width = log2Up(sramDepth)), numReadPorts)
-  val addrW = Vec(UInt(OUTPUT, width = log2Up(sramDepth)), numWritePorts)
+  val addr = Vec(UInt(INPUT, width = log2Up(sramDepth)), numReadWritePorts)
+  val addrR = Vec(UInt(INPUT, width = log2Up(sramDepth)), numReadPorts)
+  val addrW = Vec(UInt(INPUT, width = log2Up(sramDepth)), numWritePorts)
   // Write enable
-  val we = Vec(Bool(OUTPUT), numReadWritePorts)
-  val weW = Vec(Bool(OUTPUT), numWritePorts)
+  val we = Vec(Bool(INPUT), numReadWritePorts)
+  val weW = Vec(Bool(INPUT), numWritePorts)
 }
 
 class SRAM (
@@ -41,7 +41,7 @@ class SRAM (
   val numReadWritePorts: Int = 2,
   val initSwitch: Int = -1,
   val elementsPerBlock: Int = -1
-) extends BlackBox {
+) extends Module {
   // [TODO] issue-37, chisel3 does not have support for setVerilogParameters
   // if (initSwitch >= 0) {
   //   setVerilogParameters(
@@ -63,8 +63,7 @@ class SRAM (
     numWritePorts = numWritePorts,
     numReadWritePorts = numReadWritePorts,
     dataWidth = dataWidth,
-    sramDepth = sramDepth
-  ).flip
+    sramDepth = sramDepth)
   val mem = Mem(sramDepth, UInt(width = dataWidth))
 
   if (numReadWritePorts > 0) {
