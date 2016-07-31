@@ -116,7 +116,7 @@ class XFilesTransactionTable(implicit p: Parameters) extends XFilesModule()(p)
       almostFullEntries = queueSize - 1)).io)
   // The RRArbiter is not communicating data, but is only used to
   // provide arbitration to generate an index
-  val arbiter = Module(new RRArbiter(UInt(), numEntries)).io
+  val arbiter = Module(new RRArbiter(Bool(), numEntries)).io
 
   val hasFree = table.exists(isFree(_: TableEntry))
   val idxFree = table.indexWhere(isFree(_: TableEntry))

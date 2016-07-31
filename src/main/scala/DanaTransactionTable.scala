@@ -480,7 +480,7 @@ class DanaTransactionTableBase[StateType <: TransactionState,
   // this UInt is technically not used. The RRArbiter is just used to
   // get an index. [TODO] Perhaps a better solution could be achieved
   // here?
-  val ioArbiter = Module(new RRArbiter(UInt(), transactionTableNumEntries)).io
+  val ioArbiter = Module(new RRArbiter(Bool(), transactionTableNumEntries)).io
 
   (0 until transactionTableNumEntries).map(i => {
     val entry = table(i)
