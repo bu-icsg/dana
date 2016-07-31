@@ -268,10 +268,10 @@ class Dana(implicit p: Parameters) extends XFilesBackend()(p)
 
   // Wire everything up. Ordering shouldn't matter here.
   cache.io.control <> control.io.cache
-  control.io.peTable <> peTable.io.control
-  control.io.regFile <> regFile.io.control
-  peTable.io.cache <> cache.io.pe
-  peTable.io.regFile <> regFile.io.pe
+  peTable.io.control <> control.io.peTable
+  regFile.io.control <> control.io.regFile
+  cache.io.pe <> peTable.io.cache
+  regFile.io.pe <> peTable.io.regFile
 
   // ASID--NNID Table Walker
   antw.io.xfiles.rocc.cmd.valid := io.rocc.cmd.valid
@@ -280,8 +280,8 @@ class Dana(implicit p: Parameters) extends XFilesBackend()(p)
   antw.io.xfiles.rocc.status := io.rocc.cmd.bits.status
 
   antw.io.cache <> cache.io.mem
-  antw.io.xfiles.dcache.mem <> io.rocc.mem
-  antw.io.xfiles.autl <> io.rocc.autl
+  io.rocc.mem <> antw.io.xfiles.dcache.mem
+  io.rocc.autl <> antw.io.xfiles.autl
 
   // Arbitration between TTable and ANTW
   io.rocc.cmd.ready := antw.io.xfiles.rocc.cmd.ready &
@@ -302,12 +302,12 @@ class Dana(implicit p: Parameters) extends XFilesBackend()(p)
   tTable.io.arbiter.rocc.resp.ready := io.rocc.resp.ready
   tTable.io.arbiter.rocc.status := io.rocc.cmd.bits.status
 
-  tTable.io.control <> control.io.tTable
-  tTable.io.regFile <> regFile.io.tTable
+  control.io.tTable <> tTable.io.control
+  regFile.io.tTable <> tTable.io.regFile
 
   tTable.io.arbiter.xfReq <> io.xfReq
-  tTable.io.arbiter.xfResp <> io.xfResp
-  tTable.io.arbiter.xfQueue <> io.xfQueue
+  io.xfResp <> tTable.io.arbiter.xfResp
+  io.xfQueue <> tTable.io.arbiter.xfQueue
 
   // There is a difference between the RoCC interrupt (which is tied
   // off) and the interruptBundle which includes more information

@@ -25,7 +25,7 @@ class SRAMBlockIncrementInterface (
     sramDepth = sramDepth,
     numPorts = numPorts,
     elementWidth = elementWidth).asInstanceOf[this.type]
-  val inc = Vec(numPorts, Bool(OUTPUT))
+  val inc = Vec(numPorts, Bool(INPUT))
 }
 
 class WritePendingBlockIncrementBundle (
@@ -58,7 +58,7 @@ class SRAMBlockIncrement (
     dataWidth = dataWidth,
     sramDepth = sramDepth,
     numPorts = numPorts,
-    elementWidth = elementWidth).flip
+    elementWidth = elementWidth)
 
   val elementsPerBlock = divUp(dataWidth, elementWidth)
 

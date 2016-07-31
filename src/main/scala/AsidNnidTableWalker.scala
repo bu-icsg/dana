@@ -48,7 +48,8 @@ class antp(implicit p: Parameters) extends DanaBundle()(p) {
 
 class ConfigRobEntry(implicit p: Parameters) extends DanaBundle()(p)
     with HasTileLinkParameters {
-  val valid = UInt(width = bitsPerBlock / tlDataBits)
+  // val valid = UInt(width = bitsPerBlock / tlDataBits)
+  val valid = Vec(bitsPerBlock / tlDataBits, Bool())
   val data = Vec(bitsPerBlock / tlDataBits, UInt(width = tlDataBits))
 }
 
@@ -379,7 +380,8 @@ class AsidNnidTableWalker(implicit p: Parameters) extends DanaModule()(p)
     io.cache.resp.bits.addr := cacheAddr
     cacheAddr := cacheAddr + UInt(1)
 
-    configRob.valid.toBits := UInt(0)
+    // configRob.valid.toBits := UInt(0)
+    (0 until configRob.valid.length).map(i => configRob.valid(i) := Bool(false))
     printfInfo("ANTW: Cache[%d] Resp: done 0x%x, addr 0x%x, data 0x%x\n",
       cacheIdx, done, cacheAddr, configRob.data.toBits)
     printfInfo("ANTW:   cacheAddr/configSize/cS>>cbs 0x%x/0x%x/0x%x\n",
@@ -389,8 +391,8 @@ class AsidNnidTableWalker(implicit p: Parameters) extends DanaModule()(p)
 
   // Reset conditions
   when (reset) {
+    (0 until configRob.valid.length).map(i => configRob.valid(i) := Bool(false))
     antpReg.valid := Bool(false)
-    configRob.valid.toBits := UInt(0)
   }
 
   // Assertions

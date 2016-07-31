@@ -13,7 +13,7 @@ class ActivationFunctionReq(implicit p: Parameters) extends DanaBundle()(p) {
   // Differentiate activation function requests vs. error function
   // requests
   val activationFunction = UInt(width = log2Up(18)) // [TODO] fragile
-  val in = SInt(INPUT, elementWidth)
+  val in = SInt(elementWidth)
 }
 
 class ActivationFunctionReqLearn(implicit p: Parameters)
@@ -23,17 +23,17 @@ class ActivationFunctionReqLearn(implicit p: Parameters)
 }
 
 class ActivationFunctionResp(implicit p: Parameters) extends DanaBundle()(p) {
-  val out = SInt(OUTPUT, elementWidth)
+  val out = SInt(elementWidth)
 }
 
 class ActivationFunctionInterface(implicit p: Parameters) extends DanaBundle()(p) {
-  val req = Valid(new ActivationFunctionReq).flip
-  val resp = Valid(new ActivationFunctionResp)
+  val req = Valid(new ActivationFunctionReq).asInput
+  val resp = Valid(new ActivationFunctionResp).asOutput
 }
 
 class ActivationFunctionInterfaceLearn(implicit p: Parameters)
     extends ActivationFunctionInterface()(p) {
-  override val req = Valid(new ActivationFunctionReqLearn).flip
+  override val req = Valid(new ActivationFunctionReqLearn).asInput
 }
 
 class DSP(implicit p: Parameters) extends DanaModule()(p) {
