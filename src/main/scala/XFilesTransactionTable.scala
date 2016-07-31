@@ -141,7 +141,7 @@ class XFilesTransactionTable(implicit p: Parameters) extends XFilesModule()(p)
   io.xfiles.busy := io.backend.rocc.busy
 
   // memory connections
-  io.backend.rocc.mem <> io.xfiles.mem
+  io.xfiles.mem <> io.backend.rocc.mem
   // io.backned.rocc.autl <> io.xfiles.autl
   // io.backend.rocc.utl <> io.xfiles.utl
   // io.backend.rocc.fpu_req <> io.xfiles.fpu_req

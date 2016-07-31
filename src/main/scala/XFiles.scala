@@ -63,9 +63,15 @@ trait XFilesResponseCodes extends HasCoreParameters with XFilesParameters {
 
   def genResp[T <: Bits](resp: T, respCode: T, tid: T,
     data: T = Bits(0, width = xLen)) {
-    resp := data.toBits
-    resp(xLen - 1, xLen - respCodeWidth) := respCode.toBits
-    resp(xLen - respCodeWidth - 1, xLen - respCodeWidth - tidWidth) := tid.toBits
+    val tmp = Wire(new Bundle {
+      val respCode = UInt(width = respCodeWidth)
+      val tid = UInt(width = tidWidth)
+      val data = UInt(width = xLen - respCodeWidth - tidWidth)
+    })
+    tmp.respCode := respCode.toBits
+    tmp.tid := tid.toBits
+    tmp.data := data
+    resp := tmp.toBits
   }
 }
 
