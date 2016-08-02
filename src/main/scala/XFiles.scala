@@ -155,9 +155,10 @@ class XFiles(implicit p: Parameters) extends RoCC()(p)
   io.ptw <> xFilesArbiter.io.core.ptw
   io.autl <> xFilesArbiter.io.core.autl
   io.utl <> xFilesArbiter.io.core.utl
-  io.busy := xFilesArbiter.io.core.busy
+  // io.busy := xFilesArbiter.io.core.busy
   xFilesArbiter.io.core.cmd.bits.status := io.cmd.bits.status
   io.interrupt := xFilesArbiter.io.core.interrupt
+  io.busy := xFilesArbiter.io.core.busy
 
   // The mem (L1 dcache) connection must be done manually due to the
   // explicit setting of mem.req.phys in rocc.scala.

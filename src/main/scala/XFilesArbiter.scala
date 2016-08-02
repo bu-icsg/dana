@@ -128,6 +128,7 @@ class XFilesArbiter(genInfo: => UInt)(implicit p: Parameters)
 
   // Other connections
   io.core.interrupt := exception.valid
+  io.core.busy := io.backend.rocc.busy
 
   when (backendException) {
     printfError("XF Arbiter: RoCC Exception asserted\n")

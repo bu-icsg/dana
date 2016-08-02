@@ -269,6 +269,8 @@ class Dana(implicit p: Parameters) extends XFilesBackend()(p)
   val tTable = if (learningEnabled) Module(new DanaTransactionTableLearn) else
     Module(new DanaTransactionTable)
 
+  io.rocc.busy := Bool(false)
+
   // Wire everything up. Ordering shouldn't matter here.
   cache.io.control <> control.io.cache
   peTable.io.control <> control.io.peTable
