@@ -124,9 +124,8 @@ int main(int argc, char *argv[])
     printf("Decimal point: 0x%x (%d), encoded: 0x%x\n",
            ann->decimal_point, ann->decimal_point, decimal_point_encoded);
   if (decimal_point_encoded > 7) {
-    if (flag_verbose)
-      printf("Decimal point (%d) is not in range [%d, %d]\n",
-             ann->decimal_point, decimal_point_offset, decimal_point_offset + 7);
+    fprintf(stderr, "[ERROR] Decimal point (%d) is not in range [%d, %d]\n",
+            ann->decimal_point, decimal_point_offset, decimal_point_offset + 7);
     exit_code = 3;
     goto bail;
   }
@@ -151,7 +150,7 @@ int main(int argc, char *argv[])
     case (64):  block_width_encoded = 2; break;
     case (128): block_width_encoded = 3; break;
     default:
-      fprintf(stderr, "Unsupported block width %d\n", size_of_block);
+      fprintf(stderr, "[ERROR] Unsupported block width %d\n", size_of_block);
       exit_code = 2;
       goto bail;
   }
