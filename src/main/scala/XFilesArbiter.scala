@@ -235,6 +235,7 @@ class XFilesArbiter(genInfo: => UInt)(implicit p: Parameters)
   io.backend.rocc.mem.resp.bits := tTable.backend.rocc.mem.resp.bits
 
   tTable.backend.rocc.mem.req <> io.backend.rocc.mem.req
+  tTable.backend.rocc.mem.invalidate_lr := io.backend.rocc.mem.invalidate_lr
 
   io.backend.xfReq <> tTable.backend.xfReq
   tTable.backend.xfResp <> io.backend.xfResp
