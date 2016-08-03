@@ -62,13 +62,13 @@ class RegisterFileBase[SramIf <: SRAMElementInterface](
       mem(tIdx).we(0) := Bool(true)
       mem(tIdx).addr(0) := io.pe.req.bits.addr
       mem(tIdx).dinElement(0) := io.pe.req.bits.data.toBits
-      printf("[INFO] RegFile: PE write element tIdx/Addr/Data 0x%x/0x%x/0x%x\n",
+      printfInfo("RegFile: PE write element tIdx/Addr/Data 0x%x/0x%x/0x%x\n",
         tIdx, io.pe.req.bits.addr, io.pe.req.bits.data)
       // Increment the write count and generate a response to the
       // control module if this puts us at the write count
       when (io.pe.req.bits.incWriteCount) {
         state(sIdx).countWrites := state(sIdx).countWrites + UInt(1)
-        printf("[INFO] RegFile: write count loc/seen/expected 0x%x/0x%x/0x%x\n",
+        printfInfo("RegFile: write count loc/seen/expected 0x%x/0x%x/0x%x\n",
           sIdx, state(sIdx).countWrites + UInt(1), state(sIdx).totalWrites)
         when (state(sIdx).countWrites === state(sIdx).totalWrites - UInt(1)) {
           io.control.resp.valid := Bool(true)
@@ -78,7 +78,7 @@ class RegisterFileBase[SramIf <: SRAMElementInterface](
     } .otherwise {                  // This is a read
       mem(tIdx).we(0) := Bool(false)
       mem(tIdx).addr(0) := io.pe.req.bits.addr
-      printf("[INFO] RegFile: PE read tIdx/Addr 0x%x/0x%x\n", tIdx,
+      printfInfo("RegFile: PE read tIdx/Addr 0x%x/0x%x\n", tIdx,
         io.pe.req.bits.addr)
     }
   }
@@ -91,7 +91,7 @@ class RegisterFileBase[SramIf <: SRAMElementInterface](
     state(tIdx << UInt(1) | location).totalWrites :=
       io.control.req.bits.totalWrites
     state(tIdx << UInt(1) | location).countWrites := UInt(0)
-    printf("[INFO] RegFile: Control req tIdx/location/totalWrites 0x%x/0x%x/0x%x\n",
+    printfInfo("RegFile: Control req tIdx/location/totalWrites 0x%x/0x%x/0x%x\n",
       tIdx, location, io.control.req.bits.totalWrites)
   }
 
@@ -100,14 +100,14 @@ class RegisterFileBase[SramIf <: SRAMElementInterface](
     val tIdx = io.tTable.req.bits.tidIdx
     switch (io.tTable.req.bits.reqType) {
       is (e_TTABLE_REGFILE_WRITE) {
-        printf("[INFO] RegFile: Saw TTable write idx/Addr/Data 0x%x/0x%x/0x%x\n",
+        printfInfo("RegFile: Saw TTable write idx/Addr/Data 0x%x/0x%x/0x%x\n",
           tIdx, io.tTable.req.bits.addr, io.tTable.req.bits.data)
         mem(tIdx).we(0) := Bool(true)
         mem(tIdx).dinElement(0) := io.tTable.req.bits.data
         mem(tIdx).addr(0) := io.tTable.req.bits.addr
       }
       is (e_TTABLE_REGFILE_READ) {
-        printf("[INFO] RegFile: Saw TTable read Addr 0x%x\n",
+        printfInfo("RegFile: Saw TTable read Addr 0x%x\n",
           io.tTable.req.bits.addr)
         mem(tIdx).dinElement(0) := io.tTable.req.bits.data
         mem(tIdx).addr(0) := io.tTable.req.bits.addr
@@ -123,7 +123,7 @@ class RegisterFileBase[SramIf <: SRAMElementInterface](
   io.pe.resp.bits.peIndex := peIndex_d0
   io.pe.resp.bits.data := mem(tIndex_d0).dout(0)
   when (io.pe.resp.valid) {
-    printf("[INFO] RegFile: PE resp PE/Data 0x%x/0x%x\n",
+    printfInfo("RegFile: PE resp PE/Data 0x%x/0x%x\n",
       io.pe.resp.bits.peIndex, io.pe.resp.bits.data);
   }
   // Transaction Table Response
@@ -137,7 +137,7 @@ class RegisterFileBase[SramIf <: SRAMElementInterface](
     io.tTable.resp.valid := Bool(true)
     io.tTable.resp.bits.data :=
       memDataVec(tTableRespAddr(log2Up(elementsPerBlock)-1,0))
-    printf("[INFO] RegFile: Returning data to TTable 0x%x\n",
+    printfInfo("RegFile: Returning data to TTable 0x%x\n",
       io.tTable.resp.bits.data)
   }
 
@@ -208,25 +208,25 @@ class RegisterFileLearn(implicit p: Parameters) extends RegisterFileBase (
         is (e_PE_WRITE_ELEMENT) {
           mem(tIdx).wType(0) := UInt(0)
           mem(tIdx).dinElement(0) := io.pe.req.bits.data.toBits
-          printf("[INFO] RegFile: PE write element tIdx/Addr/Data 0x%x/0x%x/0x%x\n",
+          printfInfo("RegFile: PE write element tIdx/Addr/Data 0x%x/0x%x/0x%x\n",
             tIdx, io.pe.req.bits.addr, io.pe.req.bits.data)
         }
         is (e_PE_WRITE_BLOCK_NEW) {
           mem(tIdx).wType(0) := UInt(1)
           mem(tIdx).din(0) := io.pe.req.bits.dataBlock
-          printf("[INFO] RegFile: PE write block new tIdx/Addr/Data 0x%x/0x%x/0x%x\n",
+          printfInfo("RegFile: PE write block new tIdx/Addr/Data 0x%x/0x%x/0x%x\n",
             tIdx, io.pe.req.bits.addr, io.pe.req.bits.dataBlock)
         }
         is (e_PE_WRITE_BLOCK_ACC) {
           mem(tIdx).wType(0) := UInt(2)
           mem(tIdx).din(0) := io.pe.req.bits.dataBlock
-          printf("[INFO] RegFile: PE write block inc tIdx/Addr/Data 0x%x/0x%x/0x%x\n",
+          printfInfo("RegFile: PE write block inc tIdx/Addr/Data 0x%x/0x%x/0x%x\n",
             tIdx, io.pe.req.bits.addr, io.pe.req.bits.dataBlock)
         }
         // Kludge to kill the write _if_ we're just incrementing the
         // write count
         is (e_PE_INCREMENT_WRITE_COUNT) {
-          printf("[INFO] RegFile: PE increment write count\n")
+          printfInfo("RegFile: PE increment write count\n")
           mem(tIdx).we(0) := Bool(false)
         }
       }
