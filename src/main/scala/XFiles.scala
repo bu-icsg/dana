@@ -133,11 +133,11 @@ abstract class XFilesModule(implicit p: Parameters) extends CoreModule()(p)
   def printfPrefix(prefix: String, message: String, args: Bits*): Unit = {
     if (debugEnabled) { printff(prefix + message, args) }}
 
-  def printfInfo (m: String, a: Bits*) { printfPrefix("[INFO]",  m, a:_*) }
-  def printfWarn (m: String, a: Bits*) { printfPrefix("[WARN]",  m, a:_*) }
-  def printfError(m: String, a: Bits*) { printfPrefix("[ERROR]", m, a:_*) }
-  def printfDebug(m: String, a: Bits*) { printfPrefix("[DEBUG]", m, a:_*) }
-  def printfTodo (m: String, a: Bits*) { printfPrefix("[TODO]",  m, a:_*) }
+  def printfInfo (m: String, a: Bits*) { printfPrefix("[INFO] ",  m, a:_*) }
+  def printfWarn (m: String, a: Bits*) { printfPrefix("[WARN] ",  m, a:_*) }
+  def printfError(m: String, a: Bits*) { printfPrefix("[ERROR] ", m, a:_*) }
+  def printfDebug(m: String, a: Bits*) { printfPrefix("[DEBUG] ", m, a:_*) }
+  def printfTodo (m: String, a: Bits*) { printfPrefix("[TODO] ",  m, a:_*) }
 }
 
 class XFiles(implicit p: Parameters) extends RoCC()(p)

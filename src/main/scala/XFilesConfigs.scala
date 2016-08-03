@@ -11,7 +11,7 @@ class DefaultXFilesConfig extends Config (
     pname match {
       case TidWidth => Dump("TID_WIDTH", 16)
       case AsidWidth => Dump("ASID_WIDTH", 16)
-      case DebugEnabled => false
+      case DebugEnabled => Dump("DEBUG_ENABLED", false)
       case TableDebug => true
       case TransactionTableNumEntries => Dump(Knob("TRANSACTION_TABLE_NUM_ENTRIES"))
       case TransactionTableQueueSize => 32
@@ -24,6 +24,6 @@ class DefaultXFilesConfig extends Config (
 class XFilesDebugConfig extends Config (
   topDefinitions = { (pname,site,here) =>
     pname match {
-      case DebugEnabled => true
+      case DebugEnabled => Dump("DEBUG_ENABLED", true)
     }}
 )

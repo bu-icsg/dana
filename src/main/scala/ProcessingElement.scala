@@ -279,7 +279,7 @@ class ProcessingElementLearn(implicit p: Parameters)
 
       val af = io.req.bits.activationFunction
       when (af === e_FANN_LINEAR) {
-        printf("[WARN] Linear activation function untested\n")
+        printfWarn("Linear activation function untested\n")
         when (steepness < UInt(steepnessOffset)) {
           derivative := one >> (UInt(steepnessOffset) - steepness)
           printfInfo("PE: derivative linear: 0x%x\n",
