@@ -162,14 +162,14 @@ class XFilesArbiter(genInfo: => UInt)(implicit p: Parameters)
     io.backend.rocc.cmd.bits.status.prv := io.core.cmd.bits.status.prv
   }
 
-  io.core.mem.req.valid := (tTable.xfiles.mem.req.valid) | (
+  io.core.mem.req.valid := tTable.xfiles.mem.req.valid | (
     debugUnit.mem.req.valid)
 
   io.core.mem.req.bits := tTable.xfiles.mem.req.bits
   io.core.mem.invalidate_lr := tTable.xfiles.mem.invalidate_lr
-
   when (debugUnit.mem.req.valid) {
     io.core.mem.req.bits := debugUnit.mem.req.bits
+    io.core.mem.invalidate_lr := debugUnit.mem.invalidate_lr
   }
   debugUnit.mem.req.ready := io.core.mem.req.ready
 

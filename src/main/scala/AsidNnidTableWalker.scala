@@ -95,6 +95,7 @@ class AsidNnidTableWalker(implicit p: Parameters) extends DanaModule()(p)
 
   io.xfiles.dcache.mem.req.valid := Bool(false)
   io.xfiles.dcache.mem.invalidate_lr := Bool(false)
+  io.xfiles.dcache.mem.req.bits.phys := Bool(false)
 
   // RoCC requests that come in for changing the ANTP are handled
   // here. The old ASID value will be returned to the operating
