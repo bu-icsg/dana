@@ -66,7 +66,7 @@ class DebugUnit(id: Int = 0)(implicit p: Parameters) extends XFilesModule()(p)
   io.mem.req.valid := state === s_('MEM_REQ)
   io.mem.req.bits.phys := Bool(true)
   io.mem.req.bits.addr := addr_d
-  io.mem.req.bits.tag := addr_d
+  io.mem.req.bits.tag := addr_d(2,0)
   io.mem.req.bits.data := data_d
   io.mem.req.bits.typ := MT_D
   io.mem.req.bits.cmd := Mux(action_d === a_('MEM_READ), M_XRD, M_XWR)
@@ -175,8 +175,9 @@ class DebugUnit(id: Int = 0)(implicit p: Parameters) extends XFilesModule()(p)
     printfDebug("DUnit[%d]: ptw.resp.fire\n", UInt(id)) }
 
   when (io.mem.req.fire()) {
-    printfDebug("DUnit[%d]: mem.req.fire | addr 0x%x, cmd 0x%x, data0x%x\n",
-      UInt(id), io.mem.req.bits.addr, io.mem.req.bits.cmd, io.mem.req.bits.data) }
+    printfDebug("DUnit[%d]: mem.req.fire | addr 0x%x, tag 0x%x, cmd 0x%x, data0x%x\n",
+      UInt(id), io.mem.req.bits.addr, io.mem.req.bits.tag, io.mem.req.bits.cmd,
+      io.mem.req.bits.data) }
 
   when (state === s_('MEM_WAIT) & io.mem.resp.fire()) {
     printfDebug("DUnit[%d]: mem.resp.fire | addr 0x%x, data 0x%x\n", UInt(id),
@@ -192,24 +193,4 @@ class DebugUnit(id: Int = 0)(implicit p: Parameters) extends XFilesModule()(p)
     printfDebug("                  | rd_d 0x%x, action_d 0x%x, data_d 0x%x, addr_d 0x%x\n",
     inst.rd, action, data, rs2)
   }
-
-  val state_d = Reg(UInt(width=log2Up(s_.size)))
-  state_d := state
-  when (state =/= state_d) {
-    printfDebug("DUnit[%d]: state transtion %d -> %d\n", UInt(id), state_d,
-      state)
-  }
-
-  val mem_req_d = RegNext(io.mem.req.valid)
-  when (io.mem.req.valid & !mem_req_d) {
-    val req = io.mem.req.bits
-    printfDebug("DUnit[%d]: Trying req Cmd %d, Typ %d, addr 0x%x, data 0x%x\n",
-      UInt(id), req.cmd, req.typ, req.addr, req.data)
-  }
-  when (!io.mem.req.valid & mem_req_d) {
-    val req = io.mem.req.bits
-    printfDebug("DUnit[%d]:   No longer requesting\n", UInt(id))
-  }
-
-  // assert(!(state > s_.last._2), "DUnit: State out of bounds")
 }

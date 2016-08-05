@@ -32,7 +32,7 @@ class XFilesArbiter(genInfo: => UInt)(implicit p: Parameters)
 
   // Alias out some commonly used signals
   val cmd = io.core.cmd
-  val sup = io.core.cmd.bits.status.prv.orR
+  val sup = cmd.bits.status.prv.orR
   val funct = cmd.bits.inst.funct
 
   val asidValid = asidUnit.data.valid
@@ -73,7 +73,7 @@ class XFilesArbiter(genInfo: => UInt)(implicit p: Parameters)
   // a short-circuit response hasn't been generated
   asidUnit.cmd.valid := cmd.fire() & !squashSup
   asidUnit.cmd.bits := cmd.bits
-  asidUnit.status := io.core.cmd.bits.status
+  asidUnit.status := cmd.bits.status
   asidUnit.resp.ready := Bool(true)
 
   // See if the ASID Unit is forwarding a supervisor request to the
@@ -89,7 +89,7 @@ class XFilesArbiter(genInfo: => UInt)(implicit p: Parameters)
   // behave...
   debugUnit.cmd.valid := cmd.fire()
   debugUnit.cmd.bits := cmd.bits
-  debugUnit.cmd.bits.status := io.core.cmd.bits.status
+  debugUnit.cmd.bits.status := cmd.bits.status
   debugUnit.resp.ready := Bool(true)
 
   // PTW connections for the Deubg Units
@@ -99,7 +99,7 @@ class XFilesArbiter(genInfo: => UInt)(implicit p: Parameters)
   // anything that hasn't been squashed. The ASID and TID are
   // supplied by this core's ASID unit if this is a new request.
   coreQueue.enq.valid := cmd.fire() & !squashUser
-  io.core.cmd.ready := coreQueue.enq.ready
+  cmd.ready := coreQueue.enq.ready & debugUnit.cmd.ready
   coreQueue.enq.bits := cmd.bits
   val asid = asidUnit.data.bits.asid
   val newTid = asidUnit.data.bits.tid
@@ -159,7 +159,7 @@ class XFilesArbiter(genInfo: => UInt)(implicit p: Parameters)
   when (asidUnit.cmdFwd.valid) {
     printfInfo("XFiles Arbiter: cmdFwd asserted\n")
     io.backend.rocc.cmd.bits := asidUnit.cmdFwd.bits
-    io.backend.rocc.cmd.bits.status.prv := io.core.cmd.bits.status.prv
+    io.backend.rocc.cmd.bits.status.prv := cmd.bits.status.prv
   }
 
   io.core.mem.req.valid := tTable.xfiles.mem.req.valid | (
