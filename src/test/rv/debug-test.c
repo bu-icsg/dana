@@ -17,23 +17,23 @@ int main(int argc, char **argv) {
   out = debug_echo_via_reg(data[0]);
   assert(out == data[0]);
 
-  // printf("[TEST] Testing L1 read (action 0x%x)...\n", a_MEM_READ);
-  // for (size_t i = 0; i < 4; ++i) {
-  //   xlen_t * data_p = (xlen_t *) debug_virt_to_phys(&data[i]);
-  //   printf("[TEST]   Read %p\n", data_p);
-  //   out = debug_read_mem(data_p);
-  //   assert(data[i] == out);
-  // }
+  printf("[TEST] Testing L1 read (action 0x%x)...\n", a_MEM_READ);
+  for (size_t i = 0; i < 4; ++i) {
+    xlen_t * data_p = (xlen_t *) debug_virt_to_phys(&data[i]);
+    printf("[TEST]   Read %p\n", data_p);
+    out = debug_read_mem(data_p);
+    assert(data[i] == out);
+  }
 
-  // printf("[TEST] Testing L1 write (action 0x%x)...\n", a_MEM_WRITE);
-  // xlen_t copy_l1[4];
-  // for (size_t i = 0; i < 4; ++i) {
-  //   xlen_t * copy_p = (xlen_t *) debug_virt_to_phys(&copy_l1[i]);
-  //   printf("[TEST]   Write %p\n", copy_p);
-  //   out = debug_write_mem(data[i], copy_p);
-  //   assert(out == 0);
-  //   assert(data[i] == copy_l1[i]);
-  // }
+  printf("[TEST] Testing L1 write (action 0x%x)...\n", a_MEM_WRITE);
+  xlen_t copy_l1[4];
+  for (size_t i = 0; i < 4; ++i) {
+    xlen_t * copy_p = (xlen_t *) debug_virt_to_phys(&copy_l1[i]);
+    printf("[TEST]   Write %p\n", copy_p);
+    out = debug_write_mem(data[i], copy_p);
+    assert(out == 0);
+    assert(data[i] == copy_l1[i]);
+  }
 
   printf("[TEST] Testing translation (action 0x%x)...\n", a_VIRT_TO_PHYS);
   out = debug_virt_to_phys(&data);
