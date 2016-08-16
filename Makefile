@@ -225,7 +225,7 @@ $(DIR_BUILD)/%$(FPGA_CONFIG_DOT)-vcd.vvp: %.v $(BACKEND_VERILOG) $(HEADERS_V)
 
 #--------- Generate ScalaDoc documentation
 doc: | $(DIR_BUILD)/doc
-	scaladoc src/main/scala/*.scala -d $(DIR_BUILD)/doc
+	scaladoc src/main/scala/*.scala ../*/src/main/scala/*.scala ../src/main/scala/* -d $(DIR_BUILD)/doc
 
 $(DIR_BUILD)/doc:
 	mkdir -p $@
