@@ -283,7 +283,7 @@ sudo rm -rf ramdisk
 5) <a name="test-on-the-fpga"></a> Test on the FPGA
 ----------------------------------------
 This assumes that you are using the default configuration that the Berkeley [fpga-zynq repository](https://www.github.com/ucb-bar/fpga-zynq) provides. We currently use a more complicated implementation with three FPGAs attached to a server that we are in the process of documenting (see:
-[fpga-setup.md](https://www.gitlab.com/the-lone-gunmen/xfiles-dana/blob/master/doc/fpga-setup.md) and [toolflow.md](https://www.gitlab.com/the-lone-gunmen/xfiles-dana/blob/master/doc/toolflow.md#fpga-tools)).
+[fpga-setup.md](https://gitlab.com/the-lone-gunmen/xfiles-dana/blob/master/doc/fpga-setup.md) and [toolflow.md](https://gitlab.com/the-lone-gunmen/xfiles-dana/blob/master/doc/toolflow.md#fpga-tools)).
 
 The ARM core running Linux has a default IP address of 192.168.1.5. Use `scp` to copy over whatever you need. You will likely need to update the front end server and the front end server shared library. Additionally, you'll need to replace to old proxy kernel with out patched version.
 
@@ -315,7 +315,7 @@ There are a few remaining things that we're working on closing out which limit t
 Currently, the neural network configuration must fit completely in one of DANA's configuration cache memories. We plan to enable the ability for weight data to be loaded as needed for large configurations that do not wholly fit in a cache memory.
 
 #### <a name="linux-support"></a> Linux Support
-We're working on a full integration of the X-FILES supervisor library with the Linux kernel. Supervisor features are currently supported via system calls added to the [RISC-V Proxy Kernel](https://www.github.com/riscv/riscv-pk) via an included [patch](https://www.gitlab.com/the-lone-gunmen/xfiles-dana/blob/master/patches/riscv-pk-xfiles-syscalls.patch).
+We're working on a full integration of the X-FILES supervisor library with the Linux kernel. Supervisor features are currently supported via system calls added to the [RISC-V Proxy Kernel](https://www.github.com/riscv/riscv-pk) via an included [patch](https://gitlab.com/the-lone-gunmen/xfiles-dana/blob/master/patches/riscv-pk-xfiles-syscalls.patch).
 
 #### <a name="io-queues"></a> IO Queues
 While neural network configurations are loaded from the memory of the microprocessor, all input and output data is transferred from Rocket to X-FILES/DANA hardware through the Rocket Custom Coprocessor (RoCC) register interface. We have plans to enable asynchronous transfer through in-memory queues.
@@ -329,12 +329,12 @@ Additional documentation can be found in the `xfiles-dana/doc` directory or in s
 
 #### <a name="doc-directory"></a> Doc Directory
 Specific documentation includes:
-* [Binary Encodings and Data Structures](https://www.gitlab.com/the-lone-gunmen/xfiles-dana/blob/master/doc/binary-encodings-data-structures.md)
-* [Debugging](https://www.gitlab.com/the-lone-gunmen/xfiles-dana/blob/master/doc/debugging.md)
-* [FPGA Setup](https://www.gitlab.com/the-lone-gunmen/xfiles-dana/blob/master/doc/fpga-setup.md)
-* [X-FILES Timing](https://www.gitlab.com/the-lone-gunmen/xfiles-dana/blob/master/doc/timing.md)
-* [Toolflow](https://www.gitlab.com/the-lone-gunmen/xfiles-dana/blob/master/doc/toolflow.md)
-* [U-Boot](https://www.gitlab.com/the-lone-gunmen/xfiles-dana/blob/master/doc/u-boot.md)
+* [Binary Encodings and Data Structures](https://gitlab.com/the-lone-gunmen/xfiles-dana/blob/master/doc/binary-encodings-data-structures.md)
+* [Debugging](https://gitlab.com/the-lone-gunmen/xfiles-dana/blob/master/doc/debugging.md)
+* [FPGA Setup](https://gitlab.com/the-lone-gunmen/xfiles-dana/blob/master/doc/fpga-setup.md)
+* [X-FILES Timing](https://gitlab.com/the-lone-gunmen/xfiles-dana/blob/master/doc/timing.md)
+* [Toolflow](https://gitlab.com/the-lone-gunmen/xfiles-dana/blob/master/doc/toolflow.md)
+* [U-Boot](https://gitlab.com/the-lone-gunmen/xfiles-dana/blob/master/doc/u-boot.md)
 
 #### <a name="publications"></a> Publications
 <a name="cite-pact2015"></a> [1] S. Eldridge, A. Waterland, M. Seltzer, J. Appavoo, and A. Joshi, "Towards General Purpose Neural Network Computing", _in Proceedings of the International Conference on Parallel Architectures and Compilation Techniques (PACT)_. 2015.
