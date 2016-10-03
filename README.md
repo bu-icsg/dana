@@ -224,7 +224,7 @@ git apply xfiles-dana/patches/fpga-mem-gen-add-arbitrary-verilog.patch
 You can then build the FPGA-based Verilog in a similar fashion to how you built the C++ emulator:
 ```baqsh
 cd $ROCKETCHIP/fpga-zynq/zedboard
-make rocket CONFIG=XFilesDANAFPGAConfig ROCKETCHIP_ADDONS=xfiles-dana
+make rocket CONFIG=XFilesDanaFPGAConfig ROCKETCHIP_ADDONS=xfiles-dana
 ```
 
 Note that this is equivalent to running `make verilog` in $ROCKETCHIP/fsim and copying the generated Verilog into src/verilog. Also, beware that the `Makefile` in `fpga-zynq/zedboard` does not seem to properly handle certain options, like "unconditionally remake all targets"/`-B`, and that the dependency tracking seems broken to me. Consequently, I've found that I may need to explicitly blow away specific files to get this to build in changes.
@@ -239,7 +239,7 @@ Note that Vivado requires ncurses-5. If you're running a rolling distribution (e
 To generate a new Vivado project for your specific configuration, you can use:
 ```bash
 cd $ROCKETCHIP/fpga-zynq/zedboard
-make project CONFIG=XFilesDANAFPGAConfig
+make project CONFIG=XFilesDanaFPGAConfig
 ```
 
 3) <a name="boot-bin"></a> Generate a Zynq project configuration
@@ -254,7 +254,7 @@ git apply ../xfiles-dana/patches/fpga-zynq-dont-flatten-hierarchy.patch
 
 You can then generate a boot.bin with:
 ```bash
-make fpga-images-zybo/boot.bin CONFIG=XFilesDANAFPGAConfig
+make fpga-images-zybo/boot.bin CONFIG=XFilesDanaFPGAConfig
 ```
 
 4) <a name="load-sd-card"></a> Load the SD Card

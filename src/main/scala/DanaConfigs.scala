@@ -69,3 +69,21 @@ class DanaNoLearningConfig extends Config (
       case LearningEnabled => false
     }}
 )
+
+class DanaConfig
+  (numPes:      Int     = 1,
+    epb:        Int     = 4,
+    cache:      Int     = 2,
+    scratchpad: Int     = 10240,
+    learning:   Boolean = true)
+    extends Config(
+  topDefinitions = { (pname,site,here) =>
+    pname match {
+      case LearningEnabled => learning
+    }},
+  knobValues = {
+    case "NUM_PES" => numPes
+    case "ELEMENTS_PER_BLOCK" => epb
+    case "CACHE_NUM_ENTRIES" => cache
+    case "REGISTER_FILE_NUM_ELEMENTS" => scratchpad
+  })

@@ -27,6 +27,3 @@ class XFilesDebugConfig extends Config (
       case DebugEnabled => true
     }}
 )
-
-class DefaultXFilesDanaFPGAConfig extends Config(new DefaultXFilesConfig ++
-  new DefaultDanaConfig)
