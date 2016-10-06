@@ -219,6 +219,7 @@ Our FPGA target relies on some modifications to the fsim memory generator script
 ```bash
 cd $ROCKETCHIP
 git apply xfiles-dana/patches/fpga-mem-gen-add-arbitrary-verilog.patch
+git apply xfiles-dana/patches/fpga-vsim-verilog-kludge.patch
 ```
 
 You can then build the FPGA-based Verilog in a similar fashion to how you built the C++ emulator:
