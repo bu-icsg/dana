@@ -8,7 +8,7 @@ def parse_arguments():
         description='Tool to generate CSV that shows the memory layout of DANA',
         epilog='''
 The CSV output can be formatted with `column`::
-    dana-memory-tool [ARGS] | column -s, -t -o" "''',
+    dana-memory-tool [ARGS] | column -s, -t -n''',
         formatter_class=argparse.RawTextHelpFormatter)
     parser.add_argument(
         '-b', '--elements-per-block', dest='elementsPerBlock', type=int,
