@@ -120,9 +120,11 @@ LFLAGS        = $(addprefix -Wl$(COMMA)-R, $(abspath $(LIB_PATHS))) \
 
 # X-FILES libraries related
 XFILES_LIBRARIES_NEWLIB = $(DIR_BUILD)/newlib/libxfiles-user.a \
-	$(DIR_BUILD)/newlib/libxfiles-supervisor.a
+	$(DIR_BUILD)/newlib/libxfiles-supervisor.a \
+	$(DIR_BUILD)/newlib/libxfiles-debug.a
 XFILES_LIBRARIES_LINUX = $(DIR_BUILD)/linux/libxfiles-user.a \
-	$(DIR_BUILD)/linux/libxfiles-supervisor.a
+	$(DIR_BUILD)/linux/libxfiles-supervisor.a \
+	$(DIR_BUILD)/linux/libxfiles-debug.a
 
 DECIMAL_POINT_OFFSET=7
 DECIMAL_POINT_BITS=3

@@ -1,0 +1,33 @@
+// See LICENSE for license details.
+
+#include "src/main/c/xfiles-debug.h"
+
+xlen_t debug_test(xfiles_debug_action_t action, uint32_t data, void * addr) {
+  xlen_t out, action_and_data = ((uint64_t)action << 32) | (uint32_t)data;
+  XFILES_INSTRUCTION(out, action_and_data, addr, t_USR_XFILES_DEBUG);
+  return out;
+}
+
+xlen_t debug_echo_via_reg(uint32_t data) {
+  return debug_test(a_REG, data, 0);
+}
+
+xlen_t debug_read_mem(void * addr) {
+  return debug_test(a_MEM_READ, 0, addr);
+}
+
+xlen_t debug_write_mem(uint32_t data, void * addr) {
+  return debug_test(a_MEM_WRITE, data, addr);
+}
+
+xlen_t debug_virt_to_phys(void * addr_v) {
+  return debug_test(a_VIRT_TO_PHYS, 0, addr_v);
+}
+
+xlen_t debug_read_utl(void * addr) {
+  return debug_test(a_UTL_READ, 0, addr);
+}
+
+xlen_t debug_write_utl(uint32_t data, void * addr) {
+  return debug_test(a_UTL_WRITE, data, addr);
+}

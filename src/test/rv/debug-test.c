@@ -2,7 +2,7 @@
 #include <unistd.h>
 #include <assert.h>
 
-#include "src/main/c/xfiles-user.h"
+#include "src/main/c/xfiles-debug.h"
 
 int main(int argc, char **argv) {
 

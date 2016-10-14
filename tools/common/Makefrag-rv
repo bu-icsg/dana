@@ -12,11 +12,6 @@ RV_CXX_LINUX     = $(RV_LINUX)-g++
 RV_AR_LINUX      = $(RV_LINUX)-ar
 RV_OBJDUMP_LINUX = $(RV_LINUX)-objdump
 
-XFILES_LIBRARIES_OBJECTS_NEWLIB = $(DIR_BUILD)/newlib/xfiles-user.o \
-	$(DIR_BUILD)/newlib/xfiles-supervisor.o
-XFILES_LIBRARIES_OBJECTS_LINUX = $(DIR_BUILD)/linux/xfiles-user.o \
-	$(DIR_BUILD)/linux/xfiles-supervisor.o
-
 vpath %.c $(DIR_TOP)/src/main/c
 vpath %.c $(DIR_TOP)/src/test/rv
 
@@ -36,8 +31,8 @@ $(DIR_BUILD)/linux/libxfiles-%.a: $(DIR_BUILD)/linux/xfiles-%.o
 #------------------- RISC-V Tests
 
 RV_CFLAGS=-Wall -Werror -static -march=RV64IMAFDXcustom -I$(DIR_TOP) -I$(DIR_BUILD)/nets
-RV_NEWLIB_LFLAGS=-L$(DIR_TOP)/usr/lib-rv-newlib -lxfiles-user -lxfiles-supervisor
-RV_LINUX_LFLAGS=-L$(DIR_TOP)/usr/lib-rv-linux -lxfiles-user -lxfiles-supervisor
+RV_NEWLIB_LFLAGS=-L$(DIR_TOP)/usr/lib-rv-newlib -lxfiles-user -lxfiles-supervisor -lxfiles-debug
+RV_LINUX_LFLAGS=-L$(DIR_TOP)/usr/lib-rv-linux -lxfiles-user -lxfiles-supervisor -lxfiles-debug
 
 $(DIR_BUILD)/newlib/fann-soft.rv: fann-soft.c $(XFILES_LIBRARIES_NEWLIB) $(DIR_BUILD)/fann-rv-newlib/libfann.a
 	$(RV_CC) $(RV_CFLAGS) $< -o $@ $(RV_NEWLIB_LFLAGS) -lfann -lm
