@@ -195,7 +195,7 @@ xlen_t pk_syscall_set_antp(ant * os_antp) {
                 "ecall\n\t"
                 "mv %[old_antp], a0"
                 : [old_antp] "=r" (old_antp)
-                : [antp] "r" (os_antp->entry_v), [size] "r" (os_antp->size),
+                : [antp] "r" (os_antp->entry_p), [size] "r" (os_antp->size),
                   [syscall] "i" (SYSCALL_SET_ANTP)
                 : "a0", "a7");
   return old_antp;
