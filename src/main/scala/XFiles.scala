@@ -122,8 +122,10 @@ abstract class XFilesModule(implicit p: Parameters) extends CoreModule()(p)
     with XFilesParameters with XFilesErrorCodes with XFilesUserRequests {
 
   // Create a tupled version of printf
-  val printff = (printf.apply _)
-  val printft = printff.tupled
+  def printfe(s: String, d: Seq[Bits]) = {
+    printf(s, d:_*)
+  }
+  val printft = (printfe _).tupled
 
   // Info method that will dump the state of a table
   def info[T <: XFilesBundle](x: Vec[T], prepend: String = "") = {
@@ -132,7 +134,7 @@ abstract class XFilesModule(implicit p: Parameters) extends CoreModule()(p)
         (0 until x.length).map(i => printft(x(i).printAll(","))) }}
 
   def printfPrefix(prefix: String, message: String, args: Bits*): Unit = {
-    if (debugEnabled) { printff(prefix + message, args) }}
+    if (debugEnabled) { printf(prefix + message, args:_*) }}
 
   def printfInfo (m: String, a: Bits*) { printfPrefix("[INFO] ",  m, a:_*) }
   def printfWarn (m: String, a: Bits*) { printfPrefix("[WARN] ",  m, a:_*) }
