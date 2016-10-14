@@ -13,8 +13,7 @@ class XFilesDanaConfig extends Config (
       case BuildRoCC => Seq(
         RoccParameters(
           opcodes = OpcodeSet.custom0,
-          generator = (p: Parameters) =>  Module(new XFiles()(
-            p.alterPartial({ case CoreName => "XFiles" }))),
+          generator = (p: Parameters) =>  Module(new XFiles()(p)),
           nPTWPorts = 1)
       )
       case CacheName => "L1D"

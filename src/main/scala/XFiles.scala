@@ -7,7 +7,8 @@ import Chisel._
 import rocket.{RoCC, HasCoreParameters, CoreModule, CoreBundle}
 import cde.{Parameters, Field}
 import math.pow
-import junctions.{ParameterizedBundle, HasAddrMapParameters}
+import junctions.HasAddrMapParameters
+import util.ParameterizedBundle
 
 case object TidWidth extends Field[Int]
 case object AsidWidth extends Field[Int]

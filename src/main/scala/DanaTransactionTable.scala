@@ -9,7 +9,7 @@ import cde.Parameters
 import xfiles.{TransactionTableNumEntries, TableEntry, HasTable,
   XFilesResponseCodes, XFilesBackendReq, XFilesBackendResp,
   XFilesQueueInterface}
-import junctions.ParameterizedBundle
+import util.ParameterizedBundle
 
 class TransactionState(implicit p: Parameters) extends TableEntry()(p)
     with DanaParameters {

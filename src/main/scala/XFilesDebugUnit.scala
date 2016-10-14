@@ -2,9 +2,9 @@
 
 package xfiles
 import Chisel._
-import uncore.constants.MemoryOpConstants._
+import uncore.constants.MemoryOpConstants.{M_XRD, M_XWR}
 import uncore.tilelink.{HasTileLinkParameters, Get, Put, GetBlock}
-import rocket.{RoCCInterface, PTE}
+import rocket.{RoCCInterface, PTE, MT_D}
 import cde.Parameters
 
 class DebugUnitInterface(implicit p: Parameters) extends RoCCInterface

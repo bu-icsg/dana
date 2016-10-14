@@ -4,11 +4,10 @@ package dana
 
 import Chisel._
 
-import rocket.{RoCCCommand, RoCCResponse, HellaCacheReq, HellaCacheIO, MStatus}
+import rocket.{RoCCCommand, RoCCResponse, HellaCacheReq, HellaCacheIO, MStatus, MT_D}
 import uncore.tilelink.{HasTileLinkParameters, ClientUncachedTileLinkIO, Get,
   GetBlock}
 import uncore.agents.{CacheName, CacheBlockBytes}
-import uncore.constants.MemoryOpConstants._
 import cde.{Parameters}
 import xfiles.{InterruptBundle, XFilesSupervisorRequests}
 
