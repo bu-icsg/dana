@@ -184,7 +184,7 @@ xlen_t pk_syscall_set_asid(asid_type asid) {
   return old_asid;
 }
 
-xlen_t pk_syscall_set_antp(asid_nnid_table * os_antp) {
+xlen_t pk_syscall_set_antp(ant * os_antp) {
   // As with `set_asid`, this relies on the Proxy Kernel to handle
   // this system call. This passes a pointer to the first ASID--NNID
   // table entry and the size (i.e., the number of ASIDs).
@@ -195,7 +195,7 @@ xlen_t pk_syscall_set_antp(asid_nnid_table * os_antp) {
                 "ecall\n\t"
                 "mv %[old_antp], a0"
                 : [old_antp] "=r" (old_antp)
-                : [antp] "r" (os_antp->entry), [size] "r" (os_antp->size),
+                : [antp] "r" (os_antp->entry_v), [size] "r" (os_antp->size),
                   [syscall] "i" (SYSCALL_SET_ANTP)
                 : "a0", "a7");
   return old_antp;
@@ -217,54 +217,47 @@ xlen_t kill_transaction(tid_type tid) {
   return -1;
 }
 
-void asid_nnid_table_info(asid_nnid_table * table) {
-  int i, j;
-  printf("[INFO] 0x%lx <- Table Head\n", (uint64_t) table);
-  printf("[INFO]   |-> 0x%lx: size:                     0x%lx\n",
-         (uint64_t) &table->size,
-         (uint64_t) table->size);
-  printf("[INFO]       0x%lx: * entry:                  0x%lx\n",
-         (uint64_t) &table->entry,
-         (uint64_t) table->entry);
-  for (i = 0; i < table->size; i++) {
-    printf("[INFO]         |-> [%0d] 0x%lx: num_configs:    0x%lx\n", i,
-           (uint64_t) &table->entry[i].num_configs,
-           (uint64_t) table->entry[i].num_configs);
-    printf("[INFO]         |       0x%lx: num_valid:      0x%lx\n",
-           (uint64_t) &table->entry[i].num_valid,
-           (uint64_t) table->entry[i].num_valid);
-    printf("[INFO]         |       0x%lx: asid_nnid:      0x%lx\n",
-           (uint64_t) &table->entry[i].asid_nnid,
-           (uint64_t) table->entry[i].asid_nnid);
+void asid_nnid_table_info(ant * table) {
+  int i = 0;
+  printf("[INFO] 0x%p <- Table Head\n", table);
+  printf("[INFO]   |-> 0x%p: size:                     0x%lx\n"
+         "[INFO]       0x%p: * entry_p:                0x%p\n"
+         "[INFO]       0x%p: * entry_v:                0x%p\n",
+         &table->size,  table->size,
+         &table->entry_p, table->entry_p,
+         &table->entry_v, table->entry_v);
+  for (ant_entry * e = table->entry_v; e < &table->entry_v[table->size]; e++, i++) {
+    printf("[INFO]         |-> [%0d] 0x%p: num_configs:    0x%x\n"
+           "[INFO]         |       0x%p: num_valid:      0x%x\n"
+           "[INFO]         |       0x%p: asid_nnid_p:    0x%p\n"
+           "[INFO]         |       0x%p: asid_nnid_v:    0x%p\n",
+           i,
+           &e->num_configs, e->num_configs,
+           &e->num_valid, e->num_valid,
+           &e->asid_nnid_p, e->asid_nnid_p,
+           &e->asid_nnid_v, e->asid_nnid_v);
     // Dump the `nn_configuration`
-    for (j = 0; j < table->entry[i].num_valid; j++) {
-      printf("[INFO]         |         |-> [%0d] 0x%lx: size:             0x%lx\n", j,
-             (uint64_t) &table->entry[i].asid_nnid[j].size,
-             (uint64_t) table->entry[i].asid_nnid[j].size);
-      printf("[INFO]         |         |       0x%lx: elements_per_block: 0d%ld\n",
-             (uint64_t) &table->entry[i].asid_nnid[j].elements_per_block,
-             (uint64_t) table->entry[i].asid_nnid[j].elements_per_block);
-      printf("[INFO]         |         |       0x%lx: * config_raw:       0x%lx\n",
-             (uint64_t) &table->entry[i].asid_nnid[j].config_raw,
-             (uint64_t) table->entry[i].asid_nnid[j].config_raw);
-      printf("[INFO]         |         |       0x%lx: * config:           0x%lx\n",
-             (uint64_t) &table->entry[i].asid_nnid[j].config,
-             (uint64_t) table->entry[i].asid_nnid[j].config);
+    int j = 0;
+    for (nn_config * n = e->asid_nnid_v; n < &e->asid_nnid_v[e->num_valid]; n++, j++) {
+      printf("[INFO]         |         |-> [%0d] 0x%p: size:             0x%lx\n"
+             "[INFO]         |         |       0x%p: elements_per_block: 0d%lx\n"
+             "[INFO]         |         |       0x%p: * config_raw:       0x%p\n"
+             "[INFO]         |         |       0x%p: * config:           0x%p\n",
+             j,
+             &n->size, n->size,
+             &n->elements_per_block, n->elements_per_block,
+             &n->config_raw, n->config_raw,
+             &n->config_v, n->config_v);
     }
     // Back to `asid_nnid_table_entry`
-    printf("[INFO]         |       0x%lx: transaction_io: 0x%lx\n",
-           (uint64_t) &table->entry[i].transaction_io,
-           (uint64_t) table->entry[i].transaction_io);
-    // Dump the `io`
-    printf("[INFO]         |         |-> 0x%lx: header:   0x%lx\n",
-           (uint64_t) &table->entry[i].transaction_io->header,
-           (uint64_t) table->entry[i].transaction_io->header);
-    printf("[INFO]         |         |   0x%lx: * input:  0x%lx\n",
-           (uint64_t) &table->entry[i].transaction_io->input,
-           (uint64_t) table->entry[i].transaction_io->input);
-    printf("[INFO]         |         |   0x%lx: * output: 0x%lx\n",
-           (uint64_t) &table->entry[i].transaction_io->output,
-           (uint64_t) table->entry[i].transaction_io->output);
+    printf("[INFO]         |       0x%p: transaction_io: 0x%p\n"
+           "[INFO]         |         |-> 0x%p: header:   0x%lx\n"
+           "[INFO]         |         |   0x%p: * input:  0x%p\n"
+           "[INFO]         |         |   0x%p: * output: 0x%p\n",
+           &e->transaction_io, e->transaction_io,
+           &e->transaction_io->header, e->transaction_io->header,
+           &e->transaction_io->input, e->transaction_io->input,
+           &e->transaction_io->output, e->transaction_io->output);
   }
 }
 
@@ -280,55 +273,56 @@ void destroy_queue(queue ** old_queue) {
   free(*old_queue);
 }
 
-void asid_nnid_table_create(asid_nnid_table ** new_table, size_t table_size,
+void asid_nnid_table_create(ant ** new_table, size_t table_size,
                             size_t configs_per_entry) {
   int i;
 
   // Allocate space for the table
-  *new_table = (asid_nnid_table *) malloc(sizeof(asid_nnid_table));
-  (*new_table)->entry =
-    (asid_nnid_table_entry *) malloc(sizeof(asid_nnid_table_entry) * table_size);
+  *new_table = (ant *) malloc(sizeof(ant));
+  (*new_table)->entry_v =
+    (ant_entry *) malloc(sizeof(ant_entry) * table_size);
   (*new_table)->size = table_size;
 
   for (i = 0; i < table_size; i++) {
     // Create the configuration region
-    (*new_table)->entry[i].asid_nnid =
-      (nn_configuration *) malloc(configs_per_entry * sizeof(nn_configuration));
-    (*new_table)->entry[i].asid_nnid->config = NULL;
-    (*new_table)->entry[i].num_configs = configs_per_entry;
-    (*new_table)->entry[i].num_valid = 0;
+    (*new_table)->entry_v[i].asid_nnid_v =
+      (nn_config *) malloc(configs_per_entry * sizeof(nn_config));
+    (*new_table)->entry_v[i].asid_nnid_v->config_v = NULL;
+    (*new_table)->entry_v[i].asid_nnid_v->config_p = NULL;
+    (*new_table)->entry_v[i].num_configs = configs_per_entry;
+    (*new_table)->entry_v[i].num_valid = 0;
 
     // Create the io region
-    (*new_table)->entry[i].transaction_io = (io *) malloc(sizeof(io));
-    (*new_table)->entry[i].transaction_io->header = 0;
-    (*new_table)->entry[i].transaction_io->input = (queue *) malloc(sizeof(queue));
-    (*new_table)->entry[i].transaction_io->output = (queue *) malloc(sizeof(queue));
-    construct_queue(&(*new_table)->entry[i].transaction_io->input, 16);
-    construct_queue(&(*new_table)->entry[i].transaction_io->output, 16);
+    (*new_table)->entry_v[i].transaction_io = (io *) malloc(sizeof(io));
+    (*new_table)->entry_v[i].transaction_io->header = 0;
+    (*new_table)->entry_v[i].transaction_io->input = (queue *) malloc(sizeof(queue));
+    (*new_table)->entry_v[i].transaction_io->output = (queue *) malloc(sizeof(queue));
+    construct_queue(&(*new_table)->entry_v[i].transaction_io->input, 16);
+    construct_queue(&(*new_table)->entry_v[i].transaction_io->output, 16);
   }
 
 }
 
-void asid_nnid_table_destroy(asid_nnid_table ** old_table) {
+void asid_nnid_table_destroy(ant ** old_table) {
   int i, j;
   for (i = 0; i < (*old_table)->size; i++) {
     // Destroy the configuration region
-    for (j = 0; j < (*old_table)->entry[i].num_valid; j++)
-      if ((*old_table)->entry[i].asid_nnid[j].config != NULL)
-        free((*old_table)->entry[i].asid_nnid[j].config_raw);
-    free((*old_table)->entry[i].asid_nnid);
+    for (j = 0; j < (*old_table)->entry_v[i].num_valid; j++)
+      if ((*old_table)->entry_v[i].asid_nnid_v[j].config_v != NULL)
+        free((*old_table)->entry_v[i].asid_nnid_v[j].config_raw);
+    free((*old_table)->entry_v[i].asid_nnid_v);
 
     // Destroy the IO region
-    destroy_queue(&(*old_table)->entry[i].transaction_io->input);
-    destroy_queue(&(*old_table)->entry[i].transaction_io->output);
-    free((*old_table)->entry[i].transaction_io);
+    destroy_queue(&(*old_table)->entry_v[i].transaction_io->input);
+    destroy_queue(&(*old_table)->entry_v[i].transaction_io->output);
+    free((*old_table)->entry_v[i].transaction_io);
   }
 
-  free((*old_table)->entry);
+  free((*old_table)->entry_v);
   free(*old_table);
 }
 
-int attach_nn_configuration(asid_nnid_table ** table, asid_type asid,
+int attach_nn_configuration(ant ** table, asid_type asid,
                             const char * file_name) {
   int file_size, nnid;
   FILE *fp;
@@ -337,7 +331,7 @@ int attach_nn_configuration(asid_nnid_table ** table, asid_type asid,
     return -1;
   }
 
-  if ((*table)->entry[asid].num_valid == (*table)->entry[asid].num_configs) {
+  if ((*table)->entry_v[asid].num_valid == (*table)->entry_v[asid].num_configs) {
     return -1;
   }
 
@@ -347,7 +341,7 @@ int attach_nn_configuration(asid_nnid_table ** table, asid_type asid,
     return -1;
   }
 
-  nnid = (*table)->entry[asid].num_valid;
+  nnid = (*table)->entry_v[asid].num_valid;
 
   // Kludge until fseek works again
   // fseek(fp, 0L, SEEK_END);
@@ -362,7 +356,7 @@ int attach_nn_configuration(asid_nnid_table ** table, asid_type asid,
     return -1;
   }
 
-  (*table)->entry[asid].asid_nnid[nnid].size = file_size;
+  (*table)->entry_v[asid].asid_nnid_v[nnid].size = file_size;
 
   // Compute the elements per block as set in the neural network
   // configuration and write this into the ASID--NNID Table Entry
@@ -370,69 +364,70 @@ int attach_nn_configuration(asid_nnid_table ** table, asid_type asid,
   fread(&block_64, sizeof(block_64), 1, fp);
   fseek(fp, 0L, SEEK_SET);
   block_64 = (block_64 >> 4) & 3;
-  (*table)->entry[asid].asid_nnid[nnid].elements_per_block = 1 << (block_64 + 2);
+  (*table)->entry_v[asid].asid_nnid_v[nnid].elements_per_block = 1 << (block_64 + 2);
 
   // Allocate space for this configuraiton
-  alloc_config_aligned(&(*table)->entry[asid].asid_nnid[nnid].config_raw,
-                       &(*table)->entry[asid].asid_nnid[nnid].config,
+  alloc_config_aligned(&(*table)->entry_v[asid].asid_nnid_v[nnid].config_raw,
+                       &(*table)->entry_v[asid].asid_nnid_v[nnid].config_v,
                        file_size * sizeof(xlen_t));
-  assert((*table)->entry[asid].asid_nnid[nnid].config_raw != NULL);
-  assert((*table)->entry[asid].asid_nnid[nnid].config != NULL);
+  assert((*table)->entry_v[asid].asid_nnid_v[nnid].config_raw != NULL);
+  assert((*table)->entry_v[asid].asid_nnid_v[nnid].config_v != NULL);
 
   // Write the configuration
-  fread((*table)->entry[asid].asid_nnid[nnid].config, sizeof(xlen_t),
+  fread((*table)->entry_v[asid].asid_nnid_v[nnid].config_v, sizeof(xlen_t),
         file_size, fp);
 
   fclose(fp);
-  return ++(*table)->entry[asid].num_valid;
+  return ++(*table)->entry_v[asid].num_valid;
 }
 
-int attach_garbage(asid_nnid_table ** table, asid_type asid) {
+int attach_garbage(ant ** table, asid_type asid) {
 
   int nnid;
 
   if (asid >= (*table)->size) {
     return -1;
   }
-  if ((*table)->entry[asid].num_valid == (*table)->entry[asid].num_configs) {
+  if ((*table)->entry_v[asid].num_valid == (*table)->entry_v[asid].num_configs) {
     return -1;
   }
 
-  nnid = (*table)->entry[asid].num_valid;
-  (*table)->entry[asid].asid_nnid[nnid].size = 0;
-  (*table)->entry[asid].asid_nnid[nnid].config = NULL;
+  nnid = (*table)->entry_v[asid].num_valid;
+  (*table)->entry_v[asid].asid_nnid_v[nnid].size = 0;
+  (*table)->entry_v[asid].asid_nnid_v[nnid].config_v = NULL;
+  (*table)->entry_v[asid].asid_nnid_v[nnid].config_p = NULL;
 
-  return ++(*table)->entry[asid].num_valid;
+  return ++(*table)->entry_v[asid].num_valid;
 }
 
-int attach_nn_configuration_array(asid_nnid_table ** table, uint16_t asid,
+int attach_nn_configuration_array(ant ** table, uint16_t asid,
                                   const xlen_t * array, size_t size) {
   int nnid;
 
   // Fail if we've run out of space
-  if ((*table)->entry[asid].num_valid == (*table)->entry[asid].num_configs) {
+  if ((*table)->entry_v[asid].num_valid == (*table)->entry_v[asid].num_configs) {
     return -1;
   }
 
   // The NNID is the index into the ASID--NNID array. The NNID is
   // implict here as it is the _next_ unallocated entry in the
   // ASID--NNID array.
-  nnid = (*table)->entry[asid].num_valid;
+  nnid = (*table)->entry_v[asid].num_valid;
 
   // Allocate memory for the array and copy in the input array. Update
   // the size following.
-  alloc_config_aligned(&(*table)->entry[asid].asid_nnid[nnid].config_raw,
-                       &(*table)->entry[asid].asid_nnid[nnid].config,
+  alloc_config_aligned(&(*table)->entry_v[asid].asid_nnid_v[nnid].config_raw,
+                       &(*table)->entry_v[asid].asid_nnid_v[nnid].config_v,
                        size * sizeof(xlen_t));
-  assert((*table)->entry[asid].asid_nnid[nnid].config_raw != NULL);
-  assert((*table)->entry[asid].asid_nnid[nnid].config != NULL);
+  assert((*table)->entry_v[asid].asid_nnid_v[nnid].config_raw != NULL);
+  assert((*table)->entry_v[asid].asid_nnid_v[nnid].config_v != NULL);
 
-  memcpy((*table)->entry[asid].asid_nnid[nnid].config, array,
+  memcpy((*table)->entry_v[asid].asid_nnid_v[nnid].config_v, array,
          size * sizeof(xlen_t));
-  (*table)->entry[asid].asid_nnid[nnid].size = size;
+  (*table)->entry_v[asid].asid_nnid_v[nnid].size = size;
 
   // Return the new number of valid entries
-  return ++(*table)->entry[asid].num_valid;
+  return ++(*table)->entry_v[asid].num_valid;
 }
 
 int alloc_config_aligned(xlen_t ** raw, xlen_t ** aligned, size_t size) {

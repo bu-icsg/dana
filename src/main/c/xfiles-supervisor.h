@@ -65,43 +65,46 @@ typedef enum {
 // An `io` contains pointers to input and output queue data structures
 // (`queue`).
 
-typedef struct {                 // |------------|     <---- queue size ----->
-  uint64_t * data;               // | * data     |---> [ | |0|1|2|3|4| | ... ]
-  size_t size;                   // | queue size |          ^       ^
-  uint64_t * head;               // | * head     |----------|       |
-  uint64_t * tail;               // | * tail     |------------------|
-} queue;                         // |------------| <-----| <--|
-                                 //                      |    |
-typedef struct {                 // |----------------|   |    |
-  uint64_t header;               // | status bits    |   |    |
-  queue * input;                 // | * input queue  |---|    |
-  queue * output;                // | * output queue |--------|
-} io;                            // |----------------| <-----------------|
-                                 //                                      |
-typedef struct {                 // |--------------------|               |
-  size_t size;                   // | size of config     |               |
-  size_t elements_per_block;     // | elements per block |               |
-  xlen_t * config_raw;           // | * config unaligned |               |
-  xlen_t * config;               // | * config aligned   |-> [NN Config] |
-} nn_configuration;              // |--------------------| <---|         |
-                                 //                            |         |
-typedef struct {                 // |-------------------|      |         |
-  int num_configs;               // | num configs       |      |         |
-  int num_valid;                 // | num valid configs |      |         |
-  nn_configuration * asid_nnid;  // | * ASID--NNID      |------|         |
-  io * transaction_io;           // | * IO              |----------------|
-} asid_nnid_table_entry;         // |-------------------| <-| <--[Hardware ANTP]
-                                 //                         |
-typedef struct {                 // |-----------|           |
-  size_t size;                   // | num ASIDs |           |
-  asid_nnid_table_entry * entry; // | * entry   |-----------|
-} asid_nnid_table;               // |-----------| <--------------------[OS ANTP]
+typedef struct {             // |------------|     <---- queue size ----->
+  uint64_t * data;           // | * data     |---> [ | |0|1|2|3|4| | ... ]
+  size_t size;               // | queue size |          ^       ^
+  uint64_t * head;           // | * head     |----------|       |
+  uint64_t * tail;           // | * tail     |------------------|
+} queue;                     // |------------| <-----| <--|
+                             //                      |    |
+typedef struct {             // |----------------|   |    |
+  uint64_t header;           // | status bits    |   |    |
+  queue * input;             // | * input queue  |---|    |
+  queue * output;            // | * output queue |--------|
+} io;                        // |----------------| <----------------------|
+                             //                                           |
+typedef struct {             // |-------------------------|               |
+  size_t size;               // | size of config          |               |
+  size_t elements_per_block; // | elements per block      |               |
+  xlen_t * config_raw;       // | * config unaligned      |               |
+  xlen_t * config_p;         // | * config aligned phys   |-> [NN Config] |
+  xlen_t * config_v;         // | * config aligned virt   |-> [NN Config] |
+} nn_config;                 // |-------------------------| <---|         |
+                             //                                 |         |
+typedef struct {             // |-------------------|           |         |
+  int num_configs;           // | num configs       |           |         |
+  int num_valid;             // | num valid configs |           |         |
+  nn_config * asid_nnid_p;   // | * ASID--NNID phys |--<phys>---|         |
+  nn_config * asid_nnid_v;   // | * ASID--NNID virt |--<virt>---|         |
+  io * transaction_io;       // | * IO              |---------------------|
+} ant_entry;                 // |-------------------| <-| <--[Hardware ANTP]
+                             //                         |
+typedef struct {             // |-----------|           |
+  size_t size;               // | num ASIDs |           |
+  ant_entry * entry_p;       // | * entry   |-----------|
+  ant_entry * entry_v;       // | * entry   |-----------|
+} ant;                       // |-----------| <--------------------[OS ANTP]
 
 // Set the ASID to a new value
 xlen_t set_asid(asid_type asid);
 
 // Set the ASID--NNID Table Poitner (ANTP)
-xlen_t set_antp(asid_nnid_table_entry * antp, size_t size);
+xlen_t set_antp(ant_entry * antp, size_t size);
 
 // Read a csr from XFiles
 xlen_t xf_read_csr(xfiles_csr_t csr);

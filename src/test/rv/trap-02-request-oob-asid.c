@@ -3,7 +3,7 @@
 int main() {
   pk_syscall_set_asid(2);
 
-  asid_nnid_table * ant;
+  ant * ant;
   asid_nnid_table_create(&ant, 2, 4);
   pk_syscall_set_antp(ant);
 

@@ -136,7 +136,7 @@ typedef struct {
     mse, error;
   char * file_nn, * file_train, * file_video_string, id[100];
   FILE * file_video;
-  asid_nnid_table * table;
+  ant * table;
   element_type * outputs, * outputs_old;
   struct fann_train_data * data;
   size_t num_input, num_output;

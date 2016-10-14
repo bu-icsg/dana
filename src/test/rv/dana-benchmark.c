@@ -86,7 +86,7 @@ int main(int argc, char *argv[]){
 #endif
 
   //Table Setup
-  asid_nnid_table * table;
+  ant * table;
   asid_type asid = 1;
 
   //Setting the ASID
@@ -147,7 +147,7 @@ int main(int argc, char *argv[]){
 }
 
 //Creates a transaction on the table
-tid_type create_transaction(asid_nnid_table * table, asid_type asid,
+tid_type create_transaction(ant * table, asid_type asid,
                             Transaction * transaction){
   //Attaching a neural network
   debug("\n\nAttaching the neural network file %s to the table...\n",
