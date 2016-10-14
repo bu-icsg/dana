@@ -166,7 +166,7 @@ xlen_t read_data_spinlock(tid_type tid, element_type * data, size_t count) {
 }
 
 xlen_t pk_syscall_set_asid(asid_type asid) {
-    // This currently depends on a backing OS system call supported by
+  // This currently depends on a backing OS system call supported by
   // the Proxy Kernel (a basic RISC-V OS). Using the RISC-V function
   // calling convention, the asid is placed into register a0, the
   // syscall ID (#512) in register a7, and we generate a syscall. The
