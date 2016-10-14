@@ -116,7 +116,7 @@ class AsidNnidTableWalker(implicit p: Parameters) extends DanaModule()(p)
 
   io.xfiles.rocc.resp.bits.rd := io.xfiles.rocc.cmd.bits.inst.rd
   io.xfiles.rocc.resp.bits.data := Mux(antpReg.valid, antpReg.antp,
-    SInt(-int_DANA_NOANTP, width = xLen).toUInt)
+    SInt(-int_DANA_NOANTP, width = xLen).asUInt)
   io.xfiles.rocc.resp.valid := io.xfiles.rocc.cmd.fire() && updateAntp
 
   when (io.xfiles.rocc.resp.valid) {
@@ -133,7 +133,7 @@ class AsidNnidTableWalker(implicit p: Parameters) extends DanaModule()(p)
   def setInterrupt(code: Int) {
     interruptCode.valid := Bool(true);
     if (code >= 0) interruptCode.bits := UInt(code)
-    else interruptCode.bits := SInt(code).toUInt }
+    else interruptCode.bits := SInt(code).asUInt }
   def clearInterrupt() { interruptCode.valid := Bool(false) }
 
   // Many of the state updates are gated by waiting for a response.
@@ -178,7 +178,7 @@ class AsidNnidTableWalker(implicit p: Parameters) extends DanaModule()(p)
   }
   val autlDataGetVec = Wire(Vec(tlDataBits / xLen, UInt(width = xLen)))
   (0 until tlDataBits/xLen).map(i =>
-    autlDataGetVec(i).toBits := gnt.bits.data((i+1) * xLen-1, i * xLen))
+    autlDataGetVec(i).asUInt := gnt.bits.data((i+1) * xLen-1, i * xLen))
   val autlDataWord = autlDataGetVec(autlAddrWord_d)
   def autlAcqGrant(nextState: UInt, cond: => Bool = Bool(true),
     code: Int = int_UNKNOWN) = {
@@ -372,19 +372,19 @@ class AsidNnidTableWalker(implicit p: Parameters) extends DanaModule()(p)
   // We need to look at the Config ROB and determine if anything is
   // valid to write back to the cache. A slot is valid if all its
   // valid bits are asserted.
-  when (configRob.valid.toBits.andR) {
+  when (configRob.valid.asUInt.andR) {
     val done = cacheAddr >= (configSize >> UInt(log2Up(configBufSize))) - UInt(1)
     val cacheIdx = cacheReqCurrent.cacheIndex
     io.cache.resp.valid := Bool(true)
     io.cache.resp.bits.done := done
-    io.cache.resp.bits.data := configRob.data.toBits
+    io.cache.resp.bits.data := configRob.data.asUInt
     io.cache.resp.bits.addr := cacheAddr
     cacheAddr := cacheAddr + UInt(1)
 
-    // configRob.valid.toBits := UInt(0)
+    // configRob.valid.asUInt := UInt(0)
     (0 until configRob.valid.length).map(i => configRob.valid(i) := Bool(false))
     printfInfo("ANTW: Cache[%d] Resp: done 0x%x, addr 0x%x, data 0x%x\n",
-      cacheIdx, done, cacheAddr, configRob.data.toBits)
+      cacheIdx, done, cacheAddr, configRob.data.asUInt)
     printfInfo("ANTW:   cacheAddr/configSize/cS>>cbs 0x%x/0x%x/0x%x\n",
       cacheAddr, configSize, (configSize >> UInt(log2Up(configBufSize))) - UInt(1))
 
