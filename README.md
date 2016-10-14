@@ -125,7 +125,6 @@ make CONFIG=XFilesDanaCppPe4Epb4Config ROCKETCHIP_ADDONS=xfiles-dana
 With the patched Proxy Kernel, we can then run the test programs. These can be built inside of the xfiles-dana repo:
 ``` bash
 cd $ROCKETCHIP/xfiles-dana
-git submodule update --init
 make
 ```
 

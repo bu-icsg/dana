@@ -1,8 +1,16 @@
 #-*- mode: makefile-*-
 
-# Makefile for building host and RISC-V targets of FANN
+SUBMODULE_FANN=$(DIR_TOP)/submodules/fann/.git
+SUBMODULE_VERILOG=$(DIR_TOP)/submodules/verilog/.git
 
-$(DIR_BUILD)/fann/lib%: | $(DIR_BUILD)/fann
+.PRECIOUS: $(SUBMODULE_FANN) $(SUBMODULE_VERILOG)
+
+# Grab submodules
+$(DIR_TOP)/submodules/%/.git:
+	git submodule update --init $(DIR_TOP)/submodules/$*
+
+# Makefile for building host and RISC-V targets of FANN
+$(DIR_BUILD)/fann/lib%: | $(DIR_BUILD)/fann $(SUBMODULE_FANN)
 	cd $(DIR_BUILD)/fann && \
 	cmake -DCMAKE_LIBRARY_OUTPUT_DIRECTORY=\
 	$(abspath $(DIR_BUILD)/fann) \
@@ -17,7 +25,7 @@ $(DIR_BUILD)/fann/lib%: | $(DIR_BUILD)/fann
 # build. Hence, this target is set to ignore all build errors. This is
 # dangerous, but I don't see a way around it without me putting a fix
 # in FANN.
-$(DIR_BUILD)/fann-rv-newlib/lib%: | $(DIR_BUILD)/fann-rv-newlib
+$(DIR_BUILD)/fann-rv-newlib/lib%: | $(DIR_BUILD)/fann-rv-newlib $(SUBMODULE_FANN)
 	cd $(DIR_BUILD)/fann-rv-newlib && \
 	cmake -DCMAKE_ARCHIVE_OUTPUT_DIRECTORY=\
 	$(abspath $(DIR_BUILD)/fann-rv-newlib) \
@@ -34,7 +42,7 @@ $(DIR_BUILD)/fann-rv-newlib/lib%: | $(DIR_BUILD)/fann-rv-newlib
 	../../submodules/fann && \
 	$(MAKE) -k || true
 
-$(DIR_BUILD)/fann-rv-linux/lib%: | $(DIR_BUILD)/fann-rv-linux
+$(DIR_BUILD)/fann-rv-linux/lib%: | $(DIR_BUILD)/fann-rv-linux $(SUBMODULE_FANN)
 	cd $(DIR_BUILD)/fann-rv-linux && \
 	cmake -DCMAKE_ARCHIVE_OUTPUT_DIRECTORY=\
 	$(abspath $(DIR_BUILD)/fann-rv-linux) \

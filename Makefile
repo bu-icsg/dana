@@ -179,7 +179,7 @@ disasm-newlib: $(RV_TESTS_DISASM_NEWLIB)
 disasm-linux: $(RV_TESTS_DISASM_LINUX)
 
 include $(DIR_TOP)/tools/common/Makefrag-rv
-include $(DIR_TOP)/tools/common/Makefrag-fann
+include $(DIR_TOP)/tools/common/Makefrag-submodule
 include $(DIR_TOP)/tools/common/Makefrag-tools
 include $(DIR_TOP)/tools/common/Makefrag-nets
 include $(DIR_TOP)/tools/common/Makefrag-video
