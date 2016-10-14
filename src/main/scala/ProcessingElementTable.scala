@@ -305,7 +305,8 @@ class ProcessingElementTableBase[PeStateType <: ProcessingElementState,
   // generate some requests based on which PE the arbiter has
   // determined needs something. The action taken depends on the state
   // that we're seeing from the chosen PE.
-  when (peArbiter.io.out.valid) {
+  peArbiter.io.out.ready := Bool(true)
+  when (peArbiter.io.out.fire()) {
     switch (peArbiter.io.out.bits.state) {
       is (PE_states('e_PE_GET_INFO)) {
         // Send a request to the cache for information.
