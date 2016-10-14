@@ -20,8 +20,8 @@ xlen_t debug_write_mem(uint32_t data, void * addr) {
   return debug_test(a_MEM_WRITE, data, addr);
 }
 
-xlen_t debug_virt_to_phys(void * addr_v) {
-  return debug_test(a_VIRT_TO_PHYS, 0, addr_v);
+void * debug_virt_to_phys(void * addr_v) {
+  return (void *) debug_test(a_VIRT_TO_PHYS, 0, addr_v);
 }
 
 xlen_t debug_read_utl(void * addr) {

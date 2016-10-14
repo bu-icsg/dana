@@ -19,7 +19,7 @@ int main(int argc, char **argv) {
 
   printf("[TEST] Testing L1 read (action 0x%x)...\n", a_MEM_READ);
   for (size_t i = 0; i < 4; ++i) {
-    xlen_t * data_p = (xlen_t *) debug_virt_to_phys(&data[i]);
+    xlen_t * data_p = debug_virt_to_phys(&data[i]);
     printf("[TEST]   Read %p\n", data_p);
     out = debug_read_mem(data_p);
     assert(data[i] == out);
@@ -36,7 +36,7 @@ int main(int argc, char **argv) {
   }
 
   printf("[TEST] Testing translation (action 0x%x)...\n", a_VIRT_TO_PHYS);
-  out = debug_virt_to_phys(&data);
+  out = (xlen_t) debug_virt_to_phys(&data);
   assert(out != -1);
 
   printf("[TEST] Testing L2 read (action 0x%x)...\n", a_UTL_READ);

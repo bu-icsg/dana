@@ -1,6 +1,7 @@
 // See LICENSE for license details.
 
 #include "src/main/c/xfiles-user.h"
+#include "src/main/c/xfiles-debug.h"
 
 // All RoCC communication occurs using the "custom0" RISC-V
 // instruction of the following format:
@@ -242,11 +243,13 @@ void asid_nnid_table_info(ant * table) {
       printf("[INFO]         |         |-> [%0d] 0x%p: size:             0x%lx\n"
              "[INFO]         |         |       0x%p: elements_per_block: 0d%lx\n"
              "[INFO]         |         |       0x%p: * config_raw:       0x%p\n"
-             "[INFO]         |         |       0x%p: * config:           0x%p\n",
+             "[INFO]         |         |       0x%p: * config_p:         0x%p\n"
+             "[INFO]         |         |       0x%p: * config_v:         0x%p\n",
              j,
              &n->size, n->size,
              &n->elements_per_block, n->elements_per_block,
              &n->config_raw, n->config_raw,
+             &n->config_p, n->config_p,
              &n->config_v, n->config_v);
     }
     // Back to `asid_nnid_table_entry`
@@ -281,12 +284,21 @@ void asid_nnid_table_create(ant ** new_table, size_t table_size,
   *new_table = (ant *) malloc(sizeof(ant));
   (*new_table)->entry_v =
     (ant_entry *) malloc(sizeof(ant_entry) * table_size);
+  // [TODO] This assumes physical contiguity
+  printf("[INFO] Translate 0x%p\n", (*new_table)->entry_v);
+  (*new_table)->entry_p = debug_virt_to_phys((*new_table)->entry_v);
+  printf("[INFO] Got 0x%p\n", (*new_table)->entry_p);
   (*new_table)->size = table_size;
 
   for (i = 0; i < table_size; i++) {
     // Create the configuration region
     (*new_table)->entry_v[i].asid_nnid_v =
       (nn_config *) malloc(configs_per_entry * sizeof(nn_config));
+    // [TODO] This assumes physical contiguity
+    printf("[INFO] Translate 0x%p\n", (*new_table)->entry_v[i].asid_nnid_v);
+    (*new_table)->entry_v[i].asid_nnid_p =
+        debug_virt_to_phys((*new_table)->entry_v[i].asid_nnid_v);
+    printf("[INFO] Got 0x%p\n", (*new_table)->entry_v[i].asid_nnid_p);
     (*new_table)->entry_v[i].asid_nnid_v->config_v = NULL;
     (*new_table)->entry_v[i].asid_nnid_v->config_p = NULL;
     (*new_table)->entry_v[i].num_configs = configs_per_entry;
@@ -372,6 +384,11 @@ int attach_nn_configuration(ant ** table, asid_type asid,
                        file_size * sizeof(xlen_t));
   assert((*table)->entry_v[asid].asid_nnid_v[nnid].config_raw != NULL);
   assert((*table)->entry_v[asid].asid_nnid_v[nnid].config_v != NULL);
+  // [TODO] Assumes memory contiguity
+  printf("[INFO] Translate 0x%p\n", (*table)->entry_v[asid].asid_nnid_v[nnid].config_v);
+  (*table)->entry_v[asid].asid_nnid_v[nnid].config_p =
+      debug_virt_to_phys((*table)->entry_v[asid].asid_nnid_v[nnid].config_v);
+  printf("[INFO] Translate 0x%p\n", (*table)->entry_v[asid].asid_nnid_v[nnid].config_p);
 
   // Write the configuration
   fread((*table)->entry_v[asid].asid_nnid_v[nnid].config_v, sizeof(xlen_t),
@@ -421,6 +438,11 @@ int attach_nn_configuration_array(ant ** table, uint16_t asid,
                        size * sizeof(xlen_t));
   assert((*table)->entry_v[asid].asid_nnid_v[nnid].config_raw != NULL);
   assert((*table)->entry_v[asid].asid_nnid_v[nnid].config_v != NULL);
+  // [TODO] This assumes physical contiguity
+  printf("[INFO] Translate 0x%p\n", (*table)->entry_v[asid].asid_nnid_v[nnid].config_v);
+  (*table)->entry_v[asid].asid_nnid_v[nnid].config_p =
+      debug_virt_to_phys((*table)->entry_v[asid].asid_nnid_v[nnid].config_v);
+  printf("[INFO] Translate 0x%p\n", (*table)->entry_v[asid].asid_nnid_v[nnid].config_p);
 
   memcpy((*table)->entry_v[asid].asid_nnid_v[nnid].config_v, array,
          size * sizeof(xlen_t));

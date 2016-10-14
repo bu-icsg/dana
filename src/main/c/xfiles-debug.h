@@ -35,7 +35,7 @@ xlen_t debug_write_mem(uint32_t data, void * addr);
 
 // Do virtual to physical address translation:
 //   addr_phys = virt_to_phys(addr_virt)
-xlen_t debug_virt_to_phys(void * addr_v);
+void * debug_virt_to_phys(void * addr_v);
 
 // Read a specific memory address using the L2 uncached tilelink port:
 //   data = [addr]
