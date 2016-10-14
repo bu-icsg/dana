@@ -12,9 +12,13 @@ import cde.{Parameters}
 import xfiles.{InterruptBundle, XFilesSupervisorRequests}
 
 trait AntParameters {
-  // Parameters that must match xfiles-supervisor.h
-  val sizeAsidStruct = 24  // sizeof(asid_nnid_table_entry)
-  val sizeNnidStruct = 32  // sizeof(nn_configuration)
+  // Parameters that must match xfiles-supervisor.h. These can be
+  // generated with usr/bin/antw-config.
+  val sizeAsidStruct = 32  // sizeof(asid_nnid_table_entry)
+  val sizeNnidStruct = 40  // sizeof(nn_configuration)
+  val offsetNnidPtr = 8
+  val offsetEpb = 8
+  val offsetConfig = 24
 }
 
 class ANTWXFilesInterface(implicit p: Parameters) extends DanaBundle()(p) {
@@ -240,24 +244,21 @@ class AsidNnidTableWalker(implicit p: Parameters) extends DanaModule()(p)
   val nnidPointer = Reg(UInt())
   nnidPointer := nnidPointer
   when (state === s_GET_NN_POINTER) {
-    val reqAddr = antpReg.antp + asid * UInt(sizeAsidStruct) + UInt(8)
+    autlAddr := antpReg.antp + asid * UInt(sizeAsidStruct) + UInt(offsetNnidPtr)
     nnidPointer := autlDataWord + nnid * UInt(sizeNnidStruct)
-    autlAddr := reqAddr
     autlAcqGrant(s_GET_NN_SIZE, autlDataWord =/= UInt(0), int_NULLREAD)
   }
 
   val configSize = Reg(UInt())
   configSize := configSize
   when (state === s_GET_NN_SIZE) {
-    val reqAddr = nnidPointer
-    autlAddr := reqAddr
+    autlAddr := nnidPointer
     configSize := autlDataWord
     autlAcqGrant(s_GET_NN_EPB, autlDataWord =/= UInt(0), int_ZEROSIZE)
   }
 
   when (state === s_GET_NN_EPB) {
-    val reqAddr = nnidPointer + UInt(8)
-    autlAddr := reqAddr
+    autlAddr := nnidPointer + UInt(offsetEpb)
     autlAcqGrant(s_GET_CONFIG_POINTER, autlDataWord === UInt(elementsPerBlock),
       int_INVEPB)
   }
@@ -266,10 +267,9 @@ class AsidNnidTableWalker(implicit p: Parameters) extends DanaModule()(p)
   val cacheAddr = Reg(UInt(width = log2Up(cacheNumBlocks)))
   configPointer := configPointer
   when (state === s_GET_CONFIG_POINTER) {
-    val reqAddr = nnidPointer + UInt(24)
+    autlAddr := nnidPointer + UInt(offsetConfig)
     configReqCount := UInt(0)
     configWbCount := UInt(0)
-    autlAddr := reqAddr
     configPointer := autlDataWord
     def misaligned(addr: UInt): Bool = {
       addr(log2Up(p(CacheBlockBytes)) - 1, 0) === UInt(0) }
