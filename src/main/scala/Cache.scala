@@ -12,52 +12,52 @@ import cde.Parameters
 //     if it isn't
 
 class CacheState(implicit p: Parameters) extends DanaBundle()(p) {
-  val valid = Bool()
-  val notifyFlag = Bool()
-  val fetch = Bool()
+  val valid       = Bool()
+  val notifyFlag  = Bool()
+  val fetch       = Bool()
   val notifyIndex = UInt(width = log2Up(transactionTableNumEntries))
-  val notifyMask = UInt(width = transactionTableNumEntries)
-  val asid = UInt(width = asidWidth)
-  val nnid = UInt(width = nnidWidth)
-  val inUseCount = UInt(width = log2Up(transactionTableNumEntries) + 1)
+  val notifyMask  = UInt(width = transactionTableNumEntries)
+  val asid        = UInt(width = asidWidth)
+  val nnid        = UInt(width = nnidWidth)
+  val inUseCount  = UInt(width = log2Up(transactionTableNumEntries) + 1)
 }
 
 class CacheMemReq(implicit p: Parameters) extends DanaBundle()(p) {
-  val asid = UInt(width = asidWidth)
-  val nnid = UInt(width = nnidWidth)
-  val cacheIndex = UInt(width = log2Up(cacheNumEntries))
+  val asid        = UInt(width = asidWidth)
+  val nnid        = UInt(width = nnidWidth)
+  val cacheIndex  = UInt(width = log2Up(cacheNumEntries))
 }
 
 class CacheMemResp(implicit p: Parameters) extends DanaBundle()(p) {
-  val done = Bool()
-  val data = UInt(width = elementsPerBlock * elementWidth)
-  val cacheIndex = UInt(width = log2Up(cacheNumEntries))
-  val addr = UInt(width = log2Up(cacheNumBlocks))
+  val done        = Bool()
+  val data        = UInt(width = elementsPerBlock * elementWidth)
+  val cacheIndex  = UInt(width = log2Up(cacheNumEntries))
+  val addr        = UInt(width = log2Up(cacheNumBlocks))
 }
 
 class CacheMemInterface(implicit p: Parameters) extends DanaBundle()(p) {
-  val req = Decoupled(new CacheMemReq)
-  val resp = Valid(new CacheMemResp).flip
+  val req                   = Decoupled(new CacheMemReq)
+  val resp                  = Valid(new CacheMemResp).flip
 }
 
 class CacheInterface(implicit p: Parameters) extends Bundle {
-  val mem = new CacheMemInterface
-  lazy val control = (new ControlCacheInterface).flip
-  lazy val pe = (new PECacheInterface).flip
+  val mem                   = new CacheMemInterface
+  lazy val control          = (new ControlCacheInterface).flip
+  lazy val pe               = (new PECacheInterface).flip
 }
 
 class CacheInterfaceLearn(implicit p: Parameters)
     extends CacheInterface()(p) {
   override lazy val control = (new ControlCacheInterfaceLearn).flip
-  override lazy val pe = (new PECacheInterfaceLearn).flip
+  override lazy val pe      = (new PECacheInterfaceLearn).flip
 }
 
 class CompressedNeuron(implicit p: Parameters) extends DanaBundle()(p) {
-  val weightPtr = UInt(width = 16)
-  val numWeights = UInt(width = 8)
+  val weightPtr          = UInt(width = 16)
+  val numWeights         = UInt(width = 8)
   val activationFunction = UInt(width = activationFunctionWidth)
-  val steepness = UInt(width = steepnessWidth)
-  val bias = SInt(width = elementWidth)
+  val steepness          = UInt(width = steepnessWidth)
+  val bias               = SInt(width = elementWidth)
   def populate(data: UInt, out: CompressedNeuron) {
     out.weightPtr := data(15, 0)
     out.numWeights := data(23, 16)

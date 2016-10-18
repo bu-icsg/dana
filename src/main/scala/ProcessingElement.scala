@@ -6,41 +6,41 @@ import Chisel._
 import cde.Parameters
 
 class ProcessingElementReq(implicit p: Parameters) extends DanaBundle()(p) {
-  val numWeights = UInt(width = 8)            // [TODO] fragile
-  val index = UInt(width = log2Up(peTableNumEntries))
-  val decimalPoint = UInt(decimalPointWidth)
-  val steepness = UInt(steepnessWidth)
-  val activationFunction = UInt(activationFunctionWidth)
-  val iBlock = Vec(elementsPerBlock, SInt(elementWidth))
-  val wBlock = Vec(elementsPerBlock, SInt(elementWidth))
-  val bias = SInt(elementWidth)
+  val numWeights         = UInt(width = 8)         // [TODO] fragile
+  val index              = UInt(width = log2Up(peTableNumEntries))
+  val decimalPoint       = UInt(width = decimalPointWidth)
+  val steepness          = UInt(width = steepnessWidth)
+  val activationFunction = UInt(width = activationFunctionWidth)
+  val iBlock             = Vec(elementsPerBlock, SInt(width = elementWidth))
+  val wBlock             = Vec(elementsPerBlock, SInt(width = elementWidth))
+  val bias               = SInt(width = elementWidth)
 }
 
 class ProcessingElementReqLearn(implicit p: Parameters)
     extends ProcessingElementReq()(p) {
-  val errorFunction = UInt(width = log2Up(2)) // [TODO] fragile
-  val learningRate = UInt(width = 16)         // [TODO] fragile
-  val lambda = SInt(width = 16)               // [TODO] fragile
-  val learnReg = SInt(elementWidth)
-  val stateLearn = UInt(width = log2Up(8))    // [TODO] fragile
-  val inLast = Bool()
-  val inFirst = Bool()
-  val dw_in = SInt(elementWidth)
-  val tType = UInt(width = log2Up(3))
+  val errorFunction      = UInt(width = log2Up(2)) // [TODO] fragile
+  val learningRate       = UInt(width = 16)        // [TODO] fragile
+  val lambda             = SInt(width = 16)        // [TODO] fragile
+  val learnReg           = SInt(width = elementWidth)
+  val stateLearn         = UInt(width = log2Up(8)) // [TODO] fragile
+  val inLast             = Bool()
+  val inFirst            = Bool()
+  val dw_in              = SInt(width = elementWidth)
+  val tType              = UInt(width = log2Up(3))
 }
 
 class ProcessingElementResp(implicit p: Parameters) extends DanaBundle()(p) {
-  val data = SInt(width = elementWidth)
-  val state = UInt(width = log2Up(PE_states.size))
-  val index = UInt(width = log2Up(peTableNumEntries))
-  val incWriteCount = Bool()
+  val data               = SInt(width = elementWidth)
+  val state              = UInt(width = log2Up(PE_states.size))
+  val index              = UInt(width = log2Up(peTableNumEntries))
+  val incWriteCount      = Bool()
 }
 
 class ProcessingElementRespLearn(implicit p: Parameters)
     extends ProcessingElementResp()(p) {
-  val dataBlock = Vec(elementsPerBlock, SInt(width = elementWidth))
-  val error = SInt(width = elementWidth)
-  val resetWeightPtr = Bool()
+  val dataBlock          = Vec(elementsPerBlock, SInt(width = elementWidth))
+  val error              = SInt(width = elementWidth)
+  val resetWeightPtr     = Bool()
 }
 
 class ProcessingElementInterface(implicit p: Parameters) extends DanaBundle()(p) {
@@ -48,14 +48,14 @@ class ProcessingElementInterface(implicit p: Parameters) extends DanaBundle()(p)
   // components: requests from the PE Table (really kicks to do
   // something), responses to the PE Table, and semi-static data which
   // th PE Table manages and is used by the PEs for computation.
-  val req = Decoupled(new ProcessingElementReq).flip
-  val resp = Decoupled(new ProcessingElementResp)
+  val req                = Decoupled(new ProcessingElementReq).flip
+  val resp               = Decoupled(new ProcessingElementResp)
 }
 
 class ProcessingElementInterfaceLearn(implicit p: Parameters)
     extends ProcessingElementInterface()(p) {
-  override val req = Decoupled(new ProcessingElementReqLearn).flip
-  override val resp = Decoupled(new ProcessingElementRespLearn)
+  override val req       = Decoupled(new ProcessingElementReqLearn).flip
+  override val resp      = Decoupled(new ProcessingElementRespLearn)
 }
 
 class ProcessingElement(implicit p: Parameters) extends DanaModule()(p) {
@@ -250,9 +250,6 @@ class ProcessingElementLearn(implicit p: Parameters)
       DSP(io.req.bits.iBlock(eleIndex), io.req.bits.wBlock(eleIndex), decimal)
       acc := acc + dsp.d
       index := index + UInt(1)
-      printfInfo("PE: run 0x%x + (0x%x * 0x%x) >> 0x%x = 0x%x\n",
-        acc, io.req.bits.iBlock(eleIndex), io.req.bits.wBlock(eleIndex),
-        decimal, acc + dsp.d)
     }
     is (PE_states('e_PE_ACTIVATION_FUNCTION)) {
       af.io.req.valid := Bool(true)
@@ -477,17 +474,17 @@ class ProcessingElementLearn(implicit p: Parameters)
         io.req.bits.wBlock(eleIndex), io.req.bits.lambda, weightDecay)
 
       when (io.req.bits.tType === e_TTYPE_BATCH) {
-        DSP(io.req.bits.iBlock(eleIndex), io.req.bits.learningRate.toSInt,
+        DSP(io.req.bits.iBlock(eleIndex), io.req.bits.learningRate.asSInt,
           decimal)
         weightWB(eleIndex) := dsp.d + weightDecay
         printfInfo("PE: weight update %d: 0x%x * 0x%x + 0x%x = 0x%x\n",
           eleIndex,
-          io.req.bits.iBlock(eleIndex), io.req.bits.learningRate.toSInt,
+          io.req.bits.iBlock(eleIndex), io.req.bits.learningRate.asSInt,
           weightDecay, dsp.d + weightDecay)
       } .otherwise {
         // [TODO] #54: we're doing incremental learning here, so the
         // source is coming from weightWB
-        DSP(weightWB(eleIndex), io.req.bits.learningRate.toSInt, decimal)
+        DSP(weightWB(eleIndex), io.req.bits.learningRate.asSInt, decimal)
         weightWB(eleIndex) := dsp.d + weightDecay
         printfInfo("PE: weight update %d: 0x%x * 0x%x + 0x%x = 0x%x\n",
           eleIndex,
@@ -529,10 +526,10 @@ class ProcessingElementLearn(implicit p: Parameters)
       state := PE_states('e_PE_WEIGHT_UPDATE_WRITE_BIAS)
       val biasSlope = Mux(io.req.bits.tType === e_TTYPE_BATCH,
         io.req.bits.dw_in, errorOut)
-      DSP(biasSlope, io.req.bits.learningRate.toSInt, decimal)
+      DSP(biasSlope, io.req.bits.learningRate.asSInt, decimal)
       dataOut := dsp.d
       printfInfo("PE: biasSlope scale 0x%x * 0x%x = 0x%x\n",
-        biasSlope, io.req.bits.learningRate.toSInt, dsp.d)
+        biasSlope, io.req.bits.learningRate.asSInt, dsp.d)
     }
     is (PE_states('e_PE_WEIGHT_UPDATE_WRITE_BIAS)) {
       when (io.req.valid) { state := PE_states('e_PE_UNALLOCATED) }

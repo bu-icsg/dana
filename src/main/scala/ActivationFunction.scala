@@ -5,25 +5,23 @@ package dana
 import Chisel._
 import cde.Parameters
 
-// The steepness is currently
-
 class ActivationFunctionReq(implicit p: Parameters) extends DanaBundle()(p) {
-  val decimal = UInt(width = decimalPointWidth)
-  val steepness = UInt(width = steepnessWidth)
+  val decimal            = UInt(width = decimalPointWidth)
+  val steepness          = UInt(width = steepnessWidth)
   // Differentiate activation function requests vs. error function
   // requests
   val activationFunction = UInt(width = log2Up(18)) // [TODO] fragile
-  val in = SInt(elementWidth)
+  val in                 = SInt(width = elementWidth)
 }
 
 class ActivationFunctionReqLearn(implicit p: Parameters)
     extends ActivationFunctionReq()(p) {
-  val afType = UInt(width = log2Up(2)) // [TODO] fragile
-  val errorFunction = UInt(width = log2Up(2))
+  val afType             = UInt(width = log2Up(2)) // [TODO] fragile
+  val errorFunction      = UInt(width = log2Up(2))
 }
 
 class ActivationFunctionResp(implicit p: Parameters) extends DanaBundle()(p) {
-  val out = SInt(elementWidth)
+  val out                = SInt(width = elementWidth)
 }
 
 class ActivationFunctionInterface(implicit p: Parameters) extends DanaBundle()(p) {
@@ -38,12 +36,12 @@ class ActivationFunctionInterfaceLearn(implicit p: Parameters)
 
 class DSP(implicit p: Parameters) extends DanaModule()(p) {
   val io = new Bundle {
-    val a = SInt(INPUT, width = elementWidth)
-    val b = SInt(INPUT, width = elementWidth)
-    val c = UInt(INPUT, width = elementWidth)
+    val a = SInt(INPUT,  width = elementWidth)
+    val b = SInt(INPUT,  width = elementWidth)
+    val c = UInt(INPUT,  width = elementWidth)
     val d = SInt(OUTPUT, width = elementWidth)
   }
-  io.d := (((io.a * io.b) >> io.c)(elementWidth - 1, 0)).toSInt
+  io.d := (((io.a * io.b) >> io.c)(elementWidth - 1, 0)).asSInt
 }
 
 class ActivationFunction(implicit p: Parameters) extends DanaModule()(p) {
@@ -181,31 +179,31 @@ class ActivationFunction(implicit p: Parameters) extends DanaModule()(p) {
     offsetSigY := sigy0
     offsetSymY := symy0
     slopeSig   := slope1
-    slopeSym   := sslope1.toSInt
+    slopeSym   := sslope1.asSInt
   } .elsewhen((x1 <= inD0) && (inD0 < x2)) {
     offsetX    := x1
     offsetSigY := sigy1
     offsetSymY := symy1
     slopeSig   := slope2
-    slopeSym   := sslope2.toSInt
+    slopeSym   := sslope2.asSInt
   } .elsewhen((x2 <= inD0) && (inD0 < x3)) {
     offsetX    := x2
     offsetSigY := sigy2
     offsetSymY := symy2
     slopeSig   := slope3
-    slopeSym   := sslope3.toSInt
+    slopeSym   := sslope3.asSInt
   } .elsewhen((x3 <= inD0) && (inD0 < x4)) {
     offsetX    := x3
     offsetSigY := sigy3
     offsetSymY := symy3
     slopeSig   := slope4
-    slopeSym   := sslope4.toSInt
+    slopeSym   := sslope4.asSInt
   } .elsewhen((xmin <= inD0) && (inD0 < xmax)) {
     offsetX    := x4
     offsetSigY := sigy4
     offsetSymY := symy4
     slopeSig   := slope5
-    slopeSym   := sslope5.toSInt
+    slopeSym   := sslope5.asSInt
   } .otherwise {
     offsetX    := SInt(0)
     offsetSigY := one
@@ -305,23 +303,23 @@ class ActivationFunctionLearn(implicit p: Parameters)
   } .elsewhen ((atanh_x0 <= dataIn) && (dataIn < atanh_x1)) {
     atanhOffsetX := atanh_x0
     atanhOffsetY := atanh_y0
-    atanhSlope   := atanh_s1.toSInt
+    atanhSlope   := atanh_s1.asSInt
   } .elsewhen ((atanh_x1 <= dataIn) && (dataIn < atanh_x2)) {
     atanhOffsetX := atanh_x1
     atanhOffsetY := atanh_y1
-    atanhSlope   := atanh_s2.toSInt
+    atanhSlope   := atanh_s2.asSInt
   } .elsewhen ((atanh_x2 <= dataIn) && (dataIn < atanh_x3)) {
     atanhOffsetX := atanh_x2
     atanhOffsetY := atanh_y2
-    atanhSlope   := atanh_s3.toSInt
+    atanhSlope   := atanh_s3.asSInt
   } .elsewhen ((atanh_x3 <= dataIn) && (dataIn < atanh_x4)) {
     atanhOffsetX := atanh_x3
     atanhOffsetY := atanh_y3
-    atanhSlope   := atanh_s4.toSInt
+    atanhSlope   := atanh_s4.asSInt
   } .elsewhen ((atanh_x4 <= dataIn) && (dataIn < atanh_x5)) {
     atanhOffsetX := atanh_x4
     atanhOffsetY := atanh_y4
-    atanhSlope   := atanh_s5.toSInt
+    atanhSlope   := atanh_s5.asSInt
   } .otherwise {
     atanhOffsetX := SInt(0)
     atanhOffsetY := seventeen
