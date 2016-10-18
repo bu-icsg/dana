@@ -285,9 +285,7 @@ void asid_nnid_table_create(ant ** new_table, size_t table_size,
   (*new_table)->entry_v =
     (ant_entry *) malloc(sizeof(ant_entry) * table_size);
   // [TODO] This assumes physical contiguity
-  printf("[INFO] Translate 0x%p\n", (*new_table)->entry_v);
   (*new_table)->entry_p = debug_virt_to_phys((*new_table)->entry_v);
-  printf("[INFO] Got 0x%p\n", (*new_table)->entry_p);
   (*new_table)->size = table_size;
 
   for (i = 0; i < table_size; i++) {
@@ -295,10 +293,8 @@ void asid_nnid_table_create(ant ** new_table, size_t table_size,
     (*new_table)->entry_v[i].asid_nnid_v =
       (nn_config *) malloc(configs_per_entry * sizeof(nn_config));
     // [TODO] This assumes physical contiguity
-    printf("[INFO] Translate 0x%p\n", (*new_table)->entry_v[i].asid_nnid_v);
     (*new_table)->entry_v[i].asid_nnid_p =
         debug_virt_to_phys((*new_table)->entry_v[i].asid_nnid_v);
-    printf("[INFO] Got 0x%p\n", (*new_table)->entry_v[i].asid_nnid_p);
     (*new_table)->entry_v[i].asid_nnid_v->config_v = NULL;
     (*new_table)->entry_v[i].asid_nnid_v->config_p = NULL;
     (*new_table)->entry_v[i].num_configs = configs_per_entry;
@@ -439,10 +435,8 @@ int attach_nn_configuration_array(ant ** table, uint16_t asid,
   assert((*table)->entry_v[asid].asid_nnid_v[nnid].config_raw != NULL);
   assert((*table)->entry_v[asid].asid_nnid_v[nnid].config_v != NULL);
   // [TODO] This assumes physical contiguity
-  printf("[INFO] Translate 0x%p\n", (*table)->entry_v[asid].asid_nnid_v[nnid].config_v);
   (*table)->entry_v[asid].asid_nnid_v[nnid].config_p =
       debug_virt_to_phys((*table)->entry_v[asid].asid_nnid_v[nnid].config_v);
-  printf("[INFO] Translate 0x%p\n", (*table)->entry_v[asid].asid_nnid_v[nnid].config_p);
 
   memcpy((*table)->entry_v[asid].asid_nnid_v[nnid].config_v, array,
          size * sizeof(xlen_t));
