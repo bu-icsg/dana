@@ -85,7 +85,7 @@ class SRAMBlockIncrement (
   for (i <- 0 until numPorts) {
     // Connections to the sram
     sram.io.weW(i) := writePending(i).valid
-    sram.io.dinW(i) := tmp1(i).toBits()
+    sram.io.dinW(i) := tmp1(i).asUInt()
     sram.io.addrW(i) := writePending(i).addr
     sram.io.addrR(i) := io.addr(i)
     io.dout(i) := sram.io.doutR(i)
@@ -109,12 +109,12 @@ class SRAMBlockIncrement (
         when (!io.inc(i)) {
           writeBlock(tmp0(i), io.din(i))
         } .otherwise {
-          writeBlockIncrement(tmp1(i), tmp0(i).toBits, io.din(i)) }}
+          writeBlockIncrement(tmp1(i), tmp0(i).asUInt, io.din(i)) }}
 
       printf("[INFO] SramBloInc: WRITE port/inc?/fwd?/fwdInc? 0x%x/0x%x/0x%x/0x%x\n",
         UInt(i), writePending(i).inc, forwarding(i), io.inc(i))
       printf("[INFO]              DATA addr/dataOld/dataNew 0x%x/0x%x/0x%x\n",
-        writePending(i).addr, tmp1(i).toBits, sram.io.doutR(i).toBits) }}
+        writePending(i).addr, tmp1(i).asUInt, sram.io.doutR(i).asUInt) }}
 
   // Sequential Logic
   for (i <- 0 until numPorts) {

@@ -126,7 +126,8 @@ class ProcessingElement(implicit p: Parameters) extends DanaModule()(p) {
   state := state
   // Jump to nextState when we are able to get a request out
   def reqNoResp() = {
-    when (io.req.valid) { state := nextState }}
+    when (io.req.valid) { state := nextState }
+  }
   // Jump to nextState when we get a request out and we receive a
   // response
   def reqWaitForResp() = {
@@ -452,15 +453,14 @@ class ProcessingElementLearn(implicit p: Parameters)
         PE_states('e_PE_REQUEST_INPUTS_AND_WEIGHTS))
       reqNoResp()
       io.resp.valid := Bool(true)
-      // Setup the bias to be written back
-      printfInfo("PE: bias wb: 0x%x\n", delta)
-      printfInfo("    index: 0x%x\n", index)
+      // Setup the bias to be written back (bias is in delta!)
       dataOut := delta
     }
     is (PE_states('e_PE_SLOPE_BIAS_WB)) {
       nextState := PE_states('e_PE_UNALLOCATED)
       reqNoResp()
       io.resp.valid := Bool(true)
+      printfInfo("PE: bias wb: 0x%x\n", dataOut)
     }
     is (PE_states('e_PE_RUN_WEIGHT_UPDATE)){
       when (index === (io.req.bits.numWeights - UInt(1)) ||

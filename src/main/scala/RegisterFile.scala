@@ -61,7 +61,7 @@ class RegisterFileBase[SramIf <: SRAMElementInterface](
     when (io.pe.req.bits.isWrite) { // This is a Write
       mem(tIdx).we(0) := Bool(true)
       mem(tIdx).addr(0) := io.pe.req.bits.addr
-      mem(tIdx).dinElement(0) := io.pe.req.bits.data.toBits
+      mem(tIdx).dinElement(0) := io.pe.req.bits.data.asUInt
       printfInfo("RegFile: PE write element tIdx/Addr/Data 0x%x/0x%x/0x%x\n",
         tIdx, io.pe.req.bits.addr, io.pe.req.bits.data)
       // Increment the write count and generate a response to the
@@ -207,7 +207,7 @@ class RegisterFileLearn(implicit p: Parameters) extends RegisterFileBase (
       switch (io.pe.req.bits.reqType) {
         is (e_PE_WRITE_ELEMENT) {
           mem(tIdx).wType(0) := UInt(0)
-          mem(tIdx).dinElement(0) := io.pe.req.bits.data.toBits
+          mem(tIdx).dinElement(0) := io.pe.req.bits.data.asUInt
           printfInfo("RegFile: PE write element tIdx/Addr/Data 0x%x/0x%x/0x%x\n",
             tIdx, io.pe.req.bits.addr, io.pe.req.bits.data)
         }

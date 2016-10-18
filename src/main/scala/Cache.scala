@@ -63,7 +63,7 @@ class CompressedNeuron(implicit p: Parameters) extends DanaBundle()(p) {
     out.numWeights := data(23, 16)
     out.activationFunction := data(28, 24)
     out.steepness := data(31, 29)
-    out.bias := data(63, 32).toSInt
+    out.bias := data(63, 32).asSInt
   }
 }
 
@@ -449,7 +449,7 @@ class CacheLearn(implicit p: Parameters)
         printfInfo("       block: 0x%x\n", io.pe.req.bits.data)
         mem(io.pe.req.bits.cacheIndex).we(0) := Bool(true)
         mem(io.pe.req.bits.cacheIndex).inc(0) := Bool(true)
-        mem(io.pe.req.bits.cacheIndex).din(0) := io.pe.req.bits.data.toBits
+        mem(io.pe.req.bits.cacheIndex).din(0) := io.pe.req.bits.data.asUInt
       }
     }
   }

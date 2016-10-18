@@ -77,13 +77,13 @@ class SRAMElement (
   // Combinational Logic
   for (i <- 0 until numPorts) {
     // Assign the addresses
-    addr(i).addrHi := io.addr(i).toBits()(
+    addr(i).addrHi := io.addr(i).asUInt()(
       log2Up(sramDepth * elementsPerBlock) - 1, log2Up(elementsPerBlock))
-    addr(i).addrLo := io.addr(i).toBits()(log2Up(elementsPerBlock) - 1, 0)
+    addr(i).addrLo := io.addr(i).asUInt()(log2Up(elementsPerBlock) - 1, 0)
 
     // Connections to the sram
     sram.io.weW(i) := writePending(i).valid
-    sram.io.dinW(i) := tmp(i).toBits()
+    sram.io.dinW(i) := tmp(i).asUInt()
     sram.io.addrW(i) := writePending(i).addrHi
     sram.io.addrR(i) := addr(i).addrHi
     io.dout(i) := sram.io.doutR(i)

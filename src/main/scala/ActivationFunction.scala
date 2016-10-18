@@ -137,9 +137,6 @@ class ActivationFunction(implicit p: Parameters) extends DanaModule()(p) {
   io.resp.bits.out := out
   io.resp.valid := ioVal_d1
   val dataIn = RegNext(io.req.bits.in)
-  when (io.req.valid) {
-    printfInfo("AF: dataIn = 0x%x\n", io.req.bits.in)
-  }
 
   when (ioVal_d1) {
     printfInfo("AF: (0x%x) = 0x%x\n", dataIn, out)

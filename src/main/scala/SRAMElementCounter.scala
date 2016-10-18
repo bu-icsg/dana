@@ -86,18 +86,18 @@ class SRAMElementCounter (
   // Combinational Logic
   for (i <- 0 until numPorts) {
     // Assign the addresses
-    addr(i).addrHi := io.addr(i).toBits()(
+    addr(i).addrHi := io.addr(i).asUInt()(
       log2Up(sramDepth * dataWidth / elementWidth) - 1,
       log2Up(dataWidth / elementWidth))
-    addr(i).addrLo := io.addr(i).toBits()(
+    addr(i).addrLo := io.addr(i).asUInt()(
       log2Up(dataWidth / elementWidth) - 1, 0)
     // Connections to the sram
     sram.io.weW(i) := writePending(i).valid
     // Explicit data and count assignments
     sram.io.dinW(i) := UInt(0)
-    sram.io.dinW(i)(sramDepth - 1, 0) := tmp(i).toBits()
+    sram.io.dinW(i)(sramDepth - 1, 0) := tmp(i).asUInt()
     sram.io.dinW(i)(sramDepth + log2Up(dataWidth/elementWidth) + 1 - 1) :=
-      count(i) + UInt(1) + forwarding(i).toUInt()
+      count(i) + UInt(1) + forwarding(i).asUInt()
     sram.io.addrR(i) := addr(i).addrHi
     io.dout(i) := sram.io.doutR(i)(dataWidth - 1, 0)
     // Defaults
@@ -118,15 +118,15 @@ class SRAMElementCounter (
           tmp(i)(j) := io.din(i)
           forwarding(i) := Bool(true)
         } .otherwise {
-          tmp(i)(j) := sram.io.doutR(i).toBits()((j+1) * elementWidth - 1, j * elementWidth)
+          tmp(i)(j) := sram.io.doutR(i).asUInt()((j+1) * elementWidth - 1, j * elementWidth)
         }
       }
       // Generate a response if we've filled up an entry. An entry is
       // full if it's count is equal to the number of elementsPerBlock
       // or if it's the last count in the last block (this covers the
       // case of a partially filled last block).
-      when (count(i) + UInt(1) + forwarding(i).toUInt() === UInt(dataWidth / elementWidth) ||
-        (count(i) + UInt(1) + forwarding(i).toUInt() === io.lastCount(i) &&
+      when (count(i) + UInt(1) + forwarding(i).asUInt() === UInt(dataWidth / elementWidth) ||
+        (count(i) + UInt(1) + forwarding(i).asUInt() === io.lastCount(i) &&
           writePending(i).addrHi === io.lastBlock(i))) {
         io.resp(i).valid := Bool(true)
         io.resp(i).bits.index := writePending(i).addrHi

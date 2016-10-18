@@ -100,13 +100,13 @@ class SRAMElementIncrement (
   // Combinational Logic
   for (i <- 0 until numPorts) {
     // Assign the addresses: addrHi->block address, addrLo->element address
-    addr(i).addrHi := io.addr(i).toBits()(
+    addr(i).addrHi := io.addr(i).asUInt()(
       log2Up(sramDepth * elementsPerBlock) - 1, log2Up(elementsPerBlock))
-    addr(i).addrLo := io.addr(i).toBits()(log2Up(elementsPerBlock) - 1, 0)
+    addr(i).addrLo := io.addr(i).asUInt()(log2Up(elementsPerBlock) - 1, 0)
 
     // Connections to the sram
     sram.io.weW(i) := writePending(i).valid
-    sram.io.dinW(i) := tmp1(i).toBits
+    sram.io.dinW(i) := tmp1(i).asUInt
     sram.io.addrW(i) := writePending(i).addrHi
     sram.io.addrR(i) := addr(i).addrHi
     io.dout(i) := sram.io.doutR(i)
@@ -137,13 +137,13 @@ class SRAMElementIncrement (
           is (UInt(1)) {
             writeBlock(tmp1(i), io.din(i)) }
           is (UInt(2)) {
-            writeBlockIncrement(tmp1(i), tmp0(i).toBits, io.din(i)) }}}
+            writeBlockIncrement(tmp1(i), tmp0(i).asUInt, io.din(i)) }}}
 
       printf("[INFO] SramEleInc: WRITE port/type/fwd?/fwdType 0x%x/0x%x/0x%x/0x%x\n",
         UInt(i), writePending(i).wType, forwarding(i), io.wType(i))
       printf("[INFO]              DATA addr/dataOld/dataNew 0x%x/0x%x/0x%x\n",
-        writePending(i).addrHi##writePending(i).addrLo, sram.io.doutR(i).toBits,
-        tmp1(i).toBits)
+        writePending(i).addrHi##writePending(i).addrLo, sram.io.doutR(i).asUInt,
+        tmp1(i).asUInt)
     }
   }
 

@@ -125,7 +125,7 @@ class DebugUnit(id: Int = 0)(implicit p: Parameters) extends XFilesModule()(p)
     Put(client_xact_id = UInt(0),
       addr_block = addr_block,
       addr_beat = addr_beat,
-      data = utlDataPutVec.toBits,
+      data = utlDataPutVec.asUInt,
       wmask = Option(Fill(xLen/8, UInt(1, 1)) << addr_byte),
       alloc = Bool(false)))
   io.autl.grant.ready := state === s_('UTL_GRANT)

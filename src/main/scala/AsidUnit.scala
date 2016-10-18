@@ -60,7 +60,7 @@ class AsidUnit(id: Int = 0)(implicit p: Parameters) extends XFilesModule()(p)
   io.resp.bits.rd := io.cmd.bits.inst.rd
   io.resp.bits.data := Mux(asidReg.valid,
     asid(asidWidth - 1, 0) ## tid(tidWidth - 1, 0),
-    SInt(-err_XFILES_NOASID, width = xLen).toUInt)
+    SInt(-err_XFILES_NOASID, width = xLen).asUInt)
   io.resp.valid := updateAsid
 
   when (io.resp.valid) {

@@ -69,10 +69,10 @@ trait XFilesResponseCodes extends HasCoreParameters with XFilesParameters {
       val tid = UInt(width = tidWidth)
       val data = UInt(width = xLen - respCodeWidth - tidWidth)
     })
-    tmp.respCode := respCode.toBits
-    tmp.tid := tid.toBits
+    tmp.respCode := respCode.asUInt
+    tmp.tid := tid.asUInt
     tmp.data := data
-    resp := tmp.toBits
+    resp := tmp.asUInt
   }
 }
 
@@ -111,7 +111,7 @@ abstract class XFilesBundle(implicit val p: Parameters)
     for ((n, i) <- elements) {
       format += sep + "%x"
       sep = ","
-      argsIn = argsIn :+ i.toBits
+      argsIn = argsIn :+ i.asUInt
     }
     format += "\n"
     (format, argsIn)

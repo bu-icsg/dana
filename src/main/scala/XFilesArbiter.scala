@@ -63,7 +63,7 @@ class XFilesArbiter(genInfo: => UInt)(implicit p: Parameters)
     asidUnit.resp.valid | debugUnit.resp.valid | tTable.xfiles.resp.valid
 
   io.core.resp.bits.rd := cmd.bits.inst.rd
-  io.core.resp.bits.data := SInt(-err_XFILES_NOASID, width = xLen).toUInt
+  io.core.resp.bits.data := SInt(-err_XFILES_NOASID, width = xLen).asUInt
   val infoBits = genInfo
   when (reqInfo) { io.core.resp.bits.data := infoBits }
   when (readCsr) { io.core.resp.bits.data := exception.bits
