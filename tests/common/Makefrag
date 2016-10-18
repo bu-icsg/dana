@@ -1,6 +1,6 @@
 #-*- mode: makefile-*-
 
-DIR_TOP  = ../../..
+DIR_TOP  = $(ROCKETCHIP)/xfiles-dana
 DIR_BUILD= $(DIR_TOP)/build
 
 PES ?= 1
@@ -9,8 +9,8 @@ CONFIG ?= XFilesDanaCppPe${PES}Epb${EPB}Config
 ROCKETCHIP_ADDONS ?= xfiles-dana
 BIN_SUFFIX = $(shell echo "$(EPB) 4*p" | dc)bin
 
-DIR_EMULATOR =  ../$(DIR_TOP)/emulator
-EMULATOR ?= $(DIR_EMULATOR)/emulator-Top-$(CONFIG)
+DIR_EMULATOR =  $(DIR_TOP)/../emulator
+EMULATOR ?= $(DIR_EMULATOR)/emulator-rocketchip-$(CONFIG)
 C_FLAGS  ?= -Wall \
 	-Werror \
 	-O3 \
@@ -37,7 +37,7 @@ PHONY += all default clean
 default: all
 
 include $(DIR_TOP)/tools/common/Makefrag-rv
-include $(DIR_TOP)/tools/common/Makefrag-fann
+include $(DIR_TOP)/tools/common/Makefrag-submodule
 include $(DIR_TOP)/tools/common/Makefrag-tools
 include $(DIR_TOP)/tools/common/Makefrag-nets
 
@@ -45,7 +45,7 @@ include $(DIR_TOP)/tools/common/Makefrag-nets
 	@ $(RV_CC) $(C_FLAGS) $< -o $@ $(L_FLAGS)
 
 $(EMULATOR):
-	make -C $(DIR_EMULATOR) \
+	$(MAKE) -C $(DIR_EMULATOR) \
 	CONFIG=$(CONFIG) ROCKETCHIP_ADDONS=$(ROCKETCHIP_ADDONS)
 
 # Common utilities

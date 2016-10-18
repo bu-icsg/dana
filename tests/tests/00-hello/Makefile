@@ -5,6 +5,7 @@ TARGETS=$(SOURCES:%.c=%.rv)
 
 all: compare
 
+ROCKETCHIP ?= $(abspath ../../../..)
 include ../../common/Makefrag
 
 test: $(TARGETS) $(EMULATOR)
