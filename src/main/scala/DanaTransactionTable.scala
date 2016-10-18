@@ -14,236 +14,236 @@ import util.ParameterizedBundle
 class TransactionState(implicit p: Parameters) extends TableEntry()(p)
     with DanaParameters {
   //-------- Base class
-  val validIO = Bool()
-  val cacheValid = Bool()
-  val waiting = Bool()
-  val needsLayerInfo = Bool()
-  val decInUse = Bool()
-  val needsAsidNnid = Bool()
-  val needsInputs = Bool()
+  val validIO             = Bool()
+  val cacheValid          = Bool()
+  val waiting             = Bool()
+  val needsLayerInfo      = Bool()
+  val decInUse            = Bool()
+  val needsAsidNnid       = Bool()
+  val needsInputs         = Bool()
   // There are two "in the last layer" bits. The first, "inLast",
   // asserts when all PEs in the previous layer are done. The latter,
   // "inLastEarly", asserts as soon as all PEs in the previous layer
   // have been assigned.
-  val inLast = Bool()
-  val inFirst = Bool()
-  val cacheIndex = UInt(width = log2Up(cacheNumEntries))
-  val nnid = UInt(width = nnidWidth)
-  val decimalPoint = UInt(width = decimalPointWidth)
-  val numLayers = UInt(width = 16)           // [TODO] fragile
-  val numNodes = UInt(width = 16)            // [TODO] fragile
-  val currentNode = UInt(width = 16)         // [TODO] fragile
-  val currentNodeInLayer = UInt(width = 16)  // [TODO] fragile
-  val currentLayer = UInt(width = 16)        // [TODO] fragile
+  val inLast              = Bool()
+  val inFirst             = Bool()
+  val cacheIndex          = UInt(width = log2Up(cacheNumEntries))
+  val nnid                = UInt(width = nnidWidth)
+  val decimalPoint        = UInt(width = decimalPointWidth)
+  val numLayers           = UInt(width = 16) // [TODO] fragile
+  val numNodes            = UInt(width = 16) // [TODO] fragile
+  val currentNode         = UInt(width = 16) // [TODO] fragile
+  val currentNodeInLayer  = UInt(width = 16) // [TODO] fragile
+  val currentLayer        = UInt(width = 16) // [TODO] fragile
   val nodesInCurrentLayer = UInt(width = 16) // [TODO] fragile
-  val neuronPointer = UInt(width = 11)       // [TODO] fragile
-  val regFileLocationBit = UInt(width = 1)
-  val regFileAddrIn = UInt(width = log2Up(regFileNumElements))
-  val regFileAddrOut = UInt(width = log2Up(regFileNumElements))
-  val readIdx = UInt(width = log2Up(regFileNumElements))
-  val indexElement = UInt(width = log2Up(regFileNumElements))
+  val neuronPointer       = UInt(width = 11) // [TODO] fragile
+  val regFileLocationBit  = UInt(width = 1)
+  val regFileAddrIn       = UInt(width = log2Up(regFileNumElements))
+  val regFileAddrOut      = UInt(width = log2Up(regFileNumElements))
+  val readIdx             = UInt(width = log2Up(regFileNumElements))
+  val indexElement        = UInt(width = log2Up(regFileNumElements))
   //-------- Can be possibly moved over to a learning-only config
   val regFileAddrOutFixed = UInt(width = log2Up(regFileNumElements))
 
-  aliasList += ( "valid" -> "V",
-    "reserved" -> "R",
-    "cacheValid" -> "C",
-    "waiting" -> "W",
-    "needsLayerInfo" -> "NLI",
-    "done" -> "D",
-    "decInUse" -> "-",
-    "inLast" -> "L?",
-    "inFirst" -> "F?",
-    "cacheIndex" -> "C#",
-    "decimalPoint" -> "DP",
-    "numLayers" -> "#L",
-    "numNodes" -> "#N",
-    "currentNode" -> "cN",
-    "currentNodeInLayer" -> "cNiL",
-    "currentLayer" -> "cL",
+  aliasList += ( "valid"  -> "V",
+    "reserved"            -> "R",
+    "cacheValid"          -> "C",
+    "waiting"             -> "W",
+    "needsLayerInfo"      -> "NLI",
+    "done"                -> "D",
+    "decInUse"            -> "-",
+    "inLast"              -> "L?",
+    "inFirst"             -> "F?",
+    "cacheIndex"          -> "C#",
+    "decimalPoint"        -> "DP",
+    "numLayers"           -> "#L",
+    "numNodes"            -> "#N",
+    "currentNode"         -> "cN",
+    "currentNodeInLayer"  -> "cNiL",
+    "currentLayer"        -> "cL",
     "nodesInCurrentLayer" -> "#NcL",
-    "neuronPointer" -> "N*",
-    "regFileLocationBit" -> "LB",
-    "regFileAddrIn" -> "AIn",
-    "regFileAddrOut" -> "AOut",
-    "readIdx" -> "R#",
-    "indexElement" -> "#E",
+    "neuronPointer"       -> "N*",
+    "regFileLocationBit"  -> "LB",
+    "regFileAddrIn"       -> "AIn",
+    "regFileAddrOut"      -> "AOut",
+    "readIdx"             -> "R#",
+    "indexElement"        -> "#E",
     "regFileAddrOutFixed" -> "AOutF"
   )
   override def reset() {
     super.reset()
   }
   def reserve() {
-    this.flags.valid := Bool(false)
-    this.flags.reserved := Bool(true)
-    this.flags.done := Bool(false)
-    this.needsAsidNnid := Bool(true)
-    this.needsInputs := Bool(false)
-    this.indexElement := UInt(0)
-    this.validIO := Bool(true)
-    this.cacheValid := Bool(false)
-    this.waiting := Bool(false)
-    this.needsLayerInfo := Bool(true)
-    this.currentLayer := UInt(0)
-    this.decInUse := Bool(false)
-    this.indexElement := UInt(0)
-    this.regFileAddrOut := UInt(0)
+    this.flags.valid         := Bool(false)
+    this.flags.reserved      := Bool(true)
+    this.flags.done          := Bool(false)
+    this.needsAsidNnid       := Bool(true)
+    this.needsInputs         := Bool(false)
+    this.indexElement        := UInt(0)
+    this.validIO             := Bool(true)
+    this.cacheValid          := Bool(false)
+    this.waiting             := Bool(false)
+    this.needsLayerInfo      := Bool(true)
+    this.currentLayer        := UInt(0)
+    this.decInUse            := Bool(false)
+    this.indexElement        := UInt(0)
+    this.regFileAddrOut      := UInt(0)
     this.nodesInCurrentLayer := UInt(0)
-    this.currentNode := UInt(0)
-    this.readIdx := UInt(0)
-    this.inFirst := Bool(true)
-    this.inLast := Bool(false)
-    this.needsLayerInfo := Bool(true)
-    this.regFileLocationBit := UInt(0)
+    this.currentNode         := UInt(0)
+    this.readIdx             := UInt(0)
+    this.inFirst             := Bool(true)
+    this.inLast              := Bool(false)
+    this.needsLayerInfo      := Bool(true)
+    this.regFileLocationBit  := UInt(0)
   }
   def enable() {
-    this.flags.valid := Bool(true)
-    this.currentNode := UInt(0)
-    this.readIdx := UInt(0)
-    this.inFirst := Bool(true)
-    this.inLast := Bool(false)
-    this.needsLayerInfo := Bool(true)
-    this.flags.done := Bool(false)
-    this.waiting := Bool(false)
-    this.regFileLocationBit := UInt(0)
+    this.flags.valid         := Bool(true)
+    this.currentNode         := UInt(0)
+    this.readIdx             := UInt(0)
+    this.inFirst             := Bool(true)
+    this.inLast              := Bool(false)
+    this.needsLayerInfo      := Bool(true)
+    this.flags.done          := Bool(false)
+    this.waiting             := Bool(false)
+    this.regFileLocationBit  := UInt(0)
   }
 }
 
 class TransactionStateLearn(implicit p: Parameters)
     extends TransactionState()(p) {
   // flags
-  val needsOutputs = Bool()
+  val needsOutputs         = Bool()
   //
-  val globalWtptr = UInt(width = 16)            //[TODO] fragile
-  val inLastEarly = Bool()
-  val transactionType = UInt(width = log2Up(3)) // [TODO] fragile
-  val numTrainOutputs = UInt(width = 16)        // [TODO] fragile
-  val stateLearn = UInt(width = log2Up(8))      // [TODO] fragile
-  val errorFunction = UInt(width = log2Up(2))   // [TODO] fragile
-  val learningRate = UInt(width = 16)           // [TODO] fragile
-  val lambda = UInt(width = 16)                 // [TODO] fragile
-  val numWeightBlocks = UInt(width = 16)        // [TODO] fragile
-  val mse = UInt(width = elementWidth)          // unused
+  val globalWtptr          = UInt(width = 16)           //[TODO] fragile
+  val inLastEarly          = Bool()
+  val transactionType      = UInt(width = log2Up(3))    // [TODO] fragile
+  val numTrainOutputs      = UInt(width = 16)           // [TODO] fragile
+  val stateLearn           = UInt(width = log2Up(8))    // [TODO] fragile
+  val errorFunction        = UInt(width = log2Up(2))    // [TODO] fragile
+  val learningRate         = UInt(width = 16)           // [TODO] fragile
+  val lambda               = UInt(width = 16)           // [TODO] fragile
+  val numWeightBlocks      = UInt(width = 16)           // [TODO] fragile
+  val mse                  = UInt(width = elementWidth) // unused
   // Batch training information
-  val numBatchItems = UInt(width = 16)          // [TODO] fragile
-  val curBatchItem = UInt(width = 16)           // [TODO] fragile
-  val biasAddr = UInt(width = 16)               // [TODO] fragile
-  val offsetBias = UInt(width = 16)             // [TODO] fragile
-  val offsetDW = UInt(width = 16)               // [TODO] fragile
-  val numOutputs = UInt(width = 16)             // [TODO] fragile
+  val numBatchItems        = UInt(width = 16)           // [TODO] fragile
+  val curBatchItem         = UInt(width = 16)           // [TODO] fragile
+  val biasAddr             = UInt(width = 16)           // [TODO] fragile
+  val offsetBias           = UInt(width = 16)           // [TODO] fragile
+  val offsetDW             = UInt(width = 16)           // [TODO] fragile
+  val numOutputs           = UInt(width = 16)           // [TODO] fragile
   // We need to keep track of where inputs and outputs should be
   // written to in the Register File.
-  val regFileAddrInFixed = UInt(width = log2Up(regFileNumElements))
-  // val regFileAddrDelta = UInt(width = log2Up(regFileNumElements))
-  val regFileAddrDW = UInt(width = log2Up(regFileNumElements))
-  val regFileAddrSlope = UInt(width = log2Up(regFileNumElements))
-  val regFileAddrAux = UInt(width = log2Up(regFileNumElements))
-  val nodesInPreviousLayer = UInt(width = 16) // [TODO] fragile
-  val nodesInLast = UInt(width = 16) // [TODO] fragile
+  val regFileAddrInFixed   = UInt(width = log2Up(regFileNumElements))
+  // val regFileAddrDelta  = UInt(width = log2Up(regFileNumElements))
+  val regFileAddrDW        = UInt(width = log2Up(regFileNumElements))
+  val regFileAddrSlope     = UInt(width = log2Up(regFileNumElements))
+  val regFileAddrAux       = UInt(width = log2Up(regFileNumElements))
+  val nodesInPreviousLayer = UInt(width = 16)           // [TODO] fragile
+  val nodesInLast          = UInt(width = 16)           // [TODO] fragile
 
   aliasList += (
-    "globalWtptr" -> "GW*",
-    "inLastEarly" -> "L?e",
-    "transactionType" -> "T?",
-    "numTrainOutputs" -> "#TO",
-    "stateLearn" -> "state",
-    "errorFunction" -> "ef",
-    "learningRate" -> "lr",
-    "lambda" -> "Y",
-    "numWeightBlocks" -> "#WB",
-    "numBatchItems" -> "#BI",
-    "curBatchItem" -> "cB",
-    "biasAddr" -> "AB",
-    "offsetBias" -> "oB",
-    "offsetDW" -> "oDW",
-    "regFileAddrInFixed" -> "AInF",
-    "regFileAddrDW" -> "ADW",
-    "regFileAddrSlope" -> "AS",
-    "regFileAddrAux" -> "AAux",
+    "globalWtptr"          -> "GW*",
+    "inLastEarly"          -> "L?e",
+    "transactionType"      -> "T?",
+    "numTrainOutputs"      -> "#TO",
+    "stateLearn"           -> "state",
+    "errorFunction"        -> "ef",
+    "learningRate"         -> "lr",
+    "lambda"               -> "Y",
+    "numWeightBlocks"      -> "#WB",
+    "numBatchItems"        -> "#BI",
+    "curBatchItem"         -> "cB",
+    "biasAddr"             -> "AB",
+    "offsetBias"           -> "oB",
+    "offsetDW"             -> "oDW",
+    "regFileAddrInFixed"   -> "AInF",
+    "regFileAddrDW"        -> "ADW",
+    "regFileAddrSlope"     -> "AS",
+    "regFileAddrAux"       -> "AAux",
     "nodesInPreviousLayer" -> "nipl",
-    "nodesInLast" -> "nil"
+    "nodesInLast"          -> "nil"
   )
 
   override def reserve() {
     super.reserve()
-    this.needsOutputs := Bool(false)
-    this.inLastEarly := Bool(false)
-    this.regFileAddrIn := UInt(0)
-    this.regFileAddrDW := UInt(0)
-    this.regFileAddrSlope := UInt(0)
-    this.offsetBias := UInt(0)
-    this.offsetDW := UInt(0)
+    this.needsOutputs       := Bool(false)
+    this.inLastEarly        := Bool(false)
+    this.regFileAddrIn      := UInt(0)
+    this.regFileAddrDW      := UInt(0)
+    this.regFileAddrSlope   := UInt(0)
+    this.offsetBias         := UInt(0)
+    this.offsetDW           := UInt(0)
     this.regFileAddrInFixed := UInt(0)
     // [TODO] Temporary value for number of batch items
-    this.numBatchItems := UInt(1)
-    this.curBatchItem := UInt(0)
+    this.numBatchItems      := UInt(1)
+    this.curBatchItem       := UInt(0)
   }
 
   override def enable() {
     super.enable()
-    this.inLastEarly := Bool(false)
-    this.regFileAddrIn := UInt(0)
-    this.regFileAddrDW := UInt(0)
-    this.regFileAddrSlope := UInt(0)
-    this.offsetBias := UInt(0)
-    this.offsetDW := UInt(0)
+    this.inLastEarly        := Bool(false)
+    this.regFileAddrIn      := UInt(0)
+    this.regFileAddrDW      := UInt(0)
+    this.regFileAddrSlope   := UInt(0)
+    this.offsetBias         := UInt(0)
+    this.offsetDW           := UInt(0)
   }
 }
 
 class ControlReq(implicit p: Parameters) extends DanaBundle()(p) {
   // Bools
-  val cacheValid = Bool()
-  val waiting = Bool()
-  val needsLayerInfo = Bool()
-  val isDone = Bool()
-  val inFirst = Bool()
-  val inLast = Bool()
+  val cacheValid         = Bool()
+  val waiting            = Bool()
+  val needsLayerInfo     = Bool()
+  val isDone             = Bool()
+  val inFirst            = Bool()
+  val inLast             = Bool()
   // Global info
-  val tableIndex = UInt(width = log2Up(transactionTableNumEntries))
-  val cacheIndex = UInt(width = log2Up(cacheNumEntries))
-  val asid = UInt(width = asidWidth)
-  val nnid = UInt(width = nnidWidth) // formerly nn_hash
+  val tableIndex         = UInt(width = log2Up(transactionTableNumEntries))
+  val cacheIndex         = UInt(width = log2Up(cacheNumEntries))
+  val asid               = UInt(width = asidWidth)
+  val nnid               = UInt(width = nnidWidth) // formerly nn_hash
   // State info
   val currentNodeInLayer = UInt(width = 16) // [TODO] fragile
-  val currentLayer = UInt(width = 16) // [TODO] fragile
-  val neuronPointer = UInt(width = 11) // [TODO] fragile
-  val decimalPoint = UInt(width = decimalPointWidth)
-  val regFileAddrIn = UInt(width = log2Up(regFileNumElements))
-  val regFileAddrOut = UInt(width = log2Up(regFileNumElements))
+  val currentLayer       = UInt(width = 16) // [TODO] fragile
+  val neuronPointer      = UInt(width = 11) // [TODO] fragile
+  val decimalPoint       = UInt(width = decimalPointWidth)
+  val regFileAddrIn      = UInt(width = log2Up(regFileNumElements))
+  val regFileAddrOut     = UInt(width = log2Up(regFileNumElements))
   val regFileLocationBit = UInt(width = 1) // [TODO] fragile on definition above
 }
 
 class ControlReqLearn(implicit p: Parameters) extends ControlReq()(p) {
-  val globalWtptr = UInt(width = 16) // [TODO] fragile
-  val inLastEarly = Bool()
-  val transactionType = UInt(width = log2Up(3)) // [TODO] fragile
-  val stateLearn = UInt(width = log2Up(8)) // [TODO] fragile
-  val errorFunction = UInt(width = log2Up(2)) // [TODO] fragile
-  val learningRate = UInt(width = 16) // [TODO] fragile
-  val lambda = UInt(width = 16) // [TODO] fragile
-  val numWeightBlocks = UInt(width = 16) // [TODO] fragile
+  val globalWtptr         = UInt(width = 16) // [TODO] fragile
+  val inLastEarly         = Bool()
+  val transactionType     = UInt(width = log2Up(3)) // [TODO] fragile
+  val stateLearn          = UInt(width = log2Up(8)) // [TODO] fragile
+  val errorFunction       = UInt(width = log2Up(2)) // [TODO] fragile
+  val learningRate        = UInt(width = 16) // [TODO] fragile
+  val lambda              = UInt(width = 16) // [TODO] fragile
+  val numWeightBlocks     = UInt(width = 16) // [TODO] fragile
   // val regFileAddrDelta = UInt(width = log2Up(regFileNumElements))
-  val regFileAddrDW = UInt(width = log2Up(regFileNumElements))
-  val regFileAddrSlope = UInt(width = log2Up(regFileNumElements))
-  val regFileAddrBias = UInt(width = log2Up(regFileNumElements))
-  val regFileAddrAux = UInt(width = log2Up(regFileNumElements))
-  val batchFirst = Bool()
+  val regFileAddrDW       = UInt(width = log2Up(regFileNumElements))
+  val regFileAddrSlope    = UInt(width = log2Up(regFileNumElements))
+  val regFileAddrBias     = UInt(width = log2Up(regFileNumElements))
+  val regFileAddrAux      = UInt(width = log2Up(regFileNumElements))
+  val batchFirst          = Bool()
 }
 
 class ControlResp(implicit p: Parameters) extends DanaBundle()(p) {
-  val readyCache = Bool()
-  val readyPeTable = Bool()
-  val cacheValid = Bool()
-  val tableIndex = UInt(width = log2Up(transactionTableNumEntries))
-  val field = UInt(width = 4) // [TODO] fragile on Constants.scala
-  val data = Vec(6, UInt(width = 16)) // [TODO] fragile
-  val decimalPoint = UInt(width = decimalPointWidth)
-  val layerValid = Bool()
+  val readyCache      = Bool()
+  val readyPeTable    = Bool()
+  val cacheValid      = Bool()
+  val tableIndex      = UInt(width = log2Up(transactionTableNumEntries))
+  val field           = UInt(width = 4) // [TODO] fragile on Constants.scala
+  val data            = Vec(6, UInt(width = 16)) // [TODO] fragile
+  val decimalPoint    = UInt(width = decimalPointWidth)
+  val layerValid      = Bool()
   val layerValidIndex = UInt(width = log2Up(transactionTableNumEntries))
 }
 
 class ControlRespLearn(implicit p: Parameters) extends ControlResp()(p) {
-  val globalWtptr = UInt(width = 16) //[TODO] fragile
+  val globalWtptr     = UInt(width = 16) //[TODO] fragile
 }
 
 class TTableControlInterface(implicit val p: Parameters)
@@ -260,9 +260,9 @@ class TTableControlInterfaceLearn(implicit p: Parameters)
 
 class TTableRegisterFileReq(implicit p: Parameters) extends DanaBundle()(p) {
   val reqType = UInt(width = log2Up(2)) // [TODO] Frgaile on Dana enum
-  val tidIdx = UInt(width = log2Up(transactionTableNumEntries))
-  val addr = UInt(width = log2Up(regFileNumElements))
-  val data = UInt(width = elementWidth)
+  val tidIdx  = UInt(width = log2Up(transactionTableNumEntries))
+  val addr    = UInt(width = log2Up(regFileNumElements))
+  val data    = UInt(width = elementWidth)
 }
 
 class TTableRegisterFileResp(implicit p: Parameters) extends DanaBundle()(p) {

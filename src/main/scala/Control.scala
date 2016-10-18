@@ -6,34 +6,34 @@ import Chisel._
 import cde.Parameters
 
 class ControlCacheInterfaceResp(implicit p: Parameters) extends DanaBundle()(p) {
-  val fetch = Bool()
-  val tableIndex = UInt(width = log2Up(transactionTableNumEntries))
-  val tableMask = UInt(width = transactionTableNumEntries)
-  val cacheIndex = UInt(width = log2Up(cacheNumEntries))
-  val data = Vec(6, UInt(width = 16)) // [TODO] possibly fragile
-  val decimalPoint = UInt(INPUT, decimalPointWidth)
-  val field = UInt(width = log2Up(7)) // [TODO] fragile on Constants.scala
+  val fetch              = Bool()
+  val tableIndex         = UInt(width = log2Up(transactionTableNumEntries))
+  val tableMask          = UInt(width = transactionTableNumEntries)
+  val cacheIndex         = UInt(width = log2Up(cacheNumEntries))
+  val data               = Vec(6, UInt(width = 16)) // [TODO] fragile
+  val decimalPoint       = UInt(width = decimalPointWidth)
+  val field              = UInt(width = log2Up(7)) // [TODO] fragile on Constants.scala
   val regFileLocationBit = UInt(width = 1)
 }
 
 class ControlCacheInterfaceRespLearn(implicit p: Parameters)
     extends ControlCacheInterfaceResp()(p) {
   val totalWritesMul = UInt(width = 2)
-  val globalWtptr = UInt(INPUT, 16) //[TODO] possibly fragile
+  val globalWtptr    = UInt(width = 16) //[TODO] possibly fragile
 }
 
 class ControlCacheInterfaceReq(implicit p: Parameters) extends DanaBundle()(p) {
-  val request = UInt(width = log2Up(3)) // [TODO] fragile on Constants.scala
-  val asid = UInt(width = asidWidth)
-  val nnid = UInt(width = nnidWidth)
-  val tableIndex = UInt(width = log2Up(transactionTableNumEntries))
-  val currentLayer = UInt(width = 16) // [TODO] fragile
+  val request            = UInt(width = log2Up(3)) // [TODO] fragile Constants.scala
+  val asid               = UInt(width = asidWidth)
+  val nnid               = UInt(width = nnidWidth)
+  val tableIndex         = UInt(width = log2Up(transactionTableNumEntries))
+  val currentLayer       = UInt(width = 16) // [TODO] fragile
   val regFileLocationBit = UInt(width = 1) // [TODO] fragile
 }
 
 class ControlCacheInterfaceReqLearn(implicit p: Parameters)
     extends ControlCacheInterfaceReq()(p) {
-  val totalWritesMul = UInt(width = 2)
+  val totalWritesMul     = UInt(width = 2)
 }
 
 class ControlCacheInterface(implicit p: Parameters) extends DanaBundle()(p) {
@@ -48,34 +48,34 @@ class ControlCacheInterfaceLearn(implicit p: Parameters)
 }
 
 class ControlPETableInterfaceReq(implicit p: Parameters) extends DanaBundle()(p) {
-  val cacheIndex = UInt(width = log2Up(cacheNumEntries))
-  val tIdx = UInt(width = log2Up(transactionTableNumEntries))
+  val cacheIndex      = UInt(width = log2Up(cacheNumEntries))
+  val tIdx            = UInt(width = log2Up(transactionTableNumEntries))
   // [TODO] Change ioIdxWidth to regFileNumElements?
-  val inAddr = UInt(width = ioIdxWidth)
-  val outAddr = UInt(width = ioIdxWidth)
-  val location = UInt(width = 1)
-  val neuronPointer = UInt(width = 12) // [TODO] fragile
-  val decimalPoint = UInt(width = decimalPointWidth)
+  val inAddr          = UInt(width = ioIdxWidth)
+  val outAddr         = UInt(width = ioIdxWidth)
+  val location        = UInt(width = 1)
+  val neuronPointer   = UInt(width = 12) // [TODO] fragile
+  val decimalPoint    = UInt(width = decimalPointWidth)
 }
 
 class ControlPETableInterfaceReqLearn(implicit p: Parameters)
     extends ControlPETableInterfaceReq()(p) {
-  val learnAddr = UInt(width = ioIdxWidth)
-  val dwAddr = UInt(width = ioIdxWidth)
-  val slopeAddr = UInt(width = ioIdxWidth)
-  val biasAddr = UInt(width = ioIdxWidth)
-  val auxAddr = UInt(width = ioIdxWidth)
-  val errorFunction = UInt(width = log2Up(2)) // [TODO] fragile
-  val stateLearn = UInt(width = log2Up(7)) // [TODO] fragile
-  val inLast = Bool()
-  val resetWB = Bool()
-  val inFirst = Bool()
-  val batchFirst = Bool()
-  val learningRate = UInt(width = 16) // [TODO] fragile
-  val lambda = UInt(width = 16) // [TODO] fragile
+  val learnAddr       = UInt(width = ioIdxWidth)
+  val dwAddr          = UInt(width = ioIdxWidth)
+  val slopeAddr       = UInt(width = ioIdxWidth)
+  val biasAddr        = UInt(width = ioIdxWidth)
+  val auxAddr         = UInt(width = ioIdxWidth)
+  val errorFunction   = UInt(width = log2Up(2)) // [TODO] fragile
+  val stateLearn      = UInt(width = log2Up(7)) // [TODO] fragile
+  val inLast          = Bool()
+  val resetWB         = Bool()
+  val inFirst         = Bool()
+  val batchFirst      = Bool()
+  val learningRate    = UInt(width = 16) // [TODO] fragile
+  val lambda          = UInt(width = 16) // [TODO] fragile
   val numWeightBlocks = UInt(width = 16) // [TODO] fragile
-  val tType = UInt(width = log2Up(3)) // [TODO] fragile
-  val globalWtptr = UInt(width = 16) // [TODO] fragile
+  val tType           = UInt(width = log2Up(3)) // [TODO] fragile
+  val globalWtptr     = UInt(width = 16) // [TODO] fragile
 }
 
 class ControlPETableInterface(implicit p: Parameters) extends DanaBundle()(p) {
@@ -91,13 +91,13 @@ class ControlPETableInterfaceLearn(implicit p: Parameters)
 }
 
 class ControlRegisterFileInterfaceReq(implicit p: Parameters) extends DanaBundle()(p) {
-  val tIdx = UInt(width = transactionTableNumEntries)
+  val tIdx        = UInt(width = transactionTableNumEntries)
   val totalWrites = UInt(width = 16) // [TODO] fragile
-  val location = UInt(width = 1)     // [TODO] fragile
+  val location    = UInt(width = 1)     // [TODO] fragile
 }
 
 class ControlRegisterFileInterfaceResp(implicit p: Parameters) extends DanaBundle()(p) {
-  val tIdx = UInt(width = transactionTableNumEntries)
+  val tIdx        = UInt(width = transactionTableNumEntries)
 }
 
 class ControlRegisterFileInterface(implicit p: Parameters) extends DanaBundle()(p) {

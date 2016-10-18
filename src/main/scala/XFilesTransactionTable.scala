@@ -9,9 +9,9 @@ import cde.{Parameters, Field}
 case object TransactionTableQueueSize extends Field[Int]
 
 trait FlagsVDIO {
-  val valid = Bool()  // Eligible for scheduling on the backend
-  val done = Bool()   // Entry is finished
-  val input = Bool()  // Asserted when waiting for input queue to be not empty
+  val valid  = Bool() // Eligible for scheduling on the backend
+  val done   = Bool() // Entry is finished
+  val input  = Bool() // Asserted when waiting for input queue to be not empty
   val output = Bool() // Asserted when waiting for output queue to be not full
   def set(x: String) {x.map((a: Char) => {
       a match {
@@ -36,20 +36,20 @@ trait TableRVDIO extends XFilesParameters {
     val reserved = Bool() // Entry is in use
   }
   val asid = UInt(width = asidWidth)
-  val tid = UInt(width = tidWidth)
+  val tid  = UInt(width = tidWidth)
 
   def reset() {
-    this.flags.valid := Bool(false)
+    this.flags.valid    := Bool(false)
     this.flags.reserved := Bool(false)
   }
   def reserve(asid: UInt, tid: UInt) {
     this.flags.reserved := Bool(true)
-    this.flags.valid := Bool(true)
-    this.flags.done := Bool(false)
-    this.flags.input := Bool(false)
-    this.flags.output := Bool(false)
-    this.asid := asid
-    this.tid := tid
+    this.flags.valid    := Bool(true)
+    this.flags.done     := Bool(false)
+    this.flags.input    := Bool(false)
+    this.flags.output   := Bool(false)
+    this.asid           := asid
+    this.tid            := tid
   }
 }
 
