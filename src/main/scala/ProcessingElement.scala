@@ -6,27 +6,27 @@ import Chisel._
 import cde.Parameters
 
 class ProcessingElementReq(implicit p: Parameters) extends DanaBundle()(p) {
-  val numWeights = UInt(INPUT, width = 8)            // [TODO] fragile
-  val index = UInt(INPUT, width = log2Up(peTableNumEntries))
-  val decimalPoint = UInt(INPUT, decimalPointWidth)
-  val steepness = UInt(INPUT, steepnessWidth)
-  val activationFunction = UInt(INPUT, activationFunctionWidth)
-  val iBlock = Vec(elementsPerBlock, SInt(INPUT, elementWidth))
-  val wBlock = Vec(elementsPerBlock, SInt(INPUT, elementWidth))
-  val bias = SInt(INPUT, elementWidth)
+  val numWeights = UInt(width = 8)            // [TODO] fragile
+  val index = UInt(width = log2Up(peTableNumEntries))
+  val decimalPoint = UInt(decimalPointWidth)
+  val steepness = UInt(steepnessWidth)
+  val activationFunction = UInt(activationFunctionWidth)
+  val iBlock = Vec(elementsPerBlock, SInt(elementWidth))
+  val wBlock = Vec(elementsPerBlock, SInt(elementWidth))
+  val bias = SInt(elementWidth)
 }
 
 class ProcessingElementReqLearn(implicit p: Parameters)
     extends ProcessingElementReq()(p) {
-  val errorFunction = UInt(INPUT, width = log2Up(2)) // [TODO] fragile
-  val learningRate = UInt(INPUT, width = 16)         // [TODO] fragile
-  val lambda = SInt(INPUT, width = 16)               // [TODO] fragile
-  val learnReg = SInt(INPUT, elementWidth)
-  val stateLearn = UInt(INPUT, width = log2Up(8))    // [TODO] fragile
-  val inLast = Bool(INPUT)
-  val inFirst = Bool(INPUT)
-  val dw_in = SInt(INPUT, elementWidth)
-  val tType = UInt(INPUT, width = log2Up(3))
+  val errorFunction = UInt(width = log2Up(2)) // [TODO] fragile
+  val learningRate = UInt(width = 16)         // [TODO] fragile
+  val lambda = SInt(width = 16)               // [TODO] fragile
+  val learnReg = SInt(elementWidth)
+  val stateLearn = UInt(width = log2Up(8))    // [TODO] fragile
+  val inLast = Bool()
+  val inFirst = Bool()
+  val dw_in = SInt(elementWidth)
+  val tType = UInt(width = log2Up(3))
 }
 
 class ProcessingElementResp(implicit p: Parameters) extends DanaBundle()(p) {
