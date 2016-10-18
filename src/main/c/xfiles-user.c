@@ -276,58 +276,46 @@ void destroy_queue(queue ** old_queue) {
   free(*old_queue);
 }
 
-void asid_nnid_table_create(ant ** new_table, size_t table_size,
+void asid_nnid_table_create(ant ** t, size_t size,
                             size_t configs_per_entry) {
-  int i;
-
   // Allocate space for the table
-  *new_table = (ant *) malloc(sizeof(ant));
-  (*new_table)->entry_v =
-    (ant_entry *) malloc(sizeof(ant_entry) * table_size);
+  *t = (ant *) malloc(sizeof(ant));
+  (*t)->entry_v = (ant_entry *) malloc(sizeof(ant_entry) * size);
   // [TODO] This assumes physical contiguity
-  (*new_table)->entry_p = debug_virt_to_phys((*new_table)->entry_v);
-  (*new_table)->size = table_size;
+  (*t)->entry_p = debug_virt_to_phys((*t)->entry_v);
+  (*t)->size = size;
 
-  for (i = 0; i < table_size; i++) {
-    // Create the configuration region
-    (*new_table)->entry_v[i].asid_nnid_v =
-      (nn_config *) malloc(configs_per_entry * sizeof(nn_config));
+  // Allocate space for ant_entry
+  for (ant_entry * e = (*t)->entry_v; e < &(*t)->entry_v[size]; e++) {
+    e->asid_nnid_v = (nn_config *) malloc(configs_per_entry * sizeof(nn_config));
     // [TODO] This assumes physical contiguity
-    (*new_table)->entry_v[i].asid_nnid_p =
-        debug_virt_to_phys((*new_table)->entry_v[i].asid_nnid_v);
-    (*new_table)->entry_v[i].asid_nnid_v->config_v = NULL;
-    (*new_table)->entry_v[i].asid_nnid_v->config_p = NULL;
-    (*new_table)->entry_v[i].num_configs = configs_per_entry;
-    (*new_table)->entry_v[i].num_valid = 0;
+    e->asid_nnid_p = debug_virt_to_phys(e->asid_nnid_v);
+    e->asid_nnid_v->config_v = e->asid_nnid_v->config_p = NULL;
+    e->num_configs = configs_per_entry;
+    e->num_valid = 0;
 
     // Create the io region
-    (*new_table)->entry_v[i].transaction_io = (io *) malloc(sizeof(io));
-    (*new_table)->entry_v[i].transaction_io->header = 0;
-    (*new_table)->entry_v[i].transaction_io->input = (queue *) malloc(sizeof(queue));
-    (*new_table)->entry_v[i].transaction_io->output = (queue *) malloc(sizeof(queue));
-    construct_queue(&(*new_table)->entry_v[i].transaction_io->input, 16);
-    construct_queue(&(*new_table)->entry_v[i].transaction_io->output, 16);
+    e->transaction_io = (io *) malloc(sizeof(io));
+    e->transaction_io->header = 0;
+    e->transaction_io->input = (queue *) malloc(sizeof(queue));
+    e->transaction_io->output = (queue *) malloc(sizeof(queue));
+    construct_queue(&e->transaction_io->input, 16);
+    construct_queue(&e->transaction_io->output, 16);
   }
-
 }
 
-void asid_nnid_table_destroy(ant ** old_table) {
-  int i, j;
-  for (i = 0; i < (*old_table)->size; i++) {
-    // Destroy the configuration region
-    for (j = 0; j < (*old_table)->entry_v[i].num_valid; j++)
-      if ((*old_table)->entry_v[i].asid_nnid_v[j].config_v != NULL)
-        free((*old_table)->entry_v[i].asid_nnid_v[j].config_raw);
-    free((*old_table)->entry_v[i].asid_nnid_v);
-
-    // Destroy the IO region
-    destroy_queue(&(*old_table)->entry_v[i].transaction_io->input);
-    destroy_queue(&(*old_table)->entry_v[i].transaction_io->output);
-    free((*old_table)->entry_v[i].transaction_io);
+void asid_nnid_table_destroy(ant ** t) {
+  for (ant_entry * e = (*t)->entry_v; e < &(*t)->entry_v[(*t)->size]; e++) {
+    for (nn_config * n = e->asid_nnid_v; n < &(e)->asid_nnid_v[e->num_configs]; n++) {
+      free(n->config_raw);
+    }
+    free(e->asid_nnid_v);
+    destroy_queue(&e->transaction_io->input);
+    destroy_queue(&e->transaction_io->output);
+    free(e->transaction_io);
   }
-
-  free((*old_table)->entry_v);
-  free(*old_table);
+  free((*t)->entry_v);
+  free(*t);
 }
 
 int attach_nn_configuration(ant ** table, asid_type asid,
@@ -381,10 +369,8 @@ int attach_nn_configuration(ant ** table, asid_type asid,
   assert((*table)->entry_v[asid].asid_nnid_v[nnid].config_raw != NULL);
   assert((*table)->entry_v[asid].asid_nnid_v[nnid].config_v != NULL);
   // [TODO] Assumes memory contiguity
-  printf("[INFO] Translate 0x%p\n", (*table)->entry_v[asid].asid_nnid_v[nnid].config_v);
   (*table)->entry_v[asid].asid_nnid_v[nnid].config_p =
       debug_virt_to_phys((*table)->entry_v[asid].asid_nnid_v[nnid].config_v);
-  printf("[INFO] Translate 0x%p\n", (*table)->entry_v[asid].asid_nnid_v[nnid].config_p);
 
   // Write the configuration
   fread((*table)->entry_v[asid].asid_nnid_v[nnid].config_v, sizeof(xlen_t),
