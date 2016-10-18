@@ -20,17 +20,17 @@ class SRAMInterface(
   ).asInstanceOf[this.type]
   // Data Input
   val din   = Vec(numReadWritePorts, UInt(INPUT, width = dataWidth))
-  val dinW  = Vec(numWritePorts, UInt(INPUT, width = dataWidth))
+  val dinW  = Vec(numWritePorts,     UInt(INPUT, width = dataWidth))
   // Data Output
   val dout  = Vec(numReadWritePorts, UInt(OUTPUT, width = dataWidth))
-  val doutR = Vec(numReadPorts, UInt(OUTPUT, width = dataWidth))
+  val doutR = Vec(numReadPorts,      UInt(OUTPUT, width = dataWidth))
   // Addresses
-  val addr  = Vec(numReadWritePorts, UInt(INPUT, width = log2Up(sramDepth))
-  val addrR = Vec(numReadPorts, UInt(INPUT, width = log2Up(sramDepth))
-  val addrW = Vec(numWritePorts, UInt(INPUT, width = log2Up(sramDepth))
+  val addr  = Vec(numReadWritePorts, UInt(INPUT, width = log2Up(sramDepth)))
+  val addrR = Vec(numReadPorts,      UInt(INPUT, width = log2Up(sramDepth)))
+  val addrW = Vec(numWritePorts,     UInt(INPUT, width = log2Up(sramDepth)))
   // Write enable
   val we    = Vec(numReadWritePorts, Bool(INPUT))
-  val weW   = Vec(numWritePorts, Bool(INPUT))
+  val weW   = Vec(numWritePorts,     Bool(INPUT))
 }
 
 class SRAM (
