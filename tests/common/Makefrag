@@ -21,6 +21,7 @@ C_FLAGS  ?= -Wall \
 	-I$(DIR_TOP)
 L_FLAGS  ?= -L$(DIR_TOP)/usr/lib-rv-newlib \
 	-lxfiles-user \
+	-lxfiles-debug \
 	-lfixedfann \
 	-lm
 MAX_CYCLES ?= 100000000
