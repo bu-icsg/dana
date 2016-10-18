@@ -9,16 +9,16 @@ import cde.Parameters
 
 class AsidTid(implicit p: Parameters) extends XFilesBundle()(p) {
   val asid = UInt(width = p(AsidWidth))
-  val tid = UInt(width = p(TidWidth))
+  val tid  = UInt(width = p(TidWidth))
 }
 
 class AsidUnit(id: Int = 0)(implicit p: Parameters) extends XFilesModule()(p)
     with XFilesSupervisorRequests{
   val io = new XFilesBundle {
-    val cmd = Decoupled(new RoCCCommand).flip
+    val cmd    = Decoupled(new RoCCCommand).flip
     val status = new MStatus().asInput
-    val resp = Decoupled(new RoCCResponse)
-    val data = Valid(new AsidTid()(p))
+    val resp   = Decoupled(new RoCCResponse)
+    val data   = Valid(new AsidTid()(p))
     // In the event that we can't do anything with this request, we
     // just forward it along. This is implicitly a supervisor command.
     val cmdFwd = Valid(new RoCCCommand)

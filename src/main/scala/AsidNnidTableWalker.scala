@@ -16,44 +16,44 @@ trait AntParameters {
   // generated with usr/bin/antw-config.
   val sizeAsidStruct = 32  // sizeof(asid_nnid_table_entry)
   val sizeNnidStruct = 40  // sizeof(nn_configuration)
-  val offsetNnidPtr = 8
-  val offsetEpb = 8
-  val offsetConfig = 24
+  val offsetNnidPtr  = 8
+  val offsetEpb      = 8
+  val offsetConfig   = 24
 }
 
 class ANTWXFilesInterface(implicit p: Parameters) extends DanaBundle()(p) {
-  val rocc = new Bundle {
-    val cmd = Decoupled(new RoCCCommand).flip
-    val resp = Decoupled(new RoCCResponse)
-    val status = new MStatus().asInput
+  val rocc      = new Bundle {
+    val cmd     = Decoupled(new RoCCCommand).flip
+    val resp    = Decoupled(new RoCCResponse)
+    val status  = new MStatus().asInput
   }
-  val autl = new ClientUncachedTileLinkIO
-  val dcache = new Bundle {
-    val mem = new HellaCacheIO()(p.alterPartial({ case CacheName => "L1D" }))
+  val autl      = new ClientUncachedTileLinkIO
+  val dcache    = new Bundle {
+    val mem     = new HellaCacheIO()(p.alterPartial({ case CacheName => "L1D" }))
   }
   val interrupt = Valid(new InterruptBundle)
 }
 
 class AsidNnidTableWalkerInterface(implicit p: Parameters) extends DanaBundle()(p) {
-  val cache = (new CacheMemInterface).flip
-  val xfiles = new ANTWXFilesInterface
+  val cache     = (new CacheMemInterface).flip
+  val xfiles    = new ANTWXFilesInterface
 }
 
 class HellaCacheReqWithCore(implicit p: Parameters) extends DanaBundle()(p) {
-  val req = new HellaCacheReq()(p)
+  val req       = new HellaCacheReq()(p)
 }
 
 class antp(implicit p: Parameters) extends DanaBundle()(p) {
-  val valid = Bool()
-  val antp = UInt(width = xLen)
-  val size = UInt(width = xLen)
+  val valid     = Bool()
+  val antp      = UInt(width = xLen)
+  val size      = UInt(width = xLen)
 }
 
 class ConfigRobEntry(implicit p: Parameters) extends DanaBundle()(p)
     with HasTileLinkParameters {
-  // val valid = UInt(width = bitsPerBlock / tlDataBits)
-  val valid = Vec(bitsPerBlock / tlDataBits, Bool())
-  val data = Vec(bitsPerBlock / tlDataBits, UInt(width = tlDataBits))
+  // val valid  = UInt(width = bitsPerBlock / tlDataBits)
+  val valid     = Vec(bitsPerBlock / tlDataBits, Bool())
+  val data      = Vec(bitsPerBlock / tlDataBits, UInt(width = tlDataBits))
 }
 
 class AsidNnidTableWalker(implicit p: Parameters) extends DanaModule()(p)

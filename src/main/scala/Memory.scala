@@ -14,12 +14,12 @@ class Memory(implicit p: Parameters) extends DanaModule()(p) {
 
   // The output is connected, but does not do anything. So, these
   // values are just set to defaults.
-  io.cache.req.ready := Bool(true)
-  io.cache.resp.valid := Bool(false)
-  io.cache.resp.bits.done := Bool(false)
-  io.cache.resp.bits.data := UInt(0, width = elementsPerBlock * elementWidth)
+  io.cache.req.ready            := Bool(true)
+  io.cache.resp.valid           := Bool(false)
+  io.cache.resp.bits.done       := Bool(false)
+  io.cache.resp.bits.data       := UInt(0, width = elementsPerBlock * elementWidth)
   io.cache.resp.bits.cacheIndex := UInt(0, width = log2Up(cacheNumEntries))
-  io.cache.resp.bits.addr := UInt(0, log2Up(cacheNumBlocks))
+  io.cache.resp.bits.addr       := UInt(0, width = log2Up(cacheNumBlocks))
 
   // Assertions
 

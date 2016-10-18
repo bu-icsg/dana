@@ -37,12 +37,12 @@ class WritePendingIncrementBundle (
     elementWidth = elementWidth,
     dataWidth = dataWidth,
     sramDepth = sramDepth).asInstanceOf[this.type]
-  val valid = Bool()
-  val wType = UInt(width = log2Up(3))
+  val valid       = Bool()
+  val wType       = UInt(width = log2Up(3))
   val dataElement = UInt(width = elementWidth)
-  val dataBlock = UInt(width = dataWidth)
-  val addrHi = UInt(width = log2Up(sramDepth))
-  val addrLo = UInt(width = log2Up(dataWidth / elementWidth))
+  val dataBlock   = UInt(width = dataWidth)
+  val addrHi      = UInt(width = log2Up(sramDepth))
+  val addrLo      = UInt(width = log2Up(dataWidth / elementWidth))
 }
 
 // A special instance of the generic SRAM that allows for masked

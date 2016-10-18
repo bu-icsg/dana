@@ -330,26 +330,26 @@ class Dana(implicit p: Parameters) extends XFilesBackend()(p)
 // one place and pulling them in to generate this.
 class NnConfigHeader(implicit p: Parameters) extends DanaBundle()(p) {
   // [TODO] Fragile
-  val lambda               = UInt(width = lambdaWidth)
-  val learningRate         = UInt(width = learningRateWidth)
-  val weightsPointer       = UInt(width = nnConfigPointerWidth)
-  val firstLayerPointer    = UInt(width = nnConfigPointerWidth)
-  val totalLayers          = UInt(width = totalLayersWidth)
-  val totalNeurons         = UInt(width = totalNeuronsWidth)
-  val totalWeightBlocks    = UInt(width = totalWeightBlocksWidth)
-  val _unused              = UInt(width = nnConfigUnusedWidth)
-  val elementsPerBlockCode = UInt(width = elementsPerBlockCodeWidth)
-  val errorFunction        = UInt(width = errorFunctionWidth)
-  val decimalPoint         = UInt(width = decimalPointWidth)
+  val lambda                 = UInt(width = lambdaWidth)
+  val learningRate           = UInt(width = learningRateWidth)
+  val weightsPointer         = UInt(width = nnConfigPointerWidth)
+  val firstLayerPointer      = UInt(width = nnConfigPointerWidth)
+  val totalLayers            = UInt(width = totalLayersWidth)
+  val totalNeurons           = UInt(width = totalNeuronsWidth)
+  val totalWeightBlocks      = UInt(width = totalWeightBlocksWidth)
+  val _unused                = UInt(width = nnConfigUnusedWidth)
+  val elementsPerBlockCode   = UInt(width = elementsPerBlockCodeWidth)
+  val errorFunction          = UInt(width = errorFunctionWidth)
+  val decimalPoint           = UInt(width = decimalPointWidth)
 }
 
 class NnConfigLayer(implicit p: Parameters) extends DanaBundle()(p) {
   // [TODO] Fragile
-  val bias               = UInt(width = elementWidth)
-  val steepness          = UInt(width = steepnessWidth)
-  val activationFunction = UInt(width = activationFunctionWidth)
-  val numberOfWeights    = UInt(width = numberOfWeightsWidth)
-  val weightOffset       = UInt(width = nnConfigPointerWidth)
+  val bias                   = UInt(width = elementWidth)
+  val steepness              = UInt(width = steepnessWidth)
+  val activationFunction     = UInt(width = activationFunctionWidth)
+  val numberOfWeights        = UInt(width = numberOfWeightsWidth)
+  val weightOffset           = UInt(width = nnConfigPointerWidth)
 }
 
 class NnConfigNeuron(implicit p: Parameters) extends DanaBundle()(p) {
@@ -361,13 +361,13 @@ class NnConfigNeuron(implicit p: Parameters) extends DanaBundle()(p) {
 
 trait UsrCmdRs1 {
   implicit val p: Parameters
-  val asid = UInt(width = p(AsidWidth))
-  val tid = UInt(width = p(AsidWidth))
+  val asid                   = UInt(width = p(AsidWidth))
+  val tid                    = UInt(width = p(AsidWidth))
 }
 
 trait UsrCmdRegWriteRs2 {
-  val regId = UInt(width = 32)
-  val regValue = UInt(width = 32)
+  val regId                  = UInt(width = 32)
+  val regValue               = UInt(width = 32)
 }
 
 class UsrCmdRegWrite(implicit p: Parameters) extends DanaBundle()(p)
@@ -412,21 +412,21 @@ class UsrCmdRegWrite(implicit p: Parameters) extends DanaBundle()(p)
 // [TODO] These are all unused legacy interfaces that were originally
 // used for testing. These need to be cleaned up.
 class XFilesArbiterReq(implicit p: Parameters) extends DanaBundle()(p) {
-  val tid = UInt(width = tidWidth)
+  val tid         = UInt(width = tidWidth)
   val readOrWrite = Bool()
-  val isNew = Bool()
-  val isLast = Bool()
-  val data = UInt(width = elementWidth)
+  val isNew       = Bool()
+  val isLast      = Bool()
+  val data        = UInt(width = elementWidth)
 }
 
 class XFilesArbiterResp(implicit p: Parameters) extends DanaBundle()(p) {
-  val tid = UInt(width = tidWidth)
-  val data = UInt(width = elementWidth)
+  val tid         = UInt(width = tidWidth)
+  val data        = UInt(width = elementWidth)
 }
 
 class XFilesArbiterInterface(implicit p: Parameters) extends DanaBundle()(p) {
-  val req = Decoupled(new XFilesArbiterReq)
-  val resp = Decoupled(new XFilesArbiterResp).flip
+  val req         = Decoupled(new XFilesArbiterReq)
+  val resp        = Decoupled(new XFilesArbiterResp).flip
 }
 
 // Contains things common to all DANA testbenches
