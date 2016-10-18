@@ -136,15 +136,13 @@ class ActivationFunction(implicit p: Parameters) extends DanaModule()(p) {
   val ioVal_d1 = Reg(next = ioVal_d0)
   io.resp.bits.out := out
   io.resp.valid := ioVal_d1
-  val dataIn = Reg(SInt(INPUT, elementWidth))
+  val dataIn = RegNext(io.req.bits.in)
   when (io.req.valid) {
-    dataIn := io.req.bits.in
-  } .otherwise {
-    dataIn := SInt(0)
+    printfInfo("AF: dataIn = 0x%x\n", io.req.bits.in)
   }
 
   when (ioVal_d1) {
-    printfInfo("PE: AF(0x%x) = 0x%x\n", dataIn, out)
+    printfInfo("AF: (0x%x) = 0x%x\n", dataIn, out)
   }
 
   def applySteepness(x: SInt, steepness: UInt): SInt = {

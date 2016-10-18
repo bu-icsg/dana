@@ -136,6 +136,13 @@ class ProcessingElement(implicit p: Parameters) extends DanaModule()(p) {
       } .elsewhen (io.req.valid) {
         reqSent := Bool(false)
         state := nextState }}
+  def reqAf() = {
+    when (!reqSent) {
+      af.io.req.valid := Bool(true)
+      reqSent := Bool(true)
+    } .elsewhen (af.io.resp.valid) {
+      reqSent := Bool(false)
+      state := nextState }}
 
   // State-driven logic
   switch (state) {
@@ -177,10 +184,9 @@ class ProcessingElement(implicit p: Parameters) extends DanaModule()(p) {
         decimal, acc + dsp.d)
     }
     is (PE_states('e_PE_ACTIVATION_FUNCTION)) {
-      af.io.req.valid := Bool(true)
+      reqAf()
+      nextState := PE_states('e_PE_DONE)
       af.io.req.bits.in := acc
-      when (af.io.resp.valid) {
-        state := PE_states('e_PE_DONE) }
       dataOut := Mux(af.io.resp.valid, af.io.resp.bits.out, dataOut)
     }
     is (PE_states('e_PE_DONE)) {
@@ -252,13 +258,7 @@ class ProcessingElementLearn(implicit p: Parameters)
       index := index + UInt(1)
     }
     is (PE_states('e_PE_ACTIVATION_FUNCTION)) {
-      af.io.req.valid := Bool(true)
-      af.io.req.bits.in := acc
       af.io.req.bits.afType := e_AF_DO_ACTIVATION_FUNCTION
-      when (af.io.resp.valid) {
-        state := PE_states('e_PE_DONE)
-      }
-      dataOut := Mux(af.io.resp.valid, af.io.resp.bits.out, dataOut)
     }
     is (PE_states('e_PE_DONE)) {
       when (io.req.bits.inLast &&
@@ -341,12 +341,12 @@ class ProcessingElementLearn(implicit p: Parameters)
       state := PE_states('e_PE_ERROR_FUNCTION)
     }
     is (PE_states('e_PE_ERROR_FUNCTION)) {
-      af.io.req.valid := Bool(true)
+      reqAf()
+      nextState := PE_states('e_PE_COMPUTE_DELTA)
       af.io.req.bits.in := errorOut
       af.io.req.bits.afType := e_AF_DO_ERROR_FUNCTION
       errorOut := Mux(af.io.resp.valid, af.io.resp.bits.out, errorOut)
       when (af.io.resp.valid) {
-        state := PE_states('e_PE_COMPUTE_DELTA)
         printfInfo("PE: errFn(0x%x) = 0x%x\n", errorOut, af.io.resp.bits.out)
       }
     }
