@@ -794,6 +794,8 @@ class DanaTransactionTableLearn(implicit p: Parameters)
     }
     printfInfo("DANA TTable: saw reg write TID/Reg/Value 0x%x/0x%x/0x%x\n",
       cmd.tid, cmd.regId, cmd.regValue)
+    assert(!(cmd.regId > e_TTABLE_WRITE_REG_WEIGHT_DECAY_LAMBDA),
+      "DANA TTable: saw unexpected regWrite regId")
   }
 
   // IO Arbiter

@@ -3,9 +3,9 @@
 package dana
 
 import Chisel._
-import rocket.HasCoreParameters
+import rocket.XLen
 import xfiles.{XFilesParameters, XFilesModule, XFilesBundle, XFilesBackend,
-  TransactionTableNumEntries, XFilesSupervisorRequests, AsidWidth}
+  TransactionTableNumEntries, XFilesSupervisorRequests, AsidWidth, TidWidth}
 import cde.{Parameters, Field}
 
 case object ElementWidth extends Field[Int]
@@ -361,13 +361,14 @@ class NnConfigNeuron(implicit p: Parameters) extends DanaBundle()(p) {
 
 trait UsrCmdRs1 {
   implicit val p: Parameters
+  val _unused                = UInt(width = p(XLen) - p(AsidWidth) - p(TidWidth))
   val asid                   = UInt(width = p(AsidWidth))
-  val tid                    = UInt(width = p(AsidWidth))
+  val tid                    = UInt(width = p(TidWidth))
 }
 
 trait UsrCmdRegWriteRs2 {
-  val regId                  = UInt(width = 32)
-  val regValue               = UInt(width = 32)
+  val regId                  = UInt(width = 32) // [TODO] Fragile
+  val regValue               = UInt(width = 32) // [TODO] Fragile
 }
 
 class UsrCmdRegWrite(implicit p: Parameters) extends DanaBundle()(p)
