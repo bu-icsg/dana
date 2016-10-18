@@ -238,7 +238,7 @@ $(DIR_BUILD)/cache:
 
 #------------------- Miscellaneous
 tags: $(shell find $(DIR_TOP)/src -regex ".+\.[^~#]+\$$")
-	ctags -e -R $?
+	etags -R $?
 
 #------------------- Utility Targets
 clean:
