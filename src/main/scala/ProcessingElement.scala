@@ -206,10 +206,10 @@ class ProcessingElementLearn(implicit p: Parameters)
   override lazy val io = new ProcessingElementInterfaceLearn
   override lazy val af = Module(new ActivationFunctionLearn)
 
-  val weightWB = Reg(Vec(elementsPerBlock, SInt(width=elementWidth)))
-  val derivative = Reg(SInt(width = elementWidth)) //delta
-  val errorOut = Reg(SInt(width = elementWidth)) //ek
-  val mse = Reg(SInt(width = elementWidth))
+  val weightWB        = Reg(Vec(elementsPerBlock, SInt(width=elementWidth)))
+  val derivative      = Reg(SInt(width = elementWidth)) //delta
+  val errorOut        = Reg(SInt(width = elementWidth)) //ek
+  val mse             = Reg(SInt(width = elementWidth))
   val dwWritebackDone = Reg(Bool())
   val stateLearn = io.req.bits.stateLearn
 

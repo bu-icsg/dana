@@ -25,13 +25,13 @@ class ActivationFunctionResp(implicit p: Parameters) extends DanaBundle()(p) {
 }
 
 class ActivationFunctionInterface(implicit p: Parameters) extends DanaBundle()(p) {
-  val req = Valid(new ActivationFunctionReq).asInput
-  val resp = Valid(new ActivationFunctionResp).asOutput
+  val req = Valid(new ActivationFunctionReq).flip
+  val resp = Valid(new ActivationFunctionResp)
 }
 
 class ActivationFunctionInterfaceLearn(implicit p: Parameters)
     extends ActivationFunctionInterface()(p) {
-  override val req = Valid(new ActivationFunctionReqLearn).asInput
+  override val req = Valid(new ActivationFunctionReqLearn).flip
 }
 
 class DSP(implicit p: Parameters) extends DanaModule()(p) {
