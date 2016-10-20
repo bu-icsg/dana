@@ -2,7 +2,7 @@
 
 package rocketchip
 
-import Chisel._
+import chisel3._
 import uncore.agents.{CacheName}
 import rocket._
 import xfiles.{XFiles, XFilesDebugConfig, DefaultXFilesConfig}
