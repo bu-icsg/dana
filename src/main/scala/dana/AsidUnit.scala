@@ -2,8 +2,8 @@
 
 package xfiles
 
-import Chisel._
-
+import chisel3._
+import chisel3.util._
 import rocket.{RoCCCommand, RoCCResponse, MStatus}
 import cde.Parameters
 

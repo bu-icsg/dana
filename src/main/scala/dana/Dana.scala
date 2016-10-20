@@ -2,7 +2,8 @@
 
 package dana
 
-import Chisel._
+import chisel3._
+import chisel3.util._
 import rocket.XLen
 import xfiles.{XFilesParameters, XFilesModule, XFilesBundle, XFilesBackend,
   TransactionTableNumEntries, XFilesSupervisorRequests, AsidWidth, TidWidth}

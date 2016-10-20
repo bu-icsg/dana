@@ -2,7 +2,8 @@
 
 package xfiles
 
-import Chisel._
+import chisel3._
+import chisel3.util._
 
 class QueueIOAf[T <: Data](gen: T, entries: Int) extends QueueIO[T](gen, entries) {
   val almostFull = Bool(OUTPUT)

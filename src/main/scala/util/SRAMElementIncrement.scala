@@ -2,7 +2,8 @@
 
 package dana
 
-import Chisel._
+import chisel3._
+import chisel3.util._
 
 // SRAMElement variant that allows for element _and_ block writes with
 // the option of writing a block that is accumualted with the elements

@@ -2,7 +2,8 @@
 
 package xfiles
 
-import Chisel._
+import chisel3._
+import chisel3.util._
 import rocket.{RoCCCommand, RoCCResponse, RoCCInterface}
 import cde.{Parameters, Field}
 
@@ -19,7 +20,7 @@ trait FlagsVDIO {
         case 'd' => this.done   := Bool(true)
         case 'i' => this.input  := Bool(true)
         case 'o' => this.output := Bool(true)
-        case _ => throwException("FlagsVDIO.set cannot match " + a) }})
+        case _ => throw new Exception("FlagsVDIO.set cannot match " + a) }})
   }
   def reset(x: String) {x.map((a: Char) => {
       a match {
@@ -27,7 +28,7 @@ trait FlagsVDIO {
         case 'd' => this.done   := Bool(false)
         case 'i' => this.input  := Bool(false)
         case 'o' => this.output := Bool(false)
-        case _ => throwException("FlagsVDIO.reset cannot match " + a) }})
+        case _ => throw new Exception("FlagsVDIO.reset cannot match " + a) }})
   }
 }
 

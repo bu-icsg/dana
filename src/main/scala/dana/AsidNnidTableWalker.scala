@@ -2,8 +2,8 @@
 
 package dana
 
-import Chisel._
-
+import chisel3._
+import chisel3.util._
 import rocket.{RoCCCommand, RoCCResponse, HellaCacheReq, HellaCacheIO, MStatus, MT_D}
 import uncore.tilelink.{HasTileLinkParameters, ClientUncachedTileLinkIO, Get,
   GetBlock}
@@ -173,7 +173,7 @@ class AsidNnidTableWalker(implicit p: Parameters) extends DanaModule()(p)
   val autlAddrWord_d = tlDataBits compare xLen match {
     case 1 => autlAddr_d(tlByteAddrBits - 1, log2Up(xLen/8))
     case 0 => autlAddr_d(tlByteAddrBits, log2Up(xLen/8))
-    case -1 => throwException("XLen > tlByteAddrBits (this doesn't make sense!)")
+    case -1 => throw new Exception("XLen > tlByteAddrBits (this doesn't make sense!)")
   }
   val autlDataGetVec = Wire(Vec(tlDataBits / xLen, UInt(width = xLen)))
   (0 until tlDataBits/xLen).map(i =>
@@ -308,7 +308,7 @@ class AsidNnidTableWalker(implicit p: Parameters) extends DanaModule()(p)
       case 0 => UInt(0)
       case 1 => autlAddrWithBeat_d(tlByteAddrBits + log2Up(beatsPerResp) - 1,
         tlByteAddrBits)
-      case -1 => throwException("bits per DANA block < ANTW L2 bits per beat")
+      case -1 => throw new Exception("bits per DANA block < ANTW L2 bits per beat")
     }
     configRob.data(beatOffset) := gnt.bits.data
     configRob.valid(beatOffset) := Bool(true)

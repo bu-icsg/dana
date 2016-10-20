@@ -2,7 +2,8 @@
 
 package dana
 
-import Chisel._
+import chisel3._
+import chisel3.util._
 
 // [TODO] This module is currently non-working. It was an initial
 // solution to the problem of dealing with random writes from the

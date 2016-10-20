@@ -2,13 +2,13 @@
 
 package xfiles
 
-import Chisel._
-
+import chisel3._
+import chisel3.util._
 import rocket.{RoCC, HasCoreParameters, CoreModule, CoreBundle}
 import cde.{Parameters, Field}
 import math.pow
 import junctions.HasAddrMapParameters
-import util.ParameterizedBundle
+import _root_.util.ParameterizedBundle
 
 case object TidWidth extends Field[Int]
 case object AsidWidth extends Field[Int]

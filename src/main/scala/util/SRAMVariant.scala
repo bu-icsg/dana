@@ -2,7 +2,8 @@
 
 package dana
 
-import Chisel._
+import chisel3._
+import chisel3.util._
 
 class SRAMVariantInterface(
   val dataWidth: Int,

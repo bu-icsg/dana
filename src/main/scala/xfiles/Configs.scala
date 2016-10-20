@@ -2,7 +2,7 @@
 
 package xfiles
 
-import Chisel._
+import chisel3._
 import cde.{Parameters, Config, Dump, Knob}
 import dana.DefaultDanaConfig
 

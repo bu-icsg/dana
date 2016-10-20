@@ -2,7 +2,7 @@
 
 package dana
 
-import Chisel._
+import chisel3._
 import cde.{Parameters, Config, Dump, Knob}
 import xfiles.{BuildXFilesBackend, XFilesBackendParameters}
 

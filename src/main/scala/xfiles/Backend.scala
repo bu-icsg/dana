@@ -2,10 +2,11 @@
 
 package xfiles
 
-import Chisel._
+import chisel3._
+import chisel3.util._
 import rocket.{RoCCInterface, HasCoreParameters}
 import cde.{Parameters, Field}
-import util.ParameterizedBundle
+import _root_.util.ParameterizedBundle
 
 case object BuildXFilesBackend extends Field[XFilesBackendParameters]
 case class XFilesBackendParameters(

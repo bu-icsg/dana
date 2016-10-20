@@ -2,7 +2,8 @@
 
 package dana
 
-import Chisel._
+import chisel3._
+import chisel3.util._
 
 // [TODO] Miscellaneous todos:
 // * A read immediately following a write is going to result in screwy

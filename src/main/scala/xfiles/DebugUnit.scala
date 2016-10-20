@@ -1,7 +1,9 @@
 // See LICENSE for license details.
 
 package xfiles
-import Chisel._
+
+import chisel3._
+import chisel3.util._
 import uncore.constants.MemoryOpConstants.{M_XRD, M_XWR}
 import uncore.tilelink.{HasTileLinkParameters, Get, Put, GetBlock}
 import rocket.{RoCCInterface, PTE, MT_D}
@@ -110,7 +112,7 @@ class DebugUnit(id: Int = 0)(implicit p: Parameters) extends XFilesModule()(p)
   val addr_word = tlDataBits compare xLen match {
     case 1 => addr_d(tlByteAddrBits - 1, log2Up(xLen/8))
     case 0 => UInt(0)
-    case -1 => throwException("XLen > tlByteAddrBits (this doesn't make sense!)")
+    case -1 => throw new Exception("XLen > tlByteAddrBits (this doesn't make sense!)")
   }
 
   (0 until tlDataBits/xLen).map(i => utlDataPutVec(i) := UInt(0))
