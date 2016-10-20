@@ -3,10 +3,10 @@
 DIR_TOP  = $(ROCKETCHIP)/xfiles-dana
 DIR_BUILD= $(DIR_TOP)/build
 
+ROCKETCHIP_ADDONS ?= xfiles-dana
 PES ?= 1
 EPB ?= 4
 CONFIG ?= XFilesDanaCppPe${PES}Epb${EPB}Config
-ROCKETCHIP_ADDONS ?= xfiles-dana
 BIN_SUFFIX = $(shell echo "$(EPB) 4*p" | dc)bin
 
 DIR_EMULATOR =  $(DIR_TOP)/../emulator
