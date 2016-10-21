@@ -327,7 +327,8 @@ int attach_nn_configuration(ant ** table, asid_type asid,
     return -1;
   }
 
-  if ((*table)->entry_v[asid].num_valid == (*table)->entry_v[asid].num_configs) {
+  ant_entry * e = &(*table)->entry_v[asid];
+  if (e->num_valid == e->num_configs) {
     return -1;
   }
 
@@ -337,7 +338,7 @@ int attach_nn_configuration(ant ** table, asid_type asid,
     return -1;
   }
 
-  nnid = (*table)->entry_v[asid].num_valid;
+  nnid = e->num_valid;
 
   // Kludge until fseek works again
   // fseek(fp, 0L, SEEK_END);
@@ -352,7 +353,8 @@ int attach_nn_configuration(ant ** table, asid_type asid,
     return -1;
   }
 
-  (*table)->entry_v[asid].asid_nnid_v[nnid].size = file_size;
+  nn_config * n = &e->asid_nnid_v[nnid];
+  n->size = file_size;
 
   // Compute the elements per block as set in the neural network
   // configuration and write this into the ASID--NNID Table Entry
@@ -360,24 +362,21 @@ int attach_nn_configuration(ant ** table, asid_type asid,
   fread(&block_64, sizeof(block_64), 1, fp);
   fseek(fp, 0L, SEEK_SET);
   block_64 = (block_64 >> 4) & 3;
-  (*table)->entry_v[asid].asid_nnid_v[nnid].elements_per_block = 1 << (block_64 + 2);
+  n->elements_per_block = 1 << (block_64 + 2);
 
   // Allocate space for this configuraiton
-  alloc_config_aligned(&(*table)->entry_v[asid].asid_nnid_v[nnid].config_raw,
-                       &(*table)->entry_v[asid].asid_nnid_v[nnid].config_v,
-                       file_size * sizeof(xlen_t));
-  assert((*table)->entry_v[asid].asid_nnid_v[nnid].config_raw != NULL);
-  assert((*table)->entry_v[asid].asid_nnid_v[nnid].config_v != NULL);
-  // [TODO] Assumes memory contiguity
-  (*table)->entry_v[asid].asid_nnid_v[nnid].config_p =
-      debug_virt_to_phys((*table)->entry_v[asid].asid_nnid_v[nnid].config_v);
+  alloc_config_aligned(&n->config_raw, &n->config_v, file_size * sizeof(xlen_t));
+  assert(n->config_raw != NULL);
+  assert(n->config_v != NULL);
 
   // Write the configuration
-  fread((*table)->entry_v[asid].asid_nnid_v[nnid].config_v, sizeof(xlen_t),
-        file_size, fp);
+  fread(n->config_v, sizeof(xlen_t), file_size, fp);
+  // [TODO] Assumes memory contiguity
+  n->config_p = debug_virt_to_phys(n->config_v);
+  assert((size_t) n != -1);
 
   fclose(fp);
-  return ++(*table)->entry_v[asid].num_valid;
+  return ++e->num_valid;
 }
 
 int attach_garbage(ant ** table, asid_type asid) {
@@ -387,16 +386,17 @@ int attach_garbage(ant ** table, asid_type asid) {
   if (asid >= (*table)->size) {
     return -1;
   }
-  if ((*table)->entry_v[asid].num_valid == (*table)->entry_v[asid].num_configs) {
+  ant_entry * e = &(*table)->entry_v[asid];
+  if (e->num_valid == e->num_configs) {
     return -1;
   }
 
-  nnid = (*table)->entry_v[asid].num_valid;
-  (*table)->entry_v[asid].asid_nnid_v[nnid].size = 0;
-  (*table)->entry_v[asid].asid_nnid_v[nnid].config_v = NULL;
-  (*table)->entry_v[asid].asid_nnid_v[nnid].config_p = NULL;
+  nnid = e->num_valid;
+  e->asid_nnid_v[nnid].size = 0;
+  e->asid_nnid_v[nnid].config_v = NULL;
+  e->asid_nnid_v[nnid].config_p = NULL;
 
-  return ++(*table)->entry_v[asid].num_valid;
+  return ++e->num_valid;
 }
 
 int attach_nn_configuration_array(ant ** table, uint16_t asid,
@@ -404,32 +404,30 @@ int attach_nn_configuration_array(ant ** table, uint16_t asid,
   int nnid;
 
   // Fail if we've run out of space
-  if ((*table)->entry_v[asid].num_valid == (*table)->entry_v[asid].num_configs) {
-    return -1;
-  }
+  ant_entry * e = &(*table)->entry_v[asid];
+  if (e->num_valid == e->num_configs) { return -1; }
 
   // The NNID is the index into the ASID--NNID array. The NNID is
   // implict here as it is the _next_ unallocated entry in the
   // ASID--NNID array.
-  nnid = (*table)->entry_v[asid].num_valid;
+  nnid = e->num_valid;
 
   // Allocate memory for the array and copy in the input array. Update
   // the size following.
-  alloc_config_aligned(&(*table)->entry_v[asid].asid_nnid_v[nnid].config_raw,
-                       &(*table)->entry_v[asid].asid_nnid_v[nnid].config_v,
-                       size * sizeof(xlen_t));
-  assert((*table)->entry_v[asid].asid_nnid_v[nnid].config_raw != NULL);
-  assert((*table)->entry_v[asid].asid_nnid_v[nnid].config_v != NULL);
-  // [TODO] This assumes physical contiguity
-  (*table)->entry_v[asid].asid_nnid_v[nnid].config_p =
-      debug_virt_to_phys((*table)->entry_v[asid].asid_nnid_v[nnid].config_v);
+  nn_config * n = &e->asid_nnid_v[nnid];
+  alloc_config_aligned(&n->config_raw, &n->config_v, size * sizeof(xlen_t));
+  assert(n->config_raw != NULL);
+  assert(n->config_v != NULL);
 
-  memcpy((*table)->entry_v[asid].asid_nnid_v[nnid].config_v, array,
-         size * sizeof(xlen_t));
-  (*table)->entry_v[asid].asid_nnid_v[nnid].size = size;
+  memcpy(n->config_v, array, size * sizeof(xlen_t));
+  n->size = size;
+
+  // [TODO] This assumes physical contiguity
+  n->config_p = debug_virt_to_phys(n->config_v);
+  assert((size_t) n != -1);
 
   // Return the new number of valid entries
-  return ++(*table)->entry_v[asid].num_valid;
+  return ++e->num_valid;
 }
 
 int alloc_config_aligned(xlen_t ** raw, xlen_t ** aligned, size_t size) {

@@ -121,8 +121,8 @@ int attach_nn_configuration_array(ant ** table, uint16_t asid,
 // of tlDataBeats in uncore/src/main/scala/tilelink.scala.
 #define TILELINK_BYTES_PER_BEAT 16
 #define TILELINK_LG_BYTES_PER_BEAT 4
-#define TILELINK_L2_BYTES 64
-#define TILELINK_L2_ADDR_BITS 6
+#define TILELINK_L2_BYTES 128
+#define TILELINK_L2_ADDR_BITS 7
 // Do an allocation that is aligned on an L2 cache line
 int alloc_config_aligned(xlen_t ** raw, xlen_t ** aligned, size_t size);
 
