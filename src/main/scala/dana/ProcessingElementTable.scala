@@ -414,7 +414,8 @@ class ProcessingElementTableLearn(implicit p: Parameters)
   // the highest index delta--weight _block_ that has been written.
   // This is needed to know when a a block is the first to be written
   // back. If it is not the first, then it should be accumulated.
-  val regFileBlockWbTable = Reg(Vec(transactionTableNumEntries, UInt(log2Up(regFileNumElements))))
+  val regFileBlockWbTable = Reg(Vec(transactionTableNumEntries,
+    UInt(width = log2Up(regFileNumElements))))
   (0 until transactionTableNumEntries).map(i =>
     regFileBlockWbTable(i) := regFileBlockWbTable(i))
 
