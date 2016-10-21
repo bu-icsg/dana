@@ -85,6 +85,20 @@ index 6568dc5..1f2ba55 100644
  
  machine_asm_srcs = \
    mentry.S \
+diff --git a/machine/mentry.S b/machine/mentry.S
+index 64c60c3..d4bd330 100644
+--- a/machine/mentry.S
++++ b/machine/mentry.S
+@@ -48,6 +48,9 @@ trap_vector:
+   # This is an interrupt.  Discard the mcause MSB and decode the rest.
+   sll a1, a1, 1
+ 
++  li a0, CAUSE_ROCC * 2
++  beq a0, a1, rocc_trap
++
+   # Is it a machine timer interrupt?
+   li a0, IRQ_M_TIMER * 2
+   bne a0, a1, 1f
 diff --git a/machine/minit.c b/machine/minit.c
 index 33a1e3b..355881b 100644
 --- a/machine/minit.c
