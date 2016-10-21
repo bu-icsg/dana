@@ -100,6 +100,7 @@ class DebugUnit(id: Int = 0)(implicit p: Parameters) extends XFilesModule()(p)
   when (state === s_('TRANSLATE_RESP)) {
     val offset = addr_d(pgIdxBits - 1, 0)
     io.resp.bits.data := Mux(pte.leaf(), Cat(pte.ppn, offset), ~UInt(0, xLen))
+    printfDebug("DUnit[%d]: Seeing: 0x%x\n", UInt(id), pte.ppn)
     state := s_('IDLE)
   }
 

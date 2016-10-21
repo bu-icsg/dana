@@ -155,15 +155,15 @@ class ActivationFunction(implicit p: Parameters) extends DanaModule()(p) {
     tmp
   }
 
-  val one = SInt(1, width = elementWidth) << decimal
-  val negOne = SInt(-1, width = elementWidth) << decimal
-  val seventeen = SInt(17, width = elementWidth) << decimal
-  val negSeventeen = SInt(-17, width = elementWidth) << decimal
-  val offsetX = Wire(SInt(width = elementWidth))
-  val offsetSigY = Wire(SInt(width = elementWidth))
-  val offsetSymY = Wire(SInt(width = elementWidth))
-  val slopeSig = Wire(SInt(width = elementWidth))
-  val slopeSym = Wire(SInt(width = elementWidth))
+  val one          = SInt(1,    width = elementWidth) << decimal
+  val negOne       = SInt(-1,   width = elementWidth) << decimal
+  val seventeen    = SInt(17,   width = elementWidth) << decimal
+  val negSeventeen = SInt(-17,  width = elementWidth) << decimal
+  val offsetX      = Wire(SInt( width = elementWidth))
+  val offsetSigY   = Wire(SInt( width = elementWidth))
+  val offsetSymY   = Wire(SInt( width = elementWidth))
+  val slopeSig     = Wire(SInt( width = elementWidth))
+  val slopeSym     = Wire(SInt( width = elementWidth))
   when(inD0 < xmin) {
     offsetX    := SInt(0)
     offsetSigY := SInt(0)
@@ -291,7 +291,7 @@ class ActivationFunctionLearn(implicit p: Parameters)
   // Atanh error function
   val atanhOffsetX = Wire(SInt(width = elementWidth))
   val atanhOffsetY = Wire(SInt(width = elementWidth))
-  val atanhSlope = Wire(SInt(width = elementWidth))
+  val atanhSlope   = Wire(SInt(width = elementWidth))
   when (dataIn < atanh_x0) {
     atanhOffsetX := SInt(0)
     atanhOffsetY := negSeventeen

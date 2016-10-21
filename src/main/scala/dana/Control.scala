@@ -19,8 +19,8 @@ class ControlCacheInterfaceResp(implicit p: Parameters) extends DanaBundle()(p) 
 
 class ControlCacheInterfaceRespLearn(implicit p: Parameters)
     extends ControlCacheInterfaceResp()(p) {
-  val totalWritesMul = UInt(width = 2)
-  val globalWtptr    = UInt(width = 16) //[TODO] possibly fragile
+  val totalWritesMul     = UInt(width = 2)
+  val globalWtptr        = UInt(width = 16) //[TODO] possibly fragile
 }
 
 class ControlCacheInterfaceReq(implicit p: Parameters) extends DanaBundle()(p) {

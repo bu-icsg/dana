@@ -66,10 +66,10 @@ class ProcessingElement(implicit p: Parameters) extends DanaModule()(p) {
   // Activation Function module
   lazy val af = Module(new ActivationFunction)
 
-  val index = Reg(UInt(width = 8)) // [TODO] fragile, should match numWeights
-  val acc = Reg(SInt(width = elementWidth))
-  val dataOut = Reg(SInt(width = elementWidth))
-  val reqSent = Reg(Bool())
+  val index    = Reg(UInt(width = 8)) // [TODO] fragile, should match numWeights
+  val acc      = Reg(SInt(width = elementWidth))
+  val dataOut  = Reg(SInt(width = elementWidth))
+  val reqSent  = Reg(Bool())
   val eleIndex = index(log2Up(elementsPerBlock) - 1, 0)
 
   // [TODO] fragile on PE stateu enum (Common.scala)

@@ -11,7 +11,7 @@ import cde.{Parameters}
 class RegisterFileInterface(implicit p: Parameters) extends DanaBundle()(p) {
   lazy val pe = (new PERegisterFileInterface).flip
   val control = (new ControlRegisterFileInterface).flip
-  val tTable = (new TTableRegisterFileInterface).flip
+  val tTable  = (new TTableRegisterFileInterface).flip
 }
 
 class RegisterFileInterfaceLearn(implicit p: Parameters)
