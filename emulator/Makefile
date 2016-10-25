@@ -18,10 +18,16 @@ LDFLAGS := $(LDFLAGS) -L$(RISCV)/lib -Wl,-rpath,$(RISCV)/lib -L$(abspath $(sim_d
 emu = emulator-$(PROJECT)-$(CONFIG)
 emu_debug = emulator-$(PROJECT)-$(CONFIG)-debug
 
-.PHONY: firrtl
+.PHONY: firrtl go-for-it verilog
 
-firrtl $(generated_dir)/%.fir: $(chisel_srcs) | $(generated_dir)
+$(generated_dir)/%.fir: $(chisel_srcs) | $(generated_dir)
 	cd $(base_dir) && env ROCKETCHIP_ADDONS=$(ROCKETCHIP_ADDONS) $(SBT) "run-main xfiles.standalone.Standalone $(generated_dir) $(PROJECT) Standalone $(CFG_PROJECT) $(CONFIG)"
+
+%.v: %.fir $(FIRRTL_JAR)
+	$(FIRRTL) $(patsubst %,-i %,$(filter %.fir,$^)) -o $@ -X verilog
+
+firrtl: $(generated_dir)/$(PROJECT).$(CONFIG).fir go-for-it
+verilog: $(generated_dir)/$(PROJECT).$(CONFIG).v go-for-it
 
 $(generated_dir):
 	mkdir $@
