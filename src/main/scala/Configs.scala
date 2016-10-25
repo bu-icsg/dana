@@ -161,3 +161,6 @@ class XFilesDanaCppPe16Epb32Config extends Config(new DanaConfig(16, 32) ++
   new XFilesDanaCPPConfig)
 class XFilesDanaCppPe32Epb32Config extends Config(new DanaConfig(32, 32) ++
   new XFilesDanaCPPConfig)
+
+class XFilesDanaCppPe1Epb4StandaloneConfig extends Config(
+  new xfiles.standalone.AsStandalone ++ new XFilesDanaCppPe1Epb4Config)
