@@ -5,6 +5,7 @@
 # file.
 
 TEST=fann-xfiles
+PK=pk-xfiles
 NETS_PATTERN=xorSigmoid \
 	xorSigmoidSymmetric \
 	xorSigmoidSymmetricPair \
@@ -38,6 +39,7 @@ BIT_FAIL_LIMIT=0.1
 MSE_CONVERGE=0.002
 MAX_CONVERGE_EPOCHS=10000
 
+ROCKETCHIP ?= $(abspath ../../../..)
 include ../../common/Makefrag
 
 vpath %.train $(DIR_TOP)/src/main/resources
@@ -56,7 +58,7 @@ all: $(RUNS)
 # compared to a known good example "*.mse-good".
 %.msePattern: $(DIR_BUILD)/nets/%-fixed.$(BIN_SUFFIX) $(DIR_BUILD)/nets/%-fixed.train $(DIR_BUILD)/nets/%-fixed.net $(TEST).rv %.mse-good $(EMULATOR)
 	@ echo [INFO] $(TEST_NAME)-$@ seed/asid/nnid $(SEED)/$(ASID)/$(NNID)
-	$(EMULATOR) +maxcycles=$(MAX_CYCLES) pk $(TEST).rv \
+	$(EMULATOR) +maxcycles=$(MAX_CYCLES) $(PK) $(TEST).rv \
 	-n $(DIR_BUILD)/nets/$*-fixed.$(BIN_SUFFIX) \
 	-t $(DIR_BUILD)/nets/$*-fixed.train \
 	-m -e10 -j$(ASID) -k$(NNID) | tee $*.mse
@@ -69,7 +71,7 @@ all: $(RUNS)
 # epochs.
 %.converge: $(DIR_BUILD)/nets/%-fixed.$(BIN_SUFFIX) $(DIR_BUILD)/nets/%-fixed.train $(DIR_BUILD)/nets/%-fixed.net $(TEST).rv $(EMULATOR)
 	@ echo [INFO] $(TEST_NAME)-$@ seed/asid/nnid $(SEED)/$(ASID)/$(NNID)
-	@ $(EMULATOR) +maxcycles=$(MAX_CYCLES) pk $(TEST).rv \
+	@ $(EMULATOR) +maxcycles=$(MAX_CYCLES) $(PK) $(TEST).rv \
 	-n $(DIR_BUILD)/nets/$*-fixed.$(BIN_SUFFIX) \
 	-t $(DIR_BUILD)/nets/$*-fixed.train \
 	-e$(MAX_CONVERGE_EPOCHS) -j$(ASID) -k$(NNID) \

@@ -8,7 +8,7 @@ xlen_t set_asid(asid_type asid) {
   return old_asid;
 }
 
-xlen_t set_antp(asid_nnid_table_entry * antp, size_t size) {
+xlen_t set_antp(ant_entry * antp, size_t size) {
   int old_antp;
   XFILES_INSTRUCTION(old_antp, antp, size, t_SUP_WRITE_REG);
   return old_antp;

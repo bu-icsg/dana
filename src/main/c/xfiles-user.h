@@ -80,18 +80,18 @@ xlen_t kill_transaction(tid_type tid);
 xlen_t pk_syscall_set_asid(asid_type asid);
 
 // Set the ASID--NNID Table Poitner (ANTP)
-xlen_t pk_syscall_set_antp(asid_nnid_table * os_antp);
+xlen_t pk_syscall_set_antp(ant * os_antp);
 
 // Do a debug echo using a systemcall
 xlen_t pk_syscall_debug_echo(uint32_t data);
 
 // Print a visual organization of a specific ASID--NNIT Table
-void asid_nnid_table_info(asid_nnid_table * table);
+void asid_nnid_table_info(ant * table);
 
 // Constructor and destructor for the ASID--NNID Table data structure
-void asid_nnid_table_create(asid_nnid_table ** table, size_t num_asids,
+void asid_nnid_table_create(ant ** table, size_t num_asids,
                             size_t nn_configurations_per_asid);
-void asid_nnid_table_destroy(asid_nnid_table **);
+void asid_nnid_table_destroy(ant **);
 
 // Constructor and destructor for the Queue structure
 void construct_queue(queue **, int);
@@ -101,19 +101,19 @@ void destroy_queue(queue **);
 // of the specified ASID--NNID table. **NOTE** This is currently
 // unsupported with the proxy kernel as it doesn't supported file
 // operation system calls.
-int attach_nn_configuration(asid_nnid_table ** table, asid_type asid,
+int attach_nn_configuration(ant ** table, asid_type asid,
                             const char * nn_configuration_binary_file);
 
 // Attach an NN configuration that points to NULL. This is useful for
 // testing purposes to place a specific NN configuration in a specific
 // location and generate traps that will cause us to fail fast on an
 // invalid read.
-int attach_garbage(asid_nnid_table ** table, asid_type asid);
+int attach_garbage(ant ** table, asid_type asid);
 
 // Append the NN configuration contained in an XLen-sized (64-bit or
 // 32-bit depending on RISC-V architecture) array and of a certain
 // size to the ASID of a specific ASID--NNID Table.
-int attach_nn_configuration_array(asid_nnid_table ** table, uint16_t asid,
+int attach_nn_configuration_array(ant ** table, uint16_t asid,
                                   const xlen_t * nn_configuration_array,
                                   size_t size);
 
@@ -121,49 +121,9 @@ int attach_nn_configuration_array(asid_nnid_table ** table, uint16_t asid,
 // of tlDataBeats in uncore/src/main/scala/tilelink.scala.
 #define TILELINK_BYTES_PER_BEAT 16
 #define TILELINK_LG_BYTES_PER_BEAT 4
-#define TILELINK_L2_BYTES 64
-#define TILELINK_L2_ADDR_BITS 6
+#define TILELINK_L2_BYTES 128
+#define TILELINK_L2_ADDR_BITS 7
 // Do an allocation that is aligned on an L2 cache line
 int alloc_config_aligned(xlen_t ** raw, xlen_t ** aligned, size_t size);
-
-//-------------------------------------- Interactions with the Debug Unit
-
-// Enumerated type that defines the action taken by the Debug Unit
-typedef enum {
-  a_REG,          // Return a value written using the cmd interface
-  a_MEM_READ,     // Read data from the L1 cache and return it
-  a_MEM_WRITE,    // Write data to the L1 cache
-  a_VIRT_TO_PHYS, // Do address translation via the PTW port
-  a_UTL_READ,     // Read data from the L2 cache and return it
-  a_UTL_WRITE     // Write data to the L2 cache
-} xfiles_debug_action_t;
-
-// Function that accesses the per-core Debug Unit. This can be used
-// manually or the functions below act as aliases to this function.
-xlen_t debug_test(xfiles_debug_action_t action, uint32_t data, void * addr);
-
-// Write data to the accelerator and have the accelerator return it:
-//   data = data
-xlen_t debug_echo_via_reg(uint32_t data);
-
-// Read from a specific address using the L1 port:
-//   data = [addr]
-xlen_t debug_read_mem(void * addr);
-
-// Write to a specific address using the L1 port:
-//   [addr] = data
-xlen_t debug_write_mem(uint32_t data, void * addr);
-
-// Do virtual to physical address translation:
-//   addr_phys = virt_to_phys(addr_virt)
-xlen_t debug_virt_to_phys(void * addr_v);
-
-// Read a specific memory address using the L2 uncached tilelink port:
-//   data = [addr]
-xlen_t debug_read_utl(void * addr);
-
-// Write to a specific memory address using the L2 uncached tilelink port:
-//   [addr] = data
-xlen_t debug_write_utl(uint32_t data, void * addr);
 
 #endif  // SRC_MAIN_C_XFILES_USER_H_

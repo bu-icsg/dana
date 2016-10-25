@@ -13,7 +13,7 @@ static char * usage_message =
   "Run training on a specific neural network and training file.\n"
   "\n"
   "Options:\n"
-  "  -a, --print-ant            print information about the asid--nnit table\n"
+  "  -a, --ant-info             print information about the asid--nnit table\n"
   "  -b, --video-data           generate a trace of execution over time\n"
   "  -c, --stat-cycles          print the total number of cycles in the ROI\n"
   "  -d, --num-batch-items      specify the number of batch items to use\n"
@@ -136,7 +136,7 @@ typedef struct {
     mse, error;
   char * file_nn, * file_train, * file_video_string, id[100];
   FILE * file_video;
-  asid_nnid_table * table;
+  ant * table;
   element_type * outputs, * outputs_old;
   struct fann_train_data * data;
   size_t num_input, num_output;

@@ -98,7 +98,8 @@ RV_TESTS             = hello.c \
 	trap-06-request-invalid-epb.c \
 	dana-benchmark.c \
 	debug-test.c \
-	test-pk-debug.c
+	test-pk-debug.c \
+	antw-config.c
 RV_TESTS_EXECUTABLES_NEWLIB	= $(RV_TESTS:%.c=$(DIR_BUILD)/newlib/%.rv)
 RV_TESTS_EXECUTABLES_LINUX	= $(RV_TESTS:%.c=$(DIR_BUILD)/linux/%.rv)
 RV_TESTS_DISASM_NEWLIB		= $(RV_TESTS:%.c=$(DIR_BUILD)/newlib/%.rvS)
@@ -120,9 +121,11 @@ LFLAGS        = $(addprefix -Wl$(COMMA)-R, $(abspath $(LIB_PATHS))) \
 
 # X-FILES libraries related
 XFILES_LIBRARIES_NEWLIB = $(DIR_BUILD)/newlib/libxfiles-user.a \
-	$(DIR_BUILD)/newlib/libxfiles-supervisor.a
+	$(DIR_BUILD)/newlib/libxfiles-supervisor.a \
+	$(DIR_BUILD)/newlib/libxfiles-debug.a
 XFILES_LIBRARIES_LINUX = $(DIR_BUILD)/linux/libxfiles-user.a \
-	$(DIR_BUILD)/linux/libxfiles-supervisor.a
+	$(DIR_BUILD)/linux/libxfiles-supervisor.a \
+	$(DIR_BUILD)/linux/libxfiles-debug.a
 
 DECIMAL_POINT_OFFSET=7
 DECIMAL_POINT_BITS=3
@@ -171,7 +174,6 @@ debug: $(TEST_EXECUTABLES) Makefile
 newlib: $(XFILES_LIBRARIES_NEWLIB)  \
 	$(RV_TESTS_EXECUTABLES_NEWLIB)
 
-
 linux: $(XFILES_LIBRARIES_LINUX) \
 	$(RV_TESTS_EXECUTABLES_LINUX)
 
@@ -179,7 +181,7 @@ disasm-newlib: $(RV_TESTS_DISASM_NEWLIB)
 disasm-linux: $(RV_TESTS_DISASM_LINUX)
 
 include $(DIR_TOP)/tools/common/Makefrag-rv
-include $(DIR_TOP)/tools/common/Makefrag-fann
+include $(DIR_TOP)/tools/common/Makefrag-submodule
 include $(DIR_TOP)/tools/common/Makefrag-tools
 include $(DIR_TOP)/tools/common/Makefrag-nets
 include $(DIR_TOP)/tools/common/Makefrag-video
@@ -236,7 +238,7 @@ $(DIR_BUILD)/cache:
 
 #------------------- Miscellaneous
 tags: $(shell find $(DIR_TOP)/src -regex ".+\.[^~#]+\$$")
-	ctags -e -R $?
+	etags -R $?
 
 #------------------- Utility Targets
 clean:

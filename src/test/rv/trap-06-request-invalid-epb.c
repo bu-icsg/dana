@@ -3,7 +3,7 @@
 int main() {
   pk_syscall_set_asid(1);
 
-  asid_nnid_table * ant;
+  ant * ant;
   asid_nnid_table_create(&ant, 2, 4);
   attach_nn_configuration(&ant, 1, "../xfiles-dana/build/nets/xorSigmoidSymmetric-fixed.128bin");
   pk_syscall_set_antp(ant);
