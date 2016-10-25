@@ -68,6 +68,12 @@ class XFilesDanaNoLearningFPGAConfig extends Config(new XFilesDanaConfig ++
 class XFilesDanaFPGASmallConfig extends Config(new XFilesDanaConfig ++
   new DefaultXFilesDanaConfig ++ new DefaultFPGASmallConfig)
 
+// Variants that use explicit numbers of PEs
+class DanaConfig(numPes: Int, epb: Int) extends Config(
+  knobValues = {
+    case "NUM_PES" => numPes
+    case "ELEMENTS_PER_BLOCK" => epb })
+
 class XFilesDanaPe1Epb4Config extends Config(new DanaConfig(1, 4) ++
   new XFilesDanaFPGAConfig)
 class XFilesDanaPe2Epb4Config extends Config(new DanaConfig(2, 4) ++
