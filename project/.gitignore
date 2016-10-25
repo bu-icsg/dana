@@ -1,0 +1,5 @@
+*
+!.gitignore
+!build.properties
+!build.scala
+!plugins.sbt
