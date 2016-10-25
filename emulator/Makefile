@@ -31,3 +31,6 @@ verilog: $(generated_dir)/$(PROJECT).$(CONFIG).v go-for-it
 
 $(generated_dir):
 	mkdir $@
+
+clean:
+	rm -rf $(generated_dir)
