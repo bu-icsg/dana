@@ -7,6 +7,7 @@ import uncore.agents.{CacheName}
 import rocket._
 import xfiles.{XFiles, XFilesDebugConfig, DefaultXFilesConfig}
 import dana.{DefaultDanaConfig, DanaNoLearningConfig, DanaConfig}
+import coreplex.WithL2Cache
 import cde.{Parameters, Config}
 
 class XFilesDanaConfig extends Config (
@@ -34,10 +35,10 @@ class WithL2CapacityKb(kb: Int) extends Config(
 // VLSI Configs -- no L2
 class XFilesDanaVLSIConfig extends Config(new XFilesDanaConfig ++
   new DefaultXFilesConfig ++ new DanaConfig(4, 4, 2, 10240, true) ++
-  new DefaultDanaConfig ++ new DefaultVLSIConfig)
+  new DefaultDanaConfig ++ new DefaultConfig)
 class XFilesDanaNoLearningVLSIConfig extends Config(new XFilesDanaConfig ++
   new DefaultXFilesConfig ++ new DanaConfig(4, 4, 2, 10240, false) ++
-  new DefaultDanaConfig ++ new DefaultVLSIConfig)
+  new DefaultDanaConfig ++ new DefaultConfig)
 // VLSI Configs -- with L2
 class XFilesDanaL2VLSIConfig extends Config(new WithL2CapacityKb(1024) ++
   new WithL2Cache ++ new XFilesDanaVLSIConfig)
@@ -48,11 +49,11 @@ class XFilesDanaNoLearningL2VLSIConfig extends Config(
 class XFilesDanaNoLearningSmallScratchpadVLSIConfig extends Config(
   new XFilesDanaConfig ++ new DefaultXFilesConfig ++
     new DanaConfig(4, 4, 2, 1024, false) ++ new DefaultDanaConfig ++
-    new DefaultVLSIConfig)
+    new DefaultConfig)
 
 // CPP Configs (these are the same as VLSI Configs)
 class XFilesDanaCPPConfig extends Config(new XFilesDebugConfig ++
-  new XFilesDanaConfig ++ new DefaultXFilesDanaFPGAConfig ++
+  new XFilesDanaConfig ++ new DefaultXFilesDanaConfig ++
   new DefaultConfig)
 
 class XFilesDanaNoLearningCPPConfig extends Config(
