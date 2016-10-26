@@ -237,13 +237,20 @@ $(DIR_BUILD)/cache:
 	$(DIR_TOP)/usr/bin/danaCache $@ src/main/resources/fft.net
 
 #------------------- Miscellaneous
-tags: $(shell find $(DIR_TOP)/src -regex ".+\.[^~#]+\$$")
-	etags -R $?
+tags:
+	find ../src/main/scala \
+	../chisel3 \
+	../context-dependent-environments/src \
+	src/main/scala \
+	src/main/c \
+	src/test/rv \
+	-exec ctags --output-format=etags {} +
 
 #------------------- Utility Targets
 clean:
 	rm -rf $(DIR_BUILD)/*
 	rm -rf target
+	rm -f TAGS
 
 mrproper: clean
 	$(MAKE) clean -C $(DIR_TOP)/tools
