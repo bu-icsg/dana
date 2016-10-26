@@ -4,6 +4,7 @@
 SHELL            = /bin/bash
 DIR_TOP         ?= .
 DIR_BUILD	?= $(DIR_TOP)/build
+ROCKETCHIP_ADDONS ?= xfiles-dana
 
 DIR_FANN        = $(DIR_TOP)/submodules/fann
 
@@ -142,12 +143,15 @@ vpath %.v $(DIR_SRC_V)
 vpath %.v $(DIR_BUILD)
 vpath %-float.net $(DIR_MAIN_RES)
 
-.PHONY: all clean cpp debug doc dot libraries mrproper nets run \
+.PHONY: all clean checkstyle cpp debug doc dot libraries mrproper nets run \
 	run-verilog tags tools vcd vcd-verilog verilog
 
 default: all
 
 all: nets newlib
+
+checkstyle:
+	env ROCKETCHIP_ADDONS=$(ROCKETCHIP_ADDONS) $(SBT) $(SBT_FLAGS) scalastyle test:scalastyle
 
 cpp: $(BACKEND_CPP)
 

@@ -8,10 +8,10 @@ import rocket._
 import xfiles._
 import dana._
 
-class HoneyPot[T <: Bundle](req: => T) extends Module {
+class HoneyPot[T <: Bundle](req: => T, name: String = "") extends Module {
   val io = Decoupled(req)
   io.ready := Bool(true)
-  assert(!(io.valid), "Module tried to access HoneyPot")
+  assert(!(io.valid), s"Module tried to access HoneyPot $name")
 }
 
 abstract class RoccTester[T <: RoCC](x: Int = 0)(implicit p: Parameters)
