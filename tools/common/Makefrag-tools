@@ -21,4 +21,4 @@ NETS_TOOLS = $(FLOAT_TO_FIXED) \
 	$(FANN_TRAIN)
 
 $(DIR_TOP)/usr/bin/%: $(DIR_BUILD)/fann/libfann.so
-	$(MAKE) -C $(DIR_TOP)/tools/$*
+	$(MAKE) -C $(DIR_TOP)/tools bin/$*

@@ -2,7 +2,7 @@
 
 # Shared parameters (be careful messing with these)
 SHELL            = /bin/bash
-DIR_TOP         ?= .
+DIR_TOP         ?= $(abspath .)
 DIR_BUILD	?= $(DIR_TOP)/build
 ROCKETCHIP_ADDONS ?= xfiles-dana
 
@@ -241,17 +241,14 @@ $(DIR_BUILD)/cache:
 	$(DIR_TOP)/usr/bin/danaCache $@ src/main/resources/fft.net
 
 #------------------- Miscellaneous
+TAGS_SCALA = $(DIR_TOP)/../src/main/scala $(DIR_TOP)/../chisel3 \
+	$(DIR_TOP)/../context-dependent-environments/src $(DIR_TOP)/src/main/scala
+TAGS_C = $(DIR_TOP)/src/main/c $(DIR_TOP)/src/test/rv
 tags:
-	find ../src/main/scala \
-	../chisel3 \
-	../context-dependent-environments/src \
-	src/main/scala \
-	-name *.scala \
-	-exec ctags --output-format=etags {} +
-	find \
-	src/main/c \
-	src/test/rv \
-	-exec ctags --append=yes --output-format=etags {} +
+	find $(TAGS_SCALA) -name *.scala -exec ctags --output-format=etags {} +
+	find $(TAGS_C) -exec ctags --append=yes --output-format=etags {} +
+	find $(TAGS_SCALA) -name *.scala -exec ctags {} +
+	find $(TAGS_C) -exec ctags --append=yes {} +
 
 #------------------- Utility Targets
 clean:
