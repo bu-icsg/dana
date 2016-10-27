@@ -242,9 +242,12 @@ tags:
 	../chisel3 \
 	../context-dependent-environments/src \
 	src/main/scala \
+	-name *.scala \
+	-exec ctags --output-format=etags {} +
+	find \
 	src/main/c \
 	src/test/rv \
-	-exec ctags --output-format=etags {} +
+	-exec ctags --append=yes --output-format=etags {} +
 
 #------------------- Utility Targets
 clean:
