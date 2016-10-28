@@ -6,7 +6,7 @@ import cde.Parameters
 import xfiles.XFilesUserRequests
 
 class DebugTester(implicit p: Parameters) extends XFilesTester {
-  val s_INIT :: s_WRITE :: s_READ :: s_DONE :: Nil = Enum(UInt(), 4)
+  val s_INIT :: s_WRITE :: s_READ :: s: :: s_DONE :: Nil = Enum(UInt(), 4)
 
   val state = Reg(UInt(width = log2Up(4)), init = s_INIT)
 

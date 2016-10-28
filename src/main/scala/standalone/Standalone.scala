@@ -8,10 +8,15 @@ import rocket._
 import xfiles._
 import dana._
 
-class HoneyPot[T <: Bundle](req: => T, name: String = "") extends Module {
-  val io = Decoupled(req)
-  io.ready := Bool(true)
-  assert(!(io.valid), s"Module tried to access HoneyPot $name")
+class HoneyPot[T <: Bundle](name: String = "") extends Module {
+  val io = new Bundle {
+    val req = Decoupled(new Bundle{}).flip
+    val resp = Valid(new Bundle{})
+  }
+
+  io.req.ready := Bool(true)
+  io.resp.valid := Bool(false)
+  assert(!(io.req.valid), s"Module tried to access HoneyPot $name")
 }
 
 abstract class RoccTester[T <: RoCC](x: Int = 0)(implicit p: Parameters)
@@ -51,13 +56,20 @@ abstract class RoccTester[T <: RoCC](x: Int = 0)(implicit p: Parameters)
 class XFilesTester(implicit p: Parameters) extends RoccTester[XFiles]
     with XFilesUserRequests with XFilesDebugActions {
   val dut = Module(new XFiles)
+  val mem = Module(new HoneyPot(name="Memory"))
+
+  mem.io.req := dut.io.mem.req
+  dut.io.mem.resp := mem.io.resp
+
   dut.io.resp.ready := Bool(true)
 
-  private def _debug_test(action: Int, data: Int, rd: Int = 1, addr: Int = 0) {
+  private def _debug_test(action: Int, data: Int = 0, rd: Int = 1, addr: Int = 0) {
     val action_and_data: Long = (action.asInstanceOf[Long] << 32) | (data & ~(~0L << 32))
     xcustom(funct=t_USR_XFILES_DEBUG, rd=rd, rs1_d=action_and_data, rs2_d=addr)
   }
 
   def debug_echo_via_reg(data: Int) { _debug_test(a_REG, data) }
+
+  def debug_read_men(addr: Int) { _debug_test(a_MEM_READ, addr=addr) }
 
 }
