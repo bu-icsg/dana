@@ -2,7 +2,7 @@ default: all
 
 ROCKETCHIP_ADDONS ?= xfiles-dana
 CONFIG ?= XFilesDanaCppPe1Epb4StandaloneConfig
-MODEL ?= Standalone
+MODEL ?= DebugTester
 
 base_dir = $(abspath ../..)
 DIR_TOP = $(base_dir)/xfiles-dana
@@ -20,6 +20,8 @@ chisel3test = $(base_dir)/chisel3/src/main/resources/top.cpp
 
 include $(base_dir)/Makefrag
 
+PROJECT = xfiles.standalone
+CFG_PROJECT = rocketchip
 CXXSRCS := emulator SimDTM
 CXXFLAGS := $(CXXFLAGS) -std=c++11 -I$(RISCV)/include -I$(base_dir)/csrc
 LDFLAGS := $(LDFLAGS) -L$(RISCV)/lib -Wl,-rpath,$(RISCV)/lib -L$(abspath $(sim_dir)) -lfesvr -lpthread
@@ -27,7 +29,7 @@ LDFLAGS := $(LDFLAGS) -L$(RISCV)/lib -Wl,-rpath,$(RISCV)/lib -L$(abspath $(sim_d
 emu = emulator-$(PROJECT)-$(CONFIG)
 emu_debug = emulator-$(PROJECT)-$(CONFIG)-debug
 
-.PHONY: all emulator emulator-debug firrtl go-for-it vcd verilator verilog
+.PHONY: all emulator emulator-debug firrtl go-for-it run vcd verilator verilog
 
 all emulator: $(emu)
 debug: $(emu_debug)
@@ -35,7 +37,7 @@ firrtl: $(generated_dir)/$(long_name).fir go-for-it
 verilog: $(generated_dir)/$(long_name).v go-for-it
 
 $(generated_dir)/%.fir: $(chisel_srcs) | $(generated_dir)
-	cd $(base_dir) && env ROCKETCHIP_ADDONS=$(ROCKETCHIP_ADDONS) $(SBT) "run-main xfiles.standalone.$(MODEL) $(generated_dir) $(PROJECT) $(MODEL) $(CFG_PROJECT) $(CONFIG)"
+	cd $(base_dir) && env ROCKETCHIP_ADDONS=$(ROCKETCHIP_ADDONS) $(SBT) "run-main xfiles.standalone.Standalone $(generated_dir) $(PROJECT) $(MODEL) $(CFG_PROJECT) $(CONFIG)"
 
 %.v: %.fir $(FIRRTL_JAR)
 	$(FIRRTL) $(patsubst %,-i %,$(filter %.fir,$^)) -o $@ -X verilog
@@ -75,6 +77,9 @@ $(emu_debug): $(verilog) $(chisel3test) | $(generated_dir)/$(long_name)
 	$(VERILATOR) $(VERILATOR_FLAGS) -Mdir $(generated_dir)/$(long_name) --trace \
 	-o $(sim_dir)/$@ $< $(chisel3test)
 	$(MAKE) -C $(generated_dir)/$(long_name) -j -f V$(MODEL).mk
+
+run: $(emu)
+	./$(emu)
 
 vcd dump.vcd: $(emu_debug)
 	./$<

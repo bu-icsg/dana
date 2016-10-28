@@ -11,6 +11,15 @@ import cde.Parameters
 
 class DebugUnitInterface(implicit p: Parameters) extends RoCCInterface
 
+trait XFilesDebugActions {
+  val a_REG          = 0
+  val a_MEM_READ     = 1
+  val a_MEM_WRITE    = 2
+  val a_VIRT_TO_PHYS = 3
+  val a_UTL_READ     = 4
+  val a_UTL_WRITE    = 5
+}
+
 class DebugUnit(id: Int = 0)(implicit p: Parameters) extends XFilesModule()(p)
   with HasTileLinkParameters {
   val io = new DebugUnitInterface

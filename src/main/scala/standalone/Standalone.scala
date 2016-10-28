@@ -1,4 +1,4 @@
-package rocketchip
+package xfiles.standalone
 
 import chisel3._
 import chisel3.util._
@@ -22,7 +22,7 @@ abstract class RoccTester[T <: RoCC](x: Int = 0)(implicit p: Parameters)
   status.elements map { case (s: String, d: Data) => d := UInt(0) }
 
   def xcustom(funct: Int, rd: Int = 0, rs1: Int = 0, rs2: Int = 0,
-    rs1_d: Int = 0, rs2_d: Int = 0) {
+    rs1_d: Long = 0, rs2_d: Long = 0) {
     dut.io.cmd.valid := Bool(true)
     dut.io.cmd.bits.inst.rd := UInt(rd)
     dut.io.cmd.bits.inst.xd := UInt(rd) =/= UInt(0)
@@ -49,30 +49,15 @@ abstract class RoccTester[T <: RoCC](x: Int = 0)(implicit p: Parameters)
 }
 
 class XFilesTester(implicit p: Parameters) extends RoccTester[XFiles]
-    with XFilesUserRequests {
+    with XFilesUserRequests with XFilesDebugActions {
   val dut = Module(new XFiles)
   dut.io.resp.ready := Bool(true)
 
-  def debug_echo_via_reg(data: Int) {
-    xcustom(funct=t_USR_XFILES_DEBUG, rd=1, rs1_d=data)
+  private def _debug_test(action: Int, data: Int, rd: Int = 1, addr: Int = 0) {
+    val action_and_data: Long = (action.asInstanceOf[Long] << 32) | (data & ~(~0L << 32))
+    xcustom(funct=t_USR_XFILES_DEBUG, rd=rd, rs1_d=action_and_data, rs2_d=addr)
   }
-}
 
-class Standalone(implicit p: Parameters) extends XFilesTester {
-  val s_INIT :: s_WRITE :: s_READ :: s_DONE :: Nil = Enum(UInt(), 4)
+  def debug_echo_via_reg(data: Int) { _debug_test(a_REG, data) }
 
-  val state = Reg(UInt(width = log2Up(4)), init = s_INIT)
-
-  when (state === s_INIT) { state := s_WRITE }
-
-  when (state === s_WRITE) { debug_echo_via_reg(0xdead)
-    state := s_READ }
-
-  when (state === s_READ && dut.io.resp.fire()) {
-    printf("[INFO] Saw response 0x%x\n", dut.io.resp.bits.data)
-    state := s_DONE
-    assert (dut.io.resp.bits.data === UInt("hdead"),
-      "XFiles did not echo sent data") }
-
-  when (state === s_DONE) { stop() }
 }
