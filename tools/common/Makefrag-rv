@@ -59,8 +59,5 @@ $(DIR_BUILD)/linux/%.rvS: $(DIR_BUILD)/linux/%.rv
 	$(RV_OBJDUMP) -S $< > $@
 
 #--------------------------------------- Directories
-$(DIR_BUILD)/linux:
-	mkdir -p $@
-
-$(DIR_BUILD)/newlib:
+$(DIR_BUILD)/linux $(DIR_BUILD)/newlib:
 	mkdir -p $@
