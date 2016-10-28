@@ -5,6 +5,7 @@ CONFIG ?= XFilesDanaCppPe1Epb4StandaloneConfig
 MODEL ?= Standalone
 
 base_dir = $(abspath ../..)
+DIR_TOP = $(base_dir)/xfiles-dana
 generated_dir = $(abspath ./generated-src)
 generated_dir_debug = $(abspath ./generated-src-debug)
 sim_dir = $(abspath .)
@@ -26,10 +27,12 @@ LDFLAGS := $(LDFLAGS) -L$(RISCV)/lib -Wl,-rpath,$(RISCV)/lib -L$(abspath $(sim_d
 emu = emulator-$(PROJECT)-$(CONFIG)
 emu_debug = emulator-$(PROJECT)-$(CONFIG)-debug
 
-all: $(emu)
-debug: $(emu_debug)
+.PHONY: all emulator emulator-debug firrtl go-for-it vcd verilator verilog
 
-.PHONY: firrtl go-for-it verilog
+all emulator: $(emu)
+debug: $(emu_debug)
+firrtl: $(generated_dir)/$(long_name).fir go-for-it
+verilog: $(generated_dir)/$(long_name).v go-for-it
 
 $(generated_dir)/%.fir: $(chisel_srcs) | $(generated_dir)
 	cd $(base_dir) && env ROCKETCHIP_ADDONS=$(ROCKETCHIP_ADDONS) $(SBT) "run-main xfiles.standalone.$(MODEL) $(generated_dir) $(PROJECT) $(MODEL) $(CFG_PROJECT) $(CONFIG)"
@@ -37,14 +40,11 @@ $(generated_dir)/%.fir: $(chisel_srcs) | $(generated_dir)
 %.v: %.fir $(FIRRTL_JAR)
 	$(FIRRTL) $(patsubst %,-i %,$(filter %.fir,$^)) -o $@ -X verilog
 
-firrtl: $(generated_dir)/$(long_name).fir go-for-it
-verilog: $(generated_dir)/$(long_name).v go-for-it
 
 # Verilator -- Just build this once in the Rocket Chip repo
 INSTALLED_VERILATOR=$(abspath $(base_dir)/emulator/verilator/install/bin/verilator)
 verilator $(INSTALLED_VERILATOR):
 	$(MAKE) -C $(base_dir)/emulator verilator/install/bin/verilator
-
 CXXFLAGS := $(CXXFLAGS) -std=c++11
 LDFLAGS := $(LDFLAGS)
 VERILATOR := $(INSTALLED_VERILATOR) --cc --exe
@@ -55,18 +55,39 @@ VERILATOR_FLAGS := --top-module $(MODEL) \
   -Wno-STMTDLY --x-assign unique \
   -O3 -CFLAGS "$(CXXFLAGS) -DVERILATOR -DTOP_TYPE=V$(MODEL) -include $(generated_dir)/$(long_name)/V$(MODEL).h"
 
-emulator $(emu): $(verilog) $(chisel3test) | $(generated_dir)/$(long_name)
+# GTKWAVE -- Build this if we need it
+GTKWAVE = $(sim_dir)/gtkwave/bin/gtkwave
+JOBS = 4
+$(GTKWAVE): | $(sim_dir)/gtkwave
+	(cd $(sim_dir)/gtkwave/src && \
+	./configure --prefix=$(sim_dir)/gtkwave --disable-xz && \
+	make -j$(JOBS) && \
+	make install || true)
+$(sim_dir)/gtkwave:
+	svn co "svn://svn.code.sf.net/p/gtkwave/code/gtkwave3" $@/src
+
+$(emu): $(verilog) $(chisel3test) | $(generated_dir)/$(long_name)
 	$(VERILATOR) $(VERILATOR_FLAGS) -Mdir $(generated_dir)/$(long_name) \
 	-o $(sim_dir)/$@ $< $(chisel3test)
 	$(MAKE) -C $(generated_dir)/$(long_name) -j -f V$(MODEL).mk
 
-emulator-debug $(emu_debug): $(verilog) $(chisel3test) | $(generated_dir)/$(long_name)
+$(emu_debug): $(verilog) $(chisel3test) | $(generated_dir)/$(long_name)
 	$(VERILATOR) $(VERILATOR_FLAGS) -Mdir $(generated_dir)/$(long_name) --trace \
 	-o $(sim_dir)/$@ $< $(chisel3test)
 	$(MAKE) -C $(generated_dir)/$(long_name) -j -f V$(MODEL).mk
+
+vcd dump.vcd: $(emu_debug)
+	./$<
+
+include $(DIR_TOP)/tools/common/Makefrag-submodule
+WAVES = $(DIR_TOP)/submodules/hdl-scripts/addWavesRecursive.tcl
+gtkwave: dump.vcd $(GTKWAVE) $(SUBMODULE_HDL_SCRIPTS)
+	$(GTKWAVE) -S $(WAVES) $< > $(generated_dir)/$(long_name)/dump.gtkw
+	$(GTKWAVE) $< $(generated_dir)/$(long_name)/dump.gtkw
 
 $(generated_dir)/$(long_name) $(generated_dir):
 	mkdir $@
 
 clean:
 	rm -rf $(generated_dir)
+	rm emulator-*

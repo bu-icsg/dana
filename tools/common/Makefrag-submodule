@@ -2,8 +2,9 @@
 
 SUBMODULE_FANN=$(DIR_TOP)/submodules/fann/.git
 SUBMODULE_VERILOG=$(DIR_TOP)/submodules/verilog/.git
+SUBMODULE_HDL_SCRIPTS=$(DIR_TOP)/submodules/hdl-scripts/.git
 
-.PRECIOUS: $(SUBMODULE_FANN) $(SUBMODULE_VERILOG)
+.PRECIOUS: $(SUBMODULE_FANN) $(SUBMODULE_VERILOG) $(SUBMODULES_HDL_SCRIPTS)
 
 # Grab submodules
 $(DIR_TOP)/submodules/%/.git:
