@@ -144,6 +144,22 @@ index a68c0d9..e9ad7e5 100644
      default:
        bad_trap();
    }
+diff --git a/machine/xfiles-supervisor.c b/machine/xfiles-supervisor.c
+new file mode 120000
+index 0000000..5b012bc
+--- /dev/null
++++ b/machine/xfiles-supervisor.c
+@@ -0,0 +1 @@
++../../../xfiles-dana/src/main/c/xfiles-supervisor.c
+\ No newline at end of file
+diff --git a/machine/xfiles-supervisor.h b/machine/xfiles-supervisor.h
+new file mode 120000
+index 0000000..1fd714e
+--- /dev/null
++++ b/machine/xfiles-supervisor.h
+@@ -0,0 +1 @@
++../../../xfiles-dana/src/main/c/xfiles-supervisor.h
+\ No newline at end of file
 diff --git a/pk/syscall.c b/pk/syscall.c
 index 85139e4..4176474 100644
 --- a/pk/syscall.c
