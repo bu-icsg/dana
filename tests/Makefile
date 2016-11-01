@@ -21,7 +21,7 @@ DIR_EMULATOR=$(abspath $(ROCKETCHIP)/emulator)
 EMULATOR=$(DIR_EMULATOR)/emulator-rocketchip-$(CONFIG)
 
 # The directory that the tools get built into.
-RISCV ?= $(abspath install/$(TOOLS_HASH))
+RISCV ?= $(abspath $(TOP)/regression/install/$(TOOLS_HASH))
 
 .PHONY: default go-for-it
 
