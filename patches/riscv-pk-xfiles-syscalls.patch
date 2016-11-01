@@ -1,5 +1,5 @@
 diff --git a/Makefile.in b/Makefile.in
-index b2aca28..236f2fd 100644
+index b2aca28..323e4a2 100644
 --- a/Makefile.in
 +++ b/Makefile.in
 @@ -72,11 +72,12 @@ install_exes_dir := $(INSTALLDIR)/bin
@@ -17,6 +17,15 @@ index b2aca28..236f2fd 100644
  #-------------------------------------------------------------------------
  
  # C++ compiler
+@@ -84,7 +85,7 @@ VPATH := $(addprefix $(src_dir)/, $(sprojs_enabled))
+ #  - CXXFLAGS : flags for C++ compiler (eg. -Wall,-g,-O3)
+ 
+ CC            := @CC@
+-CFLAGS        := @CFLAGS@ $(CFLAGS) -DBBL_PAYLOAD=\"$(bbl_payload)\"
++CFLAGS        := @CFLAGS@ $(CFLAGS) -DBBL_PAYLOAD=\"$(bbl_payload)\" -march=RV64IMAFDXcustom
+ COMPILE       := $(CC) -MMD -MP $(CFLAGS) \
+                  $(sprojs_include)
+ # Linker
 @@ -130,7 +131,7 @@ dist_junk += $(sprojs_mk)
  #-------------------------------------------------------------------------
  # This function is used by the subproject template to reverse the list
