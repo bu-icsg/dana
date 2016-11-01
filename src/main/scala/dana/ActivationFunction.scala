@@ -36,17 +36,17 @@ class ActivationFunctionInterfaceLearn(implicit p: Parameters)
 }
 
 class DSP(implicit p: Parameters) extends DanaModule()(p) {
-  val io = new Bundle {
+  val io = IO(new Bundle {
     val a = SInt(INPUT,  width = elementWidth)
     val b = SInt(INPUT,  width = elementWidth)
     val c = UInt(INPUT,  width = elementWidth)
     val d = SInt(OUTPUT, width = elementWidth)
-  }
+  })
   io.d := (((io.a * io.b) >> io.c)(elementWidth - 1, 0)).asSInt
 }
 
 class ActivationFunction(implicit p: Parameters) extends DanaModule()(p) {
-  lazy val io = new ActivationFunctionInterface
+  lazy val io = (new ActivationFunctionInterface)
 
   // Temporary values
   val inD0 = Wire(SInt(width = elementWidth))
@@ -244,7 +244,7 @@ class ActivationFunction(implicit p: Parameters) extends DanaModule()(p) {
 
 class ActivationFunctionLearn(implicit p: Parameters)
     extends ActivationFunction()(p) {
-  override lazy val io = new ActivationFunctionInterfaceLearn
+  override lazy val io = (new ActivationFunctionInterfaceLearn)
 
   // atanh specific
   // Binary Point: 31

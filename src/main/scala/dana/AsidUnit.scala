@@ -14,7 +14,7 @@ class AsidTid(implicit p: Parameters) extends XFilesBundle()(p) {
 
 class AsidUnit(id: Int = 0)(implicit p: Parameters) extends XFilesModule()(p)
     with XFilesSupervisorRequests{
-  val io = new XFilesBundle {
+  val io = IO(new XFilesBundle {
     val cmd    = Decoupled(new RoCCCommand).flip
     val status = new MStatus().asInput
     val resp   = Decoupled(new RoCCResponse)
@@ -22,7 +22,7 @@ class AsidUnit(id: Int = 0)(implicit p: Parameters) extends XFilesModule()(p)
     // In the event that we can't do anything with this request, we
     // just forward it along. This is implicitly a supervisor command.
     val cmdFwd = Valid(new RoCCCommand)
-  }
+  })
 
   val asidReg = Reg(Valid(new AsidTid))
   val tid = asidReg.bits.tid

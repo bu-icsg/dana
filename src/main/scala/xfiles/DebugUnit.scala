@@ -22,7 +22,7 @@ trait XFilesDebugActions {
 
 class DebugUnit(id: Int = 0)(implicit p: Parameters) extends XFilesModule()(p)
   with HasTileLinkParameters {
-  val io = new DebugUnitInterface
+  val io = IO(new DebugUnitInterface)
 
   val a_ = Enum(UInt(), List('REG, 'MEM_READ, 'MEM_WRITE, 'VIRT_TO_PHYS,
     'UTL_READ, 'UTL_WRITE))

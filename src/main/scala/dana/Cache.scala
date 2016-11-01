@@ -78,7 +78,7 @@ abstract class CacheBase[SramIfType <: SRAMVariantInterface,
     extends DanaModule()(p) {
   val mem = genSram
 
-  lazy val io = new CacheInterface
+  lazy val io = IO(new CacheInterface)
 
   // Create the table of cache entries
   val table = Reg(Vec(cacheNumEntries, new CacheState))
@@ -416,7 +416,7 @@ class CacheLearn(implicit p: Parameters)
         elementWidth = p(ElementWidth))).io),
       new ControlCacheInterfaceReqLearn, new ControlCacheInterfaceRespLearn,
       new PECacheInterfaceResp)(p) {
-  override lazy val io = new CacheInterfaceLearn
+  override lazy val io = IO(new CacheInterfaceLearn)
 
   // SRAMBlockIncrement takes two cycles to writeback, so we're done
   // fetching one cycle after notifyFlag asserts.

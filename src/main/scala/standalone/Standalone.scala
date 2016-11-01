@@ -9,10 +9,10 @@ import xfiles._
 import dana._
 
 class HoneyPot[T <: Bundle](name: String = "") extends Module {
-  val io = new Bundle {
+  val io = IO(new Bundle {
     val req = Decoupled(new Bundle{}).flip
     val resp = Valid(new Bundle{})
-  }
+  })
 
   io.req.ready := Bool(true)
   io.resp.valid := Bool(false)
@@ -56,10 +56,12 @@ abstract class RoccTester[T <: RoCC](x: Int = 0)(implicit p: Parameters)
 class XFilesTester(implicit p: Parameters) extends RoccTester[XFiles]
     with XFilesUserRequests with XFilesDebugActions {
   val dut = Module(new XFiles)
-  val mem = Module(new HoneyPot(name="Memory"))
 
-  mem.io.req := dut.io.mem.req
-  dut.io.mem.resp := mem.io.resp
+  // Memory Honeypot
+  val mem = Module(new HoneyPot(name="Memory"))
+  mem.io.req.valid := dut.io.mem.req.valid
+  dut.io.mem.req.ready := mem.io.req.ready
+  dut.io.mem.resp.valid := mem.io.resp.valid
 
   dut.io.resp.ready := Bool(true)
 
@@ -70,6 +72,6 @@ class XFilesTester(implicit p: Parameters) extends RoccTester[XFiles]
 
   def debug_echo_via_reg(data: Int) { _debug_test(a_REG, data) }
 
-  def debug_read_men(addr: Int) { _debug_test(a_MEM_READ, addr=addr) }
+  def debug_read_mem(addr: Int) { _debug_test(a_MEM_READ, addr=addr) }
 
 }

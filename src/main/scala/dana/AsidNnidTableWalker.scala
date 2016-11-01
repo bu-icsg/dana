@@ -59,7 +59,7 @@ class ConfigRobEntry(implicit p: Parameters) extends DanaBundle()(p)
 class AsidNnidTableWalker(implicit p: Parameters) extends DanaModule()(p)
     with XFilesSupervisorRequests with HasTileLinkParameters
     with AntParameters {
-  val io = new AsidNnidTableWalkerInterface
+  val io = IO(new AsidNnidTableWalkerInterface)
   val antpReg = Reg(new antp)
 
   val (s_IDLE :: s_CHECK_ASID :: s_GET_VALID_NNIDS :: s_GET_NN_POINTER ::

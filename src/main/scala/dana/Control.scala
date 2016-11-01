@@ -121,7 +121,7 @@ class ControlInterfaceLearn(implicit p: Parameters)
 }
 
 class ControlBase(implicit p: Parameters) extends DanaModule()(p) {
-  lazy val io = new ControlInterface
+  lazy val io = IO(new ControlInterface)
   // Transaction Table connections
   io.tTable.req.ready := Bool(true)
 
@@ -158,7 +158,12 @@ class ControlBase(implicit p: Parameters) extends DanaModule()(p) {
   io.cache.req.bits.request := UInt(0)
   io.cache.resp.ready := Bool(true)
   io.cache.req.valid := Bool(false)
-  io.cache.req.bits := io.tTable.req.bits
+  // These connections need to happen explicitly
+  io.cache.req.bits.asid := io.tTable.req.bits.asid
+  io.cache.req.bits.nnid := io.tTable.req.bits.nnid
+  io.cache.req.bits.tableIndex := io.tTable.req.bits.tableIndex
+  io.cache.req.bits.currentLayer := io.tTable.req.bits.currentLayer
+  io.cache.req.bits.regFileLocationBit := io.tTable.req.bits.regFileLocationBit
 
   // PE Table connections
   io.peTable.req.valid := Bool(false)
@@ -194,7 +199,7 @@ class Control(implicit p: Parameters)
 
 class ControlLearn(implicit p: Parameters)
     extends ControlBase()(p) {
-  override lazy val io = new ControlInterfaceLearn
+  override lazy val io = IO(new ControlInterfaceLearn)
 
   io.tTable.resp.bits.globalWtptr := io.cache.resp.bits.globalWtptr
   io.regFile.req.bits.totalWrites := io.cache.resp.bits.totalWritesMul *

@@ -28,10 +28,10 @@ class SRAMVariant(
 
   def writeElement(a: Vec[UInt], index: UInt, b: UInt) { a(index) := b }
 
-  lazy val io = new SRAMVariantInterface(
+  lazy val io = IO(new SRAMVariantInterface(
     dataWidth = dataWidth,
     sramDepth = sramDepth,
-    numPorts = numPorts)
+    numPorts = numPorts))
 
   val sram = Module(new SRAM(
     dataWidth = dataWidth,

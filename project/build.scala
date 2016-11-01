@@ -21,6 +21,7 @@ object BuildSettings extends Build {
   // lazy val chisel = project in file("../chisel3")
   // lazy val firrtl = project in file("../firrtl")
   // lazy val chisel = RootProject(file("../chisel3"))
+  lazy val chisel = RootProject(file("../chisel3"))
   lazy val firrtl = RootProject(file("../firrtl"))
   // lazy val cde = RootProject(file("../context-dependent-environments"))
   lazy val rocketChip = RootProject(file(".."))
@@ -28,5 +29,5 @@ object BuildSettings extends Build {
   // lazy val cde    = project in file("submodules/context-dependent-environments")
   lazy val xfiles_dana = (project in file(".")).
     settings().
-    dependsOn(rocketChip, firrtl)
+    dependsOn(rocketChip, chisel, firrtl)
 }

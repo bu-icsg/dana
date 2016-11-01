@@ -140,7 +140,7 @@ class ProcessingElementTableBase[PeStateType <: ProcessingElementState,
   genPeState: => PeStateType, genPeResp: => PeRespType, genPeVec: => Vec[PeIfType])(
   implicit p: Parameters)
     extends DanaModule()(p) {
-  lazy val io = new PETableInterface
+  lazy val io = IO(new PETableInterface)
 
   // Create the table with the specified top-level parameters. Derived
   // parameters should not be touched.
@@ -393,7 +393,7 @@ class ProcessingElementTableLearn(implicit p: Parameters)
   new ProcessingElementStateLearn,
         new ProcessingElementRespLearn,
         Vec.fill(p(PeTableNumEntries)){ Module(new ProcessingElementLearn).io })(p) {
-  override lazy val io = new PETableInterfaceLearn
+  override lazy val io = IO(new PETableInterfaceLearn)
 
   def regFileReadReq(addr: UInt, peIndex:UInt, tIdx: UInt,
     location:UInt, reqType: UInt) {

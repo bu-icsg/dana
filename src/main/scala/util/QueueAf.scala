@@ -15,9 +15,11 @@ class QueueAf[T <: Data](gen: T, entries: Int, almostFullEntries: Int,
   override_reset: Option[Bool] = None)
     extends Module(override_reset = override_reset) {
 
-  val io = new QueueIOAf(gen, entries)
+  val io = IO(new QueueIOAf(gen, entries))
   val queue = Module(new Queue(gen, entries, pipe, flow, override_reset))
 
-  io <> queue.io
+  io.enq <> queue.io.enq
+  io.deq <> queue.io.deq
+  io.count := queue.io.count
   io.almostFull := queue.io.count >= UInt(almostFullEntries)
 }

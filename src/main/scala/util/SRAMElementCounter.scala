@@ -57,12 +57,12 @@ class SRAMElementCounter (
   val elementWidth: Int = 8,
   val numPorts: Int = 1
 ) extends Module {
-  val io = new SRAMElementCounterInterface(
+  val io = IO(new SRAMElementCounterInterface(
     dataWidth = dataWidth,
     sramDepth = sramDepth,
     numPorts = numPorts,
     elementWidth = elementWidth
-  ).flip
+  )).flip
   val sram = Module(new SRAM(
     dataWidth = dataWidth + log2Up(dataWidth / elementWidth) + 1,
     sramDepth = sramDepth,
