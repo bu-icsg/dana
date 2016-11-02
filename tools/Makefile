@@ -50,7 +50,7 @@ $(DIR_BIN)/%.o: %.c | $(DIR_BIN)
 	$(GCC) $(CFLAGS) $< -c -o $@
 
 $(DIR_BIN):
-	mkdir $@
+	mkdir -p $@
 
 clean:
 	rm -rf $(DIR_BIN)
