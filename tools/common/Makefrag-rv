@@ -15,8 +15,10 @@ RV_OBJDUMP_LINUX = $(RV_LINUX)-objdump
 vpath %.c $(DIR_TOP)/src/main/c
 vpath %.c $(DIR_TOP)/src/test/rv
 
+HEADERS = $(wildcard $(DIR_TOP)/src/main/c/*.h)
+
 #------------------- Library Targets
-$(DIR_BUILD)/newlib/%.o: %.c | $(DIR_BUILD)/newlib
+$(DIR_BUILD)/newlib/%.o: %.c $(HEADERS) | $(DIR_BUILD)/newlib
 	$(RV_CC) -Wall -Werror -march=RV64IMAFDXcustom -I$(DIR_TOP) -c $< -o $@
 
 $(DIR_BUILD)/newlib/libxfiles-%.a: $(DIR_BUILD)/newlib/xfiles-%.o
