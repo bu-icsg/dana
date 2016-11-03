@@ -11,11 +11,9 @@
 
 typedef int16_t asid_type;
 
-typedef enum {
-  t_SUP_UPDATE_ASID = 0,
-  t_SUP_WRITE_REG = 1,
-  t_SUP_READ_CSR = 2
-} request_super_t;
+#define t_SUP_UPDATE_ASID 0
+#define t_SUP_WRITE_REG 1
+#define t_SUP_READ_CSR 2
 
 typedef enum {
   csr_CAUSE = 0

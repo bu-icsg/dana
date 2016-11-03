@@ -1,6 +1,7 @@
 // See LICENSE for license details.
 
 #include "src/main/c/xfiles-debug.h"
+#include <stdio.h>
 
 xlen_t debug_test(xfiles_debug_action_t action, uint32_t data, void * addr) {
   xlen_t out, action_and_data = ((uint64_t)action << 32) | (uint32_t)data;
