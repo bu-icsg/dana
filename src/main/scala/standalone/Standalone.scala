@@ -66,6 +66,20 @@ class XFilesTester(implicit p: Parameters) extends RoccTester[XFiles]
   dut.io.mem.req.ready := mem.io.req.ready
   dut.io.mem.resp.valid := mem.io.resp.valid
 
+  // Autl Honeypot
+  val autl = Module(new HoneyPot(name="Autl"))
+  autl.io.req.valid := dut.io.autl.acquire.valid
+  dut.io.autl.acquire.ready := autl.io.req.ready
+  dut.io.autl.grant.valid := autl.io.resp.valid
+
+  // PTW Honeypot
+  val ptw = Vec(Seq.fill(p(RoccNPTWPorts))(Module(new HoneyPot(name="PTW")).io))
+  ptw.zipWithIndex map { case (p, i) =>
+    p.req.valid := dut.io.ptw(i).req.valid
+    dut.io.ptw(i).req.ready := p.req.ready
+    dut.io.ptw(i).resp.valid := p.resp.valid
+  }
+
   dut.io.resp.ready := Bool(true)
 
   private def _debug_test(action: Int, data: Int = 0, rd: Int = 1, addr: Int = 0) {
@@ -74,8 +88,24 @@ class XFilesTester(implicit p: Parameters) extends RoccTester[XFiles]
     dut.io.cmd.bits := xcustom(t_USR_XFILES_DEBUG, rd, rs1_d=action_and_data, rs2_d=addr)
   }
 
-  def debug_echo_via_reg(d: Int) { _debug_test(a_REG, data=d) }
-  def debug_read_mem(a: Int) { _debug_test(a_MEM_READ, addr=a) }
-  def debug_write_mem(a: Int, d: Int) { _debug_test(a_MEM_WRITE, addr=a, data=d) }
+  def debug_echo_via_reg (d: Int)         { _debug_test(a_REG, data=d)               }
+  def debug_read_mem     (a: Int)         { _debug_test(a_MEM_READ, addr=a)          }
+  def debug_write_mem    (a: Int, d: Int) { _debug_test(a_MEM_WRITE, addr=a, data=d) }
+  def debug_virt_to_phys (v: Int)         { _debug_test(a_VIRT_TO_PHYS, addr=v)      }
+  def debug_read_utl     (a: Int)         { _debug_test(a_UTL_READ, addr=a)          }
+  def debug_write_utl    (a: Int, d: Int) { _debug_test(a_UTL_WRITE, data=d, addr=a) }
 
+  def set_asid(asid: Int) {}
+  def set_antp(antp: Int, size: Long) {}
+  def xf_read_csr(csr: Int) {}
+
+  def xfiles_dana_id(flag_print: Boolean) {}
+  def new_write_request(nnid: Int, learning_type: Int, num_train_outputs: Int) {}
+  def write_register(tid: Int, reg: Int, value: Int) {}
+  def write_data(tid: Int, data: Seq[Int]) {}
+  def write_data_except_last(tid: Int, data: Seq[Int]) {}
+  def write_data_last(tid: Int, data: Seq[Int]) {}
+  def write_data_train_incremental(tid: Int, data_in: Seq[Int], data_out: Seq[Int]) {}
+  def read_data_spinlock(tid: Int, data_out: Seq[Int]) {}
+  def kill_transaction(tid: Int) {}
 }
