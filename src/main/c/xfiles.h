@@ -117,20 +117,8 @@ typedef enum {
 #define XFILES_INSTRUCTION_R_R_I(rd, rs1, rs2, funct)               \
   CUSTOMX_R_R_R(XCUSTOM, rd, rs1, rs2, funct)
 
-/*
- asm volatile (XCUSTOM" %[rd], %[rs1], %[rs2], %[funct]"                 \
-                 : [rd] "=r" (rd_)                                       \
-                 : [rs1] "r" (rs1_), [rs2] "i" (rs2_), [funct] "i" (funct_))
-*/
-
 // Macro to pass rs1_ and rs2_ as immediates
 #define XFILES_INSTRUCTION_R_I_I(rd, rs1, rs2, funct)               \
   CUSTOMX_R_R_R(XCUSTOM, rd, rs1, rs2, funct)
-
-/*
- asm volatile (XCUSTOM" %[rd], %[rs1], %[rs2], %[funct]"                 \
-                 : [rd] "=r" (rd_)                                       \
-                 : [rs1] "i" (rs1_), [rs2] "i" (rs2_), [funct] "i" (funct_))
-*/
 
 #endif  // SRC_MAIN_C_XFILES_H_
