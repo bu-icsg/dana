@@ -27,6 +27,7 @@ abstract class RoccTester[T <: RoCC](implicit p: Parameters)
     extends BasicTester {
   def dut: T
   def xCustomType: Int
+  val testName = this.getClass.getSimpleName
 
   private val status = Reg(new MStatus)
   status.elements map { case (s: String, d: Data) => d := UInt(0) }
@@ -59,8 +60,8 @@ abstract class RoccTester[T <: RoCC](implicit p: Parameters)
   }
 }
 
-class XFilesTester(implicit p: Parameters) extends RoccTester[XFiles]
-    with XFilesUserRequests with XFilesDebugActions {
+abstract class XFilesTester(implicit p: Parameters)
+    extends RoccTester[XFiles] with XFilesUserRequests with XFilesDebugActions {
   val dut = Module(new XFiles)
   val xCustomType = 0
 
@@ -69,12 +70,6 @@ class XFilesTester(implicit p: Parameters) extends RoccTester[XFiles]
   mem.io.req.valid := dut.io.mem.req.valid
   dut.io.mem.req.ready := mem.io.req.ready
   dut.io.mem.resp.valid := mem.io.resp.valid
-
-  // Autl Honeypot
-  // val autl = Module(new HoneyPot(name="Autl"))
-  // autl.io.req.valid := dut.io.autl.acquire.valid
-  // dut.io.autl.acquire.ready := autl.io.req.ready
-  // dut.io.autl.grant.valid := autl.io.resp.valid
 
   // Real AUTL
   val autl = Module(new uncore.devices.TileLinkTestRAM(32)(p))

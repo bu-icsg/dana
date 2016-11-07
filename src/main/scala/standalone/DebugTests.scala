@@ -44,8 +44,4 @@ class DebugTester(implicit p: Parameters) extends XFilesTester {
   }
 
   when (state === s_DONE) { stop() }
-
-  when (state =/= RegNext(state)) {
-    printf("[INFO] State change in DebugTester %d->%d\n", RegNext(state), state)
-  }
 }
