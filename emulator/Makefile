@@ -16,7 +16,7 @@ firrtl_debug = $(generated_dir_debug)/$(long_name).fir
 verilog = $(generated_dir)/$(long_name).v
 verilog_debug = $(generated_dir_debug)/$(long_name).v
 
-chisel3test = $(base_dir)/chisel3/src/main/resources/top.cpp
+chisel3test = $(DIR_TOP)/src/main/resources/top.cpp
 
 include $(base_dir)/Makefrag
 
