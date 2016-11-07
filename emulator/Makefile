@@ -94,5 +94,4 @@ $(generated_dir)/$(long_name) $(generated_dir):
 	mkdir $@
 
 clean:
-	rm -rf $(generated_dir)
-	rm emulator-*
+	rm -rf $(generated_dir) dump.vcd emulator-*
