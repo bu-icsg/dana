@@ -8,7 +8,7 @@ import xfiles.XFilesUserRequests
 class DebugTester(implicit p: Parameters) extends XFilesTester {
   val s_INIT :: s_WRITE :: s_READ :: s_DONE :: Nil = Enum(UInt(), 4)
   val t_ECHO :: t_L1R :: t_L1W :: t_V2P :: t_UTLR :: t_UTLW :: Nil = Enum(UInt(), 6)
-  val lastTest = t_L1R
+  val lastTest = t_UTLW
 
   val state = Reg(UInt(width = log2Up(16)), init = s_INIT)
   val test = Reg(UInt(width = 32), init = t_ECHO)
