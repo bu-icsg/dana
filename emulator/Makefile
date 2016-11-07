@@ -42,7 +42,6 @@ $(generated_dir)/%.fir: $(chisel_srcs) | $(generated_dir)
 %.v: %.fir $(FIRRTL_JAR)
 	$(FIRRTL) $(patsubst %,-i %,$(filter %.fir,$^)) -o $@ -X verilog
 
-
 # Verilator -- Just build this once in the Rocket Chip repo
 INSTALLED_VERILATOR=$(abspath $(base_dir)/emulator/verilator/install/bin/verilator)
 verilator $(INSTALLED_VERILATOR):
@@ -51,11 +50,11 @@ CXXFLAGS := $(CXXFLAGS) -std=c++11
 LDFLAGS := $(LDFLAGS)
 VERILATOR := $(INSTALLED_VERILATOR) --cc --exe
 VERILATOR_FLAGS := --top-module $(MODEL) \
-  +define+PRINTF_COND="!$(MODEL).reset" \
+  +define+PRINTF_COND=\$$c\(\"verbose\",\"\&\&\"\,\"done_reset\"\) \
   +define+STOP_COND="!$(MODEL).reset" \
   --output-split 20000 \
   -Wno-STMTDLY --x-assign unique \
-  -O3 -CFLAGS "$(CXXFLAGS) -DVERILATOR -DTOP_TYPE=V$(MODEL) -include $(generated_dir)/$(long_name)/V$(MODEL).h"
+  -O3 -CFLAGS "$(CXXFLAGS) -DVERILATOR -DTOP_TYPE=V$(MODEL) -include $(generated_dir)/$(long_name)/V$(MODEL).h -include $(base_dir)/csrc/verilator.h"
 
 # GTKWAVE -- Build this if we need it
 GTKWAVE = $(sim_dir)/gtkwave/bin/gtkwave
@@ -81,12 +80,12 @@ $(emu_debug): $(verilog) $(chisel3test) | $(generated_dir)/$(long_name)
 run: $(emu)
 	./$(emu)
 
-vcd dump.vcd: $(emu_debug)
-	./$<
+vcd $(generated_dir)/$(long_name)/dump.vcd: $(emu_debug)
+	./$< --trace=$(generated_dir)/$(long_name)/dump.vcd
 
 include $(DIR_TOP)/tools/common/Makefrag-submodule
 WAVES = $(DIR_TOP)/submodules/hdl-scripts/addWavesRecursive.tcl
-gtkwave: dump.vcd $(GTKWAVE) $(SUBMODULE_HDL_SCRIPTS)
+gtkwave: $(generated_dir)/$(long_name)/dump.vcd $(GTKWAVE) $(SUBMODULE_HDL_SCRIPTS)
 	$(GTKWAVE) -S $(WAVES) $< > $(generated_dir)/$(long_name)/dump.gtkw
 	$(GTKWAVE) $< $(generated_dir)/$(long_name)/dump.gtkw
 
@@ -94,4 +93,4 @@ $(generated_dir)/$(long_name) $(generated_dir):
 	mkdir $@
 
 clean:
-	rm -rf $(generated_dir) dump.vcd emulator-*
+	rm -rf $(generated_dir) emulator-*
