@@ -8,7 +8,7 @@ import rocket._
 import xfiles._
 import dana._
 
-class HoneyPot[T <: Bundle](name: String = "") extends Module {
+class HoneyPot[T <: Bundle](name: String = "", fatal: Boolean = true) extends Module {
   val io = IO(new Bundle {
     val req = Decoupled(new Bundle{}).flip
     val resp = Valid(new Bundle{})
@@ -16,7 +16,11 @@ class HoneyPot[T <: Bundle](name: String = "") extends Module {
 
   io.req.ready := Bool(true)
   io.resp.valid := Bool(false)
-  assert(!(io.req.valid), s"Module tried to access HoneyPot $name")
+  val i = s"Module tried to access HoneyPot $name"
+  if (fatal)
+    assert(!(io.req.valid), i)
+  else
+    when (io.req.valid) { printf(s"[WARN] HoneyPot: $i") }
 }
 
 abstract class RoccTester[T <: RoCC](implicit p: Parameters)
@@ -61,16 +65,20 @@ class XFilesTester(implicit p: Parameters) extends RoccTester[XFiles]
   val xCustomType = 0
 
   // Memory Honeypot
-  val mem = Module(new HoneyPot(name="Memory"))
+  val mem = Module(new HoneyPot(name="Memory", fatal=false))
   mem.io.req.valid := dut.io.mem.req.valid
   dut.io.mem.req.ready := mem.io.req.ready
   dut.io.mem.resp.valid := mem.io.resp.valid
 
   // Autl Honeypot
-  val autl = Module(new HoneyPot(name="Autl"))
-  autl.io.req.valid := dut.io.autl.acquire.valid
-  dut.io.autl.acquire.ready := autl.io.req.ready
-  dut.io.autl.grant.valid := autl.io.resp.valid
+  // val autl = Module(new HoneyPot(name="Autl"))
+  // autl.io.req.valid := dut.io.autl.acquire.valid
+  // dut.io.autl.acquire.ready := autl.io.req.ready
+  // dut.io.autl.grant.valid := autl.io.resp.valid
+
+  // Real AUTL
+  val autl = Module(new uncore.devices.TileLinkTestRAM(32)(p))
+  autl.io <> dut.io.autl
 
   // PTW Honeypot
   val ptw = Vec(Seq.fill(p(RoccNPTWPorts))(Module(new HoneyPot(name="PTW")).io))
@@ -81,6 +89,7 @@ class XFilesTester(implicit p: Parameters) extends RoccTester[XFiles]
   }
 
   dut.io.resp.ready := Bool(true)
+  dut.io.cmd.valid := Bool(false)
 
   private def _debug_test(action: Int, data: Int = 0, rd: Int = 1, addr: Int = 0) {
     val action_and_data: Long = (action.asInstanceOf[Long] << 32) | (data & ~(~0L << 32))

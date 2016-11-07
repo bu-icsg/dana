@@ -171,12 +171,12 @@ class DebugUnit(id: Int = 0)(implicit p: Parameters) extends XFilesModule()(p)
       data.data, data.wmask())
 
     (0 until tlDataBits/xLen).map(i =>
-      printfDebug("DUnit[%d]:                 | utlDataPutVec(%d): 0x%x\n",
+      printfDebug("DUnit[%d]:                   | utlDataPutVec(%d): 0x%x\n",
         UInt(id), UInt(i), utlDataPutVec(i)))
   }
 
   when (state === s_('UTL_GRANT) & io.autl.grant.fire()) {
-    printfDebug("DUnit[%d]: autl.grant.fire | data 0x%x, beat 0x%x\n",
+    printfDebug("DUnit[%d]: autl.grant.fire   | data 0x%x, beat 0x%x\n",
       UInt(id), io.autl.grant.bits.data, io.autl.grant.bits.addr_beat) }
 
   when (ptw.req.fire()) {
