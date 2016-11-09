@@ -23,7 +23,7 @@ class DebugTester(implicit p: Parameters) extends XFilesTester {
       is (t_L1R)  { debug_read_mem(0) }
       is (t_V2P)  { debug_virt_to_phys(0) }
       is (t_UTLW) { debug_write_utl(0, data(2)) }
-      is (t_UTLR) { debug_read_utl(0) }
+      is (t_UTLR) { debug_read_utl(0x0) }
     }
     state := s_READ
   }

@@ -8,6 +8,8 @@
 
 using namespace std;
 
+extern "C" void dpi_dummy() {};
+
 //VGCDTester *top;
 TOP_TYPE *top;
 bool verbose;
@@ -28,6 +30,7 @@ void usage(char * name) {
          "Options: \n"
          "  -c, --trace=[VCD FILE]     dump a waveform to [VCD FILE]\n"
          "  -h, --help                 print this help and exit\n"
+         "  -m, --memory=[MEM FILE]    initialize physical memory with [MEM FILE]\n"
          "  -t, --timeout=[TIMEOUT]    exit if you hit [TIMEOUT] cycles\n"
          "  -v, --verbose              enable Chisel printfs\n",
          name);
@@ -41,15 +44,17 @@ int main(int argc, char** argv) {
 
   int c;
   char * filename_vcd = NULL;
+  char * filename_mem = NULL;
   while (1) {
     static struct option long_options[] = {
-      {"help",      no_argument,       0, 'h'},
-      {"timeout",   required_argument, 0, 't'},
       {"trace",     required_argument, 0, 'c'},
+      {"help",      no_argument,       0, 'h'},
+      {"memory",    required_argument, 0, 'm'},
+      {"timeout",   required_argument, 0, 't'},
       {"verbose",   no_argument,       0, 'v'}
     };
     int option_index = 0;
-    c = getopt_long (argc, argv, "c:ht:v", long_options, &option_index);
+    c = getopt_long (argc, argv, "c:hm:t:v", long_options, &option_index);
     if (c == -1)
       break;
     switch (c) {
@@ -59,6 +64,9 @@ int main(int argc, char** argv) {
       case 'h':
         usage(argv[0]);
         return 0;
+        break;
+      case 'm':
+        filename_mem = optarg;
         break;
       case 'v':
         verbose = 1;
@@ -88,6 +96,9 @@ int main(int argc, char** argv) {
   while (!Verilated::gotFinish() && main_time < timeout) {
     if (main_time > 10) {
       top->reset = 0;   // Deassert reset
+    }
+    if (main_time == 11 && filename_mem) {
+      dpi_readmemh(filename_mem);
     }
     if ((main_time % 10) == 1) {
       top->clock = 1;       // Toggle clock
