@@ -3,7 +3,8 @@ write-fann-config-for-accelerator \
 bin-config-to-c-header \
 fann-train-to-c-header \
 fann-random \
-fann-train
+fann-train \
+generate-ant
 
 DIR_TOP = $(abspath ..)
 
@@ -17,10 +18,10 @@ BINS     = $(addprefix $(DIR_BIN)/, $(BINARIES))
 SOURCES  = fann-float-to-fixed.c
 OBJECTS  = $(SOURCES:%.c=%.o)
 
-INCLUDE_PATHS  = $(DIR_INC) $(DIR_TOP)/usr/include
+INCLUDE_PATHS  = $(DIR_TOP) $(DIR_TOP)/usr/include
 
 GCC      = gcc
-CFLAGS   = -Wall -Werror $(addprefix -I, $(INCLUDE_PATHS))
+CFLAGS   = -Wall -Werror --std=c99 $(addprefix -I, $(INCLUDE_PATHS))
 
 LIB_PATHS = $(DIR_TOP)/usr/lib
 LIBS      = fann m
