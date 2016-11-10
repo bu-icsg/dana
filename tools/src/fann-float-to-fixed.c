@@ -1,6 +1,6 @@
 #include <getopt.h>
 
-#include "fann.h"
+#include "submodules/fann/src/include/fann.h"
 
 void usage() {
   printf("usage: fann-float-to-fixed [OPTIONS] <floating point net> <fixed point net>\n"

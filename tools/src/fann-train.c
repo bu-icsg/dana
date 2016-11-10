@@ -2,7 +2,7 @@
 #include <getopt.h>
 #include <string.h>
 
-#include "fann.h"
+#include "submodules/fann/src/include/fann.h"
 
 static char * usage_message =
   "fann-train -n[config] -t[train file] [options]\n"

@@ -1,4 +1,5 @@
-#include "src/main/c/xfiles-user.h"
+#include "src/main/c/xfiles-user-pk.h"
+#include "src/main/c/xfiles-asid-nnid-table.h"
 
 int main() {
   pk_syscall_set_asid(1);

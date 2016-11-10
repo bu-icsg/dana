@@ -1,16 +1,15 @@
 #-*- mode: makefile-*-
 
 # RISC-V related options
-ifeq "$(TARGET)" ""
-dir_build = $(DIR_BUILD)/host
+ifeq "$(TARGET)" "host"
 else
 TARGET_DASH = $(TARGET)-
-dir_build = $(DIR_BUILD)/$(TARGET)
 endif
 CC            = $(TARGET_DASH)gcc
 CXX           = $(TARGET_DASH)g++
 AR            = $(TARGET_DASH)ar
 OBJDUMP       = $(TARGET_DASH)objdump
+dir_build = $(DIR_BUILD)/$(TARGET)
 
 vpath %.c $(DIR_TOP)/src/main/c
 vpath %.c $(DIR_TOP)/src/test/rv
@@ -19,21 +18,30 @@ HEADERS = $(wildcard $(DIR_TOP)/src/main/c/*.h)
 
 #------------------- Library Targets
 $(dir_build)/%.o: %.c $(HEADERS) | $(dir_build)
-	$(CC) -Wall -Werror -I$(DIR_TOP) -c $< -o $@
-$(dir_build)/libxfiles-%.a: $(dir_build)/xfiles-%.o
-	$(AR) rcs $@ $<
+	$(CC) -Wall -Werror -std=gnu11 -I$(DIR_TOP) -c $< -o $@
+$(dir_build)/libxfiles-user.a: $(dir_build)/xfiles-user.o $(dir_build)/xfiles-debug.o | $(dir_build)
+	$(AR) rcs $@ $^
+$(dir_build)/libxfiles-supervisor.a: $(dir_build)/xfiles-supervisor.o $(dir_build)/xfiles-asid-nnid-table.o | $(dir_build)
+	$(AR) rcs $@ $^
+$(dir_build)/libxfiles-user-pk.a: $(dir_build)/xfiles-user.o $(dir_build)/xfiles-user-pk.o $(dir_build)/xfiles-supervisor.o $(dir_build)/xfiles-asid-nnid-table.o $(dir_build)/xfiles-debug.o | $(dir_build)
+	$(AR) rcs $@ $^
+$(dir_build)/libxfiles-ant.a: $(dir_build)/xfiles-asid-nnid-table.o | $(dir_build)
+	$(AR) rcs $@ $^
 
 #------------------- RISC-V Tests
-
-CFLAGS=-Wall -Werror -static -I$(DIR_TOP) -I$(DIR_BUILD)/nets
-LFLAGS=-L$(DIR_TOP)/usr/$(TARGET)/lib -lxfiles-user -lxfiles-supervisor -lxfiles-debug
+CFLAGS = -Wall -Werror -static --std=gnu11 -I$(DIR_TOP) -I$(DIR_BUILD)/nets
+LFLAGS = -L$(DIR_BUILD)/$(TARGET) -L$(DIR_BUILD)/fann/$(TARGET)
 
 $(dir_build)/fann-soft.rv: fann-soft.c $(XFILES_LIBRARIES) $(DIR_BUILD)/fann/$(TARGET)/libfann.a
 	$(CC) $(CFLAGS) $< -o $@ $(LFLAGS) -lfann -lm
 $(dir_build)/fann-xfiles.rv: fann-xfiles.c $(XFILES_LIBRARIES) $(DIR_BUILD)/fann/$(TARGET)/libfann.a
-	$(CC) $(CFLAGS) $< -o $@ $(LFLAGS) -lfixedfann -lm
+	$(CC) $(CFLAGS) $< -o $@ $(LFLAGS) -lxfiles-user-pk -lfixedfann -lm
+$(dir_build)/trap-%.rv: trap-%.c $(XFILES_LIBRARIES)
+	$(CC) $(CFLAGS) $< -o $@ $(LFLAGS) -lxfiles-user-pk
+$(dir_build)/dana-benchmark.rv: dana-benchmark.c $(XFILES_LIBRARIES)
+	$(CC) $(CFLAGS) $< -o $@ $(LFLAGS) -lxfiles-user-pk
 $(dir_build)/%.rv: %.c $(XFILES_LIBRARIES) $(DIR_BUILD)/fann/$(TARGET)/libfann.a | $(dir_build)
-	$(CC) $(CFLAGS) $< -o $@ $(LFLAGS)
+	$(CC) $(CFLAGS) $< -o $@ $(LFLAGS) -lxfiles-user
 $(dir_build)/%.rvS: $(dir_build)/%.rv
 	$(OBJDUMP) -S $< > $@
 

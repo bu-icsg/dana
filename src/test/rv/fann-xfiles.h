@@ -1,8 +1,10 @@
 #ifndef SRC_TEST_RV_FANN_XFILES_H
 #define SRC_TEST_RV_FANN_XFILES_H
 
-#include "usr/include/fixedfann.h"
-#include "src/main/c/xfiles-user.h"
+#include <string.h>
+#include "submodules/fann/src/include/fixedfann.h"
+#include "src/main/c/xfiles-user-pk.h"
+#include "src/main/c/xfiles-asid-nnid-table.h"
 
 #define read_csr(reg) ({ unsigned long __tmp; \
   asm volatile ("csrr %0, " #reg : "=r"(__tmp)); \

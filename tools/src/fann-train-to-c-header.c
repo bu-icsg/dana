@@ -2,7 +2,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
-#include "fann.h"
+#include "submodules/fann/src/include/fann.h"
 
 int main (int argc, char * argv[]) {
   FILE * fp;

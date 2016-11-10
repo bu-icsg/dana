@@ -11,8 +11,9 @@ TARGET ?= riscv64-unknown-elf
 BIN_SUFFIX = $(shell echo "$(EPB) 4*p" | dc)bin
 
 LIBS = $(DIR_BUILD)/$(TARGET)/libxfiles-user.a \
-	$(DIR_BUILD)/$(TARGET)/libxfiles-debug.a \
-	$(DIR_BUILD)/$(TARGET)/libxfiles-supervisor.a
+	$(DIR_BUILD)/$(TARGET)/libxfiles-user-pk.a \
+	$(DIR_BUILD)/$(TARGET)/libxfiles-supervisor.a \
+	$(DIR_BUILD)/$(TARGET)/libxfiles-ant.a
 
 DIR_EMULATOR =  $(DIR_TOP)/../emulator
 EMULATOR ?= $(DIR_EMULATOR)/emulator-rocketchip-$(CONFIG)
@@ -24,9 +25,8 @@ C_FLAGS  ?= -Wall \
 	-I$(DIR_TOP)/usr/include \
 	-I$(DIR_TOP)/build/nets \
 	-I$(DIR_TOP)
-L_FLAGS  ?= -L$(DIR_TOP)/usr/$(TARGET)/lib \
-	-lxfiles-user \
-	-lxfiles-debug \
+L_FLAGS  ?= -L$(DIR_BUILD)/$(TARGET) -L $(DIR_BUILD)/fann/$(TARGET) \
+	-lxfiles-user-pk \
 	-lfixedfann \
 	-lm
 MAX_CYCLES ?= 100000000

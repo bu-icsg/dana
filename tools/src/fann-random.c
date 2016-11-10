@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <getopt.h>
 
-#include "fann.h"
+#include "submodules/fann/src/include/fann.h"
 
 static char * usage_message =
   "fann-random -l[1st hidden size] -l[2nd hidden size] -l... [options] file\n"

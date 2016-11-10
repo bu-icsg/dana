@@ -5,7 +5,7 @@
 
 #include <stdint.h>
 #include <stddef.h>
-#include "xcustom.h"
+#include "src/main/c/xcustom.h"
 
 // [TODO] Any changes to these types need to occur in conjunction with
 // the Chisel code and with the TID extraction part of

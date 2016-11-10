@@ -5,7 +5,7 @@
 #include <math.h>
 #include <getopt.h>
 
-#include "usr/include/fann.h"
+#include "submodules/fann/src/include/fann.h"
 #include "src/main/c/xfiles.h"
 
 #define read_csr(reg) ({ unsigned long __tmp; \

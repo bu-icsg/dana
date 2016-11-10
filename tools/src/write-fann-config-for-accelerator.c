@@ -7,7 +7,7 @@
 #include <math.h>
 #include <getopt.h>
 
-#include "fixedfann.h"
+#include "submodules/fann/src/include/fixedfann.h"
 
 void usage()
 {

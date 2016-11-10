@@ -1,11 +1,6 @@
 # Chisel/Scala configuration
 
-# Shared parameters (be careful messing with these)
-SHELL              = /bin/bash
-DIR_TOP           ?= $(abspath .)
-DIR_BUILD         ?= $(DIR_TOP)/build
-ROCKETCHIP_ADDONS ?= xfiles-dana
-TARGET            ?= riscv64-unknown-elf
+include Makefrag
 
 DIR_FANN        = $(DIR_TOP)/submodules/fann
 
@@ -41,15 +36,15 @@ RV_TESTS             = hello.c \
 	trap-06-request-invalid-epb.c \
 	dana-benchmark.c \
 	debug-test.c \
-	test-pk-debug.c \
 	antw-config.c
 RV_TESTS_EXECUTABLES = $(RV_TESTS:%.c=$(DIR_BUILD)/$(TARGET)/%.rv)
 RV_TESTS_DISASM      = $(RV_TESTS:%.c=$(DIR_BUILD)/$(TARGET)/%.rvS)
 
 # X-FILES libraries related
 XFILES_LIBRARIES = $(DIR_BUILD)/$(TARGET)/libxfiles-user.a \
+	$(DIR_BUILD)/$(TARGET)/libxfiles-user-pk.a \
 	$(DIR_BUILD)/$(TARGET)/libxfiles-supervisor.a \
-	$(DIR_BUILD)/$(TARGET)/libxfiles-debug.a
+	$(DIR_BUILD)/$(TARGET)/libxfiles-ant.a
 
 DECIMAL_POINT_OFFSET=7
 DECIMAL_POINT_BITS=3
