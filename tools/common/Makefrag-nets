@@ -72,10 +72,10 @@ vpath %.train $(DIR_TOP)/submodules/fann/datasets
 	$(DIR_BUILD)/nets/parity-%-float.train \
 	$(DIR_BUILD)/nets/sin-%-float.train \
 	$(DIR_BUILD)/nets/sin-scale-%-float.train \
-	$(DIR_BUILD)/fann/libfann.so
+	$(DIR_BUILD)/fann/host/libfann.so
 
 #--------------------------------------- Build floating point NNs
-$(DIR_BUILD)/nets/%-float.net: $(FANN_RANDOM) $(DIR_BUILD)/fann/libfann.so $(DIR_TOP)/tools/common/nets.txt | $(DIR_BUILD)/nets
+$(DIR_BUILD)/nets/%-float.net: $(FANN_RANDOM) $(DIR_BUILD)/fann/host/libfann.so $(DIR_TOP)/tools/common/nets.txt | $(DIR_BUILD)/nets
 	$(FANN_RANDOM) -s$(SEED) \
 	`$(DIR_TOP)/usr/bin/find-net $* $(DIR_TOP)/tools/common/nets.txt` $@
 

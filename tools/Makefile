@@ -20,7 +20,7 @@ OBJECTS  = $(SOURCES:%.c=%.o)
 
 INCLUDE_PATHS  = $(DIR_TOP) $(DIR_TOP)/usr/include
 
-GCC      = gcc
+CC      = gcc
 CFLAGS   = -Wall -Werror --std=c99 $(addprefix -I, $(INCLUDE_PATHS))
 
 LIB_PATHS = $(DIR_TOP)/usr/lib
@@ -41,14 +41,17 @@ default: all
 
 all: $(BINS)
 
+$(DIR_BUILD)/generate-ant: $(DIR_BIN)/generate_ant.o
+	$(CC) $(CFLAGS) $^ $(LFLAGS) -lxfiles-supervisor -o $@
+
 $(DIR_BIN)/write-fann-config-for-accelerator: $(DIR_BIN)/write-fann-config-for-accelerator.o
-	$(GCC) $(CFLAGS) $^ $(LFLAGS_F) -o $@
+	$(CC) $(CFLAGS) $^ $(LFLAGS_F) -o $@
 
 $(DIR_BIN)/%: $(DIR_BIN)/%.o
-	$(GCC) $(CFLAGS) $^ $(LFLAGS) -o $@
+	$(CC) $(CFLAGS) $^ $(LFLAGS) -o $@
 
 $(DIR_BIN)/%.o: %.c | $(DIR_BIN)
-	$(GCC) $(CFLAGS) $< -c -o $@
+	$(CC) $(CFLAGS) $< -c -o $@
 
 $(DIR_BIN):
 	mkdir -p $@

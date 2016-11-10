@@ -7,11 +7,12 @@ ROCKETCHIP_ADDONS ?= xfiles-dana
 PES ?= 1
 EPB ?= 4
 CONFIG ?= XFilesDanaCppPe${PES}Epb${EPB}Config
+TARGET ?= riscv64-unknown-elf
 BIN_SUFFIX = $(shell echo "$(EPB) 4*p" | dc)bin
 
-LIBS = $(DIR_BUILD)/newlib/libxfiles-user.a \
-	$(DIR_BUILD)/newlib/libxfiles-debug.a \
-	$(DIR_BUILD)/newlib/libxfiles-supervisor.a
+LIBS = $(DIR_BUILD)/$(TARGET)/libxfiles-user.a \
+	$(DIR_BUILD)/$(TARGET)/libxfiles-debug.a \
+	$(DIR_BUILD)/$(TARGET)/libxfiles-supervisor.a
 
 DIR_EMULATOR =  $(DIR_TOP)/../emulator
 EMULATOR ?= $(DIR_EMULATOR)/emulator-rocketchip-$(CONFIG)
@@ -23,7 +24,7 @@ C_FLAGS  ?= -Wall \
 	-I$(DIR_TOP)/usr/include \
 	-I$(DIR_TOP)/build/nets \
 	-I$(DIR_TOP)
-L_FLAGS  ?= -L$(DIR_TOP)/usr/lib-rv-newlib \
+L_FLAGS  ?= -L$(DIR_TOP)/usr/$(TARGET)/lib \
 	-lxfiles-user \
 	-lxfiles-debug \
 	-lfixedfann \
@@ -46,8 +47,8 @@ include $(DIR_TOP)/tools/common/Makefrag-submodule
 include $(DIR_TOP)/tools/common/Makefrag-tools
 include $(DIR_TOP)/tools/common/Makefrag-nets
 
-%.rv: %.c $(LIBS) $(DIR_BUILD)/fann-rv-newlib/libfann.a
-	@ $(RV_CC) $(C_FLAGS) $< -o $@ $(L_FLAGS)
+%.rv: %.c $(LIBS) $(DIR_BUILD)/fann/$(TARGET)/libfann.a
+	@ $(CC) $(C_FLAGS) $< -o $@ $(L_FLAGS)
 
 $(EMULATOR):
 	$(MAKE) -C $(DIR_EMULATOR) \

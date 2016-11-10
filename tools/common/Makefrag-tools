@@ -20,5 +20,5 @@ NETS_TOOLS = $(FLOAT_TO_FIXED) \
 	$(FANN_RANDOM) \
 	$(FANN_TRAIN)
 
-$(DIR_TOP)/usr/bin/%: $(DIR_BUILD)/fann/libfann.so
+$(DIR_TOP)/usr/bin/%: $(DIR_BUILD)/fann/host/libfann.so
 	$(MAKE) -C $(DIR_TOP)/tools bin/$*
