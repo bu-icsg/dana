@@ -5,6 +5,7 @@
 
 #include <stdint.h>
 #include <stddef.h>
+#include "xcustom.h"
 
 // [TODO] Any changes to these types need to occur in conjunction with
 // the Chisel code and with the TID extraction part of
@@ -73,52 +74,19 @@ typedef enum {
 
 #define RESP_CODE_WIDTH 3
 
-// Macros for using XCustom instructions. Four different macros are
-// provided depending on whether or not the passed arguments should be
-// communicated as registers or immediates.
-#define XCUSTOM 0
-
-#define STR1(x) #x
-#ifndef STR
-#define STR(x) STR1(x)
-#endif
-#define EXTRACT(a, size, offset) (((~(~0 << size) << offset) & a) >> offset)
-
-#define CUSTOMX_OPCODE(x) CUSTOM_##x
-#define CUSTOM_0 0b0001011
-#define CUSTOM_1 0b0101011
-#define CUSTOM_2 0b1011011
-#define CUSTOM_3 0b1111011
-
-#define CUSTOMX(X, rd, rs1, rs2, funct) \
-  CUSTOMX_OPCODE(X)                   | \
-  (rd                   << (7))       | \
-  (0x7                  << (7+5))     | \
-  (rs1                  << (7+5+3))   | \
-  (rs2                  << (7+5+3+5)) | \
-  (EXTRACT(funct, 7, 0) << (7+5+3+5+5))
-
-#define CUSTOMX_R_R_R(X, rd, rs1, rs2, funct)           \
-  asm ("mv a4, %[_rs1]\n\t"                             \
-       "mv a5, %[_rs2]\n\t"                             \
-       ".word "STR(CUSTOMX(X, 15, 14, 15, funct))"\n\t" \
-       "mv %[_rd], a5"                                  \
-       : [_rd] "=r" (rd)                                \
-       : [_rs1] "r" (rs1), [_rs2] "r" (rs2)             \
-       : "a4", "a5");
-
+#define OPCODE 0
 // Standard macro that passes rd_, rs1_, and rs2_ via registers
-#define XFILES_INSTRUCTION(rd, rs1, rs2, funct)     \
+#define XFILES_INSTRUCTION(rd, rs1, rs2, funct) \
   XFILES_INSTRUCTION_R_R_R(rd, rs1, rs2, funct)
-#define XFILES_INSTRUCTION_R_R_R(rd, rs1, rs2, funct)               \
-  CUSTOMX_R_R_R(XCUSTOM, rd, rs1, rs2, funct)
+#define XFILES_INSTRUCTION_R_R_R(rd, rs1, rs2, funct)   \
+  XCUSTOM_R_R_R(OPCODE, rd, rs1, rs2, funct)
 
 // Macro to pass rs2_ as an immediate
-#define XFILES_INSTRUCTION_R_R_I(rd, rs1, rs2, funct)               \
-  CUSTOMX_R_R_R(XCUSTOM, rd, rs1, rs2, funct)
+#define XFILES_INSTRUCTION_R_R_I(rd, rs1, rs2, funct)   \
+  XCUSTOM_R_R_R(OPCODE, rd, rs1, rs2, funct)
 
 // Macro to pass rs1_ and rs2_ as immediates
-#define XFILES_INSTRUCTION_R_I_I(rd, rs1, rs2, funct)               \
-  CUSTOMX_R_R_R(XCUSTOM, rd, rs1, rs2, funct)
+#define XFILES_INSTRUCTION_R_I_I(rd, rs1, rs2, funct)   \
+  XCUSTOM_R_R_R(OPCODE, rd, rs1, rs2, funct)
 
 #endif  // SRC_MAIN_C_XFILES_H_
