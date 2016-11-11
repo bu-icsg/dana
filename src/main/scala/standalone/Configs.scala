@@ -10,5 +10,6 @@ class AsStandalone extends Config (
     pname match {
       case TileId => 0
       case NCoreplexExtClients => 0
-      case TLId => "L1toL2" }}
+      case TLId => "L1toL2"
+      case TileLinkRAMSize => 1024 * 1024}}
 )

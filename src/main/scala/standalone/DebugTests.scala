@@ -5,7 +5,7 @@ import chisel3.util._
 import cde.Parameters
 import xfiles.XFilesUserRequests
 
-class DebugTester(implicit p: Parameters) extends XFilesTester {
+class DebugTester(implicit val p: Parameters) extends XFilesTester()(p) {
   val s_INIT :: s_WRITE :: s_READ :: s_DONE :: Nil = Enum(UInt(), 4)
   val t_ECHO :: t_UTLW :: t_UTLR :: t_L1R :: t_L1W :: t_V2P :: Nil = Enum(UInt(), 6)
   val lastTest = t_UTLR

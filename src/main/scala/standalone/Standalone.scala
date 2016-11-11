@@ -7,6 +7,10 @@ import cde.{Field, Parameters}
 import rocket._
 import xfiles._
 import dana._
+import uncore.devices.TileLinkTestRAM
+import uncore.tilelink.HasTileLinkParameters
+
+case object TileLinkRAMSize extends Field[Int]
 
 class HoneyPot[T <: Bundle](name: String = "", fatal: Boolean = true) extends Module {
   val io = IO(new Bundle {
@@ -61,7 +65,8 @@ abstract class RoccTester[T <: RoCC](implicit p: Parameters)
 }
 
 abstract class XFilesTester(implicit p: Parameters)
-    extends RoccTester[XFiles] with XFilesUserRequests with XFilesDebugActions {
+    extends RoccTester[XFiles]()(p) with XFilesUserRequests with XFilesDebugActions
+    with HasTileLinkParameters {
   val dut = Module(new XFiles)
   val xCustomType = 0
 
@@ -72,7 +77,7 @@ abstract class XFilesTester(implicit p: Parameters)
   dut.io.mem.resp.valid := mem.io.resp.valid
 
   // Real AUTL
-  val autl = Module(new uncore.devices.TileLinkTestRAM(32)(p))
+  val autl = Module(new TileLinkTestRAM(p(TileLinkRAMSize)/tlDataBits)(p))
   autl.io <> dut.io.autl
 
   // PTW Honeypot
