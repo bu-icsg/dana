@@ -4,7 +4,9 @@
 #define SRC_MAIN_C_XFILES_ASID_NNID_TABLE_H_
 
 #include "src/main/c/xfiles-supervisor-types.h"
+#ifndef NO_VM
 #include "src/main/c/xfiles-debug.h"
+#endif
 
 // Print a visual organization of a specific ASID--NNIT Table
 void asid_nnid_table_info(ant * table);

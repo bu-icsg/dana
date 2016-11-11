@@ -20,10 +20,18 @@ BINS     = $(addprefix $(DIR_BIN)/, $(BINARIES))
 SOURCES  = fann-float-to-fixed.c
 OBJECTS  = $(SOURCES:%.c=%.o)
 
-INCLUDE_PATHS  = $(DIR_TOP)
+vpath %.c src
 
-CC      = gcc
-CFLAGS   = -Wall -Werror --std=c99 $(addprefix -I, $(INCLUDE_PATHS))
+.PHONY: all default clean
+
+default: all
+
+all: $(BINS)
+
+include common/Makefrag-rv
+include common/Makefrag-submodule
+
+INCLUDE_PATHS  = $(DIR_TOP)
 
 LIB_PATHS = $(DIR_BUILD)/$(TARGET) $(DIR_BUILD)/fann/$(TARGET)
 LIBS      = fann m
@@ -35,22 +43,14 @@ LFLAGS_F    = $(addprefix -Wl$(COMMA)-R, $(shell readlink -f $(LIB_PATHS))) \
             $(addprefix -L, $(LIB_PATHS)) \
             $(addprefix -l, $(LIBS_F))
 
-vpath %.c src
+$(DIR_BIN)/generate-ant: $(DIR_BIN)/generate-ant.o $(DIR_BUILD)/$(TARGET)/libxfiles-ant.a
+	$(CC) $(CFLAGS) $^ $(LFLAGS) -lxfiles-ant -o $@
 
-.PHONY: all default clean
+$(DIR_BIN)/write-fann-config-for-accelerator: $(DIR_BIN)/write-fann-config-for-accelerator.o $(DIR_BUILD)/fann/$(TARGET)/libfixedfann.a
+	$(CC) $(CFLAGS) $^ $(LFLAGS_F) -fopenmp -o $@
 
-default: all
-
-all: $(BINS)
-
-$(DIR_BIN)/generate-ant: $(DIR_BIN)/generate_ant.o
-	$(CC) $(CFLAGS) $^ $(LFLAGS) -lxfiles-supervisor -o $@
-
-$(DIR_BIN)/write-fann-config-for-accelerator: $(DIR_BIN)/write-fann-config-for-accelerator.o
-	$(CC) $(CFLAGS) $^ $(LFLAGS_F) -o $@
-
-$(DIR_BIN)/%: $(DIR_BIN)/%.o
-	$(CC) $(CFLAGS) $^ $(LFLAGS) -o $@
+$(DIR_BIN)/%: $(DIR_BIN)/%.o $(DIR_BUILD)/fann/$(TARGET)/libfann.a
+	$(CC) $(CFLAGS) $^ $(LFLAGS) -fopenmp -o $@
 
 $(DIR_BIN)/%.o: %.c | $(DIR_BIN)
 	$(CC) $(CFLAGS) $< -c -o $@

@@ -1,7 +1,11 @@
+// See LICENSE for license details.
+
 #include <getopt.h>
 #include <string.h>
-#include "src/main/c/xfiles-supervisor.h"
-#include "src/main/c/xfiles-user.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <assert.h>
+#include "src/main/c/xfiles-asid-nnid-table.h"
 
 void usage() {
   printf("Usage: generate-ant [OPTIONS]"
@@ -97,7 +101,11 @@ int main(int argc, char ** argv) {
     printf("[INFO] asid: %d\n", s_af.af[i].asid);
     printf("[INFO] file: %s\n", s_af.af[i].file);
   }
-  printf("[INFO] max asid: %d\n", s_af.max_asid);
+
+  if (s_af.i > 0) printf("[INFO] max asid: %d\n", s_af.max_asid);
+
+  ant * table;
+  asid_nnid_table_create(&table, s_af.max_asid, 10); // [TODO] Magic number
 
 bail:
   free(s_af.af);
