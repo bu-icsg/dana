@@ -71,7 +71,7 @@ void asid_nnid_table_create(ant ** t, size_t size,
   (*t)->entry_v = (ant_entry *) malloc(sizeof(ant_entry) * size);
   // [TODO] This assumes physical contiguity
 #ifdef NO_VM
-  (*t)->entry_p = (*t)->entry_v;
+  (*t)->entry_p = (char *) (*t)->entry_v;
 #else
   (*t)->entry_p = debug_virt_to_phys((*t)->entry_v);
 #endif
@@ -82,11 +82,12 @@ void asid_nnid_table_create(ant ** t, size_t size,
     e->asid_nnid_v = (nn_config *) malloc(configs_per_entry * sizeof(nn_config));
     // [TODO] This assumes physical contiguity
 #ifdef NO_VM
-    e->asid_nnid_p = e->asid_nnid_v;
+    e->asid_nnid_p = (char *) e->asid_nnid_v;
 #else
     e->asid_nnid_p = debug_virt_to_phys(e->asid_nnid_v);
 #endif
-    e->asid_nnid_v->config_v = e->asid_nnid_v->config_p = NULL;
+    e->asid_nnid_v->config_v = NULL;
+    e->asid_nnid_v->config_p = NULL;
     e->num_configs = configs_per_entry;
     e->num_valid = 0;
 
@@ -175,7 +176,7 @@ int attach_nn_configuration(ant ** table, asid_type asid,
   fread(n->config_v, sizeof(xlen_t), file_size, fp);
   // [TODO] Assumes memory contiguity
 #ifdef NO_VM
-  n->config_p = n->config_v;
+  n->config_p = (char *) n->config_v;
 #else
   n->config_p = debug_virt_to_phys(n->config_v);
 #endif
@@ -230,7 +231,7 @@ int attach_nn_configuration_array(ant ** table, uint16_t asid,
 
   // [TODO] This assumes physical contiguity
 #ifdef NO_VM
-  n->config_p = n->config_v;
+  n->config_p = (char *) n->config_v;
 #else
   n->config_p = debug_virt_to_phys(n->config_v);
 #endif

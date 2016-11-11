@@ -7,12 +7,23 @@
 #include <assert.h>
 #include "src/main/c/xfiles-asid-nnid-table.h"
 
-void usage() {
-  printf("Usage: generate-ant -a [asid],[nn-config] [OPTIONS]"
+void usage(char * argv) {
+  printf("Usage: %s -a [asid],[nn-config] [OPTIONS] [output_file]\n"
+         "Generate a standalone ASID--NNID Table with specific binary neural network\n"
+         "configurations attached to specific ASIDs.\n"
          "\n"
          "Options:\n"
-         ""
-         );
+         "  -a, --attach [asid],[nn_config_file]\n"
+         "                             attach binary (e.g., *.16bin) [nn_config_file]\n"
+         "                             to [asid]\n"
+         "  -h, -?, --help\n           display this help and exit\n"
+         "  --verbose                  print debugging information\n"
+         "\n"
+         "The [output_file] is optional. If unspecified, this will print to stdout.\n"
+         "\n"
+         "Example:\n"
+         "  %s -a 2,xorSigmoidSymmetric-fixed.16bin myconfig.bin\n",
+         argv, argv);
 }
 
 typedef struct {
@@ -50,24 +61,132 @@ int parse_asid_file(char * t, t_asid_file * af) {
   return 0;
 }
 
+int pad_dump(FILE * file, int amount) {
+  char zero = 0;
+  int written = 0;
+  for (int i = 0; i < amount; i++)
+    written += fwrite(&zero, 1, 1, file);
+  return written;
+}
+
+typedef struct {
+  char ** x;
+  size_t size;
+  int used;
+  int total;
+} t_array;
+int array_init(t_array * a, size_t size, int count) {
+  (*a).x = (char **) malloc(count * sizeof(char *));
+  (*a).used = 0;
+  (*a).total = count;
+  (*a).size = size;
+  return 0;
+}
+void array_destroy(t_array * a) {
+  free((*a).x);
+}
+int array_push(t_array * a, void * new_x, int verbose) {
+  if ((*a).used == (*a).total) {
+    if (verbose) printf("[INFO] Realloc'ing\n");
+    (*a).x = (char **) realloc((*a).x, (*a).total * 2 * sizeof(char *));
+  }
+  (*a).x[(*a).used++] = new_x;
+  if (verbose) printf("[INFO] Pushing 0x%p onto array\n", new_x);
+  return 0;
+}
+
 int ant_dump(ant * table, FILE * file, int verbose) {
-  void * offset = table->entry_v;
-  void * last = offset;
-  if (verbose) printf("[INFO] Offset: %p\n", offset);
+  int exit_code = 0;
+  char * offset = (char *) table;
+  char * last = offset;
+  if (verbose) printf("[INFO] Writing Header:\n");
+  if (verbose) printf("[INFO]   0x%lx: header (0x%lx B)\n", last - offset,
+                      sizeof(ant));
+  last += sizeof(ant) * fwrite(table, sizeof(ant), 1, file);
+
+  // Flatten the ASID--NNID table into ASID and NNID arrays
+  t_array asids;
+  t_array nnids;
+  array_init(&asids, sizeof(ant_entry), 1);
+  array_init(&nnids, sizeof(nn_config), 1);
   for (ant_entry * e = table->entry_v; e < &table->entry_v[table->size]; e++) {
-    fwrite(e, sizeof(ant_entry), 1, file);
-    last += sizeof(ant_entry);
+    array_push(&asids, e, verbose);
     for (nn_config * n = e->asid_nnid_v; n < &e->asid_nnid_v[e->num_valid]; n++) {
-      long int padding = (long int) n - (long int) last;
-      char zero = 0;
-      for (int i = 0; i < padding; i++)
-        fwrite(&zero, 1, 1, file);
-      fwrite(n, sizeof(nn_config), 1, file);
-      last += padding + sizeof(nn_config);
-      // [TODO] Write the contents of the NN configuration
+      array_push(&nnids, n, verbose);
     }
   }
-  return 0;
+
+  // Loop over the ASID array and write the binary output
+  long int padding;
+  if (verbose) printf("[INFO] Writing ASIDs:\n");
+  for (ant_entry * a = (ant_entry *) (*asids.x);
+       a < (ant_entry *) (*asids.x) + asids.used; a++) {
+    padding = (char *) a - last;
+    if (padding < 0) {
+      fprintf(stderr, "[ERROR] ASID would require negative padding of 0d%ld\n",
+              padding);
+      exit_code = 1;
+      goto bail;
+    }
+    if (verbose) printf("[INFO]   0x%lx: Padding (0x%ld B)\n",
+                        last - offset, padding);
+    last += pad_dump(file, padding);
+    if (verbose) printf("[INFO]   0x%lx: VAddr 0x%p (0x%lx B)\n",
+                        last - offset, a, sizeof(ant_entry));
+    last += sizeof(ant_entry) * fwrite(a, sizeof(ant_entry), 1, file);
+  }
+
+  // Loop over the NNID array twice, writing NNID info followed by the configs
+  if (verbose) printf("[INFO] Writing NNIDs:\n");
+  for (char ** x = nnids.x; x < nnids.x + nnids.used; x++) {
+    nn_config * n = (nn_config *) (*x);
+    padding = (char *) n - last;
+    if (padding < 0) {
+      fprintf(stderr, "[ERROR] NNID would require negative padding of 0d%ld\n",
+              padding);
+      exit_code = 1;
+      goto bail;
+    }
+    if (verbose) printf("[INFO]   0x%lx: Padding (0x%ld B)\n",
+                        last - offset, padding);
+    last += pad_dump(file, padding);
+    if (verbose) printf("[INFO]   0x%lx: NNID VAddr 0x%p (0x%lx B)\n",
+                        last - offset, n, sizeof(nn_config));
+    last += sizeof(nn_config) * fwrite(n, sizeof(nn_config), 1, file);
+  }
+  if (verbose) printf("[INFO] Writing NN Configs:\n");
+  for (char ** x = nnids.x; x < nnids.x + nnids.used; x++) {
+    nn_config * n = (nn_config *) (*x);
+    padding = (char *) n->config_v - last;
+    if (padding < 0) {
+      fprintf(stderr, "[ERROR] NN Config would require negative padding of 0d%ld\n",
+              padding);
+      exit_code = 1;
+      goto bail;
+    }
+    if (verbose) printf("[INFO]   0x%lx: Padding (0x%ld B)\n",
+                        last - offset, padding);
+    last += pad_dump(file, padding);
+    if (verbose) printf("[INFO]   0x%lx: Config (VAddr 0x%p, 0x%lx B)\n",
+                        last - offset, n->config_v, n->size * sizeof(xlen_t));
+    last += n->size * sizeof(xlen_t) *
+            fwrite(n->config_v, n->size * sizeof(xlen_t), 1, file);
+  }
+
+bail:
+  if (asids.x != NULL) array_destroy(&asids);
+  if (nnids.x != NULL) array_destroy(&nnids);
+  return exit_code;
+}
+
+void make_relative(ant * table, int verbose) {
+  void * offset = table;
+  table->entry_p = (void *) ((size_t) table->entry_p - (size_t) offset);
+  for (ant_entry * e = table->entry_v; e < &table->entry_v[table->size]; e++) {
+    e->asid_nnid_p = (void *) ((size_t) e->asid_nnid_p - (size_t) offset);
+    for (nn_config * n = e->asid_nnid_v; n < &e->asid_nnid_v[e->num_valid]; n++)
+      n->config_p = (void *) ((size_t) n->config_p - (size_t) offset);
+  }
 }
 
 int main(int argc, char ** argv) {
@@ -85,6 +204,7 @@ int main(int argc, char ** argv) {
   s_af.n = 4;
   s_af.max_asid = 0;
 
+  FILE * file = stdout;
   // Parse command line options
   int c;
   static int opt_verbose;
@@ -96,7 +216,7 @@ int main(int argc, char ** argv) {
       {0, 0, 0, 0}
     };
     int option_index = 0;
-    c = getopt_long(argc, argv, "a:hv", long_test, &option_index);
+    c = getopt_long(argc, argv, "a:h?", long_test, &option_index);
     if (c == -1)
       break;
     switch (c) {
@@ -115,15 +235,23 @@ int main(int argc, char ** argv) {
           s_af.max_asid = s_af.af[s_af.i-1].asid;
         break;
       }
-      case 'h': usage(); return 0;
+      case '?':
+      case 'h': usage(argv[0]); return 0;
     }
   };
   // Ensure that at least one asid,network tuple was given.
   if (s_af.i == 0) {
     fprintf(stderr, "[ERROR] Specify at least one `asid,network` tuple\n");
-    usage();
+    usage(argv[0]);
     exit_code = 1;
     goto bail;
+  }
+  if (optind == argc - 1) {
+    if ((file = fopen(argv[optind], "w")) == 0) {
+      fprintf(stderr, "[ERROR] Unable to open dump file\n");
+      exit_code = 3;
+      goto bail;
+    }
   }
 
   // Create and populate the ASID-NNID Table
@@ -131,7 +259,7 @@ int main(int argc, char ** argv) {
   asid_nnid_table_create(&table, s_af.max_asid + 1, 10); // [TODO] Magic number
   for (t_asid_file * x = s_af.af; x < s_af.af + s_af.i; x++) {
     if (attach_nn_configuration(&table, x->asid, x->file) == -1) {
-      fprintf(stderr, "[ERROR] Failed to attached to ASID %d file %s\n",
+      fprintf(stderr, "[ERROR] Failed to attach to ASID %d file %s\n",
               x->asid, x->file);
       exit_code = 2;
       goto bail;
@@ -140,19 +268,14 @@ int main(int argc, char ** argv) {
                             "[INFO] file: %s\n", x->asid, x->file);
   }
   if (opt_verbose) printf("[INFO] max asid: %d\n", s_af.max_asid);
+  make_relative(table, opt_verbose);
   if (opt_verbose) asid_nnid_table_info(table);
 
   // Dump the raw bits
-  FILE * file = NULL;
-  if ((file = fopen("dump.bin", "w")) == 0) {
-    fprintf(stderr, "[ERROR] Unable to open dump file\n");
-    exit_code = 3;
-    goto bail;
-  }
   ant_dump(table, file, opt_verbose);
 
 bail:
   if (s_af.af != NULL) free(s_af.af);
-  if (file != NULL) fclose(file);
+  if (file != stdout) fclose(file);
   return exit_code;
 }

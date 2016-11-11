@@ -77,21 +77,21 @@ typedef struct {             // |-------------------------|               |
   size_t size;               // | size of config          |               |
   size_t elements_per_block; // | elements per block      |               |
   xlen_t * config_raw;       // | * config unaligned      |               |
-  xlen_t * config_p;         // | * config aligned phys   |-> [NN Config] |
+  char * config_p;           // | * config aligned phys   |-> [NN Config] |
   xlen_t * config_v;         // | * config aligned virt   |-> [NN Config] |
 } nn_config;                 // |-------------------------| <---|         |
                              //                                 |         |
 typedef struct {             // |-------------------|           |         |
   int num_configs;           // | num configs       |           |         |
   int num_valid;             // | num valid configs |           |         |
-  nn_config * asid_nnid_p;   // | * ASID--NNID phys |--<phys>---|         |
+  char * asid_nnid_p;        // | * ASID--NNID phys |--<phys>---|         |
   nn_config * asid_nnid_v;   // | * ASID--NNID virt |--<virt>---|         |
   io * transaction_io;       // | * IO              |---------------------|
 } ant_entry;                 // |-------------------| <-| <--[Hardware ANTP]
                              //                         |
 typedef struct {             // |-----------|           |
   size_t size;               // | num ASIDs |           |
-  ant_entry * entry_p;       // | * entry   |-----------|
+  char * entry_p;            // | * entry   |-----------|
   ant_entry * entry_v;       // | * entry   |-----------|
 } ant;                       // |-----------| <--------------------[OS ANTP]
 
