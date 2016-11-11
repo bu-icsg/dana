@@ -16,7 +16,7 @@ void usage(char * argv) {
          "  -a, --attach [asid],[nn_config_file]\n"
          "                             attach binary (e.g., *.16bin) [nn_config_file]\n"
          "                             to [asid]\n"
-         "  -h, -?, --help\n           display this help and exit\n"
+         "  -h, -?, --help             display this help and exit\n"
          "  --verbose                  print debugging information\n"
          "\n"
          "The [output_file] is optional. If unspecified, this will print to stdout.\n"
