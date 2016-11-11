@@ -119,18 +119,23 @@ int attach_nn_configuration(ant ** table, asid_type asid,
   int file_size, nnid;
   FILE *fp;
 
-  if (asid >= (*table)->size) {
+  ant * t = (*table);
+
+  if (asid >= t->size) {
+    fprintf(stderr, "[ERROR] ASID (%d) is beyond table size (%ld)\n", asid, t->size);
     return -1;
   }
 
-  ant_entry * e = &(*table)->entry_v[asid];
+  ant_entry * e = &t->entry_v[asid];
   if (e->num_valid == e->num_configs) {
+    fprintf(stderr, "[ERROR] ASID entry is full\n");
     return -1;
   }
 
   // Open the file and find out how big it is so that we can allocate
   // the correct amount of space
   if (!(fp = fopen(file_name, "rb"))) {
+    fprintf(stderr, "[ERROR] Failed to open %s\n", file_name);
     return -1;
   }
 
@@ -146,6 +151,7 @@ int attach_nn_configuration(ant ** table, asid_type asid,
   fseek(fp, 0L, SEEK_SET);
 
   if (file_size <= 0) {
+    fprintf(stderr, "[ERROR] File %s has zero size\n", file_name);
     return -1;
   }
 
