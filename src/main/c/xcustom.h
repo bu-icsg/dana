@@ -23,13 +23,13 @@
   (rs2                  << (7+5+3+5)) | \
   (EXTRACT(funct, 7, 0) << (7+5+3+5+5))
 
-#define XCUSTOM_R_R_R(X, rd, rs1, rs2, funct)           \
-  asm ("mv a4, %[_rs1]\n\t"                             \
-       "mv a5, %[_rs2]\n\t"                             \
-       ".word "STR(XCUSTOM(X, 15, 14, 15, funct))"\n\t" \
-       "mv %[_rd], a5"                                  \
-       : [_rd] "=r" (rd)                                \
-       : [_rs1] "r" (rs1), [_rs2] "r" (rs2)             \
+#define XCUSTOM_R_R_R(X, rd, rs1, rs2, funct)             \
+  asm ("mv a4, %[_rs1]\n\t"                               \
+       "mv a5, %[_rs2]\n\t"                               \
+       ".word " STR(XCUSTOM(X, 15, 14, 15, funct)) "\n\t" \
+       "mv %[_rd], a5"                                    \
+       : [_rd] "=r" (rd)                                  \
+       : [_rs1] "r" (rs1), [_rs2] "r" (rs2)               \
        : "a4", "a5")
 
 #endif  // SRC_MAIN_C_XCUSTOM_H_

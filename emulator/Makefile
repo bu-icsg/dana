@@ -2,7 +2,7 @@ default: all
 
 ROCKETCHIP_ADDONS ?= xfiles-dana
 CONFIG ?= XFilesDanaCppPe1Epb4StandaloneConfig
-MODEL ?= DebugTester
+MODEL ?= XFilesTester
 
 base_dir = $(abspath ../..)
 DIR_TOP = $(base_dir)/xfiles-dana
@@ -18,14 +18,17 @@ verilog_debug = $(generated_dir_debug)/$(long_name).v
 instrumented = $(generated_dir)/$(long_name)-instrumented.v
 instrumented_debug = $(generated_dir_debug)/$(long_name)-instrumented.v
 
-chisel3test = $(DIR_TOP)/src/main/resources/top.cpp
+chisel3test = $(DIR_TOP)/src/main/resources/top.cpp \
+	$(DIR_TOP)/src/main/resources/xcustom.cpp \
+	$(DIR_TOP)/src/main/resources/xfiles_debug.cpp \
+	$(DIR_TOP)/src/main/resources/rocc.cpp
 
 include $(base_dir)/Makefrag
 
 PROJECT = xfiles.standalone
 CFG_PROJECT = rocketchip
 CXXSRCS := emulator SimDTM
-CXXFLAGS := $(CXXFLAGS) -std=c++11 -I$(RISCV)/include -I$(base_dir)/csrc
+CXXFLAGS := $(CXXFLAGS) -std=c++11 -I$(RISCV)/include
 LDFLAGS := $(LDFLAGS) -L$(RISCV)/lib -Wl,-rpath,$(RISCV)/lib -L$(abspath $(sim_dir)) -lfesvr -lpthread
 
 emu = emulator-$(PROJECT)-$(CONFIG)
@@ -49,15 +52,16 @@ $(generated_dir)/%.fir: $(chisel_srcs) | $(generated_dir)
 INSTALLED_VERILATOR=$(abspath $(base_dir)/emulator/verilator/install/bin/verilator)
 verilator $(INSTALLED_VERILATOR):
 	$(MAKE) -C $(base_dir)/emulator verilator/install/bin/verilator
-CXXFLAGS := $(CXXFLAGS) -std=c++11
+CXXFLAGS := $(CXXFLAGS) -std=c++11 -I$(TOP_DIR) -Wall -Werror
 LDFLAGS := $(LDFLAGS)
 VERILATOR := $(INSTALLED_VERILATOR) --cc --exe
 VERILATOR_FLAGS := --top-module $(MODEL) \
   +define+PRINTF_COND=\$$c\(\"verbose\",\"\&\&\"\,\"done_reset\"\) \
   +define+STOP_COND="!$(MODEL).reset" \
   --output-split 20000 \
+  --vpi \
   -Wno-STMTDLY --x-assign unique \
-  -O3 -CFLAGS "$(CXXFLAGS) -DVERILATOR -DTOP_TYPE=V$(MODEL) -include $(generated_dir)/$(long_name)/V$(MODEL).h -include $(base_dir)/csrc/verilator.h"
+  -O3 -CFLAGS "$(CXXFLAGS) -DVERILATOR -DTOP_TYPE=V$(MODEL) -include $(generated_dir)/$(long_name)/V$(MODEL).h -include $(base_dir)/csrc/verilator.h -I$(DIR_TOP)"
 
 # GTKWAVE -- Build this if we need it
 GTKWAVE = $(sim_dir)/gtkwave/bin/gtkwave
@@ -71,18 +75,15 @@ $(sim_dir)/gtkwave:
 	svn co "svn://svn.code.sf.net/p/gtkwave/code/gtkwave3" $@/src
 
 TOOL_INSTRUMENT_DPI = $(DIR_TOP)/usr/bin/instrument_dpi
-$(instrumented): $(verilog)
+TOOL_INSTRUMENT_VPI = $(DIR_TOP)/usr/bin/instrument_vpi
+$(instrumented): $(verilog) $(TOOL_INSTRUMNET_DPI) $(TOOL_INSTRUMENT_VPI)
 	cp $< $<.bak
-	$(TOOL_INSTRUMENT_DPI) \
-	-m TileLinkTestRAM \
-	-s ram \
-	$<.bak > $@
-$(instrumented_debug): $(verilog_debug)
+	$(TOOL_INSTRUMENT_DPI) -m TileLinkTestRAM -s ram $<.bak > $<.bak2
+	$(TOOL_INSTRUMENT_VPI) -m $(MODEL) $<.bak2 > $@
+$(instrumented_debug): $(verilog_debug) $(TOOL_INSTRUMNET_DPI) $(TOOL_INSTRUMENT_VPI)
 	cp $< $<.bak
-	$(TOOL_INSTRUMENT_DPI) \
-	-m TileLinkTestRAM \
-	-s ram \
-	$<.bak > $@
+	$(TOOL_INSTRUMENT_DPI)-m TileLinkTestRAM -s ram $<.bak > $<.bak2
+	$(TOOL_INSTRUMENT_VPI) -m $(MODEL) $<.bak2 > $@
 
 $(emu): $(instrumented) $(chisel3test) | $(generated_dir)/$(long_name)
 	$(VERILATOR) $(VERILATOR_FLAGS) -Mdir $(generated_dir)/$(long_name) \
