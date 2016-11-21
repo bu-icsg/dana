@@ -3,6 +3,7 @@ default: all
 ROCKETCHIP_ADDONS ?= xfiles-dana
 CONFIG ?= XFilesDanaCppPe1Epb4StandaloneConfig
 MODEL ?= XFilesTester
+TIMEOUT ?= 10000000
 
 base_dir = $(abspath ../..)
 DIR_TOP = $(base_dir)/xfiles-dana
@@ -20,8 +21,7 @@ instrumented_debug = $(generated_dir_debug)/$(long_name)-instrumented.v
 
 chisel3test = $(DIR_TOP)/src/main/resources/top.cpp \
 	$(DIR_TOP)/src/main/resources/xcustom.cpp \
-	$(DIR_TOP)/src/main/resources/xfiles_debug.cpp \
-	$(DIR_TOP)/src/main/resources/rocc.cpp
+	$(DIR_TOP)/src/main/resources/xfiles_debug.cpp
 
 include $(base_dir)/Makefrag
 
@@ -51,7 +51,7 @@ $(generated_dir)/%.fir: $(chisel_srcs) | $(generated_dir)
 # Verilator -- Just build this once in the Rocket Chip repo
 INSTALLED_VERILATOR=$(abspath $(base_dir)/emulator/verilator/install/bin/verilator)
 verilator $(INSTALLED_VERILATOR):
-	$(MAKE) -C $(base_dir)/emulator verilator/install/bin/verilator
+	$(MAKE) -C $(base_dir)/emulator $(INSTALLED_VERILATOR)
 CXXFLAGS := $(CXXFLAGS) -std=c++11 -I$(TOP_DIR) -Wall -Werror
 LDFLAGS := $(LDFLAGS)
 VERILATOR := $(INSTALLED_VERILATOR) --cc --exe
@@ -59,7 +59,6 @@ VERILATOR_FLAGS := --top-module $(MODEL) \
   +define+PRINTF_COND=\$$c\(\"verbose\",\"\&\&\"\,\"done_reset\"\) \
   +define+STOP_COND="!$(MODEL).reset" \
   --output-split 20000 \
-  --vpi \
   -Wno-STMTDLY --x-assign unique \
   -O3 -CFLAGS "$(CXXFLAGS) -DVERILATOR -DTOP_TYPE=V$(MODEL) -include $(generated_dir)/$(long_name)/V$(MODEL).h -include $(base_dir)/csrc/verilator.h -I$(DIR_TOP)"
 
@@ -82,15 +81,15 @@ $(instrumented): $(verilog) $(TOOL_INSTRUMNET_DPI) $(TOOL_INSTRUMENT_VPI)
 	$(TOOL_INSTRUMENT_VPI) -m $(MODEL) $<.bak2 > $@
 $(instrumented_debug): $(verilog_debug) $(TOOL_INSTRUMNET_DPI) $(TOOL_INSTRUMENT_VPI)
 	cp $< $<.bak
-	$(TOOL_INSTRUMENT_DPI)-m TileLinkTestRAM -s ram $<.bak > $<.bak2
+	$(TOOL_INSTRUMENT_DPI) -m TileLinkTestRAM -s ram $<.bak > $<.bak2
 	$(TOOL_INSTRUMENT_VPI) -m $(MODEL) $<.bak2 > $@
 
-$(emu): $(instrumented) $(chisel3test) | $(generated_dir)/$(long_name)
+$(emu): $(instrumented) $(chisel3test) $(INSTALLED_VERILATOR) | $(generated_dir)/$(long_name)
 	$(VERILATOR) $(VERILATOR_FLAGS) -Mdir $(generated_dir)/$(long_name) \
 	-o $(sim_dir)/$@ $< $(chisel3test)
 	$(MAKE) VM_PARALLEL_BUILDS=1 -C $(generated_dir)/$(long_name) -j -f V$(MODEL).mk
 
-$(emu_debug): $(verilog) $(chisel3test) | $(generated_dir)/$(long_name)
+$(emu_debug): $(instrumented) $(chisel3test) $(INSTALLED_VERILATOR) | $(generated_dir)/$(long_name)
 	$(VERILATOR) $(VERILATOR_FLAGS) -Mdir $(generated_dir)/$(long_name) --trace \
 	-o $(sim_dir)/$@ $< $(chisel3test)
 	$(MAKE) VM_PARALLEL_BUILDS=1 -C $(generated_dir)/$(long_name) -j -f V$(MODEL).mk
@@ -99,7 +98,7 @@ run: $(emu)
 	./$(emu)
 
 vcd $(generated_dir)/$(long_name)/dump.vcd: $(emu_debug)
-	./$< --trace=$(generated_dir)/$(long_name)/dump.vcd
+	./$< --trace=$(generated_dir)/$(long_name)/dump.vcd --timeout=$(TIMEOUT) --no-fail
 
 include $(DIR_TOP)/tools/common/Makefrag-submodule
 WAVES = $(DIR_TOP)/submodules/hdl-scripts/addWavesRecursive.tcl
