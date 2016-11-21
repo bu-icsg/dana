@@ -6,4 +6,4 @@
 	url = https://github.com/libfann/fann.git
 [submodule "submodules/hdl-scripts"]
 	path = submodules/hdl-scripts
-	url = git@github.ibm.com:schuyler-eldridge/hdl-scripts
+	url = ../hdl-scripts
