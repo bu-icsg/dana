@@ -29,6 +29,11 @@ struct roccCmd {
   uint64_t rs2;
 };
 
+struct roccResp {
+  unsigned rd;
+  uint64_t data;
+};
+
 class XCustom {
  private:
   int x_;

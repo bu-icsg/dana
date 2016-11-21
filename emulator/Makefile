@@ -21,7 +21,8 @@ instrumented_debug = $(generated_dir_debug)/$(long_name)-instrumented.v
 
 chisel3test = $(DIR_TOP)/src/main/resources/top.cpp \
 	$(DIR_TOP)/src/main/resources/xcustom.cpp \
-	$(DIR_TOP)/src/main/resources/xfiles_debug.cpp
+	$(DIR_TOP)/src/main/resources/xfiles_debug.cpp \
+	$(DIR_TOP)/src/main/resources/rocc_test.cpp
 
 include $(base_dir)/Makefrag
 
@@ -60,7 +61,7 @@ VERILATOR_FLAGS := --top-module $(MODEL) \
   +define+STOP_COND="!$(MODEL).reset" \
   --output-split 20000 \
   -Wno-STMTDLY --x-assign unique \
-  -O3 -CFLAGS "$(CXXFLAGS) -DVERILATOR -DTOP_TYPE=V$(MODEL) -include $(generated_dir)/$(long_name)/V$(MODEL).h -include $(base_dir)/csrc/verilator.h -I$(DIR_TOP)"
+  -O3 -CFLAGS "$(CXXFLAGS) -Werror -Wall -DVERILATOR -DTOP_TYPE=V$(MODEL) -include $(generated_dir)/$(long_name)/V$(MODEL).h -include $(base_dir)/csrc/verilator.h -I$(DIR_TOP)"
 
 # GTKWAVE -- Build this if we need it
 GTKWAVE = $(sim_dir)/gtkwave/bin/gtkwave
