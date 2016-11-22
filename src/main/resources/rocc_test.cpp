@@ -22,6 +22,8 @@ RoccTest::RoccTest(TOP_TYPE * top) {
   opts_.filename_mem = NULL;
   opts_.verbose = false;
   opts_.nofail = false;
+
+  tfp_ = NULL;
 }
 
 void RoccTest::usage(const char * name, const char * extra) {
