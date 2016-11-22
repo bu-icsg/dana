@@ -3,8 +3,8 @@
 #include <tuple>
 #include <vector>
 
-#include "src/main/resources/rocc_test.h"
-#include "src/main/resources/xfiles_debug.h"
+#include "src/test/cpp/rocc_test.h"
+#include "src/test/cpp/xfiles_debug.h"
 
 int main(int argc, char** argv) {
   Verilated::commandArgs(argc, argv);
@@ -16,9 +16,6 @@ int main(int argc, char** argv) {
   // Apply reset
   test.reset(1);
   done_reset = true;
-
-  // Load the L2 RAM
-  test.loadMemory(true);
 
   // Create all the instructions
   XFilesDebug g(0);
@@ -33,7 +30,7 @@ int main(int argc, char** argv) {
   if (test.exit_code() != 0)
     std::cerr << "[ERROR] Tests failed (count: " << test.exit_code() << ")\n";
   else
-    std::cout << "[INFO] Test passed\n";
+    if(test.isVerbose()) std::cout << "[INFO] Test passed\n";
 
   // Let the simulation run for a few more cycles
   for (int i = 0; i < tests.size(); ++i) {

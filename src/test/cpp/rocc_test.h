@@ -1,7 +1,7 @@
 // See LICENSE for license details.
 
-#ifndef SRC_MAIN_RESOURCES_ROCC_TEST_H_
-#define SRC_MAIN_RESOURCES_ROCC_TEST_H_
+#ifndef SRC_TEST_CPP_ROCC_TEST_H_
+#define SRC_TEST_CPP_ROCC_TEST_H_
 
 #include <iostream>
 #include <vector>
@@ -12,8 +12,7 @@
 #include <verilated_vcd_c.h>
 #endif
 
-#include "src/main/resources/top.h"
-#include "src/main/resources/xcustom.h"
+#include "src/test/cpp/xcustom.h"
 
 typedef struct {
   bool verbose;
@@ -74,4 +73,4 @@ class RoccTest {
   void usage(const char * name, const char * extra = NULL);
 };
 
-#endif  // SRC_MAIN_RESOURCES_ROCC_TEST_H_
+#endif  // SRC_TEST_CPP_ROCC_TEST_H_

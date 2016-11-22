@@ -1,6 +1,6 @@
 // See LICENSE for license details.
 
-#include "src/main/resources/xfiles_debug.h"
+#include "src/test/cpp/xfiles_debug.h"
 
 XFilesDebug::XFilesDebug(int x) : XCustom(x) {}
 
@@ -32,8 +32,4 @@ RoccCmd * XFilesDebug::DebugReadUtl(uint64_t a) {
 
 RoccCmd * XFilesDebug::DebugWriteUtl(int d, uint64_t a) {
   return DebugTest(a_UTL_WRITE, d, a);
-}
-
-RoccResp * XFilesDebug::RespVal(int d) {
-  return new RoccResp(1, d);
 }

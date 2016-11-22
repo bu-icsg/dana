@@ -1,7 +1,7 @@
 // See LICENSE for license details.
 
-#ifndef SRC_MAIN_RESOURCES_XCUSTOM_H_
-#define SRC_MAIN_RESOURCES_XCUSTOM_H_
+#ifndef SRC_TEST_CPP_XCUSTOM_H_
+#define SRC_TEST_CPP_XCUSTOM_H_
 
 #include <stdint.h>
 
@@ -68,6 +68,7 @@ class XCustom {
   RoccCmd * Instruction(int funct, uint64_t rs1, uint64_t rs2, int rs1_d = 1,
                         int rs2_d = 2, int rd = 0);
   RoccCmd * Unimplemented();
+  RoccResp * RespVal(int d, int rd = 1);
 };
 
-#endif  // SRC_MAIN_RESOURCES_XCUSTOM_H_
+#endif  // SRC_TEST_CPP_XCUSTOM_H_

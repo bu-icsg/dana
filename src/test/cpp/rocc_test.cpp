@@ -1,6 +1,6 @@
 // See LICENSE for license details.
 
-#include "src/main/resources/rocc_test.h"
+#include "src/test/cpp/rocc_test.h"
 
 vluint64_t main_time = 0;
 double sc_time_stamp () {
@@ -101,6 +101,7 @@ int RoccTest::parseOptions(int argc, char** argv) {
         return opts_.exit_code;
       case 'm':
         opts_.filename_mem = optarg;
+        loadMemory(opts_.filename_mem);
         break;
       case 't':
         opts_.timeout = atoi(optarg) * 2;
@@ -150,7 +151,7 @@ int RoccTest::inst(const RoccCmd & cmd) {
   }
 
   if (opts_.verbose)
-    std::cout << "[INFO] " << *main_time_ << ": Reponse latency "
+    std::cout << "[INFO] " << *main_time_ << ": Response latency "
               << response_cycles << " cycles\n";
   return got_response;
 }

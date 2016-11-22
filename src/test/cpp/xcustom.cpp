@@ -1,6 +1,6 @@
 // See LICENSE for license details.
 
-#include "src/main/resources/xcustom.h"
+#include "src/test/cpp/xcustom.h"
 
 XCustom::XCustom(int x, privilegeMode prv) {
   if (x < 0 || x > 3)
@@ -38,4 +38,8 @@ RoccCmd * XCustom::Instruction(int funct, uint64_t rs1, uint64_t rs2, int rs1_d,
 
 RoccCmd * XCustom::Unimplemented() {
   throw std::logic_error("Unimplemented function");
+}
+
+RoccResp * XCustom::RespVal(int data, int rd) {
+  return new RoccResp(rd, data);
 }

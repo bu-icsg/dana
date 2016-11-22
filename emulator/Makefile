@@ -20,11 +20,11 @@ verilog_debug = $(generated_dir_debug)/$(long_name).v
 instrumented = $(generated_dir)/$(long_name)-instrumented.v
 instrumented_debug = $(generated_dir_debug)/$(long_name)-instrumented.v
 
-TEST ?= top
-chisel3test = $(DIR_TOP)/src/main/resources/$(TEST).cpp \
-	$(DIR_TOP)/src/main/resources/xcustom.cpp \
-	$(DIR_TOP)/src/main/resources/xfiles_debug.cpp \
-	$(DIR_TOP)/src/main/resources/rocc_test.cpp
+TEST ?= t_debug
+chisel3test = $(DIR_TOP)/src/test/cpp/$(TEST).cpp \
+	$(DIR_TOP)/src/test/cpp/xcustom.cpp \
+	$(DIR_TOP)/src/test/cpp/xfiles_debug.cpp \
+	$(DIR_TOP)/src/test/cpp/rocc_test.cpp
 
 include $(base_dir)/Makefrag
 
