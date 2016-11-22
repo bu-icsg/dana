@@ -29,8 +29,8 @@ typedef struct {
 class RoccTest {
  private:
   TOP_TYPE * t_;
-  vluint64_t * main_time_; // 1/10 of a cycle
-  std::queue<roccResp> resp_;
+  vluint64_t * main_time_;
+  std::queue<RoccResp*> resp_;
   unsigned int half_;
   t_options opts_;
 #if VM_TRACE
@@ -39,6 +39,7 @@ class RoccTest {
 
  public:
   RoccTest(TOP_TYPE * top);
+  ~RoccTest();
 
   // Utility functions
   int parseOptions(int argc, char ** argv);
@@ -48,10 +49,12 @@ class RoccTest {
   int reset(unsigned int num_cycles = 1);
   int finish(unsigned int drain_cycles = 1);
   int loadMemory(bool safe = false);
-  roccResp popResp();
+  RoccResp * popResp();
 
   // RoCC Command-level functions
   int inst(const RoccCmd & cmd);
+  bool instAndCheck(const RoccCmd & cmd, const RoccResp & resp);
+  bool instAndCheck(std::vector<std::tuple<RoccCmd, RoccResp>>);
 
   // Testcase functions
   int run(std::vector<RoccCmd> &);

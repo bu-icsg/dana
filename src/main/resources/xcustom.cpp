@@ -2,18 +2,6 @@
 
 #include "src/main/resources/xcustom.h"
 
-RoccCmd::RoccCmd(roccInsnUnion inst, uint64_t rs1, uint64_t rs2) {
-  inst_ = inst;
-  rs1_ = rs1;
-  rs2_ = rs2;
-}
-
-// RoccCmd::RoccCmd(unsigned opcode, unsigned rd, unsigned xs2, unsigned xs1,
-//                  unsigned xd, unsigned rs1_a, unsigned rs2_a, unsigned funct,
-//                  uint64_t rs1, uint64_t rs2) {
-
-// }
-
 XCustom::XCustom(int x, privilegeMode prv) {
   if (x < 0 || x > 3)
     throw std::domain_error("XCustom x must be on range [0, 3]");

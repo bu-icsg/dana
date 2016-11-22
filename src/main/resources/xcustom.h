@@ -25,17 +25,26 @@ union roccInsnUnion {
 
 class RoccCmd {
  public:
-  RoccCmd(roccInsnUnion inst, uint64_t rs1, uint64_t rs2);
-
+  RoccCmd(roccInsnUnion inst, uint64_t rs1, uint64_t rs2) {
+    inst_ = inst;
+    rs1_ = rs1;
+    rs2_ = rs2;
+  }
  public:
   roccInsnUnion inst_;
   uint64_t rs1_;
   uint64_t rs2_;
 };
 
-struct roccResp {
-  unsigned rd;
-  uint64_t data;
+class RoccResp {
+ public:
+  RoccResp(unsigned rd, uint64_t data) {
+    rd_ = rd;
+    data_ = data;
+  }
+ public:
+  unsigned rd_;
+  uint64_t data_;
 };
 
 class XCustom {
@@ -47,7 +56,7 @@ class XCustom {
   XCustom(int x, privilegeMode prv = kUser);
   privilegeMode ChangePrv(privilegeMode prv);
   RoccCmd * Instruction(int funct, uint64_t rs1, uint64_t rs2, int rs1_d = 1,
-                      int rs2_d = 2, int rd = 0);
+                        int rs2_d = 2, int rd = 0);
   RoccCmd * Unimplemented();
 };
 

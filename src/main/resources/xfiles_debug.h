@@ -15,6 +15,7 @@ class XFilesDebug : public XCustom {
   RoccCmd * DebugVirtToPhys(uint64_t address);
   RoccCmd * DebugReadUtl(uint64_t address);
   RoccCmd * DebugWriteUtl(int d, uint64_t a);
+  RoccResp * RespVal(int d);
  private:
   RoccCmd * DebugTest(xfiles_debug_action_t action, int data = 0, int rd = 1,
                     uint64_t addr = 0);

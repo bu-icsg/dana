@@ -28,6 +28,17 @@ RoccTest::RoccTest(TOP_TYPE * top) {
 #endif
 }
 
+RoccTest::~RoccTest() {
+  while (resp_.size()) {
+    delete(resp_.front());
+    resp_.pop();
+  }
+  delete t_;
+#if VM_TRACE
+  if (tfp_) delete tfp_;
+#endif
+}
+
 void RoccTest::usage(const char * name, const char * extra) {
   printf("Usage: %s [OPTIONS]\n"
          "\n"
@@ -131,8 +142,8 @@ int RoccTest::inst(const RoccCmd & cmd) {
   t_->io_cmd_bits_inst_rs2    = cmd.inst_.rocc.rs2;
   t_->io_cmd_bits_inst_funct  = cmd.inst_.rocc.funct;
 
-  int response_cycles = 0;
-  while ((cmd.inst_.rocc.xd && !tick(1)) ||
+  int response_cycles = 0, got_response;
+  while ((cmd.inst_.rocc.xd && !(got_response = tick(1))) ||
          (!cmd.inst_.rocc.xd && response_cycles < 1)) {
     t_->io_cmd_valid = 0;
     response_cycles++;
@@ -141,8 +152,12 @@ int RoccTest::inst(const RoccCmd & cmd) {
   if (opts_.verbose)
     std::cout << "[INFO] " << *main_time_ << ": Reponse latency "
               << response_cycles << " cycles\n";
-  return response_cycles;
+  return got_response;
 }
+
+// bool RoccTest::instAndCheck(const RoccCmd & cmd, const roccResp & resp) {
+//   inst(cmd);
+// }
 
 int RoccTest::tick(unsigned int num_cycles, bool reset, bool debug) {
   t_->reset = reset;
@@ -158,9 +173,7 @@ int RoccTest::tick(unsigned int num_cycles, bool reset, bool debug) {
     (*main_time_)++;
 
     if (t_->io_resp_valid) {
-      roccResp resp;
-      resp.rd = t_->io_resp_bits_rd;
-      resp.data = t_->io_resp_bits_data;
+      RoccResp * resp = new RoccResp(t_->io_resp_bits_rd, t_->io_resp_bits_data);
       resp_.push(resp);
       responses++;
     }
@@ -208,11 +221,10 @@ int RoccTest::loadMemory(bool safe) {
   return 0;
 }
 
-roccResp RoccTest::popResp() {
-  roccResp resp;
+RoccResp * RoccTest::popResp() {
+  RoccResp * resp;
   if (resp_.size() == 0) {
-    resp.rd = -1;
-    return resp;
+    return NULL;
   }
 
   resp = resp_.front();

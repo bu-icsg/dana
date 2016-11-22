@@ -33,3 +33,7 @@ RoccCmd * XFilesDebug::DebugReadUtl(uint64_t a) {
 RoccCmd * XFilesDebug::DebugWriteUtl(int d, uint64_t a) {
   return DebugTest(a_UTL_WRITE, d, a);
 }
+
+RoccResp * XFilesDebug::RespVal(int d) {
+  return new RoccResp(1, d);
+}

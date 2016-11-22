@@ -63,7 +63,7 @@ VERILATOR_FLAGS := --top-module $(MODEL) \
   +define+STOP_COND=\$$c\(\"done_reset\"\) --assert \
   --output-split 20000 \
   -Wno-STMTDLY --x-assign unique \
-  -O3 -CFLAGS "$(CXXFLAGS) -Werror -Wall -DVERILATOR -DTOP_TYPE=V$(MODEL) -include $(generated_dir)/$(long_name)/V$(MODEL).h -include $(base_dir)/csrc/verilator.h -I$(DIR_TOP)"
+  -O3 -CFLAGS "$(CXXFLAGS) -g -Werror -Wall -DVERILATOR -DTOP_TYPE=V$(MODEL) -include $(generated_dir)/$(long_name)/V$(MODEL).h -include $(base_dir)/csrc/verilator.h -I$(DIR_TOP)"
 
 # GTKWAVE -- Build this if we need it
 GTKWAVE = $(sim_dir)/gtkwave/bin/gtkwave
