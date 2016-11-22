@@ -18,7 +18,7 @@ privilegeMode XCustom::ChangePrv(privilegeMode prv) {
 roccCmd XCustom::Instruction(int funct, uint64_t rs1, uint64_t rs2, int rs1_d,
                              int rs2_d, int rd) {
   roccCmd cmd;
-  roccInsn * r = &cmd.insn.rocc;
+  roccInsn * r = &cmd.inst.rocc;
   r->funct = funct;
   r->rs1 = rs1_d;
   r->rs2 = rs2_d;

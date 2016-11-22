@@ -32,6 +32,9 @@ class RoccTester[T <: RoCC](gen: => T)(implicit val p: Parameters)
   val io = IO(new Bundle {
     val cmd = Decoupled(new RoCCCommand).flip
     val resp = Decoupled(new RoCCResponse)
+    val busy = Bool(OUTPUT)
+    val interrupt = Bool(INPUT)
+    val exception = Bool(OUTPUT)
   })
   val dut = gen
 

@@ -1,6 +1,7 @@
 // See LICENSE for license details.
 
 #include "src/main/resources/rocc_test.h"
+#include "src/main/resources/xfiles_debug.h"
 
 int main(int argc, char** argv) {
   Verilated::commandArgs(argc, argv);
@@ -17,7 +18,18 @@ int main(int argc, char** argv) {
   test.loadMemory(true);
 
   // Run the simulation
-  test.run();
+  XFilesDebug * inst = new XFilesDebug(0);
+  roccCmd x = inst->DebugEchoViaReg(0xdead);
+  test.inst(x);
+  x = inst->DebugEchoViaReg(0xbeef);
+  test.inst(x);
+
+  std::cout << "[INFO] Dumping all responses\n";
+  while (test.numResp() != 0) {
+    roccResp resp = test.popResp();
+    std::cout << "[INFO] [" << resp.rd << "]: "
+              << std::hex << resp.data << "\n" << std::dec;
+  }
 
   // Let the simulation run for a few more cycles
   return test.finish();

@@ -5,6 +5,7 @@
 
 #include <iostream>
 #include <vector>
+#include <queue>
 #include <getopt.h>
 #include <verilated.h>
 #if VM_TRACE
@@ -29,7 +30,7 @@ class RoccTest {
  private:
   TOP_TYPE * t_;
   vluint64_t * main_time_; // 1/10 of a cycle
-  std::vector<roccResp> resp_;
+  std::queue<roccResp> resp_;
   unsigned int half_;
   t_options opts_;
 #if VM_TRACE
@@ -43,14 +44,14 @@ class RoccTest {
   int parseOptions(int argc, char ** argv);
 
   // Low-level operations
-  int tick(unsigned int num_cycles = 1, bool reset = false,
-           std::vector<roccResp> * resp = NULL, bool debug = false);
+  int tick(unsigned int num_cycles = 1, bool reset = false, bool debug = false);
   int reset(unsigned int num_cycles = 1);
   int finish(unsigned int drain_cycles = 1);
   int loadMemory(bool safe = false);
+  roccResp popResp();
 
   // RoCC Command-level functions
-  roccResp insn(roccCmd & cmd);
+  int inst(roccCmd & cmd);
 
   // Testcase functions
   int run(std::vector<roccCmd> &);
@@ -60,7 +61,9 @@ class RoccTest {
   int run(unsigned int num_cycles = -1);
 
   // Accessor functions
-  bool isVerbose() { return opts_.verbose; };
+  bool isVerbose()     { return opts_.verbose; };
+  int numResp()        { return resp_.size();  };
+  vluint64_t getTime() { return *main_time_;   }
 
  private:
   void usage(const char * name, const char * extra = NULL);

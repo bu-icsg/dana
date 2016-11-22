@@ -22,14 +22,6 @@ RoccTest::RoccTest(TOP_TYPE * top) {
   opts_.filename_mem = NULL;
   opts_.verbose = false;
   opts_.nofail = false;
-
-#if VM_TRACE
-  Verilated::traceEverOn(true);
-  VL_PRINTF("Enabling waves...\n");
-  tfp_ = new VerilatedVcdC;
-  t_->trace (tfp_, 99);
-  if (opts_.filename_vcd) tfp_->open(opts_.filename_vcd);
-#endif
 }
 
 void RoccTest::usage(const char * name, const char * extra) {
@@ -107,18 +99,51 @@ int RoccTest::parseOptions(int argc, char** argv) {
         return opts_.exit_code;
     }
   }
+
+#if VM_TRACE
+  Verilated::traceEverOn(true);
+  VL_PRINTF("Enabling waves...\n");
+  tfp_ = new VerilatedVcdC;
+  t_->trace (tfp_, 99);
+  if (opts_.filename_vcd) {
+    tfp_->open(opts_.filename_vcd);
+    if (verbose)
+      std::cout << "[INFO] Writing VCD file" << opts_.filename_vcd << "\n";
+  }
+#endif
+
   return opts_.exit_code;
 }
 
-// roccResp RoccTest::insn(roccCmd & cmd) {
-//   t_->io_cmd_valid = 1;
-//   t_->io_cmd_bits_rs1 = cmd.rs1;
-//   t_->io_cmd_bits_rs2 = cmd.rs2;
-// }
+int RoccTest::inst(roccCmd & cmd) {
+  t_->io_cmd_valid            = 1;
+  t_->io_cmd_bits_rs1         = cmd.rs1;
+  t_->io_cmd_bits_rs2         = cmd.rs2;
+  t_->io_cmd_bits_inst_opcode = cmd.inst.rocc.opcode;
+  t_->io_cmd_bits_inst_rd     = cmd.inst.rocc.rd;
+  t_->io_cmd_bits_inst_xs2    = cmd.inst.rocc.xs2;
+  t_->io_cmd_bits_inst_xd     = cmd.inst.rocc.xd;
+  t_->io_cmd_bits_inst_rs1    = cmd.inst.rocc.rs1;
+  t_->io_cmd_bits_inst_rs2    = cmd.inst.rocc.rs2;
+  t_->io_cmd_bits_inst_funct  = cmd.inst.rocc.funct;
 
-int RoccTest::tick(unsigned int num_cycles, bool reset,
-                   std::vector<roccResp> * resp, bool debug) {
+  int response_cycles = 0;
+  while ((cmd.inst.rocc.xd && !tick(1)) ||
+         (!cmd.inst.rocc.xd && response_cycles < 1)) {
+    t_->io_cmd_valid = 0;
+    response_cycles++;
+  }
+
+  if (opts_.verbose)
+    std::cout << "[INFO] " << *main_time_ << ": Reponse latency "
+              << response_cycles << " cycles\n";
+  return response_cycles;
+}
+
+int RoccTest::tick(unsigned int num_cycles, bool reset, bool debug) {
   t_->reset = reset;
+  int responses = 0;
+
   for (int unit = 0; unit < num_cycles; ++unit) {
     // clock low
     t_->clock = 0;
@@ -128,6 +153,17 @@ int RoccTest::tick(unsigned int num_cycles, bool reset,
 #endif
     (*main_time_)++;
 
+    if (t_->io_resp_valid) {
+      roccResp resp;
+      resp.rd = t_->io_resp_bits_rd;
+      resp.data = t_->io_resp_bits_data;
+      resp_.push(resp);
+      responses++;
+    }
+    if (t_->io_exception) {
+      std::cerr << "[INFO] Saw exception\n";
+    }
+
     // clock high
     t_->clock = 1;
     t_->eval();
@@ -135,9 +171,10 @@ int RoccTest::tick(unsigned int num_cycles, bool reset,
     if (tfp_) tfp_->dump(*main_time_);
 #endif
     (*main_time_)++;
+    t_->io_cmd_valid = 0;
   }
   t_->reset = false;
-  return 0;
+  return responses;
 }
 
 int RoccTest::reset(unsigned int num_cycles) {
@@ -167,12 +204,25 @@ int RoccTest::loadMemory(bool safe) {
   return 0;
 }
 
+roccResp RoccTest::popResp() {
+  roccResp resp;
+  if (resp_.size() == 0) {
+    resp.rd = -1;
+    return resp;
+  }
+
+  resp = resp_.front();
+  resp_.pop();
+  return resp;
+}
+
 int RoccTest::run(unsigned int num_cycles) {
   unsigned int start = *main_time_ / 2;
   unsigned int stop = num_cycles + start;
+  int num_responses = 0;
   while (!Verilated::gotFinish() && *main_time_ < opts_.timeout &&
          start++ != stop) {
-    tick(1);
+    num_responses += tick(1);
   }
 
   if (*main_time_ >= opts_.timeout) {
@@ -183,5 +233,5 @@ int RoccTest::run(unsigned int num_cycles) {
     std::cout << "[INFO] Simulation completed at time " << *main_time_ <<
         " (cycle " << *main_time_ / 2 << ")"<< endl;
   }
-  return 0;
+  return num_responses;
 }

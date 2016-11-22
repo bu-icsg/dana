@@ -4,6 +4,7 @@ ROCKETCHIP_ADDONS ?= xfiles-dana
 CONFIG ?= XFilesDanaCppPe1Epb4StandaloneConfig
 MODEL ?= XFilesTester
 TIMEOUT ?= 10000000
+EMU_FLAGS ?=
 
 base_dir = $(abspath ../..)
 DIR_TOP = $(base_dir)/xfiles-dana
@@ -96,10 +97,10 @@ $(emu_debug): $(instrumented) $(chisel3test) $(INSTALLED_VERILATOR) | $(generate
 	$(MAKE) VM_PARALLEL_BUILDS=1 -C $(generated_dir)/$(long_name) -j -f V$(MODEL).mk
 
 run: $(emu)
-	./$(emu)
+	./$(emu) $(EMU_FLAGS)
 
 vcd $(generated_dir)/$(long_name)/dump.vcd: $(emu_debug)
-	./$< --trace=$(generated_dir)/$(long_name)/dump.vcd --timeout=$(TIMEOUT) --no-fail
+	./$< $(EMU_FLAGS) --trace=$(generated_dir)/$(long_name)/dump.vcd --timeout=$(TIMEOUT) --no-fail
 
 include $(DIR_TOP)/tools/common/Makefrag-submodule
 WAVES = $(DIR_TOP)/submodules/hdl-scripts/addWavesRecursive.tcl

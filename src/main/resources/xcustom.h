@@ -24,7 +24,7 @@ union roccInsnUnion {
 };
 
 struct roccCmd {
-  roccInsnUnion insn;
+  roccInsnUnion inst;
   uint64_t rs1;
   uint64_t rs2;
 };
