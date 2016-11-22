@@ -11,9 +11,18 @@ import cde.Parameters
 
 class DebugUnitInterface(implicit p: Parameters) extends RoCCInterface
 
+trait XFilesDebugActions {
+  val a_REG          = 0
+  val a_MEM_READ     = 1
+  val a_MEM_WRITE    = 2
+  val a_VIRT_TO_PHYS = 3
+  val a_UTL_READ     = 4
+  val a_UTL_WRITE    = 5
+}
+
 class DebugUnit(id: Int = 0)(implicit p: Parameters) extends XFilesModule()(p)
   with HasTileLinkParameters {
-  val io = new DebugUnitInterface
+  val io = IO(new DebugUnitInterface)
 
   val a_ = Enum(UInt(), List('REG, 'MEM_READ, 'MEM_WRITE, 'VIRT_TO_PHYS,
     'UTL_READ, 'UTL_WRITE))
@@ -162,12 +171,12 @@ class DebugUnit(id: Int = 0)(implicit p: Parameters) extends XFilesModule()(p)
       data.data, data.wmask())
 
     (0 until tlDataBits/xLen).map(i =>
-      printfDebug("DUnit[%d]:                 | utlDataPutVec(%d): 0x%x\n",
+      printfDebug("DUnit[%d]:                   | utlDataPutVec(%d): 0x%x\n",
         UInt(id), UInt(i), utlDataPutVec(i)))
   }
 
   when (state === s_('UTL_GRANT) & io.autl.grant.fire()) {
-    printfDebug("DUnit[%d]: autl.grant.fire | data 0x%x, beat 0x%x\n",
+    printfDebug("DUnit[%d]: autl.grant.fire   | data 0x%x, beat 0x%x\n",
       UInt(id), io.autl.grant.bits.data, io.autl.grant.bits.addr_beat) }
 
   when (ptw.req.fire()) {

@@ -11,10 +11,11 @@
  *
  **********/
 #include <stdio.h>
+#include <stdlib.h>
 #include <pthread.h>
 
-#include "src/main/c/xfiles-user.h"
-#include "src/main/c/xfiles-user.c"
+#include "src/main/c/xfiles-user-pk.h"
+#include "src/main/c/xfiles-asid-nnid-table.h"
 #include "src/test/rv/dana-benchmark.h"
 
 #define DEBUG

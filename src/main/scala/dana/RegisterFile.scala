@@ -28,7 +28,7 @@ class RegisterFileState(implicit p: Parameters) extends DanaBundle()(p) {
 class RegisterFileBase[SramIf <: SRAMElementInterface](
   genSram: => Vec[SramIf])(implicit p: Parameters)
     extends DanaModule()(p) {
-  lazy val io = new RegisterFileInterface
+  lazy val io = IO(new RegisterFileInterface)
   val mem = genSram
 
   val state = Reg(Vec(transactionTableNumEntries * 2, new RegisterFileState))
@@ -188,7 +188,7 @@ class RegisterFileLearn(implicit p: Parameters) extends RegisterFileBase (
     sramDepth = pow(2, log2Up(p(RegFileNumBlocks))).toInt,
     numPorts = 1,
     elementWidth = p(ElementWidth))).io))(p) {
-  override lazy val io = new RegisterFileInterfaceLearn
+  override lazy val io = IO(new RegisterFileInterfaceLearn)
 
   val readReqType_d0 = Reg(next = io.pe.req.bits.reqType)
   io.pe.resp.bits.reqType := readReqType_d0

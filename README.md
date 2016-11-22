@@ -128,7 +128,7 @@ cd $ROCKETCHIP/xfiles-dana
 make
 ```
 
-This will build the test programs using the newlib toolchain. If you want to build using the Linux-GNU toolchain (you must first have this installed) and can run `make linux`.
+This will build the test programs using the newlib toolchain (specified by the `TARGET=riscv64-unknown-elf` Makefile variable). If you want to build using the Linux-GNU toolchain (you must first have this installed) and can run `make TARGET=riscv64-unknown-linux-gnu`.
 
 The two test programs are a hello-world program (`hello.rv`) which does not exercise X-FILES/DANA and a one-off test running gradient descent/stochatic gradient descent (`fann-xfiles.rv`) which offloads FANN computation to X-FILES/DANA. If your patched Proxy Kernel is not in its "normal" place in the `RISCV` directory, you'll need to specify a full path to it.
 

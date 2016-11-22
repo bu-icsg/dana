@@ -52,12 +52,12 @@ class SRAMElement (
   override val numPorts: Int = 1,
   val elementWidth: Int = 8
 ) extends SRAMVariant(dataWidth, sramDepth, numPorts) {
-  override lazy val io = new SRAMElementInterface(
+  override lazy val io = IO(new SRAMElementInterface(
     dataWidth = dataWidth,
     sramDepth = sramDepth,
     numPorts = numPorts,
     elementWidth = elementWidth
-  )
+  ))
 
   val elementsPerBlock = divUp(dataWidth, elementWidth)
 

@@ -1,5 +1,5 @@
 diff --git a/Makefile.in b/Makefile.in
-index b2aca28..236f2fd 100644
+index b2aca28..323e4a2 100644
 --- a/Makefile.in
 +++ b/Makefile.in
 @@ -72,11 +72,12 @@ install_exes_dir := $(INSTALLDIR)/bin
@@ -17,6 +17,15 @@ index b2aca28..236f2fd 100644
  #-------------------------------------------------------------------------
  
  # C++ compiler
+@@ -84,7 +85,7 @@ VPATH := $(addprefix $(src_dir)/, $(sprojs_enabled))
+ #  - CXXFLAGS : flags for C++ compiler (eg. -Wall,-g,-O3)
+ 
+ CC            := @CC@
+-CFLAGS        := @CFLAGS@ $(CFLAGS) -DBBL_PAYLOAD=\"$(bbl_payload)\"
++CFLAGS        := @CFLAGS@ $(CFLAGS) -DBBL_PAYLOAD=\"$(bbl_payload)\" -march=RV64IMAFDXcustom
+ COMPILE       := $(CC) -MMD -MP $(CFLAGS) \
+                  $(sprojs_include)
+ # Linker
 @@ -130,7 +131,7 @@ dist_junk += $(sprojs_mk)
  #-------------------------------------------------------------------------
  # This function is used by the subproject template to reverse the list
@@ -144,6 +153,22 @@ index a68c0d9..e9ad7e5 100644
      default:
        bad_trap();
    }
+diff --git a/machine/xfiles-supervisor.c b/machine/xfiles-supervisor.c
+new file mode 120000
+index 0000000..5b012bc
+--- /dev/null
++++ b/machine/xfiles-supervisor.c
+@@ -0,0 +1 @@
++../../../xfiles-dana/src/main/c/xfiles-supervisor.c
+\ No newline at end of file
+diff --git a/machine/xfiles-supervisor.h b/machine/xfiles-supervisor.h
+new file mode 120000
+index 0000000..1fd714e
+--- /dev/null
++++ b/machine/xfiles-supervisor.h
+@@ -0,0 +1 @@
++../../../xfiles-dana/src/main/c/xfiles-supervisor.h
+\ No newline at end of file
 diff --git a/pk/syscall.c b/pk/syscall.c
 index 85139e4..4176474 100644
 --- a/pk/syscall.c

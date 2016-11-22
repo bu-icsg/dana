@@ -59,12 +59,12 @@ class SRAM (
   //       ".LG_DEPTH(" + log2Up(sramDepth) + "))\n ")
   //   setName("sram")}
 
-  val io = new SRAMInterface(
+  val io = IO(new SRAMInterface(
     numReadPorts = numReadPorts,
     numWritePorts = numWritePorts,
     numReadWritePorts = numReadWritePorts,
     dataWidth = dataWidth,
-    sramDepth = sramDepth)
+    sramDepth = sramDepth))
   val mem = Mem(sramDepth, UInt(width = dataWidth))
 
   if (numReadWritePorts > 0) {

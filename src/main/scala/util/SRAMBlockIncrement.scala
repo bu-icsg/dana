@@ -55,11 +55,11 @@ class SRAMBlockIncrement (
   override val numPorts: Int = 1,
   val elementWidth: Int = 8
 ) extends SRAMVariant {
-  override lazy val io = new SRAMBlockIncrementInterface(
+  override lazy val io = IO(new SRAMBlockIncrementInterface(
     dataWidth = dataWidth,
     sramDepth = sramDepth,
     numPorts = numPorts,
-    elementWidth = elementWidth)
+    elementWidth = elementWidth))
 
   val elementsPerBlock = divUp(dataWidth, elementWidth)
 
@@ -115,7 +115,7 @@ class SRAMBlockIncrement (
       printf("[INFO] SramBloInc: WRITE port/inc?/fwd?/fwdInc? 0x%x/0x%x/0x%x/0x%x\n",
         UInt(i), writePending(i).inc, forwarding(i), io.inc(i))
       printf("[INFO]              DATA addr/dataOld/dataNew 0x%x/0x%x/0x%x\n",
-        writePending(i).addr, tmp1(i).asUInt, sram.io.doutR(i).asUInt) }}
+        writePending(i).addr, sram.io.doutR(i).asUInt, tmp1(i).asUInt) }}
 
   // Sequential Logic
   for (i <- 0 until numPorts) {

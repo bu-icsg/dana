@@ -5,9 +5,9 @@ from scipy import signal
 import math
 import matplotlib
 import os
-if os.system('if [[ `echo $DISPLAY` ]]; then exit 0; else exit 1; fi'):
-    print('[INFO] No X Display found')
-    matplotlib.use('Agg')
+# if os.system('if [ `echo $DISPLAY` ]; then exit 0; else exit 1; fi'):
+#     print('[INFO] No X Display found')
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import argparse
 import random

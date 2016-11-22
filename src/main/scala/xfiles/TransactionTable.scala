@@ -80,12 +80,12 @@ class RespBundle(implicit p: Parameters) extends XFilesBundle()(p) {
 
 class XFilesTransactionTable(implicit p: Parameters) extends XFilesModule()(p)
     with HasTable with XFilesResponseCodes {
-  val io = new Bundle { // The portion of the RoCCInterface this uses
+  val io = IO(new Bundle { // The portion of the RoCCInterface this uses
     val xfiles = new RoCCInterface
     val backend = (new XFilesBackendInterface).flip
     // val xfiles = new XFilesTransactionTableCmdResp
     // val backend = (new XFilesTransactionTableCmdResp).flip
-  }
+  })
   val queueSize = p(TransactionTableQueueSize)
 
   val cmd = io.xfiles.cmd

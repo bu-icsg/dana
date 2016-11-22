@@ -2,8 +2,7 @@
 
 package dana
 
-import chisel3._
-import chisel3.util._
+import Chisel._
 import cde.Parameters
 
 class ProcessingElementReq(implicit p: Parameters) extends DanaBundle()(p) {
@@ -61,7 +60,7 @@ class ProcessingElementInterfaceLearn(implicit p: Parameters)
 
 class ProcessingElement(implicit p: Parameters) extends DanaModule()(p) {
   // Interface to the PE Table
-  lazy val io = new ProcessingElementInterface
+  lazy val io = IO(new ProcessingElementInterface)
 
   // Activation Function module
   lazy val af = Module(new ActivationFunction)
@@ -204,7 +203,7 @@ class ProcessingElement(implicit p: Parameters) extends DanaModule()(p) {
 
 class ProcessingElementLearn(implicit p: Parameters)
     extends ProcessingElement()(p) {
-  override lazy val io = new ProcessingElementInterfaceLearn
+  override lazy val io = IO(new ProcessingElementInterfaceLearn)
   override lazy val af = Module(new ActivationFunctionLearn)
 
   val weightWB        = Reg(Vec(elementsPerBlock, SInt(width=elementWidth)))

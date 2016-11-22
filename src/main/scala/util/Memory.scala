@@ -11,7 +11,7 @@ class MemoryInterface(implicit p: Parameters) extends DanaBundle()(p) {
 }
 
 class Memory(implicit p: Parameters) extends DanaModule()(p) {
-  val io = new MemoryInterface
+  val io = IO(new MemoryInterface)
 
   // The output is connected, but does not do anything. So, these
   // values are just set to defaults.

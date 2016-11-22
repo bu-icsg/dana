@@ -301,7 +301,7 @@ class DanaTransactionTableBase[StateType <: TransactionState,
   genStateVec: => Vec[StateType], genControlReq: => ControlReqType)(
   implicit p: Parameters) extends DanaModule()(p) with HasTable
     with XFilesResponseCodes {
-  lazy val io = new DanaTransactionTableInterface
+  lazy val io = IO(new DanaTransactionTableInterface)
 
   // IO aliases
   // val cmd = new DanaBundle {
@@ -468,11 +468,25 @@ class DanaTransactionTableBase[StateType <: TransactionState,
     entryArbiter.io.in(i).valid := isValid && isNotWaiting &&
       noRequestLastCycle &&
       ((readyCache && cacheWorkToDo) || (readyPeTable && peWorkToDo))
-    // The other data connections are just aliases to the contents of
-    // the specific table entry
-    entryArbiter.io.in(i).bits := table(i)
-    entryArbiter.io.in(i).bits.isDone := table(i).decInUse
-    entryArbiter.io.in(i).bits.tableIndex := UInt(i)
+    // All connections here are explicit as these are not bundles of
+    // the same type
+    entryArbiter.io.in(i).bits.cacheValid := table(i).cacheValid
+    entryArbiter.io.in(i).bits.waiting := table(i).waiting
+    entryArbiter.io.in(i).bits.needsLayerInfo := table(i).needsLayerInfo
+    entryArbiter.io.in(i).bits.isDone := table(i).decInUse // TODO: Different
+    entryArbiter.io.in(i).bits.inFirst := table(i).inFirst
+    entryArbiter.io.in(i).bits.inLast := table(i).inLast
+    entryArbiter.io.in(i).bits.tableIndex := UInt(i) // TODO: Different
+    entryArbiter.io.in(i).bits.cacheIndex := table(i).cacheIndex
+    entryArbiter.io.in(i).bits.asid := table(i).asid
+    entryArbiter.io.in(i).bits.nnid := table(i).nnid
+    entryArbiter.io.in(i).bits.currentNodeInLayer := table(i).currentNodeInLayer
+    entryArbiter.io.in(i).bits.currentLayer := table(i).currentLayer
+    entryArbiter.io.in(i).bits.neuronPointer := table(i).neuronPointer
+    entryArbiter.io.in(i).bits.decimalPoint := table(i).decimalPoint
+    entryArbiter.io.in(i).bits.regFileAddrIn := table(i).regFileAddrIn
+    entryArbiter.io.in(i).bits.regFileAddrOut := table(i).regFileAddrOut
+    entryArbiter.io.in(i).bits.regFileLocationBit := table(i).regFileLocationBit
   }
 
   // Input/Output arbitration happens separately from arbitration
@@ -658,8 +672,9 @@ class DanaTransactionTableBase[StateType <: TransactionState,
 
   // Temporary printfs and assertions
   when (io.arbiter.xfReq.tidx.fire()) {
-    printfInfo("DANA TTable: XF scheduled tidx 0d%d\n",
-      io.arbiter.xfReq.tidx.bits)
+    val idx = io.arbiter.xfReq.tidx.bits
+    printfInfo("DANA TTable: XF scheduled tidx 0d%d (ASID:0x%x/TID:0x%x)\n",
+      idx, table(idx).asid, table(idx).tid)
   }
 
   when (io.arbiter.xfResp.tidx.fire()) {
@@ -764,7 +779,7 @@ class DanaTransactionTableLearn(implicit p: Parameters)
     extends DanaTransactionTableBase[TransactionStateLearn, ControlReqLearn](
   Vec(p(TransactionTableNumEntries), new TransactionStateLearn),
     new ControlReqLearn)(p) {
-  override lazy val io = new DanaTransactionTableInterfaceLearn
+  override lazy val io = IO(new DanaTransactionTableInterfaceLearn)
 
   when (io.arbiter.xfReq.tidx.fire()) {
     val tidx = io.arbiter.xfReq.tidx.bits
@@ -1129,8 +1144,9 @@ class DanaTransactionTableLearn(implicit p: Parameters)
 
   for (i <- 0 until transactionTableNumEntries) {
     entryArbiter.io.in(i).bits.globalWtptr := table(i).globalWtptr
+    entryArbiter.io.in(i).bits.inLastEarly := table(i).inLastEarly
     entryArbiter.io.in(i).bits.transactionType := table(i).transactionType
-    entryArbiter.io.in(i).bits.batchFirst := table(i).curBatchItem === UInt(0)
+    entryArbiter.io.in(i).bits.stateLearn := table(i).stateLearn
     entryArbiter.io.in(i).bits.errorFunction := table(i).errorFunction
     entryArbiter.io.in(i).bits.learningRate := table(i).learningRate
     entryArbiter.io.in(i).bits.lambda := table(i).lambda
@@ -1139,8 +1155,7 @@ class DanaTransactionTableLearn(implicit p: Parameters)
     entryArbiter.io.in(i).bits.regFileAddrSlope := table(i).regFileAddrSlope
     entryArbiter.io.in(i).bits.regFileAddrBias := table(i).biasAddr
     entryArbiter.io.in(i).bits.regFileAddrAux := table(i).regFileAddrAux
-    entryArbiter.io.in(i).bits.stateLearn := table(i).stateLearn
-    entryArbiter.io.in(i).bits.inLastEarly := table(i).inLastEarly
+    entryArbiter.io.in(i).bits.batchFirst := table(i).curBatchItem === UInt(0)
   }
 
   when (isPeReq) {

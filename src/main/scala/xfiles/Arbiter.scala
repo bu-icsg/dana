@@ -14,7 +14,7 @@ class XFilesArbiterInterface(implicit p: Parameters) extends Bundle {
 
 class XFilesArbiter(genInfo: => UInt)(implicit p: Parameters)
     extends XFilesModule()(p) with XFilesSupervisorRequests {
-  val io = new XFilesArbiterInterface
+  val io = IO(new XFilesArbiterInterface)
 
   val asidUnit = Module(new AsidUnit).io
   val tTable = Module(new XFilesTransactionTable).io

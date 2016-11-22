@@ -5,7 +5,7 @@
 # file.
 
 TEST=fann-xfiles
-PK=pk-xfiles
+PK ?= pk
 NETS_PATTERN=xorSigmoid \
 	xorSigmoidSymmetric \
 	xorSigmoidSymmetricPair \

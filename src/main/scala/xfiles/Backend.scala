@@ -23,7 +23,7 @@ class XFilesBackendReq(implicit p: Parameters) extends XFilesBundle()(p) {
 
 class XFilesBackendResp(implicit p: Parameters) extends XFilesBundle()(p) {
   val tidx = Valid(UInt(OUTPUT, width = log2Up(transactionTableNumEntries)))
-  val flags = (new Bundle with FlagsVDIO).asOutput
+  val flags = Output(new Bundle with FlagsVDIO)
 }
 
 // class XFilesRs1Rs2Funct(implicit p: Parameters) extends XFilesBundle()(p) {
@@ -59,5 +59,5 @@ class XFilesBackendInterface(implicit p: Parameters)
 }
 
 class XFilesBackend(implicit p: Parameters) extends XFilesModule()(p) {
-  val io = new XFilesBackendInterface
+  val io = IO(new XFilesBackendInterface)
 }

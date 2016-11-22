@@ -2,68 +2,61 @@
 
 SUBMODULE_FANN=$(DIR_TOP)/submodules/fann/.git
 SUBMODULE_VERILOG=$(DIR_TOP)/submodules/verilog/.git
+SUBMODULE_HDL_SCRIPTS=$(DIR_TOP)/submodules/hdl-scripts/.git
 
-.PRECIOUS: $(SUBMODULE_FANN) $(SUBMODULE_VERILOG)
+.PRECIOUS: $(SUBMODULE_FANN) $(SUBMODULE_VERILOG) $(SUBMODULES_HDL_SCRIPTS)
 
 # Grab submodules
 $(DIR_TOP)/submodules/%/.git:
 	git submodule update --init $(DIR_TOP)/submodules/$*
 
 # Makefile for building host and RISC-V targets of FANN
-$(DIR_BUILD)/fann/lib%: | $(DIR_BUILD)/fann $(SUBMODULE_FANN)
-	cd $(DIR_BUILD)/fann && \
-	cmake -DCMAKE_LIBRARY_OUTPUT_DIRECTORY=\
-	$(abspath $(DIR_BUILD)/fann) \
-	cmake -DCMAKE_ARCHIVE_OUTPUT_DIRECTORY=\
-	$(abspath $(DIR_BUILD)/fann) \
+dir_host = $(DIR_BUILD)/fann/host
+cmake_flags_host = -DCMAKE_LIBRARY_OUTPUT_DIRECTORY=$(dir_host) \
+	-DCMAKE_ARCHIVE_OUTPUT_DIRECTORY=$(dir_host) \
 	-DCMAKE_C_FLAGS="-DFANN_NO_SEED" \
-	-DCMAKE_CXX_FLAGS="-DFANN_NO_SEED" \
-	../../submodules/fann && \
+	-DCMAKE_CXX_FLAGS="-DFANN_NO_SEED"
+$(dir_host)/lib%: | $(dir_host) $(SUBMODULE_FANN)
+	cd $(dir_host) && \
+	cmake $(cmake_flags_host) $(DIR_TOP)/submodules/fann &&\
 	$(MAKE)
 
 # Newer versions of FANN includes additional tests which newlib cannot
 # build. Hence, this target is set to ignore all build errors. This is
 # dangerous, but I don't see a way around it without me putting a fix
 # in FANN.
-$(DIR_BUILD)/fann-rv-newlib/lib%: | $(DIR_BUILD)/fann-rv-newlib $(SUBMODULE_FANN)
-	cd $(DIR_BUILD)/fann-rv-newlib && \
-	cmake -DCMAKE_ARCHIVE_OUTPUT_DIRECTORY=\
-	$(abspath $(DIR_BUILD)/fann-rv-newlib) \
-	-DPKGCONFIG_INSTALL_DIR=$(abspath $(DIR_BUILD)/fann-rv-newlib) \
-	-DINCLUDE_INSTALL_DIR=$(abspath $(DIR_BUILD)/fann-rv-newlib) \
-	-DLIB_INSTALL_DIR=$(abspath $(DIR_BUILD)/fann-rv-newlib) \
-	-DCMAKE_CONFIG_DIR=$(abspath $(DIR_BUILD)/fann-rv-newlib) \
-	-DCMAKE_CURRENT_BINARY_DIR=$(abspath $(DIR_BUILD)/fann-rv-newlib) \
-	-DCMAKE_C_COMPILER=$(RV_CC) \
-	-DCMAKE_CXX_COMPILER=$(RV_CXX) \
+dir_newlib = $(DIR_BUILD)/fann/riscv64-unknown-elf
+cmake_flags_newlib = -DCMAKE_ARCHIVE_OUTPUT_DIRECTORY=$(dir_newlib) \
+	-DPKGCONFIG_INSTALL_DIR=$(dir_newlib) \
+	-DINCLUDE_INSTALL_DIR=$(dir_newlib) \
+	-DLIB_INSTALL_DIR=$(dir_newlib) \
+	-DCMAKE_CONFIG_DIR=$(dir_newlib) \
+	-DCMAKE_CURRENT_BINARY_DIR=$(dir_newlib) \
+	-DCMAKE_C_COMPILER=$(CC) \
+	-DCMAKE_CXX_COMPILER=$(CXX) \
 	-DCMAKE_SYSTEM_NAME=Generic \
 	-DDISABLE_PARALLEL_FANN=1 \
-	-DBUILD_SHARED_LIBS=OFF \
-	../../submodules/fann && \
+	-DBUILD_SHARED_LIBS=OFF
+$(dir_newlib)/libfann.a $(dir_newlib)/libfixedfann.a $(dir_newlib)/libdoublefann.a $(dir_newlib)/libfloatfann.a: | $(dir_newlib) $(SUBMODULE_FANN)
+	cd $(dir_newlib) && \
+	cmake $(cmake_flags_newlib) $(DIR_TOP)/submodules/fann &&\
 	$(MAKE) -k || true
 
-$(DIR_BUILD)/fann-rv-linux/lib%: | $(DIR_BUILD)/fann-rv-linux $(SUBMODULE_FANN)
-	cd $(DIR_BUILD)/fann-rv-linux && \
-	cmake -DCMAKE_ARCHIVE_OUTPUT_DIRECTORY=\
-	$(abspath $(DIR_BUILD)/fann-rv-linux) \
-	cmake -DCMAKE_LIBRARY_OUTPUT_DIRECTORY=\
-	$(abspath $(DIR_BUILD)/fann-rv-linux) \
-	-DPKGCONFIG_INSTALL_DIR=$(abspath $(DIR_BUILD)/fann-rv-linux) \
-	-DINCLUDE_INSTALL_DIR=$(abspath $(DIR_BUILD)/fann-rv-linux) \
-	-DLIB_INSTALL_DIR=$(abspath $(DIR_BUILD)/fann-rv-linux) \
-	-DCMAKE_CONFIG_DIR=$(abspath $(DIR_BUILD)/fann-rv-linux) \
-	-DCMAKE_CURRENT_BINARY_DIR=$(abspath $(DIR_BUILD)/fann-rv-linux) \
-	-DCMAKE_C_COMPILER=$(RV_CC_LINUX) \
-	-DCMAKE_CXX_COMPILER=$(RV_CXX_LINUX) \
-	-DDISABLE_PARALLEL_FANN=1 \
-	../../submodules/fann \
-	&& $(MAKE)
+dir_linux = $(DIR_BUILD)/fann/riscv64-unknown-linux-gnu
+cmake_flags_linux = -DCMAKE_ARCHIVE_OUTPUT_DIRECTORY=$(dir_linux) \
+	-DCMAKE_LIBRARY_OUTPUT_DIRECTORY=$(dir_linux) \
+	-DPKGCONFIG_INSTALL_DIR=$(dir_linux) \
+	-DINCLUDE_INSTALL_DIR=$(dir_linux) \
+	-DLIB_INSTALL_DIR=$(dir_linux) \
+	-DCMAKE_CONFIG_DIR=$(dir_linux) \
+	-DCMAKE_CURRENT_BINARY_DIR=$(dir_linux) \
+	-DCMAKE_C_COMPILER=$(CC) \
+	-DCMAKE_CXX_COMPILER=$(CXX) \
+	-DDISABLE_PARALLEL_FANN=1
+$(dir_linux)/libfann.a $(dir_linux)/libfixedfann.a $(dir_linux)/libdoublefann.a $(dir_linux)/libfloatfann.a: | $(dir_linux) $(SUBMODULE_FANN)
+	cd $(dir_linux) && \
+	cmake $(cmake_flags_linux) $(DIR_TOP)/submodules/fann && \
+	$(MAKE)
 
-$(DIR_BUILD)/fann:
-	mkdir -p $@
-
-$(DIR_BUILD)/fann-rv-newlib:
-	mkdir -p $@
-
-$(DIR_BUILD)/fann-rv-linux:
+$(dir_host) $(dir_newlib) $(dir_linux):
 	mkdir -p $@
