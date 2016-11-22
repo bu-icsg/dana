@@ -20,8 +20,9 @@ verilog_debug = $(generated_dir_debug)/$(long_name).v
 instrumented = $(generated_dir)/$(long_name)-instrumented.v
 instrumented_debug = $(generated_dir_debug)/$(long_name)-instrumented.v
 
-chisel3test = $(DIR_TOP)/src/main/resources/top.cpp \
-	$(DIR_TOP)/src/main/resources/xcustom.cpp \
+TEST ?= top
+toptest = $(DIR_TOP)/src/main/resources/$(TEST).cpp
+chisel3test = $(DIR_TOP)/src/main/resources/xcustom.cpp \
 	$(DIR_TOP)/src/main/resources/xfiles_debug.cpp \
 	$(DIR_TOP)/src/main/resources/rocc_test.cpp
 
@@ -33,8 +34,8 @@ CXXSRCS := emulator SimDTM
 CXXFLAGS := $(CXXFLAGS) -std=c++11 -I$(RISCV)/include
 LDFLAGS := $(LDFLAGS) -L$(RISCV)/lib -Wl,-rpath,$(RISCV)/lib -L$(abspath $(sim_dir)) -lfesvr -lpthread
 
-emu = emulator-$(PROJECT)-$(CONFIG)
-emu_debug = emulator-$(PROJECT)-$(CONFIG)-debug
+emu = emulator-$(TEST)-$(PROJECT)-$(CONFIG)
+emu_debug = emulator-$(TEST)-$(PROJECT)-$(CONFIG)-debug
 
 .PHONY: all emulator emulator-debug firrtl go-for-it run vcd verilator verilog
 
@@ -86,14 +87,14 @@ $(instrumented_debug): $(verilog_debug) $(TOOL_INSTRUMNET_DPI) $(TOOL_INSTRUMENT
 	$(TOOL_INSTRUMENT_DPI) -m TileLinkTestRAM -s ram $<.bak > $<.bak2
 	$(TOOL_INSTRUMENT_VPI) -m $(MODEL) $<.bak2 > $@
 
-$(emu): $(instrumented) $(chisel3test) $(INSTALLED_VERILATOR) | $(generated_dir)/$(long_name)
+$(emu): $(instrumented) $(toptest) $(chisel3test) $(INSTALLED_VERILATOR) | $(generated_dir)/$(long_name)
 	$(VERILATOR) $(VERILATOR_FLAGS) -Mdir $(generated_dir)/$(long_name) \
-	-o $(sim_dir)/$@ $< $(chisel3test)
+	-o $(sim_dir)/$@ $< $(toptest) $(chisel3test)
 	$(MAKE) VM_PARALLEL_BUILDS=1 -C $(generated_dir)/$(long_name) -j -f V$(MODEL).mk
 
-$(emu_debug): $(instrumented) $(chisel3test) $(INSTALLED_VERILATOR) | $(generated_dir)/$(long_name)
+$(emu_debug): $(instrumented) $(toptest) $(chisel3test) $(INSTALLED_VERILATOR) | $(generated_dir)/$(long_name)
 	$(VERILATOR) $(VERILATOR_FLAGS) -Mdir $(generated_dir)/$(long_name) --trace \
-	-o $(sim_dir)/$@ $< $(chisel3test)
+	-o $(sim_dir)/$@ $< $(toptest) $(chisel3test)
 	$(MAKE) VM_PARALLEL_BUILDS=1 -C $(generated_dir)/$(long_name) -j -f V$(MODEL).mk
 
 run: $(emu)
