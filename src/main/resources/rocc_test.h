@@ -34,7 +34,7 @@ class RoccTest {
   unsigned int half_;
   t_options opts_;
 #if VM_TRACE
-  VerilatedVcdC* tfp_;
+  VerilatedVcdC * tfp_;
 #endif
 
  public:

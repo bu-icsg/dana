@@ -23,7 +23,9 @@ RoccTest::RoccTest(TOP_TYPE * top) {
   opts_.verbose = false;
   opts_.nofail = false;
 
+#if VM_TRACE
   tfp_ = NULL;
+#endif
 }
 
 void RoccTest::usage(const char * name, const char * extra) {
