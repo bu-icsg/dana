@@ -89,7 +89,7 @@ int RoccTest::parseOptions(int argc, char** argv) {
         std::cerr <<
             "[ERROR] Trace unsupported. Verilator needs the `--trace` arg to build an\n"
             "[ERROR]   executable that can emit VCD files (use `make debug`).\n";
-        opts_.exit_code = 3;
+        opts_.exit_code = -3;
         return opts_.exit_code;
 #endif
       case 'd':
@@ -97,7 +97,7 @@ int RoccTest::parseOptions(int argc, char** argv) {
         break;
       case 'h':
         usage(argv[0]);
-        opts_.exit_code = 1;
+        opts_.exit_code = 0;
         return opts_.exit_code;
       case 'm':
         opts_.filename_mem = optarg;
@@ -110,7 +110,7 @@ int RoccTest::parseOptions(int argc, char** argv) {
         break;
       default:
         printf("[ERROR] Bad command line option %d (%c)\n", c, c);
-        opts_.exit_code = 2;
+        opts_.exit_code = -2;
         return opts_.exit_code;
     }
   }
@@ -155,9 +155,24 @@ int RoccTest::inst(const RoccCmd & cmd) {
   return got_response;
 }
 
-// bool RoccTest::instAndCheck(const RoccCmd & cmd, const roccResp & resp) {
-//   inst(cmd);
-// }
+bool RoccTest::instAndCheck(const RoccCmd & cmd, const RoccResp & resp) {
+  if (inst(cmd) != 1) return false;
+  const RoccResp * r = popResp();
+  opts_.exit_code += resp != *r;
+  delete r;
+  return opts_.exit_code;
+}
+
+bool RoccTest::instAndCheck(const std::tuple<RoccCmd*, RoccResp*> & t) {
+  return instAndCheck(*std::get<0>(t), *std::get<1>(t));
+}
+
+bool RoccTest::instAndCheck(const std::vector<std::tuple<RoccCmd*, RoccResp*>> & t) {
+  bool pass = true;
+  for (int i = 0; i < t.size(); ++i)
+    pass &= instAndCheck(t[i]);
+  return pass;
+}
 
 int RoccTest::tick(unsigned int num_cycles, bool reset, bool debug) {
   t_->reset = reset;

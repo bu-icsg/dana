@@ -54,7 +54,8 @@ class RoccTest {
   // RoCC Command-level functions
   int inst(const RoccCmd & cmd);
   bool instAndCheck(const RoccCmd & cmd, const RoccResp & resp);
-  bool instAndCheck(std::vector<std::tuple<RoccCmd, RoccResp>>);
+  bool instAndCheck(const std::tuple<RoccCmd*, RoccResp*> & t);
+  bool instAndCheck(const std::vector<std::tuple<RoccCmd*, RoccResp*>> & t);
 
   // Testcase functions
   int run(std::vector<RoccCmd> &);
@@ -64,9 +65,10 @@ class RoccTest {
   int run(unsigned int num_cycles = -1);
 
   // Accessor functions
-  bool isVerbose()     { return opts_.verbose; };
-  int numResp()        { return resp_.size();  };
-  vluint64_t getTime() { return *main_time_;   }
+  bool isVerbose()     { return opts_.verbose;   }
+  int numResp()        { return resp_.size();    }
+  vluint64_t getTime() { return *main_time_;     }
+  int exit_code()      { return opts_.exit_code; }
 
  private:
   void usage(const char * name, const char * extra = NULL);

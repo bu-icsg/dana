@@ -22,25 +22,18 @@ int main(int argc, char** argv) {
 
   // Create all the instructions
   XFilesDebug g(0);
-  std::vector<std::tuple<RoccCmd*, RoccResp*>> tests;
-  tests.push_back(std::make_tuple(g.DebugEchoViaReg(0xdead), g.RespVal(0xdead)));
-  tests.push_back(std::make_tuple(g.DebugEchoViaReg(0xbeef), g.RespVal(0xbeef)));
-  tests.push_back(std::make_tuple(g.DebugWriteUtl(0xf00d, 0x20), g.RespVal(0x0)));
-  tests.push_back(std::make_tuple(g.DebugReadUtl(0x20), g.RespVal(0xf00d)));
+  std::vector<std::tuple<RoccCmd*, RoccResp*>> tests = {
+    std::make_tuple(g.DebugEchoViaReg(0xdead), g.RespVal(0xdead)),
+    std::make_tuple(g.DebugWriteUtl(0xf00d, 0x20), g.RespVal(0x0)),
+    std::make_tuple(g.DebugReadUtl(0x20), g.RespVal(0xf00d))
+  };
 
   // Run the tests
-  for (int i = 0; i < tests.size(); ++i) {
-    test.inst(*std::get<0>(tests[i]));
-  }
-
-  // Print the responses
-  std::cout << "[INFO] Dumping all responses\n";
-  while (test.numResp() != 0) {
-    RoccResp * resp = test.popResp();
-    std::cout << "[INFO] [" << resp->rd_ << "]: "
-              << std::hex << resp->data_ << "\n" << std::dec;
-    delete resp;
-  }
+  test.instAndCheck(tests);
+  if (test.exit_code() != 0)
+    std::cerr << "[ERROR] Tests failed (count: " << test.exit_code() << ")\n";
+  else
+    std::cout << "[INFO] Test passed\n";
 
   // Let the simulation run for a few more cycles
   for (int i = 0; i < tests.size(); ++i) {

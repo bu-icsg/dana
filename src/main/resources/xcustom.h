@@ -42,6 +42,16 @@ class RoccResp {
     rd_ = rd;
     data_ = data;
   }
+  bool operator== (const RoccResp &b) const {
+    bool same = this->rd_ == b.rd_;
+    same &= (this->data_ == b.data_);
+    return same;
+  }
+  bool operator!= (const RoccResp&b) const {
+    bool same = this->rd_ != b.rd_;
+    same |= (this->data_ != b.data_);
+    return same;
+  }
  public:
   unsigned rd_;
   uint64_t data_;
