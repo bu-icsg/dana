@@ -9,14 +9,14 @@
 class XFilesDebug : public XCustom {
  public:
   XFilesDebug(int x = 0);
-  roccCmd DebugEchoViaReg(int data);
-  roccCmd DebugReadMem(uint64_t address);
-  roccCmd DebugWriteMem(int data, uint64_t address);
-  roccCmd DebugVirtToPhys(uint64_t address);
-  roccCmd DebugReadUtl(uint64_t address);
-  roccCmd DebugWriteUtl(int d, uint64_t a);
+  RoccCmd * DebugEchoViaReg(int data);
+  RoccCmd * DebugReadMem(uint64_t address);
+  RoccCmd * DebugWriteMem(int data, uint64_t address);
+  RoccCmd * DebugVirtToPhys(uint64_t address);
+  RoccCmd * DebugReadUtl(uint64_t address);
+  RoccCmd * DebugWriteUtl(int d, uint64_t a);
  private:
-  roccCmd DebugTest(xfiles_debug_action_t action, int data = 0, int rd = 1,
+  RoccCmd * DebugTest(xfiles_debug_action_t action, int data = 0, int rd = 1,
                     uint64_t addr = 0);
 };
 

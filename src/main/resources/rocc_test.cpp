@@ -119,21 +119,21 @@ int RoccTest::parseOptions(int argc, char** argv) {
   return opts_.exit_code;
 }
 
-int RoccTest::inst(roccCmd & cmd) {
+int RoccTest::inst(const RoccCmd & cmd) {
   t_->io_cmd_valid            = 1;
-  t_->io_cmd_bits_rs1         = cmd.rs1;
-  t_->io_cmd_bits_rs2         = cmd.rs2;
-  t_->io_cmd_bits_inst_opcode = cmd.inst.rocc.opcode;
-  t_->io_cmd_bits_inst_rd     = cmd.inst.rocc.rd;
-  t_->io_cmd_bits_inst_xs2    = cmd.inst.rocc.xs2;
-  t_->io_cmd_bits_inst_xd     = cmd.inst.rocc.xd;
-  t_->io_cmd_bits_inst_rs1    = cmd.inst.rocc.rs1;
-  t_->io_cmd_bits_inst_rs2    = cmd.inst.rocc.rs2;
-  t_->io_cmd_bits_inst_funct  = cmd.inst.rocc.funct;
+  t_->io_cmd_bits_rs1         = cmd.rs1_;
+  t_->io_cmd_bits_rs2         = cmd.rs2_;
+  t_->io_cmd_bits_inst_opcode = cmd.inst_.rocc.opcode;
+  t_->io_cmd_bits_inst_rd     = cmd.inst_.rocc.rd;
+  t_->io_cmd_bits_inst_xs2    = cmd.inst_.rocc.xs2;
+  t_->io_cmd_bits_inst_xd     = cmd.inst_.rocc.xd;
+  t_->io_cmd_bits_inst_rs1    = cmd.inst_.rocc.rs1;
+  t_->io_cmd_bits_inst_rs2    = cmd.inst_.rocc.rs2;
+  t_->io_cmd_bits_inst_funct  = cmd.inst_.rocc.funct;
 
   int response_cycles = 0;
-  while ((cmd.inst.rocc.xd && !tick(1)) ||
-         (!cmd.inst.rocc.xd && response_cycles < 1)) {
+  while ((cmd.inst_.rocc.xd && !tick(1)) ||
+         (!cmd.inst_.rocc.xd && response_cycles < 1)) {
     t_->io_cmd_valid = 0;
     response_cycles++;
   }

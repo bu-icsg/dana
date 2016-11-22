@@ -23,10 +23,14 @@ union roccInsnUnion {
   uint32_t raw;
 };
 
-struct roccCmd {
-  roccInsnUnion inst;
-  uint64_t rs1;
-  uint64_t rs2;
+class RoccCmd {
+ public:
+  RoccCmd(roccInsnUnion inst, uint64_t rs1, uint64_t rs2);
+
+ public:
+  roccInsnUnion inst_;
+  uint64_t rs1_;
+  uint64_t rs2_;
 };
 
 struct roccResp {
@@ -42,9 +46,9 @@ class XCustom {
  public:
   XCustom(int x, privilegeMode prv = kUser);
   privilegeMode ChangePrv(privilegeMode prv);
-  roccCmd Instruction(int funct, uint64_t rs1, uint64_t rs2, int rs1_d = 1,
+  RoccCmd * Instruction(int funct, uint64_t rs1, uint64_t rs2, int rs1_d = 1,
                       int rs2_d = 2, int rd = 0);
-  roccCmd Unimplemented();
+  RoccCmd * Unimplemented();
 };
 
 #endif  // SRC_MAIN_RESOURCES_XCUSTOM_H_

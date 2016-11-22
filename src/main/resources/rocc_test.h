@@ -51,10 +51,10 @@ class RoccTest {
   roccResp popResp();
 
   // RoCC Command-level functions
-  int inst(roccCmd & cmd);
+  int inst(const RoccCmd & cmd);
 
   // Testcase functions
-  int run(std::vector<roccCmd> &);
+  int run(std::vector<RoccCmd> &);
   int run(void *);
 
   // Blindly run until the end

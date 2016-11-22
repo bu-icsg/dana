@@ -18,26 +18,16 @@ int main(int argc, char** argv) {
   test.loadMemory(true);
 
   // Run the simulation
-  XFilesDebug * inst = new XFilesDebug(0);
-  roccCmd x = inst->DebugEchoViaReg(0xdead);
-  test.inst(x);
-  x = inst->DebugEchoViaReg(0xbeef);
-  test.inst(x);
+  XFilesDebug inst(0);
+  test.inst(*inst.DebugEchoViaReg(0xdead));
+  test.inst(*inst.DebugEchoViaReg(0xbeef));
 
-  // x = inst->DebugReadMem(0);
-  // test.inst(x);
+  // test.inst(*inst.DebugReadMem(0));
+  // test.inst(*inst.DebugWriteMem(0, 0));
+  // test.inst(*inst.DebugVirtToPhys(0));
 
-  // x = inst->DebugWriteMem(0, 0);
-  // test.inst(x);
-
-  // x = inst->DebugVirtToPhys(0);
-  // test.inst(x);
-
-  x = inst->DebugWriteUtl(0xf00d, 0x20);
-  test.inst(x);
-
-  x = inst->DebugReadUtl(0x20);
-  test.inst(x);
+  test.inst(*inst.DebugWriteUtl(0xf00d, 0x20));
+  test.inst(*inst.DebugReadUtl(0x20));
 
   std::cout << "[INFO] Dumping all responses\n";
   while (test.numResp() != 0) {
