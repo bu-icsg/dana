@@ -59,7 +59,7 @@ LDFLAGS := $(LDFLAGS)
 VERILATOR := $(INSTALLED_VERILATOR) --cc --exe
 VERILATOR_FLAGS := --top-module $(MODEL) \
   +define+PRINTF_COND=\$$c\(\"verbose\",\"\&\&\"\,\"done_reset\"\) \
-  +define+STOP_COND="!$(MODEL).reset" \
+  +define+STOP_COND=\$$c\(\"done_reset\"\) --assert \
   --output-split 20000 \
   -Wno-STMTDLY --x-assign unique \
   -O3 -CFLAGS "$(CXXFLAGS) -Werror -Wall -DVERILATOR -DTOP_TYPE=V$(MODEL) -include $(generated_dir)/$(long_name)/V$(MODEL).h -include $(base_dir)/csrc/verilator.h -I$(DIR_TOP)"

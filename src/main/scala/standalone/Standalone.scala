@@ -39,7 +39,7 @@ class RoccTester[T <: RoCC](gen: => T)(implicit val p: Parameters)
   val dut = gen
 
   // Memory Honeypot
-  val mem = Module(new HoneyPot(name="Memory", fatal=false))
+  val mem = Module(new HoneyPot(name="Memory"))
   mem.io.req.valid := dut.io.mem.req.valid
   dut.io.mem.req.ready := mem.io.req.ready
   dut.io.mem.resp.valid := mem.io.resp.valid

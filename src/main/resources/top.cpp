@@ -24,6 +24,21 @@ int main(int argc, char** argv) {
   x = inst->DebugEchoViaReg(0xbeef);
   test.inst(x);
 
+  // x = inst->DebugReadMem(0);
+  // test.inst(x);
+
+  // x = inst->DebugWriteMem(0, 0);
+  // test.inst(x);
+
+  // x = inst->DebugVirtToPhys(0);
+  // test.inst(x);
+
+  x = inst->DebugWriteUtl(0xf00d, 0x20);
+  test.inst(x);
+
+  x = inst->DebugReadUtl(0x20);
+  test.inst(x);
+
   std::cout << "[INFO] Dumping all responses\n";
   while (test.numResp() != 0) {
     roccResp resp = test.popResp();
