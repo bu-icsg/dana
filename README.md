@@ -27,9 +27,10 @@ Builds are currently tested against the following configurations:
 - [Setup](#setup)
     - [1 - Clone the Rocket Chip Repository](#clone-the-rocket-chip-repo)
     - [2 - Build a RISC-V Toolchain](#riscv-toolchain)
-- [Software Simulation](#simulation)
-    - [C++ Chisel Backend](#c++-simulation)
-        - [C++ Debugging](#c++-debugging)
+- [Software Emulation](#emulation)
+    - [Standalone Emulation](#emulation-standalone)
+    - [Rocket + X-FILES/DANA Emulation](#emulation-rocket-chip)
+    - [Debugging](#emulation-debugging)
     - [Regression Testing](#regression-testing)
 - [Hardware Evaluation](#hardware)
     - [FPGA Target](#fpga-target)
@@ -111,12 +112,26 @@ make
 make install
 ```
 
-### <a name="simulation"></a> Simulation (Functional Verification)
+### <a name="emulation"></a> Emulation (Functional Verification)
 
-#### <a name="c++-simulation"></a> C++ Chisel Backend
-All our functional verification and testing occurs using C++ models of Rocket + X-FILES/DANA. Steps to build and run the C++ model as well as some debugging help follows.
+This project uses [Chisel3](https://github.com/ucb-bar/chisel3) and [FIRRTL](https://github.com/ucb-barc/firrtl) for hardware design and Verilog generation.
+The Verilog emitted by FIRRTL can then be tested either as a standalone accelerator or integrated with Rocket Chip.
 
-You can build a C++ emulator of Rocket + X-FILES/DANA using the rocket-chip make target inside the rocket-chip/emulator directory. The Makefile just needs to know what configuration we're using and that we have additional Chisel code located in the `xfiles-dana` directory. Below we build a Rocket + X-FILES/DANA configuration with a DANA unit having 4 processing elements and using a block width of 4 32-bit elements:
+#### <a name="emulation-standalone"></a> Standalone Emulation
+The standalone version of X-FILES/DANA uses the complete Rocket Chip environment, but treats [`XFilesTester`](src/main/scala/standalone/Standalone.scala#L64) as the top module.
+
+To build a standalone version of X-FILES/DANA:
+```
+cd $ROCKETCHIP/xfiles-dana/emulator
+make
+```
+
+You can optionally specify a test to build (e.g., `make TEST=t_myTest`) which will need to define a `main` function in `src/test/cpp/t_myTest.cpp`.
+
+#### <a name="emulation-rocket-chip"></a> Rocket Chip Emulation
+Alternatively, you can build a complete version of Rocket Chip that includes X-FILES/DANA in a RoCC socket.
+
+You can build an emulator of Rocket + X-FILES/DANA using the rocket-chip make target inside the rocket-chip/emulator directory. The Makefile just needs to know what configuration we're using and that we have additional Chisel code located in the `xfiles-dana` directory. Below we build a Rocket + X-FILES/DANA configuration with a DANA unit having 4 processing elements and using a block width of 4 32-bit elements:
 ```bash
 cd $ROCKETCHIP/emulator
 make CONFIG=XFilesDanaCppPe4Epb4Config ROCKETCHIP_ADDONS=xfiles-dana
@@ -184,8 +199,20 @@ You'll then get an output like the following showing the MSE decreasing as a fun
 [STAT] epoch 90 id 0 bp 14 mse 0.04855352
 ```
 
-##### <a name="c++-debugging"></a> C++ Simulation Debugging
-At present, we don't have a good way to do full VCD debugging (i.e., dump every signal) due to the size of the combined Rocket + X-FILES/DANA system and the use of the Proxy Kernel (this takes some time to start up). As a result, the best way that we've found to do debugging of X-FILES/DANA is to use Chisel's builtin `printf()` function. You can use this to get the value of a signal on some condition or write whole "info" functions which show you the state of a module at every clock cycle. There are some gotchas here, though.
+#### <a name="emulation-debugging"></a> Emulation Debugging
+VCD debugging is currently only realistic for the Standalone Emulator (due to the overhead of booting an operating system). You can build a "debug" version of the standalone emulator with:
+```
+cd $ROCKETCHIP/xfiles-dana/emulator
+make debug
+```
+
+This creates a `*-debug` emulator with a working `--trace` command line argument.
+
+The standalone build environment supports additional build targets that helps to automate the process of running and inspecting waveforms with the following targets:
+* `make vcd` -- This will generate a VCD file in `generated-src/<emulator>/dump.vcd`.
+* `make gtkwave` -- This will generate a VCD file and open it using GTKWave. The first time that this is run, GTKWave will be built from `svn` sources.
+
+At present, we don't have a good way to do VCD debugging using the Full System emulator (i.e., dump every signal) due to the size of the combined Rocket + X-FILES/DANA system and the use of the Proxy Kernel (this takes some time to start up). As a result, the best way that we've found to do debugging of X-FILES/DANA is to use Chisel's builtin `printf()` function. You can use this to get the value of a signal on some condition or write whole "info" functions which show you the state of a module at every clock cycle. There are some gotchas here, though.
 
 Chisel's `printf` writes to STDERR, all `printf` statements are disabled by default, and enabling your statements also causes rocket-chip to dump state information every cycle. To get around this, we use a standard convention of prepending any `printf` with "[INFO]" or "[ERROR]" while assertions will always start with "Assertion". We can then grep for these in the output and ignore everything from rocket-chip.
 
@@ -287,7 +314,7 @@ This assumes that you are using the default configuration that the Berkeley [fpg
 
 The ARM core running Linux has a default IP address of 192.168.1.5. Use `scp` to copy over whatever you need. You will likely need to update the front end server and the front end server shared library. Additionally, you'll need to replace to old proxy kernel with out patched version.
 
-From there, you can run your strict software or X-FILES/DANA accelerated neural network workloads, e.g., you can run the same C++ simulation example from above, just a whole lot faster:
+From there, you can run your strict software or X-FILES/DANA accelerated neural network workloads, e.g., you can run the same C++ emulation example from above, just a whole lot faster:
 ```
 $ ./fesvr-zynq pk build/newlib/fann-xfiles.rv \
     -n build/nets/xorSigmoidSymmetric-fixed.16bin \
