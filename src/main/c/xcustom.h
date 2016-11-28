@@ -23,6 +23,9 @@
   (rs2                  << (7+5+3+5)) | \
   (EXTRACT(funct, 7, 0) << (7+5+3+5+5))
 
+#define XCUSTOM_RAW_R_R_R(X, rd, rs1, rs2, funct) \
+  .word XCUSTOM(XFD_CMD, ## rd, ## rs1, ## rs2, funct)
+
 #define XCUSTOM_R_R_R(X, rd, rs1, rs2, funct)             \
   asm ("mv a4, %[_rs1]\n\t"                               \
        "mv a5, %[_rs2]\n\t"                               \

@@ -3,7 +3,7 @@
 #include "src/main/c/xfiles-debug.h"
 #include <stdio.h>
 
-xlen_t debug_test(xfiles_debug_action_t action, uint32_t data, void * addr) {
+xlen_t debug_test(unsigned action, uint32_t data, void * addr) {
   xlen_t out, action_and_data = ((uint64_t)action << 32) | (uint32_t)data;
   XFILES_INSTRUCTION(out, action_and_data, addr, t_USR_XFILES_DEBUG);
   return out;

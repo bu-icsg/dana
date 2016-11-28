@@ -4,22 +4,13 @@
 #define SRC_MAIN_C_XFILES_DEBUG_H_
 
 #include "src/main/c/xfiles.h"
+#include "src/main/c/xfiles-debug.S"
 
 //-------------------------------------- Interactions with the Debug Unit
 
-// Enumerated type that defines the action taken by the Debug Unit
-typedef enum {
-  a_REG,          // Return a value written using the cmd interface
-  a_MEM_READ,     // Read data from the L1 cache and return it
-  a_MEM_WRITE,    // Write data to the L1 cache
-  a_VIRT_TO_PHYS, // Do address translation via the PTW port
-  a_UTL_READ,     // Read data from the L2 cache and return it
-  a_UTL_WRITE     // Write data to the L2 cache
-} xfiles_debug_action_t;
-
 // Function that accesses the per-core Debug Unit. This can be used
 // manually or the functions below act as aliases to this function.
-xlen_t debug_test(xfiles_debug_action_t action, uint32_t data, void * addr);
+xlen_t debug_test(unsigned action, uint32_t data, void * addr);
 
 // Write data to the accelerator and have the accelerator return it:
 //   data = data

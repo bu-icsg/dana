@@ -6,6 +6,7 @@
 #include <stdint.h>
 #include <stddef.h>
 #include "src/main/c/xcustom.h"
+#include "src/main/c/xfiles.S"
 
 // [TODO] Any changes to these types need to occur in conjunction with
 // the Chisel code and with the TID extraction part of
@@ -20,14 +21,6 @@ typedef enum {
   xfiles_reg_learning_rate,
   xfiles_reg_weight_decay_lambda
 } xfiles_reg;
-
-#define t_USR_READ_DATA 4
-#define t_USR_WRITE_DATA 5
-#define t_USR_NEW_REQUEST 6
-#define t_USR_WRITE_DATA_LAST 7
-#define t_USR_WRITE_REGISTER 8
-#define t_USR_XFILES_DEBUG 9
-#define t_USR_XFILES_DANA_ID 10
 
 typedef enum {
   FEEDFORWARD = 0,
