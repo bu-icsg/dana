@@ -9,4 +9,7 @@
 	url = ../hdl-scripts
 [submodule "tests"]
 	path = tests
-	url = git@github.ibm.com:perfect/xfiles-dana-tests
+	url = ../xfiles-dana-tests
+[submodule "util/hdl-tools"]
+	path = util/hdl-tools
+	url = ../hdl-tools
