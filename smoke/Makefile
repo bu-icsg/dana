@@ -6,7 +6,7 @@ src_dir = .
 tests = \
 	debug
 
-tests_p = $(tests:%=%-p)
+tests_p = $(addprefix $(ROCC)-p-, $(tests))
 
 RISCV_PREFIX ?= riscv$(XLEN)-unknown-elf-
 RISCV_GCC ?= $(RISCV_PREFIX)gcc
@@ -18,11 +18,11 @@ all: $(tests_p)
 
 vpath %.S $(src_dir)
 
-%-p: %.S
+$(ROCC)-p-%: %.S
 	$(RISCV_GCC) $(RISCV_GCC_OPTS) -I$(abs_top_srcdir)/env/p -T$(abs_top_srcdir)/env/p/link.ld $< -o $@
 
-%-v: %.S
-	$(RISCV_GCC) $(RISCV_GCC_OPTS) $< -o $@
+$(ROCC)-v-%: %.S
+	$(RISCV_GCC) $(RISCV_GCC_OPTS) -I$(abs_top_srcdir)/env/v -T$(abs_top_srcdir)/env/v/link.ld $< -o $@
 
 junk += $(tests_p)
 

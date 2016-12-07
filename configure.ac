@@ -1,4 +1,4 @@
-AC_INIT(fox-tests, 1.0)
+AC_INIT(xfiles-dana-tests, 1.0)
 
 cross_compiling=yes
 AC_PROG_CC
