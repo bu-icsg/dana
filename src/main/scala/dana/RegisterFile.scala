@@ -6,7 +6,7 @@ import chisel3._
 import chisel3.util._
 import scala.math.pow
 import xfiles.{TransactionTableNumEntries}
-import cde.{Parameters}
+import config._
 
 class RegisterFileInterface(implicit p: Parameters) extends DanaBundle()(p) {
   lazy val pe = (new PERegisterFileInterface).flip
@@ -21,8 +21,8 @@ class RegisterFileInterfaceLearn(implicit p: Parameters)
 
 class RegisterFileState(implicit p: Parameters) extends DanaBundle()(p) {
   val valid = Bool()
-  val totalWrites = UInt(width = 16) // [TODO] fragile
-  val countWrites = UInt(width = 16) // [TODO] fragile
+  val totalWrites = UInt(16.W) // [TODO] fragile
+  val countWrites = UInt(16.W) // [TODO] fragile
 }
 
 class RegisterFileBase[SramIf <: SRAMElementInterface](
@@ -32,27 +32,27 @@ class RegisterFileBase[SramIf <: SRAMElementInterface](
   val mem = genSram
 
   val state = Reg(Vec(transactionTableNumEntries * 2, new RegisterFileState))
-  val stateToggle = Reg(Vec(transactionTableNumEntries, UInt(width=1)))
+  val stateToggle = Reg(Vec(transactionTableNumEntries, UInt(1.W)))
   val tTableRespValid = Reg(Bool())
-  val tTableRespTIdx = Reg(UInt(width=log2Up(transactionTableNumEntries)))
-  val tTableRespAddr = Reg(UInt(width=log2Up(regFileNumElements)))
+  val tTableRespTIdx = Reg(UInt(log2Up(transactionTableNumEntries).W))
+  val tTableRespAddr = Reg(UInt(log2Up(regFileNumElements).W))
 
   // Default values for SRAMs
   for (transaction <- 0 until transactionTableNumEntries) {
     for (port <- 0 until mem(transaction).numPorts) {
-      mem(transaction).we(port) := Bool(false)
-      mem(transaction).din(port) := UInt(0)
-      mem(transaction).dinElement(port) := UInt(0)
-      mem(transaction).addr(port) := UInt(0)
+      mem(transaction).we(port) := false.B
+      mem(transaction).din(port) := 0.U
+      mem(transaction).dinElement(port) := 0.U
+      mem(transaction).addr(port) := 0.U
     }
   }
   // Default Control interface values
-  io.control.req.ready := Bool(true)
-  io.control.resp.valid := Bool(false)
-  io.control.resp.bits.tIdx := UInt(0)
+  io.control.req.ready := true.B
+  io.control.resp.valid := false.B
+  io.control.resp.bits.tIdx := 0.U
   // Default Transaction Table interface values
-  io.tTable.resp.valid := Bool(false)
-  io.tTable.resp.bits.data := UInt(0)
+  io.tTable.resp.valid := false.B
+  io.tTable.resp.bits.data := 0.U
 
   // Requests from the Processing Element Table
   when (io.pe.req.valid) {
@@ -60,7 +60,7 @@ class RegisterFileBase[SramIf <: SRAMElementInterface](
     val tIdx = io.pe.req.bits.tIdx
     val sIdx = io.pe.req.bits.tIdx ## io.pe.req.bits.location
     when (io.pe.req.bits.isWrite) { // This is a Write
-      mem(tIdx).we(0) := Bool(true)
+      mem(tIdx).we(0) := true.B
       mem(tIdx).addr(0) := io.pe.req.bits.addr
       mem(tIdx).dinElement(0) := io.pe.req.bits.data.asUInt
       printfInfo("RegFile: PE write element tIdx/Addr/Data 0x%x/0x%x/0x%x\n",
@@ -68,16 +68,16 @@ class RegisterFileBase[SramIf <: SRAMElementInterface](
       // Increment the write count and generate a response to the
       // control module if this puts us at the write count
       when (io.pe.req.bits.incWriteCount) {
-        state(sIdx).countWrites := state(sIdx).countWrites + UInt(1)
+        state(sIdx).countWrites := state(sIdx).countWrites + 1.U
         printfInfo("RegFile: write count loc/seen/expected 0x%x/0x%x/0x%x\n",
-          sIdx, state(sIdx).countWrites + UInt(1), state(sIdx).totalWrites)
-        when (state(sIdx).countWrites === state(sIdx).totalWrites - UInt(1)) {
-          io.control.resp.valid := Bool(true)
+          sIdx, state(sIdx).countWrites + 1.U, state(sIdx).totalWrites)
+        when (state(sIdx).countWrites === state(sIdx).totalWrites - 1.U) {
+          io.control.resp.valid := true.B
           io.control.resp.bits.tIdx := tIdx
         }
       }
     } .otherwise {                  // This is a read
-      mem(tIdx).we(0) := Bool(false)
+      mem(tIdx).we(0) := false.B
       mem(tIdx).addr(0) := io.pe.req.bits.addr
       printfInfo("RegFile: PE read tIdx/Addr 0x%x/0x%x\n", tIdx,
         io.pe.req.bits.addr)
@@ -88,10 +88,10 @@ class RegisterFileBase[SramIf <: SRAMElementInterface](
   when (io.control.req.valid) {
     val tIdx = io.control.req.bits.tIdx
     val location = io.control.req.bits.location
-    state(tIdx << UInt(1) | location).valid := Bool(true)
-    state(tIdx << UInt(1) | location).totalWrites :=
+    state(tIdx << 1.U | location).valid := true.B
+    state(tIdx << 1.U | location).totalWrites :=
       io.control.req.bits.totalWrites
-    state(tIdx << UInt(1) | location).countWrites := UInt(0)
+    state(tIdx << 1.U | location).countWrites := 0.U
     printfInfo("RegFile: Control req tIdx/location/totalWrites 0x%x/0x%x/0x%x\n",
       tIdx, location, io.control.req.bits.totalWrites)
   }
@@ -103,7 +103,7 @@ class RegisterFileBase[SramIf <: SRAMElementInterface](
       is (e_TTABLE_REGFILE_WRITE) {
         printfInfo("RegFile: Saw TTable write idx/Addr/Data 0x%x/0x%x/0x%x\n",
           tIdx, io.tTable.req.bits.addr, io.tTable.req.bits.data)
-        mem(tIdx).we(0) := Bool(true)
+        mem(tIdx).we(0) := true.B
         mem(tIdx).dinElement(0) := io.tTable.req.bits.data
         mem(tIdx).addr(0) := io.tTable.req.bits.addr
       }
@@ -135,7 +135,7 @@ class RegisterFileBase[SramIf <: SRAMElementInterface](
   when (tTableRespValid) {
   val memDataVec = Vec((0 until elementsPerBlock).map(i =>
     (mem(tTableRespTIdx).dout(0))(elementWidth * (i + 1) - 1, elementWidth * i)))
-    io.tTable.resp.valid := Bool(true)
+    io.tTable.resp.valid := true.B
     io.tTable.resp.bits.data :=
       memDataVec(tTableRespAddr(log2Up(elementsPerBlock)-1,0))
     printfInfo("RegFile: Returning data to TTable 0x%x\n",
@@ -144,7 +144,7 @@ class RegisterFileBase[SramIf <: SRAMElementInterface](
 
   // Reset
   when (reset) {for (i <- 0 until transactionTableNumEntries * 2) {
-    state(i).valid := Bool(false)}}
+    state(i).valid := false.B}}
 
   // Assertions
 
@@ -152,25 +152,25 @@ class RegisterFileBase[SramIf <: SRAMElementInterface](
   // the number of expected writes.
   assert(!Vec((0 until transactionTableNumEntries * 2).map(
     i => (state(i).valid &&
-      state(i).countWrites > state(i).totalWrites))).contains(Bool(true)),
+      state(i).countWrites > state(i).totalWrites))).contains(true.B),
     "The total writes to a Regsiter File entry exceeded the number expected")
 
   // A request to change the total number of writes should only happen
   // to a state entry marked as valid if it's countWrites is equal to
   // the totalWrites.
   assert(!(io.control.req.valid &&
-    state(io.control.req.bits.tIdx << UInt(1) |
+    state(io.control.req.bits.tIdx << 1.U |
       io.control.req.bits.location).valid &&
-    (state(io.control.req.bits.tIdx << UInt(1) |
+    (state(io.control.req.bits.tIdx << 1.U |
       io.control.req.bits.location).countWrites =/=
-      state(io.control.req.bits.tIdx << UInt(1) |
+      state(io.control.req.bits.tIdx << 1.U |
         io.control.req.bits.location).totalWrites)),
     "RegFile totalWrites being changed when valid && (countWrites != totalWrites)")
 
   // We shouldn't be trying to write data outside of the bounds of the
   // memory
   (0 until transactionTableNumEntries).map(i =>
-    assert(!(mem(i).addr(0) >= UInt(regFileNumElements)),
+    assert(!(mem(i).addr(0) >= regFileNumElements.U),
       "RegFile address (read or write) is out of bounds"))
 
 }
@@ -195,7 +195,7 @@ class RegisterFileLearn(implicit p: Parameters) extends RegisterFileBase (
 
   for (transaction <- 0 until transactionTableNumEntries) {
     for (port <- 0 until mem(transaction).numPorts) {
-      mem(transaction).wType(port) := UInt(0)
+      mem(transaction).wType(port) := 0.U
     }
   }
 
@@ -207,19 +207,19 @@ class RegisterFileLearn(implicit p: Parameters) extends RegisterFileBase (
       mem(tIdx).addr(0) := io.pe.req.bits.addr
       switch (io.pe.req.bits.reqType) {
         is (e_PE_WRITE_ELEMENT) {
-          mem(tIdx).wType(0) := UInt(0)
+          mem(tIdx).wType(0) := 0.U
           mem(tIdx).dinElement(0) := io.pe.req.bits.data.asUInt
           printfInfo("RegFile: PE write element tIdx/Addr/Data 0x%x/0x%x/0x%x\n",
             tIdx, io.pe.req.bits.addr, io.pe.req.bits.data)
         }
         is (e_PE_WRITE_BLOCK_NEW) {
-          mem(tIdx).wType(0) := UInt(1)
+          mem(tIdx).wType(0) := 1.U
           mem(tIdx).din(0) := io.pe.req.bits.dataBlock
           printfInfo("RegFile: PE write block new tIdx/Addr/Data 0x%x/0x%x/0x%x\n",
             tIdx, io.pe.req.bits.addr, io.pe.req.bits.dataBlock)
         }
         is (e_PE_WRITE_BLOCK_ACC) {
-          mem(tIdx).wType(0) := UInt(2)
+          mem(tIdx).wType(0) := 2.U
           mem(tIdx).din(0) := io.pe.req.bits.dataBlock
           printfInfo("RegFile: PE write block inc tIdx/Addr/Data 0x%x/0x%x/0x%x\n",
             tIdx, io.pe.req.bits.addr, io.pe.req.bits.dataBlock)
@@ -228,7 +228,7 @@ class RegisterFileLearn(implicit p: Parameters) extends RegisterFileBase (
         // write count
         is (e_PE_INCREMENT_WRITE_COUNT) {
           printfInfo("RegFile: PE increment write count\n")
-          mem(tIdx).we(0) := Bool(false)
+          mem(tIdx).we(0) := false.B
         }
       }
     }

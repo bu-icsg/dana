@@ -7,7 +7,7 @@ import chisel3.util._
 import rocket.{RoCCCommand, RoCCResponse, HellaCacheReq, HellaCacheIO, MStatus, MT_D}
 import uncore.tilelink.{HasTileLinkParameters, ClientUncachedTileLinkIO, Get,
   GetBlock}
-import uncore.agents.{CacheName, CacheBlockBytes}
+import uncore.util.{CacheName, CacheBlockBytes}
 import config._
 import xfiles.{InterruptBundle, XFilesSupervisorRequests}
 
@@ -114,7 +114,7 @@ class AsidNnidTableWalker(implicit p: Parameters) extends DanaModule()(p)
 
   io.xfiles.rocc.resp.bits.rd := io.xfiles.rocc.cmd.bits.inst.rd
   io.xfiles.rocc.resp.bits.data := Mux(antpReg.valid, antpReg.antp,
-    (-int_DANA_NOANTP.S(xLen.W)).U)
+    (-int_DANA_NOANTP.S(xLen.W)).asUInt)
   io.xfiles.rocc.resp.valid := io.xfiles.rocc.cmd.fire() && updateAntp
 
   when (io.xfiles.rocc.resp.valid) {
@@ -131,7 +131,7 @@ class AsidNnidTableWalker(implicit p: Parameters) extends DanaModule()(p)
   def setInterrupt(code: Int) {
     interruptCode.valid := true.B;
     if (code >= 0) interruptCode.bits := code.U
-    else interruptCode.bits := (code.S).U }
+    else interruptCode.bits := (code.S).asUInt }
   def clearInterrupt() { interruptCode.valid := false.B }
 
   // Many of the state updates are gated by waiting for a response.
@@ -328,12 +328,12 @@ class AsidNnidTableWalker(implicit p: Parameters) extends DanaModule()(p)
   // setting of the configRob valid bits) to use last connect
   // semantics. A write to the configRob and a write back can occur on
   // the same cycle!
-  when (configRob.valid.U.andR) {
+  when (configRob.valid.asUInt.andR) {
     val done = cacheAddr >= (configSize >> log2Up(configBufSize).U) - 1.U
     val cacheIdx = cacheReqCurrent.cacheIndex
     io.cache.resp.valid := true.B
     io.cache.resp.bits.done := done
-    io.cache.resp.bits.data := configRob.data.U
+    io.cache.resp.bits.data := configRob.data.asUInt
     io.cache.resp.bits.addr := cacheAddr
     cacheAddr := cacheAddr + 1.U
     when (done) {
@@ -342,7 +342,7 @@ class AsidNnidTableWalker(implicit p: Parameters) extends DanaModule()(p)
 
     (0 until configRob.valid.length).map(i => configRob.valid(i) := false.B)
     printfInfo("ANTW: Cache[%d] Resp: done 0x%x, addr 0x%x, data 0x%x\n",
-      cacheIdx, done, cacheAddr, configRob.data.U)
+      cacheIdx, done, cacheAddr, configRob.data.asUInt)
     printfInfo("ANTW:   cacheAddr/configSize/cS>>cbs 0x%x/0x%x/0x%x\n",
       cacheAddr, configSize, (configSize >> log2Up(configBufSize).U) - 1.U)
   }

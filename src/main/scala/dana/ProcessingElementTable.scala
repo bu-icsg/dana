@@ -4,22 +4,21 @@ package dana
 
 import chisel3._
 import chisel3.util._
-import cde.Parameters
+import config._
 
 class PECacheInterfaceResp(implicit p: Parameters) extends DanaBundle()(p) {
-  val field         = UInt(width = log2Up(6)) // [TODO] fragile on Dana enum
-  val data          = UInt(width = bitsPerBlock)
-  val peIndex       = UInt(width = log2Up(peTableNumEntries))
-  val neuronIndex   = UInt(width = log2Up(nnConfigNeuronWidth / bitsPerBlock))
+  val field         = UInt(log2Up(6).W) // [TODO] fragile on Dana enum
+  val data          = UInt(bitsPerBlock.W)
+  val peIndex       = UInt(log2Up(peTableNumEntries).W)
+  val neuronIndex   = UInt(log2Up(nnConfigNeuronWidth / bitsPerBlock).W)
 }
 
 class PECacheInterfaceReq(implicit p: Parameters) extends DanaBundle()(p) {
-  val field         = UInt(width = log2Up(6)) // [TODO] fragile on Cache Enum
-  val data          = UInt(width = bitsPerBlock)
-  val peIndex       = UInt(width = log2Up(peTableNumEntries))
-  val cacheIndex    = UInt(width = log2Up(cacheNumEntries))
-  val cacheAddr     = UInt(width =
-    log2Up(cacheNumBlocks * elementsPerBlock * elementWidth))
+  val field         = UInt(log2Up(6).W) // [TODO] fragile on Cache Enum
+  val data          = UInt(bitsPerBlock.W)
+  val peIndex       = UInt(log2Up(peTableNumEntries).W)
+  val cacheIndex    = UInt(log2Up(cacheNumEntries).W)
+  val cacheAddr     = UInt(log2Up(cacheNumBlocks * elementsPerBlock * elementWidth).W)
 }
 
 class PECacheInterface(implicit p: Parameters) extends DanaBundle()(p) {
@@ -33,28 +32,28 @@ class PECacheInterfaceLearn(implicit p: Parameters)
 class PERegisterFileReq(implicit p: Parameters) extends DanaBundle()(p) {
   // The register index should go down to the element level
   val isWrite       = Bool()
-  val addr          = UInt(width = log2Up(regFileNumElements))
-  val peIndex       = UInt(width = log2Up(peTableNumEntries))
-  val tIdx          = UInt(width = log2Up(transactionTableNumEntries))
-  val data          = SInt(width = elementWidth)
-  val location      = UInt(width = 1)
+  val addr          = UInt(log2Up(regFileNumElements).W)
+  val peIndex       = UInt(log2Up(peTableNumEntries).W)
+  val tIdx          = UInt(log2Up(transactionTableNumEntries).W)
+  val data          = SInt(elementWidth.W)
+  val location      = UInt(1.W)
   val incWriteCount = Bool()
 }
 
 class PERegisterFileReqLearn(implicit p: Parameters)
     extends PERegisterFileReq()(p) {
-  val dataBlock     = UInt(width = bitsPerBlock)
-  val reqType       = UInt(width = log2Up(10)) // [TODO] Fragile on Dana.scala
+  val dataBlock     = UInt(bitsPerBlock.W)
+  val reqType       = UInt(log2Up(10).W) // [TODO] Fragile on Dana.scala
 }
 
 class PERegisterFileResp(implicit p: Parameters) extends DanaBundle()(p) {
-  val peIndex       = UInt(width = log2Up(peTableNumEntries))
-  val data          = UInt(width = bitsPerBlock)
+  val peIndex       = UInt(log2Up(peTableNumEntries).W)
+  val data          = UInt(bitsPerBlock.W)
 }
 
 class PERegisterFileRespLearn(implicit p: Parameters)
     extends PERegisterFileResp()(p) {
-  val reqType       = UInt(width = log2Up(5)) // [TODO] Fragile on Dana.scala
+  val reqType       = UInt(log2Up(5).W) // [TODO] Fragile on Dana.scala
 }
 
 class PERegisterFileInterface(implicit p: Parameters) extends DanaBundle()(p) {
@@ -69,8 +68,8 @@ class PERegisterFileInterfaceLearn(implicit p: Parameters)
 }
 
 class PETransactionTableInterfaceResp(implicit p: Parameters) extends DanaBundle()(p) {
-  val peIndex               = UInt(width = log2Up(peTableNumEntries))
-  val data                  = UInt(width = bitsPerBlock)
+  val peIndex               = UInt(log2Up(peTableNumEntries).W)
+  val data                  = UInt(bitsPerBlock.W)
 }
 
 class PETableInterface(implicit p: Parameters) extends DanaBundle()(p) {
@@ -89,47 +88,44 @@ class ProcessingElementState(implicit p: Parameters) extends DanaBundle()(p) {
   val infoValid          = Bool()
   val weightValid        = Bool()
   val inValid            = Bool()
-  val tIdx               = UInt(width = log2Up(transactionTableNumEntries))
-  val cIdx               = UInt(width = log2Up(cacheNumEntries))
-  val inAddr             = UInt(width = log2Up(regFileNumElements))
-  val outAddr            = UInt(width = log2Up(regFileNumElements))
+  val tIdx               = UInt(log2Up(transactionTableNumEntries).W)
+  val cIdx               = UInt(log2Up(cacheNumEntries).W)
+  val inAddr             = UInt(log2Up(regFileNumElements).W)
+  val outAddr            = UInt(log2Up(regFileNumElements).W)
   // [TODO] learn address may have multiple meanings: 1) this is the
   // current node in the layer and will be used to generate an
   // expected output request to the Register File
-  val location           = UInt(width = 1)
-  val neuronPtr          = UInt(width =
-    log2Up(elementWidth * elementsPerBlock * cacheNumBlocks))
-  val weightPtr          = UInt(width =
-    log2Up(elementWidth * elementsPerBlock * cacheNumBlocks))
-  val decimalPoint       = UInt(width = decimalPointWidth)
-  val inBlock            = UInt(width = bitsPerBlock)
-  val weightBlock        = UInt(width = bitsPerBlock)
-  val numWeights         = UInt(width = 8)         // [TODO] fragile
-  val activationFunction = UInt(width = activationFunctionWidth)
-  val steepness          = UInt(width = steepnessWidth)
-  val bias               = SInt(width = elementWidth)
-  val weightoffset       = UInt(width = 16)
+  val location           = UInt(1.W)
+  val neuronPtr          = UInt(log2Up(elementWidth * elementsPerBlock * cacheNumBlocks).W)
+  val weightPtr          = UInt(log2Up(elementWidth * elementsPerBlock * cacheNumBlocks).W)
+  val decimalPoint       = UInt(decimalPointWidth.W)
+  val inBlock            = UInt(bitsPerBlock.W)
+  val weightBlock        = UInt(bitsPerBlock.W)
+  val numWeights         = UInt(8.W)         // [TODO] fragile
+  val activationFunction = UInt(activationFunctionWidth.W)
+  val steepness          = UInt(steepnessWidth.W)
+  val bias               = SInt(elementWidth.W)
+  val weightoffset       = UInt(16.W)
 }
 
 class ProcessingElementStateLearn(implicit p: Parameters)
     extends ProcessingElementState()(p) {
-  val learnAddr          = UInt(width = log2Up(regFileNumElements))
-  val dwAddr             = UInt(width = log2Up(regFileNumElements))
-  val slopeAddr          = UInt(width = log2Up(regFileNumElements))
-  val biasAddr           = UInt(width = log2Up(regFileNumElements))
-  val auxAddr            = UInt(width = log2Up(regFileNumElements))
-  val inAddrSaved        = UInt(width = log2Up(regFileNumElements))
-  val weightPtrSaved     = UInt(width =
-    log2Up(elementWidth * elementsPerBlock * cacheNumBlocks))
-  val learnReg           = SInt(width = elementWidth)
-  val dw_in              = SInt(width = elementWidth)
-  val errorFunction      = UInt(width = log2Up(2)) // [TODO] fragile
-  val learningRate       = UInt(width = 16)        // [TODO] fragile
-  val lambda             = SInt(width = 16)        // [TODO] fragile
-  val globalWtptr        = UInt(width = 16)        // [TODO] fragile
-  val numWeightBlocks    = UInt(width = 16)
-  val stateLearn         = UInt(width = log2Up(7)) // [TODO] fragile
-  val tType              = UInt(width = log2Up(3)) // [TODO] fragile
+  val learnAddr          = UInt(log2Up(regFileNumElements).W)
+  val dwAddr             = UInt(log2Up(regFileNumElements).W)
+  val slopeAddr          = UInt(log2Up(regFileNumElements).W)
+  val biasAddr           = UInt(log2Up(regFileNumElements).W)
+  val auxAddr            = UInt(log2Up(regFileNumElements).W)
+  val inAddrSaved        = UInt(log2Up(regFileNumElements).W)
+  val weightPtrSaved     = UInt(log2Up(elementWidth * elementsPerBlock * cacheNumBlocks).W)
+  val learnReg           = SInt(elementWidth.W)
+  val dw_in              = SInt(elementWidth.W)
+  val errorFunction      = UInt(log2Up(2).W) // [TODO] fragile
+  val learningRate       = UInt(16.W)        // [TODO] fragile
+  val lambda             = SInt(16.W)        // [TODO] fragile
+  val globalWtptr        = UInt(16.W)        // [TODO] fragile
+  val numWeightBlocks    = UInt(16.W)
+  val stateLearn         = UInt(log2Up(7).W) // [TODO] fragile
+  val tType              = UInt(log2Up(3).W) // [TODO] fragile
   val inLast             = Bool()
   val inFirst            = Bool()
   val batchFirst         = Bool()
@@ -151,7 +147,7 @@ class ProcessingElementTableBase[PeStateType <: ProcessingElementState,
 
   // Wire up the PE data connections
   for (i <- 0 until peTableNumEntries) {
-    pe(i).req.bits.index := UInt(i)
+    pe(i).req.bits.index := i.U
     pe(i).req.bits.decimalPoint := table(i).decimalPoint
     pe(i).req.bits.steepness := table(i).steepness
     pe(i).req.bits.activationFunction := table(i).activationFunction
@@ -166,8 +162,8 @@ class ProcessingElementTableBase[PeStateType <: ProcessingElementState,
   }
 
   def regFileReadReq(addr: UInt, peIndex:UInt, tIdx: UInt, location:UInt) {
-    io.regFile.req.valid := Bool(true)
-    io.regFile.req.bits.isWrite := Bool(false)
+    io.regFile.req.valid := true.B
+    io.regFile.req.bits.isWrite := false.B
     io.regFile.req.bits.addr := addr
     io.regFile.req.bits.peIndex := peIndex
     io.regFile.req.bits.tIdx := tIdx
@@ -176,8 +172,8 @@ class ProcessingElementTableBase[PeStateType <: ProcessingElementState,
 
   def regFileWriteReqBase(incWC: Bool, reqType: UInt, addr: UInt, tIdx: UInt,
     data: SInt, location: UInt) {
-    io.regFile.req.valid := Bool(true)
-    io.regFile.req.bits.isWrite := Bool(true)
+    io.regFile.req.valid := true.B
+    io.regFile.req.bits.isWrite := true.B
     io.regFile.req.bits.incWriteCount := incWC
     io.regFile.req.bits.addr := addr
     io.regFile.req.bits.tIdx := tIdx
@@ -197,27 +193,27 @@ class ProcessingElementTableBase[PeStateType <: ProcessingElementState,
   io.control.req.ready := hasFree
 
   // Default values for Cache interface
-  io.cache.req.valid := Bool(false)
-  io.cache.req.bits.field := UInt(0)
-  io.cache.req.bits.data := UInt(0)
-  io.cache.req.bits.peIndex := UInt(0)
-  io.cache.req.bits.cacheIndex := UInt(0)
-  io.cache.req.bits.cacheAddr := UInt(0)
-  io.cache.resp.ready := Bool(true) // [TODO] placeholder
+  io.cache.req.valid := false.B
+  io.cache.req.bits.field := 0.U
+  io.cache.req.bits.data := 0.U
+  io.cache.req.bits.peIndex := 0.U
+  io.cache.req.bits.cacheIndex := 0.U
+  io.cache.req.bits.cacheAddr := 0.U
+  io.cache.resp.ready := true.B // [TODO] placeholder
   // Default values for PE connections
   for (i <- 0 until peTableNumEntries) {
-    pe(i).req.valid := Bool(false)
+    pe(i).req.valid := false.B
   }
   // Default values for Register File interface
-  io.regFile.req.valid := Bool(false)
-  io.regFile.req.bits.isWrite := Bool(false)
-  io.regFile.req.bits.addr := UInt(0)
-  io.regFile.req.bits.peIndex := UInt(0)
-  io.regFile.req.bits.tIdx := UInt(0)
-  io.regFile.req.bits.data := SInt(0)
-  io.regFile.req.bits.location := UInt(0)
-  io.regFile.req.bits.incWriteCount := Bool(false)
-  io.regFile.resp.ready := Bool(true) // [TOOD] placeholder
+  io.regFile.req.valid := false.B
+  io.regFile.req.bits.isWrite := false.B
+  io.regFile.req.bits.addr := 0.U
+  io.regFile.req.bits.peIndex := 0.U
+  io.regFile.req.bits.tIdx := 0.U
+  io.regFile.req.bits.data := 0.S
+  io.regFile.req.bits.location := 0.U
+  io.regFile.req.bits.incWriteCount := false.B
+  io.regFile.resp.ready := true.B // [TOOD] placeholder
 
   // Deal with inbound requests from the Control module. If we see a
   // request, it can only mean one thing---we need to allocate a PE.
@@ -229,11 +225,11 @@ class ProcessingElementTableBase[PeStateType <: ProcessingElementState,
     table(nextFree).inAddr := io.control.req.bits.inAddr
     table(nextFree).outAddr := io.control.req.bits.outAddr
     table(nextFree).location := io.control.req.bits.location
-    table(nextFree).numWeights := (SInt(-1)).asUInt // [TODO] Bad design?
-    table(nextFree).weightValid := Bool(false)
-    table(nextFree).inValid := Bool(false)
+    table(nextFree).numWeights := (-1.S).asUInt // [TODO] Bad design?
+    table(nextFree).weightValid := false.B
+    table(nextFree).inValid := false.B
     // Kick the PE
-    pe(nextFree).req.valid := Bool(true)
+    pe(nextFree).req.valid := true.B
     printfInfo("PETable: Received control request...\n")
     printfInfo("  next free:      0x%x\n", nextFree);
     printfInfo("  tid idx:        0x%x\n", io.control.req.bits.tIdx)
@@ -266,24 +262,24 @@ class ProcessingElementTableBase[PeStateType <: ProcessingElementState,
         table(peIndex).activationFunction := resp.activationFunction
         table(peIndex).steepness := resp.steepness
         table(peIndex).bias := resp.bias
-        pe(peIndex).req.valid := Bool(true)
+        pe(peIndex).req.valid := true.B
         printfInfo("PEtable: Bias: 0x%x\n", resp.bias)
         printfInfo("PETable: Weight ptr: 0x%x\n", resp.weightPtr)
       }
       is (e_CACHE_WEIGHT) {
         table(peIndex).weightPtr :=
-          table(peIndex).weightPtr + UInt(elementsPerBlock * elementWidth / 8)
+          table(peIndex).weightPtr + (elementsPerBlock * elementWidth / 8).U
         table(peIndex).weightBlock := io.cache.resp.bits.data
         // As the weights and inputs can come back in any order, we
         // can only kick the PE if the weights already came back.
         // Otherwise, we just set the weight valid flag and kick the
         // PE when the inputs come back.
         when (table(peIndex).inValid) {
-          pe(peIndex).req.valid := Bool(true)
-          table(peIndex).weightValid := Bool(false)
-          table(peIndex).inValid := Bool(false)
+          pe(peIndex).req.valid := true.B
+          table(peIndex).weightValid := false.B
+          table(peIndex).inValid := false.B
         } .otherwise {
-          table(peIndex).weightValid := Bool(true)
+          table(peIndex).weightValid := true.B
         }
         printfInfo("PETable: Valid cache weight resp PE/data 0x%x/0x%x\n",
           peIndex, io.cache.resp.bits.data)
@@ -306,18 +302,18 @@ class ProcessingElementTableBase[PeStateType <: ProcessingElementState,
   // generate some requests based on which PE the arbiter has
   // determined needs something. The action taken depends on the state
   // that we're seeing from the chosen PE.
-  peArbiter.io.out.ready := Bool(true)
+  peArbiter.io.out.ready := true.B
   when (peArbiter.io.out.fire()) {
     switch (peArbiter.io.out.bits.state) {
       is (PE_states('e_PE_GET_INFO)) {
         // Send a request to the cache for information.
-        io.cache.req.valid := Bool(true)
+        io.cache.req.valid := true.B
         io.cache.req.bits.field := e_CACHE_NEURON
         io.cache.req.bits.peIndex := peArbiter.io.out.bits.index
         io.cache.req.bits.cacheIndex := table(peArbiter.io.out.bits.index).cIdx
         io.cache.req.bits.cacheAddr := table(peArbiter.io.out.bits.index).neuronPtr
 
-        pe(peArbiter.io.out.bits.index).req.valid := Bool(true)
+        pe(peArbiter.io.out.bits.index).req.valid := true.B
       }
       is (PE_states('e_PE_REQUEST_INPUTS_AND_WEIGHTS)) {
         // All requests are now routed through the Register File (the
@@ -330,13 +326,13 @@ class ProcessingElementTableBase[PeStateType <: ProcessingElementState,
           table(peIdx).location)
 
         // Send a request to the cache for weights
-        io.cache.req.valid := Bool(true)
+        io.cache.req.valid := true.B
         io.cache.req.bits.field := e_CACHE_WEIGHT
         io.cache.req.bits.peIndex := peIdx
         io.cache.req.bits.cacheIndex := table(peIdx).cIdx
         io.cache.req.bits.cacheAddr := table(peIdx).weightPtr
 
-        pe(peIdx).req.valid := Bool(true)
+        pe(peIdx).req.valid := true.B
       }
       is (PE_states('e_PE_DONE)) {
         // Outputs are always written to the Register File
@@ -348,7 +344,7 @@ class ProcessingElementTableBase[PeStateType <: ProcessingElementState,
           peArbiter.io.out.bits.data,
           table(peArbiter.io.out.bits.index).location)
 
-        pe(peArbiter.io.out.bits.index).req.valid := Bool(true)
+        pe(peArbiter.io.out.bits.index).req.valid := true.B
       }
     }
   }
@@ -374,13 +370,13 @@ class ProcessingElementTable(implicit p: Parameters)
   when (io.regFile.resp.valid) {
     val peIndex = io.regFile.resp.bits.peIndex
     table(peIndex).inBlock := io.regFile.resp.bits.data
-    table(peIndex).inAddr := table(peIndex).inAddr + UInt(elementsPerBlock)
+    table(peIndex).inAddr := table(peIndex).inAddr + elementsPerBlock.U
     when (table(peIndex).weightValid) {
-      pe(peIndex).req.valid := Bool(true)
-      table(peIndex).weightValid := Bool(false)
-      table(peIndex).inValid := Bool(false)
+      pe(peIndex).req.valid := true.B
+      table(peIndex).weightValid := false.B
+      table(peIndex).inValid := false.B
     } .otherwise {
-      table(peIndex).inValid := Bool(true)
+      table(peIndex).inValid := true.B
     }
     printfInfo("PETable: Valid RegFile input resp PE/data 0x%x/0x%x\n",
       peIndex, io.regFile.resp.bits.data)
@@ -407,15 +403,15 @@ class ProcessingElementTableLearn(implicit p: Parameters)
     io.regFile.req.bits.reqType := reqType
   }
 
-  io.regFile.req.bits.reqType := UInt(0)
-  io.regFile.req.bits.dataBlock := UInt(0)
+  io.regFile.req.bits.reqType := 0.U
+  io.regFile.req.bits.dataBlock := 0.U
 
   // Register File Block Writeback Table -- This table keeps track of
   // the highest index delta--weight _block_ that has been written.
   // This is needed to know when a a block is the first to be written
   // back. If it is not the first, then it should be accumulated.
   val regFileBlockWbTable = Reg(Vec(transactionTableNumEntries,
-    UInt(width = log2Up(regFileNumElements))))
+    UInt(log2Up(regFileNumElements).W)))
   (0 until transactionTableNumEntries).map(i =>
     regFileBlockWbTable(i) := regFileBlockWbTable(i))
 
@@ -448,7 +444,7 @@ class ProcessingElementTableLearn(implicit p: Parameters)
     table(nextFree).biasAddr := io.control.req.bits.biasAddr
     table(nextFree).auxAddr := io.control.req.bits.auxAddr
     when (io.control.req.bits.resetWB) {
-      regFileBlockWbTable(io.control.req.bits.tIdx) := UInt(0)
+      regFileBlockWbTable(io.control.req.bits.tIdx) := 0.U
     }
     table(nextFree).inAddrSaved := io.control.req.bits.inAddr
     printfInfo("  error func:     0x%x\n", io.control.req.bits.errorFunction)
@@ -474,16 +470,16 @@ class ProcessingElementTableLearn(implicit p: Parameters)
       is (e_CACHE_NEURON) {
         val weightOffset = (cacheRespVec(neuronIndex).weightPtr -
           table(peIndex).globalWtptr) >>
-          (UInt(log2Up(elementWidth / 8))) // [TODO] possibly fragile
+          ((log2Up(elementWidth / 8)).U) // [TODO] possibly fragile
         table(peIndex).weightPtrSaved := cacheRespVec(neuronIndex).weightPtr
         table(peIndex).weightoffset:= weightOffset
         printfInfo("PETable: weightoffset 0x%x\n", weightOffset)
       }
       is (e_CACHE_WEIGHT_ONLY) {
         table(peIndex).weightPtr :=
-          table(peIndex).weightPtr + UInt(elementsPerBlock * elementWidth / 8)
+          table(peIndex).weightPtr + (elementsPerBlock * elementWidth / 8).U
         table(peIndex).weightBlock := io.cache.resp.bits.data
-        pe(peIndex).req.valid := Bool(true)
+        pe(peIndex).req.valid := true.B
         printfInfo("PETable: Valid cache weight resp PE/data 0x%x/0x%x\n",
           peIndex, io.cache.resp.bits.data)
       }
@@ -497,17 +493,17 @@ class ProcessingElementTableLearn(implicit p: Parameters)
         table(peIndex).inBlock := io.regFile.resp.bits.data
         when ((table(peIndex).stateLearn === e_TTABLE_STATE_LEARN_WEIGHT_UPDATE) ||
           (table(peIndex).stateLearn === e_TTABLE_STATE_LEARN_ERROR_BACKPROP)) {
-          table(peIndex).dwAddr := table(peIndex).dwAddr + UInt(elementsPerBlock)
-          table(peIndex).auxAddr := table(peIndex).auxAddr + UInt(elementsPerBlock)
+          table(peIndex).dwAddr := table(peIndex).dwAddr + elementsPerBlock.U
+          table(peIndex).auxAddr := table(peIndex).auxAddr + elementsPerBlock.U
         } .otherwise {
-          table(peIndex).inAddr := table(peIndex).inAddr + UInt(elementsPerBlock)
+          table(peIndex).inAddr := table(peIndex).inAddr + elementsPerBlock.U
         }
         when (table(peIndex).weightValid) {
-          pe(peIndex).req.valid := Bool(true)
-          table(peIndex).weightValid := Bool(false)
-          table(peIndex).inValid := Bool(false)
+          pe(peIndex).req.valid := true.B
+          table(peIndex).weightValid := false.B
+          table(peIndex).inValid := false.B
         } .otherwise {
-          table(peIndex).inValid := Bool(true)
+          table(peIndex).inValid := true.B
         }
         printfInfo("PETable: Valid RegFile input resp PE/data 0x%x/0x%x\n",
           peIndex, io.regFile.resp.bits.data)
@@ -517,7 +513,7 @@ class ProcessingElementTableLearn(implicit p: Parameters)
         val dataVec = Vec((0 until elementsPerBlock).map(i =>
           (io.regFile.resp.bits.data)(elementWidth * (i + 1) - 1, elementWidth * i)))
         table(peIndex).learnReg := dataVec(addr).asSInt
-        pe(peIndex).req.valid := Bool(true)
+        pe(peIndex).req.valid := true.B
         printfInfo("PETable: Valid RegFile E[out] resp PE/data 0x%x/0x%x\n",
           peIndex, io.regFile.resp.bits.data)
         printfInfo("         learnReg -> dataVec(0x%x): 0x%x\n", addr,
@@ -528,7 +524,7 @@ class ProcessingElementTableLearn(implicit p: Parameters)
         val dataVec = Vec((0 until elementsPerBlock).map(i =>
           (io.regFile.resp.bits.data)(elementWidth * (i + 1) - 1, elementWidth * i)))
         table(peIndex).learnReg := dataVec(addr).asSInt
-        pe(peIndex).req.valid := Bool(true)
+        pe(peIndex).req.valid := true.B
         printfInfo("PETable: Valid RegFile out resp PE/data 0x%x/0x%x\n",
           peIndex, io.regFile.resp.bits.data)
         printfInfo("         learnReg -> dataVec(0x%x): 0x%x\n", addr,
@@ -539,7 +535,7 @@ class ProcessingElementTableLearn(implicit p: Parameters)
         val dataVec = Vec((0 until elementsPerBlock).map(i =>
           (io.regFile.resp.bits.data)(elementWidth * (i + 1) - 1, elementWidth * i)))
         table(peIndex).dw_in := dataVec(addr).asSInt
-        pe(peIndex).req.valid := Bool(true)
+        pe(peIndex).req.valid := true.B
         printfInfo("PETable: Valid RegFile delta--weight resp PE/data 0x%x/0x%x\n",
           peIndex, io.regFile.resp.bits.data)
         printfInfo("         input delta weight product -> dataVec(0x%x): 0x%x\n",
@@ -550,7 +546,7 @@ class ProcessingElementTableLearn(implicit p: Parameters)
         val dataVec = Vec((0 until elementsPerBlock).map(i =>
           (io.regFile.resp.bits.data)(elementWidth * (i + 1) - 1, elementWidth * i)))
         table(peIndex).dw_in := dataVec(addr).asSInt
-        pe(peIndex).req.valid := Bool(true)
+        pe(peIndex).req.valid := true.B
         printfInfo("PETable: Valid RegFile bias resp PE/data 0x%x/0x%x\n",
           peIndex, io.regFile.resp.bits.data)
         printfInfo("         bias put in dw_in -> dataVec(0x%x): 0x%x\n",
@@ -567,15 +563,14 @@ class ProcessingElementTableLearn(implicit p: Parameters)
 
   val biasIndex = table(peArbiter.io.out.bits.index).neuronPtr(
     log2Up(bitsPerBlock) - 3 - 1, log2Up(64) - 3)
-  val biasUpdateVec = Wire(Vec(elementsPerBlock, SInt(width=elementWidth)))
-  biasUpdateVec map (_ := SInt(0))
-  biasUpdateVec(biasIndex * UInt(2) + UInt(1)) := peArbiter.io.out.bits.data
+  val biasUpdateVec = Wire(Vec(elementsPerBlock, SInt(elementWidth.W)))
+  biasUpdateVec map (_ := 0.S)
+  biasUpdateVec(biasIndex * 2.U + 1.U) := peArbiter.io.out.bits.data
 
   val biasAddrLSBs = table(peArbiter.io.out.bits.index).biasAddr(
     log2Up(elementsPerBlock)-1,0)
-  val biasUpdateVecSlope = Wire(Vec(elementsPerBlock, SInt(width=elementWidth)))
-  // biasUpdateVecSlope.asUInt := UInt(0)
-  (0 until elementsPerBlock).map(i => biasUpdateVecSlope(i) := SInt(0))
+  val biasUpdateVecSlope = Wire(Vec(elementsPerBlock, SInt(elementWidth.W)))
+  (0 until elementsPerBlock).map(i => biasUpdateVecSlope(i) := 0.S)
   biasUpdateVecSlope(biasAddrLSBs) := peArbiter.io.out.bits.data.asSInt
 
   when (peArbiter.io.out.valid) {
@@ -604,8 +599,7 @@ class ProcessingElementTableLearn(implicit p: Parameters)
               table(peIdx).tIdx,
               table(peIdx).location,
               e_PE_REQ_INPUT)
-            table(peIdx).slopeAddr := table(peIdx).slopeAddr +
-              UInt(elementsPerBlock)
+            table(peIdx).slopeAddr := table(peIdx).slopeAddr + elementsPerBlock.U
           } .otherwise {
             regFileReadReq(
               table(peIdx).dwAddr,
@@ -624,13 +618,13 @@ class ProcessingElementTableLearn(implicit p: Parameters)
         }
 
         // Send a request to the cache for weights
-        io.cache.req.valid := Bool(true)
+        io.cache.req.valid := true.B
         io.cache.req.bits.field := e_CACHE_WEIGHT
         io.cache.req.bits.peIndex := peIdx
         io.cache.req.bits.cacheIndex := table(peIdx).cIdx
         io.cache.req.bits.cacheAddr := table(peIdx).weightPtr
 
-        pe(peIdx).req.valid := Bool(true)
+        pe(peIdx).req.valid := true.B
       }
       is (PE_states('e_PE_DONE)) {
         // Reset the weightPtr and inAddr as we may be using this again
@@ -643,18 +637,18 @@ class ProcessingElementTableLearn(implicit p: Parameters)
           table(peArbiter.io.out.bits.index).tIdx,
           table(peArbiter.io.out.bits.index).location,
           e_PE_REQ_EXPECTED_OUTPUT)
-        pe(peArbiter.io.out.bits.index).req.valid := Bool(true)
+        pe(peArbiter.io.out.bits.index).req.valid := true.B
       }
       is (PE_states('e_PE_ERROR_BACKPROP_REQUEST_WEIGHTS)) {
         // Send a request to the cache for weights
-        io.cache.req.valid := Bool(true)
+        io.cache.req.valid := true.B
         io.cache.req.bits.field := e_CACHE_WEIGHT_ONLY
         io.cache.req.bits.peIndex := peArbiter.io.out.bits.index
         io.cache.req.bits.cacheIndex := table(peArbiter.io.out.bits.index).cIdx
         // The weightPtr has been reset in the e_PE_DONE state
         io.cache.req.bits.cacheAddr := table(peArbiter.io.out.bits.index).weightPtr
 
-        pe(peArbiter.io.out.bits.index).req.valid := Bool(true)
+        pe(peArbiter.io.out.bits.index).req.valid := true.B
       }
       is (PE_states('e_PE_ERROR_BACKPROP_WEIGHT_WB)) {
         val tIdx = table(peIdx).tIdx
@@ -663,9 +657,9 @@ class ProcessingElementTableLearn(implicit p: Parameters)
         // partial weight block. If this is the first weight block
         // that we're writing back, then we need to tell the Register
         // File to do a write without an accumulate.
-        io.regFile.req.valid := Bool(true)
-        io.regFile.req.bits.isWrite := Bool(true)
-        io.regFile.req.bits.incWriteCount := Bool(false)
+        io.regFile.req.valid := true.B
+        io.regFile.req.bits.isWrite := true.B
+        io.regFile.req.bits.incWriteCount := false.B
         when (addrWB > regFileBlockWbTable(tIdx)) {
           regFileBlockWbTable(tIdx) := addrWB
           io.regFile.req.bits.reqType := e_PE_WRITE_BLOCK_NEW
@@ -681,8 +675,8 @@ class ProcessingElementTableLearn(implicit p: Parameters)
         io.regFile.req.bits.dataBlock := peArbiter.io.out.bits.dataBlock.asUInt
         io.regFile.req.bits.location := table(peIdx).location
 
-        table(peIdx).dwAddr := table(peIdx).dwAddr + UInt(elementsPerBlock)
-        pe(peIdx).req.valid := Bool(true)
+        table(peIdx).dwAddr := table(peIdx).dwAddr + elementsPerBlock.asUInt
+        pe(peIdx).req.valid := true.B
       }
       is(PE_states('e_PE_REQUEST_OUTPUTS_ERROR_BACKPROP)){
         regFileReadReq(
@@ -692,7 +686,7 @@ class ProcessingElementTableLearn(implicit p: Parameters)
           table(peArbiter.io.out.bits.index).location,
           e_PE_REQ_OUTPUT)
 
-        pe(peArbiter.io.out.bits.index).req.valid := Bool(true)
+        pe(peArbiter.io.out.bits.index).req.valid := true.B
       }
       is(PE_states('e_PE_REQUEST_DELTA_WEIGHT_PRODUCT_ERROR_BACKPROP)){
         regFileReadReq(
@@ -702,25 +696,25 @@ class ProcessingElementTableLearn(implicit p: Parameters)
           table(peArbiter.io.out.bits.index).location,
           e_PE_REQ_DELTA_WEIGHT_PRODUCT)
 
-        pe(peArbiter.io.out.bits.index).req.valid := Bool(true)
+        pe(peArbiter.io.out.bits.index).req.valid := true.B
       }
       is(PE_states('e_PE_WEIGHT_UPDATE_WRITE_BACK)) {
         // Send an element-wise increment block-write to the cache
-        io.cache.req.valid := Bool(true)
+        io.cache.req.valid := true.B
         io.cache.req.bits.field := e_CACHE_WEIGHT_WB
         io.cache.req.bits.peIndex := peArbiter.io.out.bits.index
         io.cache.req.bits.cacheIndex := table(peArbiter.io.out.bits.index).cIdx
         io.cache.req.bits.cacheAddr := table(peArbiter.io.out.bits.index).weightPtr -
-          UInt(elementsPerBlock * elementWidth / 8)
+          (elementsPerBlock * elementWidth / 8).U
         io.cache.req.bits.data := peArbiter.io.out.bits.dataBlock.asUInt
         printfInfo("PE Table: weight block 0x%x\n",
           peArbiter.io.out.bits.dataBlock.asUInt)
 
-        pe(peArbiter.io.out.bits.index).req.valid := Bool(true)
+        pe(peArbiter.io.out.bits.index).req.valid := true.B
       }
       is (PE_states('e_PE_WEIGHT_UPDATE_WRITE_BIAS)) {
         // Construct a bias update and send it to the cache
-        io.cache.req.valid := Bool(true)
+        io.cache.req.valid := true.B
         io.cache.req.bits.field := e_CACHE_WEIGHT_WB
         io.cache.req.bits.peIndex := peArbiter.io.out.bits.index
         io.cache.req.bits.cacheIndex := table(peArbiter.io.out.bits.index).cIdx
@@ -732,19 +726,19 @@ class ProcessingElementTableLearn(implicit p: Parameters)
 
         // Send a dummy write to the register file so it kicks the
         // Transaction Table
-        io.regFile.req.valid := Bool(true)
-        io.regFile.req.bits.isWrite := Bool(true)
+        io.regFile.req.valid := true.B
+        io.regFile.req.bits.isWrite := true.B
         io.regFile.req.bits.peIndex := peArbiter.io.out.bits.index
         io.regFile.req.bits.reqType := e_PE_INCREMENT_WRITE_COUNT
-        io.regFile.req.bits.incWriteCount := Bool(true)
+        io.regFile.req.bits.incWriteCount := true.B
         io.regFile.req.bits.location := table(peArbiter.io.out.bits.index).location
 
-        pe(peArbiter.io.out.bits.index).req.valid := Bool(true)
+        pe(peArbiter.io.out.bits.index).req.valid := true.B
       }
       is(PE_states('e_PE_SLOPE_WB)) {
-        io.regFile.req.valid := Bool(true)
-        io.regFile.req.bits.isWrite := Bool(true)
-        io.regFile.req.bits.incWriteCount := Bool(false)
+        io.regFile.req.valid := true.B
+        io.regFile.req.bits.isWrite := true.B
+        io.regFile.req.bits.incWriteCount := false.B
         io.regFile.req.bits.peIndex := peArbiter.io.out.bits.index
         // [TODO] This needs to be updated for when we do a batch
         // update with more than one input--output pair
@@ -757,15 +751,15 @@ class ProcessingElementTableLearn(implicit p: Parameters)
         io.regFile.req.bits.tIdx := table(peIdx).tIdx
         io.regFile.req.bits.dataBlock := peArbiter.io.out.bits.dataBlock.asUInt
         io.regFile.req.bits.location := table(peIdx).location
-        table(peIdx).slopeAddr := table(peIdx).slopeAddr + UInt(elementsPerBlock)
+        table(peIdx).slopeAddr := table(peIdx).slopeAddr + elementsPerBlock.asUInt
 
-        table(peIdx).dwAddr := table(peIdx).dwAddr + UInt(elementsPerBlock)
-        pe(peIdx).req.valid := Bool(true)
+        table(peIdx).dwAddr := table(peIdx).dwAddr + elementsPerBlock.asUInt
+        pe(peIdx).req.valid := true.B
       }
       is (PE_states('e_PE_SLOPE_BIAS_WB)) {
-        io.regFile.req.valid := Bool(true)
-        io.regFile.req.bits.isWrite := Bool(true)
-        io.regFile.req.bits.incWriteCount := Bool(true)
+        io.regFile.req.valid := true.B
+        io.regFile.req.bits.isWrite := true.B
+        io.regFile.req.bits.incWriteCount := true.B
         io.regFile.req.bits.peIndex := peArbiter.io.out.bits.index
         // [TODO] This needs to be an increment update in the event
         // that we're in batch mode and not in the first item
@@ -783,11 +777,11 @@ class ProcessingElementTableLearn(implicit p: Parameters)
         io.regFile.req.bits.tIdx := table(peIdx).tIdx
         io.regFile.req.bits.location := table(peIdx).location
 
-        pe(peIdx).req.valid := Bool(true)
+        pe(peIdx).req.valid := true.B
       }
       is (PE_states('e_PE_WEIGHT_UPDATE_REQUEST_BIAS)) {
-        io.regFile.req.valid := Bool(true)
-        io.regFile.req.bits.isWrite := Bool(false)
+        io.regFile.req.valid := true.B
+        io.regFile.req.bits.isWrite := false.B
         io.regFile.req.bits.peIndex := peArbiter.io.out.bits.index
         io.regFile.req.bits.reqType := e_PE_REQ_BIAS
         io.regFile.req.bits.addr := table(peIdx).biasAddr
@@ -795,7 +789,7 @@ class ProcessingElementTableLearn(implicit p: Parameters)
         io.regFile.req.bits.data := peArbiter.io.out.bits.data
         io.regFile.req.bits.location := table(peIdx).location
 
-        pe(peIdx).req.valid := Bool(true)
+        pe(peIdx).req.valid := true.B
       }
     }
   }

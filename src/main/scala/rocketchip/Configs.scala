@@ -3,25 +3,26 @@
 package rocketchip
 
 import chisel3._
-import uncore.agents.{CacheName}
+import uncore.util.CacheName
 import rocket._
 import xfiles.{XFiles, XFilesDebugConfig, DefaultXFilesConfig}
-import dana.{DefaultDanaConfig, DanaNoLearningConfig, DanaConfig}
+import dana.{DefaultDanaConfig, DanaNoLearningConfig, DanaConfig, PeTableNumEntries, ElementsPerBlock}
 import coreplex.WithL2Cache
-import cde.{Parameters, Config}
+import config._
 
 class XFilesDanaConfig extends Config (
-  topDefinitions = { (pname,site,here) =>
-    pname match {
-      case BuildRoCC => Seq(
-        RoccParameters(
-          opcodes = OpcodeSet.custom0,
-          generator = (p: Parameters) =>  Module(new XFiles()(p)),
-          nPTWPorts = 1)
-      )
-      case CacheName => "L1D"
-      case RoccMaxTaggedMemXacts => 1
-    }}
+  (pname,site,here) =>
+  pname match {
+    case BuildRoCC => Seq(
+      RoccParameters(
+        opcodes = OpcodeSet.custom0,
+        generator = (p: Parameters) =>  Module(new XFiles()(p)),
+        nPTWPorts = 1)
+    )
+    case CacheName             => "L1D"
+    case RoccMaxTaggedMemXacts => 1
+    case _ => throw new CDEMatchError
+  }
 )
 
 // A default configuraiton that includes both X-FILES and DANa with
@@ -30,7 +31,9 @@ class DefaultXFilesDanaConfig extends Config(new DefaultXFilesConfig ++
   new DefaultDanaConfig)
 
 class WithL2CapacityKb(kb: Int) extends Config(
-  knobValues = { case "L2_CAPACITY_IN_KB" => 64 })
+  (pname,site,here) => pname match {
+    case _ => throw new CDEMatchError
+  })
 
 // VLSI Configs -- no L2
 class XFilesDanaVLSIConfig extends Config(new XFilesDanaConfig ++
@@ -69,8 +72,16 @@ class XFilesDanaFPGASmallConfig extends Config(new XFilesDanaConfig ++
   new DefaultXFilesDanaConfig ++ new DefaultFPGASmallConfig)
 
 // Variants that use explicit numbers of PEs
-class Pes(n: Int) extends Config(knobValues={case "NUM_PES"=>n})
-class Epb(n: Int) extends Config(knobValues={case "ELEMENTS_PER_BLOCK"=>n})
+class Pes(n: Int) extends Config(
+  (pname,site,here) => pname match {
+    case PeTableNumEntries => n
+    case _ => throw new CDEMatchError
+  })
+class Epb(n: Int) extends Config(
+  (pname,site,here) => pname match {
+    case ElementsPerBlock => n
+    case _ => throw new CDEMatchError
+  })
 
 class XFilesDanaPe1Epb4Config extends Config(new Pes(1) ++ new Epb(4) ++
   new XFilesDanaFPGAConfig)

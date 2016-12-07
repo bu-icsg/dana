@@ -5,9 +5,8 @@ package xfiles
 import chisel3._
 import chisel3.util._
 import rocket.{RoCC, HasCoreParameters, CoreModule, CoreBundle}
-import cde.{Parameters, Field}
+import config._
 import math.pow
-import junctions.HasAddrMapParameters
 import _root_.util.ParameterizedBundle
 
 case object TidWidth extends Field[Int]
@@ -62,12 +61,11 @@ trait XFilesResponseCodes extends HasCoreParameters with XFilesParameters {
   val (resp_OK :: resp_TID :: resp_READ :: resp_NOT_DONE :: resp_QUEUE_ERR ::
     resp_XFILES :: Nil) =  Enum(UInt(), 6)
 
-  def genResp[T <: Bits](resp: T, respCode: T, tid: T,
-    data: T = Bits(0, width = xLen)) {
+  def genResp[T <: Bits](resp: T, respCode: T, tid: T, data: T = 0.U(xLen.W)) {
     val tmp = Wire(new Bundle {
-      val respCode = UInt(width = respCodeWidth)
-      val tid = UInt(width = tidWidth)
-      val data = UInt(width = xLen - respCodeWidth - tidWidth)
+      val respCode = UInt(respCodeWidth.W)
+      val tid = UInt(tidWidth.W)
+      val data = UInt((xLen - respCodeWidth - tidWidth).W)
     })
     tmp.respCode := respCode.asUInt
     tmp.tid := tid.asUInt
@@ -77,8 +75,8 @@ trait XFilesResponseCodes extends HasCoreParameters with XFilesParameters {
 }
 
 abstract class XFilesBundle(implicit val p: Parameters)
-    extends ParameterizedBundle()(p) with HasAddrMapParameters
-    with HasCoreParameters with XFilesParameters with XFilesErrorCodes
+    extends ParameterizedBundle()(p) with HasCoreParameters
+    with XFilesParameters with XFilesErrorCodes
     with XFilesUserRequests {
 
   val aliasList = scala.collection.mutable.Map[String, String]()
@@ -147,8 +145,7 @@ class XFiles(implicit p: Parameters) extends RoCC()(p)
     with HasCoreParameters {
   val buildBackend = p(BuildXFilesBackend)
   val backend = buildBackend.generator(p)
-  def info = UInt(p(TransactionTableNumEntries)) ##
-    UInt(buildBackend.info, width = xLen - 16)
+  def info = p(TransactionTableNumEntries).U ## buildBackend.info.U((xLen - 16).W)
   val xFilesArbiter = Module(new XFilesArbiter(info)(p))
 
   // Core -> Arbiter connections

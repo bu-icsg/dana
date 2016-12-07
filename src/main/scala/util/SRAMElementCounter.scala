@@ -18,7 +18,7 @@ class SRAMElementCounterResp (
 ) extends Bundle {
   override def cloneType = new SRAMElementCounterResp (
     sramDepth = sramDepth).asInstanceOf[this.type]
-  val index = UInt(width = log2Up(sramDepth))
+  val index = UInt(log2Up(sramDepth).W)
 }
 
 class SRAMElementCounterInterface (
@@ -32,16 +32,14 @@ class SRAMElementCounterInterface (
     sramDepth = sramDepth,
     numPorts = numPorts,
     elementWidth = elementWidth).asInstanceOf[this.type]
-  val we = Vec(numPorts, Bool(OUTPUT))
-  val din = Vec(numPorts, UInt(OUTPUT, width = elementWidth))
-  val addr = Vec(numPorts, UInt(OUTPUT,
-    width = log2Up(sramDepth * dataWidth / elementWidth)))
-  val dout = Vec(numPorts, UInt(INPUT, width = dataWidth))
+  val we = Vec(numPorts, Bool()).asOutput
+  val din = Vec(numPorts, UInt(elementWidth.W)).asOutput
+  val addr = Vec(numPorts, UInt(log2Up(sramDepth * dataWidth / elementWidth).W)).asOutput
+  val dout = Vec(numPorts, UInt(dataWidth.W)).asInput
   // lastBlock sets which is the last block in the SRAM
-  val lastBlock = Vec(numPorts, UInt(INPUT, width = log2Up(sramDepth)) )
+  val lastBlock = Vec(numPorts, UInt(log2Up(sramDepth).W) ).asInput
   // lastCount sets the number of elements in the last block
-  val lastCount = Vec(numPorts,
-    UInt(INPUT, width = log2Up(dataWidth / elementWidth) + 1))
+  val lastCount = Vec(numPorts, UInt((log2Up(dataWidth / elementWidth) + 1).W)).asInput
   val resp = Vec(numPorts, Decoupled(new SRAMElementCounterResp (
     sramDepth = sramDepth)) )
 }
@@ -72,66 +70,66 @@ class SRAMElementCounter (
   ))
 
   val addr = Vec(numPorts, new Bundle{
-    val addrHi = UInt(width = log2Up(sramDepth))
-    val addrLo = UInt(width = log2Up(dataWidth / elementWidth))})
+    val addrHi = UInt(log2Up(sramDepth).W)
+    val addrLo = UInt(log2Up(dataWidth / elementWidth).W)})
 
   val writePending = Reg(Vec(numPorts, new WritePendingBundle(
     elementWidth = elementWidth,
     dataWidth = dataWidth,
     sramDepth = sramDepth)))
 
-  val tmp = Vec(numPorts, Vec(dataWidth/elementWidth, UInt(width=elementWidth)))
-  val count = Vec(numPorts, UInt(width = log2Up(dataWidth / elementWidth) + 1))
+  val tmp = Vec(numPorts, Vec(dataWidth/elementWidth, UInt(elementWidth.W)))
+  val count = Vec(numPorts, UInt((log2Up(dataWidth / elementWidth) + 1).W))
   val forwarding = Vec(numPorts, Bool())
 
   // Combinational Logic
   for (i <- 0 until numPorts) {
     // Assign the addresses
-    addr(i).addrHi := io.addr(i).asUInt()(
+    addr(i).addrHi := io.addr(i)(
       log2Up(sramDepth * dataWidth / elementWidth) - 1,
       log2Up(dataWidth / elementWidth))
-    addr(i).addrLo := io.addr(i).asUInt()(
+    addr(i).addrLo := io.addr(i)(
       log2Up(dataWidth / elementWidth) - 1, 0)
     // Connections to the sram
     sram.io.weW(i) := writePending(i).valid
     // Explicit data and count assignments
-    sram.io.dinW(i) := UInt(0)
-    sram.io.dinW(i)(sramDepth - 1, 0) := tmp(i).asUInt()
+    sram.io.dinW(i) := 0.U
+    sram.io.dinW(i)(sramDepth - 1, 0) := tmp(i)
     sram.io.dinW(i)(sramDepth + log2Up(dataWidth/elementWidth) + 1 - 1) :=
-      count(i) + UInt(1) + forwarding(i).asUInt()
+      count(i) + 1.U + forwarding(i)
     sram.io.addrR(i) := addr(i).addrHi
     io.dout(i) := sram.io.doutR(i)(dataWidth - 1, 0)
     // Defaults
-    io.resp(i).valid := Bool(false)
-    io.resp(i).bits.index := UInt(0)
-    forwarding(i) := Bool(false)
+    io.resp(i).valid := false.B
+    io.resp(i).bits.index := 0.U
+    forwarding(i) := false.B
     tmp(i) := sram.io.doutR(i)(dataWidth - 1, 0)
     count(i) := sram.io.doutR(i)(
       dataWidth + log2Up(dataWidth/elementWidth) + 1 - 1, dataWidth)
     sram.io.addrW(i) := writePending(i).addrHi
     when (writePending(i).valid) {
       for (j <- 0 until dataWidth / elementWidth) {
-        when (UInt(j) === writePending(i).addrLo) {
+        when (j.U === writePending(i).addrLo) {
           tmp(i)(j) := writePending(i).data
         } .elsewhen(addr(i).addrHi === writePending(i).addrHi &&
             io.we(i) &&
-            UInt(j) === addr(i).addrLo) {
+            j.U === addr(i).addrLo) {
           tmp(i)(j) := io.din(i)
-          forwarding(i) := Bool(true)
+          forwarding(i) := true.B
         } .otherwise {
-          tmp(i)(j) := sram.io.doutR(i).asUInt()((j+1) * elementWidth - 1, j * elementWidth)
+          tmp(i)(j) := sram.io.doutR(i)((j+1) * elementWidth - 1, j * elementWidth)
         }
       }
       // Generate a response if we've filled up an entry. An entry is
       // full if it's count is equal to the number of elementsPerBlock
       // or if it's the last count in the last block (this covers the
       // case of a partially filled last block).
-      when (count(i) + UInt(1) + forwarding(i).asUInt() === UInt(dataWidth / elementWidth) ||
-        (count(i) + UInt(1) + forwarding(i).asUInt() === io.lastCount(i) &&
+      when (count(i) + 1.U + forwarding(i) === (dataWidth / elementWidth).U ||
+        (count(i) + 1.U + forwarding(i) === io.lastCount(i) &&
           writePending(i).addrHi === io.lastBlock(i))) {
-        io.resp(i).valid := Bool(true)
+        io.resp(i).valid := true.B
         io.resp(i).bits.index := writePending(i).addrHi
-        sram.io.dinW(i)(sramDepth + log2Up(dataWidth/elementWidth) + 1 - 1) := UInt(0)
+        sram.io.dinW(i)(sramDepth + log2Up(dataWidth/elementWidth) + 1 - 1) := 0.U
       }
     }
   }
@@ -139,9 +137,9 @@ class SRAMElementCounter (
   // Sequential Logic
   for (i <- 0 until numPorts) {
     // Assign the pending write data
-    writePending(i).valid := Bool(false)
-    when ((io.we(i)) && (forwarding(i) === Bool(false))) {
-      writePending(i).valid := Bool(true)
+    writePending(i).valid := false.B
+    when ((io.we(i)) && (forwarding(i) === false.B)) {
+      writePending(i).valid := true.B
       writePending(i).data := io.din(i)
       writePending(i).addrHi := addr(i).addrHi
       writePending(i).addrLo := addr(i).addrLo
@@ -149,6 +147,6 @@ class SRAMElementCounter (
   }
 
   // Assertions
-  assert(Bool(isPow2(dataWidth / elementWidth)),
+  assert(isPow2(dataWidth / elementWidth),
     "dataWidth/elementWidth must be a power of 2")
 }

@@ -118,9 +118,13 @@ $(DIR_BUILD)/doc:
 	mkdir -p $@
 
 #------------------- Miscellaneous
-TAGS_SCALA = $(DIR_TOP)/../src/main/scala $(DIR_TOP)/../chisel3 \
-	$(DIR_TOP)/../context-dependent-environments/src $(DIR_TOP)/src/main/scala
-TAGS_C = $(DIR_TOP)/src/main/c $(DIR_TOP)/src/test/rv $(DIR_TOP)/src/main/resources
+TAGS_SCALA = \
+	$(DIR_TOP)/../src/main/scala $(DIR_TOP)/../chisel3 \
+	$(DIR_TOP)/src/main/scala
+TAGS_C = \
+	$(DIR_TOP)/src/main/c \
+	$(DIR_TOP)/src/test/rv \
+	$(DIR_TOP)/src/main/resources
 tags:
 	find $(TAGS_SCALA) -name *.scala -exec ctags --output-format=etags {} +
 	find $(TAGS_C) -exec ctags --append=yes --output-format=etags {} +

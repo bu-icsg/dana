@@ -4,7 +4,7 @@ package dana
 
 import chisel3._
 import chisel3.util._
-import cde.Parameters
+import config._
 
 class MemoryInterface(implicit p: Parameters) extends DanaBundle()(p) {
   val cache = (new CacheMemInterface).flip
@@ -15,18 +15,18 @@ class Memory(implicit p: Parameters) extends DanaModule()(p) {
 
   // The output is connected, but does not do anything. So, these
   // values are just set to defaults.
-  io.cache.req.ready            := Bool(true)
-  io.cache.resp.valid           := Bool(false)
-  io.cache.resp.bits.done       := Bool(false)
-  io.cache.resp.bits.data       := UInt(0, width = elementsPerBlock * elementWidth)
-  io.cache.resp.bits.cacheIndex := UInt(0, width = log2Up(cacheNumEntries))
-  io.cache.resp.bits.addr       := UInt(0, width = log2Up(cacheNumBlocks))
+  io.cache.req.ready            := true.B
+  io.cache.resp.valid           := false.B
+  io.cache.resp.bits.done       := false.B
+  io.cache.resp.bits.data       := 0.U((elementsPerBlock * elementWidth).W)
+  io.cache.resp.bits.cacheIndex := 0.U(log2Up(cacheNumEntries).W)
+  io.cache.resp.bits.addr       := 0.U(log2Up(cacheNumBlocks).W)
 
   // Assertions
 
   // This module doesn't do anything, but we should be concerned if
   // the cache starts talking to it. Consequently, I have an assertion
   // here that will fire if we see an inbound request.
-  assert(!(io.cache.req.valid === Bool(true)),
+  assert(!(io.cache.req.valid === true.B),
     "Black box memory module received a valid request from the cache")
 }

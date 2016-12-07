@@ -37,12 +37,12 @@ class ActivationFunctionInterfaceLearn(implicit p: Parameters)
 
 class DSP(implicit p: Parameters) extends DanaModule()(p) {
   val io = IO(new Bundle {
-    val a = SInt(INPUT,  elementWidth.W)
-    val b = SInt(INPUT,  elementWidth.W)
-    val c = UInt(INPUT,  elementWidth.W)
-    val d = SInt(OUTPUT, elementWidth.W)
+    val a = Input(SInt(elementWidth.W))
+    val b = Input(SInt(elementWidth.W))
+    val c = Input(UInt(elementWidth.W))
+    val d = Output(SInt(elementWidth.W))
   })
-  io.d := (((io.a * io.b) >> io.c)(elementWidth - 1, 0)).S
+  io.d := (((io.a * io.b) >> io.c)(elementWidth - 1, 0)).asSInt
 }
 
 class ActivationFunction(implicit p: Parameters) extends DanaModule()(p) {
@@ -149,10 +149,10 @@ class ActivationFunction(implicit p: Parameters) extends DanaModule()(p) {
     tmp
   }
 
-  val one          = 1.S(((elementWidth) << decimal).W)
-  val negOne       = -1.S(((elementWidth) << decimal).W)
-  val seventeen    = 17.S(((elementWidth) << decimal).W)
-  val negSeventeen = -17.S(((elementWidth) << decimal).W)
+  val one          = 1.S(elementWidth.W) << decimal
+  val negOne       = -1.S(elementWidth.W) << decimal
+  val seventeen    = 17.S(elementWidth.W) << decimal
+  val negSeventeen = -17.S(elementWidth.W) << decimal
   val offsetX      = Wire(SInt(elementWidth.W))
   val offsetSigY   = Wire(SInt(elementWidth.W))
   val offsetSymY   = Wire(SInt(elementWidth.W))
@@ -169,31 +169,31 @@ class ActivationFunction(implicit p: Parameters) extends DanaModule()(p) {
     offsetSigY := sigy0
     offsetSymY := symy0
     slopeSig   := slope1
-    slopeSym   := sslope1.S
+    slopeSym   := sslope1.asSInt
   } .elsewhen((x1 <= inD0) && (inD0 < x2)) {
     offsetX    := x1
     offsetSigY := sigy1
     offsetSymY := symy1
     slopeSig   := slope2
-    slopeSym   := sslope2.S
+    slopeSym   := sslope2.asSInt
   } .elsewhen((x2 <= inD0) && (inD0 < x3)) {
     offsetX    := x2
     offsetSigY := sigy2
     offsetSymY := symy2
     slopeSig   := slope3
-    slopeSym   := sslope3.S
+    slopeSym   := sslope3.asSInt
   } .elsewhen((x3 <= inD0) && (inD0 < x4)) {
     offsetX    := x3
     offsetSigY := sigy3
     offsetSymY := symy3
     slopeSig   := slope4
-    slopeSym   := sslope4.S
+    slopeSym   := sslope4.asSInt
   } .elsewhen((xmin <= inD0) && (inD0 < xmax)) {
     offsetX    := x4
     offsetSigY := sigy4
     offsetSymY := symy4
     slopeSig   := slope5
-    slopeSym   := sslope5.S
+    slopeSym   := sslope5.asSInt
   } .otherwise {
     offsetX    := 0.S
     offsetSigY := one
@@ -219,7 +219,7 @@ class ActivationFunction(implicit p: Parameters) extends DanaModule()(p) {
     } // FANN_THRESHOLD_SYMMETRIC
     is (e_FANN_THRESHOLD_SYMMETRIC) {
       when (inD0 < 0.S) {
-        out := -1.S(((elementWidth) << decimal).W)
+        out := negOne
       } .elsewhen(inD0 === 0.S) {
         out := 0.S
       } .otherwise {
@@ -293,23 +293,23 @@ class ActivationFunctionLearn(implicit p: Parameters)
   } .elsewhen ((atanh_x0 <= dataIn) && (dataIn < atanh_x1)) {
     atanhOffsetX := atanh_x0
     atanhOffsetY := atanh_y0
-    atanhSlope   := atanh_s1.S
+    atanhSlope   := atanh_s1.asSInt
   } .elsewhen ((atanh_x1 <= dataIn) && (dataIn < atanh_x2)) {
     atanhOffsetX := atanh_x1
     atanhOffsetY := atanh_y1
-    atanhSlope   := atanh_s2.S
+    atanhSlope   := atanh_s2.asSInt
   } .elsewhen ((atanh_x2 <= dataIn) && (dataIn < atanh_x3)) {
     atanhOffsetX := atanh_x2
     atanhOffsetY := atanh_y2
-    atanhSlope   := atanh_s3.S
+    atanhSlope   := atanh_s3.asSInt
   } .elsewhen ((atanh_x3 <= dataIn) && (dataIn < atanh_x4)) {
     atanhOffsetX := atanh_x3
     atanhOffsetY := atanh_y3
-    atanhSlope   := atanh_s4.S
+    atanhSlope   := atanh_s4.asSInt
   } .elsewhen ((atanh_x4 <= dataIn) && (dataIn < atanh_x5)) {
     atanhOffsetX := atanh_x4
     atanhOffsetY := atanh_y4
-    atanhSlope   := atanh_s5.S
+    atanhSlope   := atanh_s5.asSInt
   } .otherwise {
     atanhOffsetX := 0.S
     atanhOffsetY := seventeen

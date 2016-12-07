@@ -21,9 +21,9 @@ class SRAMElementInterface (
     sramDepth = sramDepth,
     numPorts = numPorts,
     elementWidth = elementWidth).asInstanceOf[this.type]
-  val dinElement = Vec(numPorts, UInt(INPUT, width = elementWidth))
-  override val addr = Vec(numPorts, UInt(INPUT,
-    width = log2Up(sramDepth) + log2Up(dataWidth / elementWidth)))
+  val dinElement = Vec(numPorts, UInt(elementWidth.W)).asInput
+  override val addr = Vec(numPorts,
+    UInt((log2Up(sramDepth) + log2Up(dataWidth / elementWidth)).W)).asInput
 }
 
 class WritePendingBundle (
@@ -36,9 +36,9 @@ class WritePendingBundle (
     dataWidth = dataWidth,
     sramDepth = sramDepth).asInstanceOf[this.type]
   val valid = Bool()
-  val data = UInt(width = elementWidth)
-  val addrHi = UInt(width = log2Up(sramDepth))
-  val addrLo = UInt(width = log2Up(dataWidth / elementWidth))
+  val data = UInt(elementWidth.W)
+  val addrHi = UInt(log2Up(sramDepth).W)
+  val addrLo = UInt(log2Up(dataWidth / elementWidth).W)
 }
 
 // A special instance of the generic SRAM that allows for masked
@@ -64,15 +64,15 @@ class SRAMElement (
   def index(j: Int): (Int, Int) = (elementWidth*(j+1) - 1, elementWidth * j)
 
   val addr = Vec(numPorts, new Bundle {
-    val addrHi = Wire(UInt(width = log2Up(sramDepth)))
-    val addrLo = Wire(UInt(width = log2Up(elementsPerBlock)))})
+    val addrHi = Wire(UInt(log2Up(sramDepth).W))
+    val addrLo = Wire(UInt(log2Up(elementsPerBlock).W))})
 
   val writePending = Reg(Vec(numPorts, new WritePendingBundle(
     elementWidth = elementWidth,
     dataWidth = dataWidth,
     sramDepth = sramDepth)))
 
-  val tmp = Wire(Vec(numPorts, Vec(elementsPerBlock, UInt(width = elementWidth) )))
+  val tmp = Wire(Vec(numPorts, Vec(elementsPerBlock, UInt(elementWidth.W) )))
   val forwarding = Wire(Vec(numPorts, Bool()))
 
   // Combinational Logic
@@ -80,11 +80,11 @@ class SRAMElement (
     // Assign the addresses
     addr(i).addrHi := io.addr(i).asUInt()(
       log2Up(sramDepth * elementsPerBlock) - 1, log2Up(elementsPerBlock))
-    addr(i).addrLo := io.addr(i).asUInt()(log2Up(elementsPerBlock) - 1, 0)
+    addr(i).addrLo := io.addr(i)(log2Up(elementsPerBlock) - 1, 0)
 
     // Connections to the sram
     sram.io.weW(i) := writePending(i).valid
-    sram.io.dinW(i) := tmp(i).asUInt()
+    sram.io.dinW(i) := tmp(i)
     sram.io.addrW(i) := writePending(i).addrHi
     sram.io.addrR(i) := addr(i).addrHi
     io.dout(i) := sram.io.doutR(i)
@@ -105,107 +105,10 @@ class SRAMElement (
   // Sequential Logic
   for (i <- 0 until numPorts) {
     // Assign the pending write data
-    writePending(i).valid := Bool(false)
-    when ((io.we(i)) && (forwarding(i) === Bool(false))) {
-      writePending(i).valid := Bool(true)
+    writePending(i).valid := false.B
+    when ((io.we(i)) && (forwarding(i) === false.B)) {
+      writePending(i).valid := true.B
       writePending(i).data := io.dinElement(i)
       writePending(i).addrHi := addr(i).addrHi
       writePending(i).addrLo := addr(i).addrLo }}
 }
-
-// class SRAMElementTests(uut: SRAMElement, isTrace: Boolean = true)
-//     extends Tester(uut, isTrace) {
-//   // Extracts an element from a block
-//   def extractElement(block: Int, element: Int): Int = {
-//     if (element == 0)
-//       block & ~((~0) << uut.elementWidth)
-//     else
-//       (block >> (element * uut.elementWidth)) & ~((~0) << uut.elementWidth)
-//   }
-
-//   // Generate some random local data
-//   val copy = Array.fill(uut.sramDepth){0}
-//   for (i <- 0 until uut.sramDepth) {
-//     copy(i) = rnd.nextInt((Math.pow(2, uut.dataWidth) - 1).toInt)
-//   }
-
-//   // No forwarding test
-//   println("[INFO] Sequential writes, no forwarding")
-//   for (i <- 0 until uut.sramDepth) {
-//     for (j <- 0 until (uut.divUp(uut.dataWidth, uut.elementWidth))) {
-//       poke(uut.io.we(0), 1)
-//       poke(uut.io.addr(0), ((i << log2Up(uut.divUp(uut.dataWidth, uut.elementWidth))) + j))
-//       poke(uut.io.dinElement(0), extractElement(copy(i), j))
-//       step(1)
-//       poke(uut.io.we(0), 0)
-//       step(1)
-//     }
-//   }
-
-//   step(1)
-//   for (i <- 0 until uut.sramDepth) {
-//     poke(uut.io.addr(0), (i << log2Up(uut.divUp(uut.dataWidth, uut.elementWidth))))
-//     step(1)
-//     printf("%08x =? %08x", copy(i), peek(uut.io.dout(0)))
-//     if (!expect(uut.io.dout(0), copy(i)))
-//       printf(" X\n")
-//     else
-//       printf("\n")
-//   }
-
-//   // Forwarding Test
-//   println("[INFO] Sequential writes, all forwards")
-//   for (i <- 0 until uut.sramDepth) {
-//     copy(i) = rnd.nextInt((Math.pow(2, uut.dataWidth) - 1).toInt)
-//   }
-//   for (i <- 0 until uut.sramDepth) {
-//     for (j <- 0 until (uut.divUp(uut.dataWidth, uut.elementWidth))) {
-//       poke(uut.io.we(0), 1)
-//       poke(uut.io.addr(0), ((i << log2Up(uut.divUp(uut.dataWidth, uut.elementWidth))) + j))
-//       poke(uut.io.dinElement(0), extractElement(copy(i), j))
-//       step(1)
-//     }
-//   }
-//   poke(uut.io.we(0), 0)
-
-//   step(1)
-//   for (i <- 0 until uut.sramDepth) {
-//     poke(uut.io.addr(0), (i << log2Up(uut.divUp(uut.dataWidth, uut.elementWidth))))
-//     step(1)
-//     printf("%08x =? %08x", copy(i), peek(uut.io.dout(0)))
-//     if (!expect(uut.io.dout(0), copy(i)))
-//       printf(" X\n")
-//     else
-//       printf("\n")
-//   }
-
-//   // Random Forwarding Test
-//   println("[INFO] Sequential writes, random forwards")
-//   for (i <- 0 until uut.sramDepth) {
-//     copy(i) = rnd.nextInt((Math.pow(2, uut.dataWidth) - 1).toInt)
-//   }
-//   for (i <- 0 until uut.sramDepth) {
-//     for (j <- 0 until (uut.divUp(uut.dataWidth, uut.elementWidth))) {
-//       poke(uut.io.we(0), 1)
-//       poke(uut.io.addr(0), ((i << log2Up(uut.divUp(uut.dataWidth, uut.elementWidth))) + j))
-//       poke(uut.io.dinElement(0), extractElement(copy(i), j))
-//       step(1)
-//       if (rnd.nextInt(2) == 1) {
-//         poke(uut.io.we(0), 0)
-//         step(1)
-//       }
-//     }
-//   }
-//   poke(uut.io.we(0), 0)
-
-//   step(1)
-//   for (i <- 0 until uut.sramDepth) {
-//     poke(uut.io.addr(0), (i << log2Up(uut.divUp(uut.dataWidth, uut.elementWidth))))
-//     step(1)
-//     printf("%08x =? %08x", copy(i), peek(uut.io.dout(0)))
-//     if (!expect(uut.io.dout(0), copy(i)))
-//       printf(" X\n")
-//     else
-//       printf("\n")
-//   }
-// }

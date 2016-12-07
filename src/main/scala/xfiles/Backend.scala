@@ -5,7 +5,7 @@ package xfiles
 import chisel3._
 import chisel3.util._
 import rocket.{RoCCInterface, HasCoreParameters}
-import cde.{Parameters, Field}
+import config._
 import _root_.util.ParameterizedBundle
 
 case object BuildXFilesBackend extends Field[XFilesBackendParameters]
@@ -14,39 +14,33 @@ case class XFilesBackendParameters(
   info: Long = 0)
 
 class InterruptBundle(implicit p: Parameters) extends XFilesBundle()(p) {
-  val code = UInt(OUTPUT, width = xLen)
+  val code = Output(UInt(xLen.W))
 }
 
 class XFilesBackendReq(implicit p: Parameters) extends XFilesBundle()(p) {
-  val tidx = Decoupled(UInt(INPUT, width = log2Up(transactionTableNumEntries)))
+  val tidx = Decoupled(UInt(log2Up(transactionTableNumEntries).W))
 }
 
 class XFilesBackendResp(implicit p: Parameters) extends XFilesBundle()(p) {
-  val tidx = Valid(UInt(OUTPUT, width = log2Up(transactionTableNumEntries)))
+  val tidx = Valid(UInt(log2Up(transactionTableNumEntries).W))
   val flags = Output(new Bundle with FlagsVDIO)
 }
 
-// class XFilesRs1Rs2Funct(implicit p: Parameters) extends XFilesBundle()(p) {
-//   val rs1 = UInt(width = xLen)
-//   val rs2 = UInt(width = xLen)
-//   val funct = UInt(width = 7)
-// }
-
 class XFilesRs1Rs2Funct(implicit val p: Parameters)
     extends ParameterizedBundle()(p) with HasCoreParameters {
-  val rs1 = UInt(width = xLen)
-  val rs2 = UInt(width = xLen)
-  val funct = UInt(width = 7)
+  val rs1 = UInt(xLen.W)
+  val rs2 = UInt(xLen.W)
+  val funct = UInt(7.W)
 }
 
 class XFilesQueueInterface(implicit p: Parameters) extends XFilesBundle()(p) {
-  val tidxIn = UInt(OUTPUT, width = log2Up(transactionTableNumEntries))
-  val tidxOut = UInt(OUTPUT, width = log2Up(transactionTableNumEntries))
+  val tidxIn = Output(UInt(log2Up(transactionTableNumEntries).W))
+  val tidxOut = Output(UInt(log2Up(transactionTableNumEntries).W))
   // The naming here follows what is connected to the XF TTable Input
   // and Ouptut queues. Alternatively, this is from the perspective of
   // data flowing into (in) and out of (out) the backend
   val in = Decoupled(new XFilesRs1Rs2Funct).flip
-  val out = Decoupled(UInt(width = xLen))
+  val out = Decoupled(UInt(xLen.W))
 }
 
 class XFilesBackendInterface(implicit p: Parameters)
