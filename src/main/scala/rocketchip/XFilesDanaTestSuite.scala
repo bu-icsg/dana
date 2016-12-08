@@ -14,7 +14,6 @@ class AssemblyTests(rocc: String, testDir: String,
 class RegressionTests(rocc: String, testDir: String,
   names: LinkedHashSet[String]) extends rocketchip.RegressionTestSuite(names) {
   override val dir = s"$$(base_dir)/$rocc/tests/build/$testDir"
-  override val makeTargetName = s"$rocc-regression-tests"
 }
 
 object XFilesDanaTestSuites {
