@@ -6,7 +6,7 @@ import chisel3._
 import chisel3.util._
 
 class QueueIOAf[T <: Data](gen: T, entries: Int) extends QueueIO[T](gen, entries) {
-  val almostFull = Bool(OUTPUT)
+  val almostFull = Output(Bool())
   override def cloneType = new QueueIOAf(gen, entries).asInstanceOf[this.type]
 }
 
@@ -21,5 +21,5 @@ class QueueAf[T <: Data](gen: T, entries: Int, almostFullEntries: Int,
   io.enq <> queue.io.enq
   io.deq <> queue.io.deq
   io.count := queue.io.count
-  io.almostFull := queue.io.count >= UInt(almostFullEntries)
+  io.almostFull := queue.io.count >= almostFullEntries.U
 }

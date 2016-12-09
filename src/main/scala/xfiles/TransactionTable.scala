@@ -5,7 +5,7 @@ package xfiles
 import chisel3._
 import chisel3.util._
 import rocket.{RoCCCommand, RoCCResponse, RoCCInterface}
-import cde.{Parameters, Field}
+import config._
 
 case object TransactionTableQueueSize extends Field[Int]
 
@@ -16,18 +16,18 @@ trait FlagsVDIO {
   val output = Bool() // Asserted when waiting for output queue to be not full
   def set(x: String) {x.map((a: Char) => {
       a match {
-        case 'v' => this.valid  := Bool(true)
-        case 'd' => this.done   := Bool(true)
-        case 'i' => this.input  := Bool(true)
-        case 'o' => this.output := Bool(true)
+        case 'v' => this.valid  := true.B
+        case 'd' => this.done   := true.B
+        case 'i' => this.input  := true.B
+        case 'o' => this.output := true.B
         case _ => throw new Exception("FlagsVDIO.set cannot match " + a) }})
   }
   def reset(x: String) {x.map((a: Char) => {
       a match {
-        case 'v' => this.valid  := Bool(false)
-        case 'd' => this.done   := Bool(false)
-        case 'i' => this.input  := Bool(false)
-        case 'o' => this.output := Bool(false)
+        case 'v' => this.valid  := false.B
+        case 'd' => this.done   := false.B
+        case 'i' => this.input  := false.B
+        case 'o' => this.output := false.B
         case _ => throw new Exception("FlagsVDIO.reset cannot match " + a) }})
   }
 }
@@ -36,19 +36,19 @@ trait TableRVDIO extends XFilesParameters {
   val flags = new Bundle with FlagsVDIO {
     val reserved = Bool() // Entry is in use
   }
-  val asid = UInt(width = asidWidth)
-  val tid  = UInt(width = tidWidth)
+  val asid = UInt(asidWidth.W)
+  val tid  = UInt(tidWidth.W)
 
   def reset() {
-    this.flags.valid    := Bool(false)
-    this.flags.reserved := Bool(false)
+    this.flags.valid    := false.B
+    this.flags.reserved := false.B
   }
   def reserve(asid: UInt, tid: UInt) {
-    this.flags.reserved := Bool(true)
-    this.flags.valid    := Bool(true)
-    this.flags.done     := Bool(false)
-    this.flags.input    := Bool(false)
-    this.flags.output   := Bool(false)
+    this.flags.reserved := true.B
+    this.flags.valid    := true.B
+    this.flags.done     := false.B
+    this.flags.input    := false.B
+    this.flags.output   := false.B
     this.asid           := asid
     this.tid            := tid
   }
@@ -71,7 +71,7 @@ class XFilesTransactionTableCmdResp(implicit p: Parameters) extends
     XFilesBundle()(p) {
   val cmd = Decoupled(new RoCCCommand).flip
   val resp = Decoupled(new RoCCResponse)
-  val busy = Bool(OUTPUT)
+  val busy = Output(Bool())
 }
 
 class RespBundle(implicit p: Parameters) extends XFilesBundle()(p) {
@@ -113,7 +113,7 @@ class XFilesTransactionTable(implicit p: Parameters) extends XFilesModule()(p)
   // We use a Queue with an "almost full" high water mark to provide
   // flow control for the backend.
   val queueOutput = Vec.fill(numEntries)(
-    Module(new QueueAf(UInt(width = xLen), queueSize,
+    Module(new QueueAf(UInt(xLen.W), queueSize,
       almostFullEntries = queueSize - 1)).io)
   // The RRArbiter is not communicating data, but is only used to
   // provide arbitration to generate an index
@@ -122,10 +122,10 @@ class XFilesTransactionTable(implicit p: Parameters) extends XFilesModule()(p)
   val hasFree = table.exists(isFree(_: TableEntry))
   val idxFree = table.indexWhere(isFree(_: TableEntry))
 
-  val newRequest = cmd.fire() & funct === UInt(t_USR_NEW_REQUEST)
-  val writeData = cmd.fire() & funct === UInt(t_USR_WRITE_DATA)
-  val writeDataLast = cmd.fire() & funct === UInt(t_USR_WRITE_DATA_LAST)
-  val readDataPoll = cmd.fire() & funct === UInt(t_USR_READ_DATA)
+  val newRequest = cmd.fire() & funct === t_USR_NEW_REQUEST.U
+  val writeData = cmd.fire() & funct === t_USR_WRITE_DATA.U
+  val writeDataLast = cmd.fire() & funct === t_USR_WRITE_DATA_LAST.U
+  val readDataPoll = cmd.fire() & funct === t_USR_READ_DATA.U
   val unknownCmd = cmd.fire() & !(
     newRequest | writeData | writeDataLast | readDataPoll )
   val asid =  getCmdAsid()
@@ -165,10 +165,10 @@ class XFilesTransactionTable(implicit p: Parameters) extends XFilesModule()(p)
 
   // Queue connections
   (0 until numEntries).map(i => {
-    val hitNew = newRequest & hasFree & (idxFree === UInt(i))
-    val hitOld = (writeData|writeDataLast) & hitAsidTid & idxAsidTid===UInt(i)
+    val hitNew = newRequest & hasFree & (idxFree === i.U)
+    val hitOld = (writeData|writeDataLast) & hitAsidTid & idxAsidTid===i.U
     val enq = (hitNew | hitOld) & queueInput(i).enq.ready
-    val deq = io.backend.xfQueue.in.ready & io.backend.xfQueue.tidxIn === UInt(i)
+    val deq = io.backend.xfQueue.in.ready & io.backend.xfQueue.tidxIn === i.U
     queueInput(i).enq.valid := enq
     queueInput(i).enq.bits.rs1 := cmd.bits.rs1
     queueInput(i).enq.bits.rs2 := cmd.bits.rs2
@@ -180,8 +180,8 @@ class XFilesTransactionTable(implicit p: Parameters) extends XFilesModule()(p)
   io.backend.xfQueue.in.valid := queueInput(io.backend.xfQueue.tidxIn).deq.valid
 
   (0 until numEntries).map(i => {
-    val enq = io.backend.xfQueue.out.valid & io.backend.xfQueue.tidxOut===UInt(i)
-    val deq = readDataPoll & hitAsidTid & (idxAsidTid === UInt(i))
+    val enq = io.backend.xfQueue.out.valid & io.backend.xfQueue.tidxOut===i.U
+    val deq = readDataPoll & hitAsidTid & (idxAsidTid === i.U)
     queueOutput(i).enq.valid := enq
     queueOutput(i).enq.bits := io.backend.xfQueue.out.bits
 
@@ -191,7 +191,7 @@ class XFilesTransactionTable(implicit p: Parameters) extends XFilesModule()(p)
 
   // Hook up the arbiter to the table
   (0 until numEntries).map(i => {
-    val flags = table(UInt(i)).flags
+    val flags = table(i.U).flags
     arbiter.in(i).valid := flags.valid & !(flags.input | flags.output)
   })
   io.backend.xfReq.tidx.bits := arbiter.chosen
@@ -200,7 +200,7 @@ class XFilesTransactionTable(implicit p: Parameters) extends XFilesModule()(p)
   // Transaction goes invalid whenever it gets scheduled on the
   // backend
   when (arbiter.out.fire()) {
-    table(arbiter.chosen).flags.valid := Bool(false)
+    table(arbiter.chosen).flags.valid := false.B
   }
 
   // Deal with response on the xfResp line
@@ -218,7 +218,7 @@ class XFilesTransactionTable(implicit p: Parameters) extends XFilesModule()(p)
   // applicable), and the correct response.
   when (newRequest) {
     val queue = queueInput(idxFree)
-    genResp(resp_d.bits.rocc.data, resp_TID, -SInt(err_XFILES_TTABLEFULL))
+    genResp(resp_d.bits.rocc.data, resp_TID, -(err_XFILES_TTABLEFULL.S))
     when (hasFree & queue.enq.ready) {
       genResp(resp_d.bits.rocc.data, resp_TID, tid)
       table(idxFree).reserve(asid, tid)
@@ -230,24 +230,24 @@ class XFilesTransactionTable(implicit p: Parameters) extends XFilesModule()(p)
     genResp(resp_d.bits.rocc.data, resp_QUEUE_ERR, tid)
     when (queue.enq.ready) {
       genResp(resp_d.bits.rocc.data, resp_OK, tid)
-      table(idxAsidTid).flags.input := Bool(false)
+      table(idxAsidTid).flags.input := false.B
     }
   }
 
   when (readDataPoll) {
     // val queueOut = queueOutput(idxAsidTid)
     val entry = table(idxAsidTid)
-    val finished = entry.flags.done && queueOutput(idxAsidTid).count === UInt(1)
+    val finished = entry.flags.done && queueOutput(idxAsidTid).count === 1.U
     genResp(resp_d.bits.rocc.data, resp_NOT_DONE, tid)
     when (queueOutput(idxAsidTid).deq.fire()) {
       genResp(resp_d.bits.rocc.data, resp_OK, tid, queueOutput(idxAsidTid).deq.bits)
-      entry.flags.output := Bool(false)
+      entry.flags.output := false.B
       when (finished) { entry.reset() }
     }
   }
 
   when (unknownCmd) {
-    genResp(resp_d.bits.rocc.data, resp_OK, -SInt(err_XFILES_INVALIDTID))
+    genResp(resp_d.bits.rocc.data, resp_OK, -(err_XFILES_INVALIDTID.S))
     when (hitAsidTid) {
       genResp(resp_d.bits.rocc.data, resp_OK, tid)
     }
@@ -256,10 +256,10 @@ class XFilesTransactionTable(implicit p: Parameters) extends XFilesModule()(p)
   when (reset) { (0 until numEntries).map(i => { table(i).reset() })}
 
   //------------------------------------ Printfs, asserts
-  val error = Reg(Bool(), init = Bool(false))
+  val error = Reg(Bool(), init = false.B)
 
   // Check for too many reads without a response
-  val readDataPollCount = Reg(UInt(width = 32), init = UInt(0))
+  val readDataPollCount = Reg(init = 0.U(32.W))
 
   when (newRequest)    { printfInfo("XF TTable: Saw newRequest\n")    }
   when (unknownCmd)    { printfInfo("XF TTable: Saw unknownCmd\n")    }
@@ -267,9 +267,9 @@ class XFilesTransactionTable(implicit p: Parameters) extends XFilesModule()(p)
   when (writeDataLast) { printfInfo("XF TTable: Saw writeDataLast\n") }
   when (readDataPoll)  { printfInfo("XF TTable: Saw readDataPoll\n")
     val entry = table(idxAsidTid)
-    val finished = entry.flags.done && queueOutput(idxAsidTid).count === UInt(1)
-    readDataPollCount := readDataPollCount + UInt(1)
-    // error := readDataPollCount > UInt(512)
+    val finished = entry.flags.done && queueOutput(idxAsidTid).count === 1.U
+    readDataPollCount := readDataPollCount + 1.U
+    // error := readDataPollCount > 512.U
     when (queueOutput(idxAsidTid).deq.fire() & finished) {
       printfInfo("XF TTable: T0d%d is done via queue, evicting...\n", idxAsidTid)
     }
@@ -292,18 +292,18 @@ class XFilesTransactionTable(implicit p: Parameters) extends XFilesModule()(p)
       "XF TTable: Input queue overflowed\n")
     when (queueInput(i).enq.fire()) {
       printfInfo("XF TTable: queueIn[%d] enq [f:0x%x, rs1:0x%x, rs2:0x%x], #:0d%d\n",
-        UInt(i), queueInput(i).enq.bits.funct, queueInput(i).enq.bits.rs1,
+        i.U, queueInput(i).enq.bits.funct, queueInput(i).enq.bits.rs1,
         queueInput(i).enq.bits.rs2, queueInput(i).count) }
     when (queueInput(i).deq.fire()) {
       printfInfo("XF TTable: queueIn[%d] deq [f:0x%x, rs1:0x%x, rs2:0x%x], #:0d%d\n",
-        UInt(i), queueInput(i).deq.bits.funct, queueInput(i).deq.bits.rs1,
+        i.U, queueInput(i).deq.bits.funct, queueInput(i).deq.bits.rs1,
         queueInput(i).deq.bits.rs2, queueInput(i).count) }
     when (queueOutput(i).enq.fire()) {
       printfInfo("XF TTable: queueOut[%d] enq [data:0x%x], #:0d%d\n",
-        UInt(i), queueOutput(i).enq.bits, queueOutput(i).count) }
+        i.U, queueOutput(i).enq.bits, queueOutput(i).count) }
     when (queueOutput(i).deq.fire()) {
       printfInfo("XF TTable: queueOut[%d] deq [data:0x%x], #:0d%d\n",
-        UInt(i), queueOutput(i).deq.bits, queueOutput(i).count) }
+        i.U, queueOutput(i).deq.bits, queueOutput(i).count) }
   })
 
   when (RegNext(newRequest | writeData | writeDataLast | readDataPoll |

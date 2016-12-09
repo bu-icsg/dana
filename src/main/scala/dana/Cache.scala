@@ -4,7 +4,7 @@ package dana
 
 import chisel3._
 import chisel3.util._
-import cde.Parameters
+import config._
 
 // [TODO]
 //   * The notifyMask/tableMask isn't being set in the response, but
@@ -16,35 +16,35 @@ class CacheState(implicit p: Parameters) extends DanaBundle()(p) {
   val valid       = Bool()
   val notifyFlag  = Bool()
   val fetch       = Bool()
-  val notifyIndex = UInt(width = log2Up(transactionTableNumEntries))
-  val notifyMask  = UInt(width = transactionTableNumEntries)
-  val asid        = UInt(width = asidWidth)
-  val nnid        = UInt(width = nnidWidth)
-  val inUseCount  = UInt(width = log2Up(transactionTableNumEntries) + 1)
+  val notifyIndex = UInt(log2Up(transactionTableNumEntries).W)
+  val notifyMask  = UInt(transactionTableNumEntries.W)
+  val asid        = UInt(asidWidth.W)
+  val nnid        = UInt(nnidWidth.W)
+  val inUseCount  = UInt((log2Up(transactionTableNumEntries) + 1).W)
 }
 
 class CacheMemReq(implicit p: Parameters) extends DanaBundle()(p) {
-  val asid        = UInt(width = asidWidth)
-  val nnid        = UInt(width = nnidWidth)
-  val cacheIndex  = UInt(width = log2Up(cacheNumEntries))
+  val asid        = UInt(asidWidth.W)
+  val nnid        = UInt(nnidWidth.W)
+  val cacheIndex  = UInt(log2Up(cacheNumEntries).W)
 }
 
 class CacheMemResp(implicit p: Parameters) extends DanaBundle()(p) {
   val done        = Bool()
-  val data        = UInt(width = elementsPerBlock * elementWidth)
-  val cacheIndex  = UInt(width = log2Up(cacheNumEntries))
-  val addr        = UInt(width = log2Up(cacheNumBlocks))
+  val data        = UInt((elementsPerBlock * elementWidth).W)
+  val cacheIndex  = UInt(log2Up(cacheNumEntries).W)
+  val addr        = UInt(log2Up(cacheNumBlocks).W)
 }
 
 class CacheMemInterface(implicit p: Parameters) extends DanaBundle()(p) {
-  val req                   = Decoupled(new CacheMemReq)
-  val resp                  = Valid(new CacheMemResp).flip
+  val req  = Decoupled(new CacheMemReq)
+  val resp = Valid(new CacheMemResp).flip
 }
 
 class CacheInterface(implicit p: Parameters) extends Bundle {
-  val mem                   = new CacheMemInterface
-  lazy val control          = (new ControlCacheInterface).flip
-  lazy val pe               = (new PECacheInterface).flip
+  val mem          = new CacheMemInterface
+  lazy val control = (new ControlCacheInterface).flip
+  lazy val pe      = (new PECacheInterface).flip
 }
 
 class CacheInterfaceLearn(implicit p: Parameters)
@@ -54,11 +54,11 @@ class CacheInterfaceLearn(implicit p: Parameters)
 }
 
 class CompressedNeuron(implicit p: Parameters) extends DanaBundle()(p) {
-  val weightPtr          = UInt(width = 16)
-  val numWeights         = UInt(width = 8)
-  val activationFunction = UInt(width = activationFunctionWidth)
-  val steepness          = UInt(width = steepnessWidth)
-  val bias               = SInt(width = elementWidth)
+  val weightPtr          = UInt(16.W)
+  val numWeights         = UInt(8.W)
+  val activationFunction = UInt(activationFunctionWidth.W)
+  val steepness          = UInt(steepnessWidth.W)
+  val bias               = SInt(elementWidth.W)
   def populate(data: UInt, out: CompressedNeuron) {
     out.weightPtr := data(15, 0)
     out.numWeights := data(23, 16)
@@ -100,7 +100,7 @@ abstract class CacheBase[SramIfType <: SRAMVariantInterface,
   // builds up the responses.
   val controlRespPipe = Reg(Vec(2, Valid(genControlResp)))
   val peRespPipe = Reg(Vec(2, Valid(genPEResp)))
-  val cacheRead = Reg(Vec(cacheNumEntries, UInt(width=log2Up(cacheNumBlocks))))
+  val cacheRead = Reg(Vec(cacheNumEntries, UInt(log2Up(cacheNumBlocks).W)))
   // We also need to store the cache index of an inbound request by a
   // PE so that we can dereference it one cycle later when the cache
   // line SRAM output is valid. [TODO] Should this be gated by the PE
@@ -109,7 +109,7 @@ abstract class CacheBase[SramIfType <: SRAMVariantInterface,
 
   // Helper functions for examing the cache entries
   def fIsFree(x: CacheState): Bool = {!x.valid}
-  def fIsUnused(x: CacheState): Bool = {x.inUseCount === UInt(0)}
+  def fIsUnused(x: CacheState): Bool = {x.inUseCount === 0.U}
   def fDerefNnid(x: CacheState, y: UInt): Bool = {x.valid && x.nnid === y}
 
   // The check on whether or not an entry is done fetching depends, in
@@ -135,36 +135,36 @@ abstract class CacheBase[SramIfType <: SRAMVariantInterface,
 
   // This initializes a new cache entry
   def tableInit(index: UInt) {
-    table(index).valid := Bool(true)
+    table(index).valid := true.B
     table(index).asid := tTableReqQueue.deq.bits.asid
     table(index).nnid := tTableReqQueue.deq.bits.nnid
-    table(index).fetch := Bool(true)
-    table(index).notifyFlag := Bool(false)
+    table(index).fetch := true.B
+    table(index).notifyFlag := false.B
     table(index).notifyIndex := tTableReqQueue.deq.bits.tableIndex
-    table(index).inUseCount := UInt(1)
+    table(index).inUseCount := 1.U
   }
 
   // Default values
-  io.mem.req.valid := Bool(false)
-  io.mem.req.bits.asid := UInt(0)
-  io.mem.req.bits.nnid := UInt(0)
-  io.mem.req.bits.cacheIndex := UInt(0)
+  io.mem.req.valid := false.B
+  io.mem.req.bits.asid := 0.U
+  io.mem.req.bits.nnid := 0.U
+  io.mem.req.bits.cacheIndex := 0.U
 
-  controlRespPipe(0).valid := Bool(false)
-  controlRespPipe(0).bits.fetch := Bool(false)
-  controlRespPipe(0).bits.tableIndex := UInt(0)
-  controlRespPipe(0).bits.tableMask := UInt(0)
-  controlRespPipe(0).bits.cacheIndex := UInt(0)
-  controlRespPipe(0).bits.data := Vec.fill(6)(UInt(0))
-  controlRespPipe(0).bits.decimalPoint := UInt(0)
-  controlRespPipe(0).bits.field := UInt(0)
-  controlRespPipe(0).bits.regFileLocationBit := UInt(0)
+  controlRespPipe(0).valid := false.B
+  controlRespPipe(0).bits.fetch := false.B
+  controlRespPipe(0).bits.tableIndex := 0.U
+  controlRespPipe(0).bits.tableMask := 0.U
+  controlRespPipe(0).bits.cacheIndex := 0.U
+  controlRespPipe(0).bits.data := Vec.fill(6)(0.U)
+  controlRespPipe(0).bits.decimalPoint := 0.U
+  controlRespPipe(0).bits.field := 0.U
+  controlRespPipe(0).bits.regFileLocationBit := 0.U
 
-  peRespPipe(0).valid := Bool(false)
-  peRespPipe(0).bits.data := UInt(0)
+  peRespPipe(0).valid := false.B
+  peRespPipe(0).bits.data := 0.U
 
   // [TODO] This shouldn't always be true
-  io.pe.req.ready := Bool(true)
+  io.pe.req.ready := true.B
 
   // Assignment to the output pipe
   controlRespPipe(1) := controlRespPipe(0)
@@ -172,9 +172,9 @@ abstract class CacheBase[SramIfType <: SRAMVariantInterface,
 
   // Default values for the memory input wires
   for (i <- 0 until cacheNumEntries) {
-    mem(i).din(0) := UInt(0)
-    mem(i).addr(0) := UInt(0)
-    mem(i).we(0) := Bool(false)
+    mem(i).din(0) := 0.U
+    mem(i).addr(0) := 0.U
+    mem(i).we(0) := false.B
   }
 
   // The cache can see requests from three locations:
@@ -187,7 +187,7 @@ abstract class CacheBase[SramIfType <: SRAMVariantInterface,
   // control/memory requests for any non-trivial configuration and
   // network, so these get their own port.
 
-  tTableReqQueue.deq.ready := Bool(false)
+  tTableReqQueue.deq.ready := false.B
   // Handle requests from the control module
   val request = tTableReqQueue.deq.bits.request
   val asid = tTableReqQueue.deq.bits.asid
@@ -209,7 +209,7 @@ abstract class CacheBase[SramIfType <: SRAMVariantInterface,
     controlRespPipe(0).bits.cacheIndex := derefNnid
   }
   when (tTableReqQueue.deq.valid && !io.pe.req.valid) {
-    tTableReqQueue.deq.ready := Bool(true)
+    tTableReqQueue.deq.ready := true.B
     switch (request) {
       is (e_CACHE_LOAD) {
         when (!foundNnid) {
@@ -224,7 +224,7 @@ abstract class CacheBase[SramIfType <: SRAMVariantInterface,
           when (hasFree | hasUnused) {
             tableInit(cacheIdx)
             // Generate a request to memory
-            io.mem.req.valid := Bool(true)
+            io.mem.req.valid := true.B
             io.mem.req.bits.asid := asid
             io.mem.req.bits.nnid := nnid
             io.mem.req.bits.cacheIndex := cacheIdx
@@ -235,39 +235,39 @@ abstract class CacheBase[SramIfType <: SRAMVariantInterface,
           // The nnid was found, but the data is currently being
           // loaded from memory. This happens if a second request for
           // the same data shows up while this guy is being fetched.
-          table(derefNnid).inUseCount := table(derefNnid).inUseCount + UInt(1)
+          table(derefNnid).inUseCount := table(derefNnid).inUseCount + 1.U
           table(derefNnid).notifyMask := table(derefNnid).notifyMask |
             UIntToOH(tableIndex)
         } .otherwise {
           // The NNID was found and the data has already been loaded
-          table(derefNnid).inUseCount := table(derefNnid).inUseCount + UInt(1)
+          table(derefNnid).inUseCount := table(derefNnid).inUseCount + 1.U
           // Start a response to the control unit
-          controlRespPipe(0).valid := Bool(true)
+          controlRespPipe(0).valid := true.B
           controlRespPipe(0).bits.field := e_CACHE_INFO
         }
       }
       is (e_CACHE_LAYER_INFO) {
-        controlRespPipe(0).valid := Bool(true)
+        controlRespPipe(0).valid := true.B
         controlRespPipe(0).bits.field := e_CACHE_LAYER
         // The layer sub-index is temporarily stored in data(0)
 
         // Read the layer information from the correct block. A layer
         // occupies one block, so we need to pull the block address
         // out of the layer number.
-        mem(derefNnid).addr(0) := UInt(1) + // Offset from info region
+        mem(derefNnid).addr(0) := 1.U + // Offset from info region
           layer(layer.getWidth-1, log2Up(elementsPerBlock))
       }
       is (e_CACHE_DECREMENT_IN_USE_COUNT) {
-          table(derefNnid).inUseCount := table(derefNnid).inUseCount - UInt(1)
+          table(derefNnid).inUseCount := table(derefNnid).inUseCount - 1.U
       }
     }
   } .elsewhen (hasNotify) {
     // Start a response to the control unit
-    controlRespPipe(0).valid := Bool(true)
+    controlRespPipe(0).valid := true.B
     controlRespPipe(0).bits.field := e_CACHE_INFO
     // Now that this is away, we can deassert some table bits
-    table(idxNotify).fetch := Bool(false)
-    table(idxNotify).notifyFlag := Bool(false)
+    table(idxNotify).fetch := false.B
+    table(idxNotify).notifyFlag := false.B
   }
 
   // Pipeline second stage (SRAM read)
@@ -281,7 +281,7 @@ abstract class CacheBase[SramIfType <: SRAMVariantInterface,
       controlRespPipe(1).bits.data(1) := dataDecode.totalNeurons
      // Pass back the error function in LSBs of data(2)
       controlRespPipe(1).bits.data(2) :=
-        UInt(0, width=16-errorFunctionWidth) ## dataDecode.errorFunction
+        0.U((16-errorFunctionWidth).W) ## dataDecode.errorFunction
       controlRespPipe(1).bits.data(3) := dataDecode.learningRate
       controlRespPipe(1).bits.data(4) := dataDecode.lambda
       controlRespPipe(1).bits.data(5) := dataDecode.totalWeightBlocks
@@ -309,19 +309,19 @@ abstract class CacheBase[SramIfType <: SRAMVariantInterface,
     // [TODO] This shift may be a source of bugs. Check to make sure
     // that it's being passed correctly.
     mem(io.pe.req.bits.cacheIndex).addr(0) :=
-      io.pe.req.bits.cacheAddr >> (UInt(2 + log2Up(elementsPerBlock)))
+      io.pe.req.bits.cacheAddr >> ((2 + log2Up(elementsPerBlock)).U)
     printfInfo("cache: block address from byte address 0x%x/0x%x\n",
       io.pe.req.bits.cacheAddr,
-      io.pe.req.bits.cacheAddr >> (UInt(2 + log2Up(elementsPerBlock))) )
+      io.pe.req.bits.cacheAddr >> ((2 + log2Up(elementsPerBlock)).U) )
     // Fill the first stage of the PE pipeline
     switch (io.pe.req.bits.field) {
       is (e_CACHE_NEURON) {
-        peRespPipe(0).valid := Bool(true)
+        peRespPipe(0).valid := true.B
       }
       is (e_CACHE_WEIGHT) {
         printfInfo("Cache: PE 0x%x req for weight @ addr 0x%x\n",
           io.pe.req.bits.peIndex, io.pe.req.bits.cacheAddr)
-        peRespPipe(0).valid := Bool(true)
+        peRespPipe(0).valid := true.B
       }
     }
   }
@@ -344,7 +344,7 @@ abstract class CacheBase[SramIfType <: SRAMVariantInterface,
       io.mem.resp.bits.cacheIndex,
       io.mem.resp.bits.addr,
       io.mem.resp.bits.data)
-    mem(io.mem.resp.bits.cacheIndex).we(0) := Bool(true)
+    mem(io.mem.resp.bits.cacheIndex).we(0) := true.B
     mem(io.mem.resp.bits.cacheIndex).addr(0) := io.mem.resp.bits.addr
     mem(io.mem.resp.bits.cacheIndex).din(0) := io.mem.resp.bits.data
     // If this is done, then set the notify flag which will cause the
@@ -353,13 +353,13 @@ abstract class CacheBase[SramIfType <: SRAMVariantInterface,
     when (io.mem.resp.bits.done) {
       printfInfo("Cache: SRAM_%x received DONE response\n",
         io.mem.resp.bits.cacheIndex)
-      table(io.mem.resp.bits.cacheIndex).notifyFlag := Bool(true)
+      table(io.mem.resp.bits.cacheIndex).notifyFlag := true.B
     }
   }
 
   // Reset
   when (reset) {for (i <- 0 until cacheNumEntries) {
-    table(i).valid := Bool(false) }}
+    table(i).valid := false.B }}
 
   // Assertions
 
@@ -380,7 +380,7 @@ abstract class CacheBase[SramIfType <: SRAMVariantInterface,
   // The in use count should never be decremented below zero.
   assert(!(tTableReqQueue.deq.ready &&
     tTableReqQueue.deq.bits.request === e_CACHE_DECREMENT_IN_USE_COUNT &&
-    table(derefNnid).inUseCount === UInt(0)),
+    table(derefNnid).inUseCount === 0.U),
     "Cache received control request to decrement count of zero-valued inUseCount")
 
   // There is no way of handling a request from the Transaction Table
@@ -425,10 +425,10 @@ class CacheLearn(implicit p: Parameters)
     x.notifyFlag & notifyFlagOld }
 
   for (i <- 0 until cacheNumEntries) {
-    mem(i).inc(0) := Bool(false)
+    mem(i).inc(0) := false.B
   }
 
-  controlRespPipe(0).bits.totalWritesMul := UInt(0)
+  controlRespPipe(0).bits.totalWritesMul := 0.U
   controlRespPipe(0).bits.totalWritesMul :=
     tTableReqQueue.deq.bits.totalWritesMul
 
@@ -442,14 +442,14 @@ class CacheLearn(implicit p: Parameters)
       is (e_CACHE_WEIGHT_ONLY) {
         printfInfo("Cache: PE 0x%x req for weight @ addr 0x%x\n",
           io.pe.req.bits.peIndex, io.pe.req.bits.cacheAddr)
-        peRespPipe(0).valid := Bool(true)
+        peRespPipe(0).valid := true.B
       }
       is (e_CACHE_WEIGHT_WB) {
         printfInfo("Cache: PE 0x%x req to inc weight @addr 0x%x\n",
           io.pe.req.bits.peIndex, io.pe.req.bits.cacheAddr)
         printfInfo("       block: 0x%x\n", io.pe.req.bits.data)
-        mem(io.pe.req.bits.cacheIndex).we(0) := Bool(true)
-        mem(io.pe.req.bits.cacheIndex).inc(0) := Bool(true)
+        mem(io.pe.req.bits.cacheIndex).we(0) := true.B
+        mem(io.pe.req.bits.cacheIndex).inc(0) := true.B
         mem(io.pe.req.bits.cacheIndex).din(0) := io.pe.req.bits.data.asUInt
       }
     }

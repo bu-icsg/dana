@@ -2,7 +2,7 @@ package xfiles.standalone
 
 import chisel3._
 import chisel3.util._
-import cde.Parameters
+import config._
 import xfiles.XFilesUserRequests
 
 class DebugTester(implicit p: Parameters) extends XFilesTester()(p) {

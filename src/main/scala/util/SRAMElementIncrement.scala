@@ -26,7 +26,7 @@ class SRAMElementIncrementInterface (
     sramDepth = sramDepth,
     numPorts = numPorts,
     elementWidth = elementWidth).asInstanceOf[this.type]
-  val wType = Vec(numPorts, UInt(INPUT, width = log2Up(3)))
+  val wType = Vec(numPorts, UInt(log2Up(3).W)).asInput
 }
 
 class WritePendingIncrementBundle (
@@ -39,11 +39,11 @@ class WritePendingIncrementBundle (
     dataWidth = dataWidth,
     sramDepth = sramDepth).asInstanceOf[this.type]
   val valid       = Bool()
-  val wType       = UInt(width = log2Up(3))
-  val dataElement = UInt(width = elementWidth)
-  val dataBlock   = UInt(width = dataWidth)
-  val addrHi      = UInt(width = log2Up(sramDepth))
-  val addrLo      = UInt(width = log2Up(dataWidth / elementWidth))
+  val wType       = UInt(log2Up(3).W)
+  val dataElement = UInt(elementWidth.W)
+  val dataBlock   = UInt(dataWidth.W)
+  val addrHi      = UInt(log2Up(sramDepth).W)
+  val addrLo      = UInt(log2Up(dataWidth / elementWidth).W)
 }
 
 // A special instance of the generic SRAM that allows for masked
@@ -80,8 +80,8 @@ class SRAMElementIncrement (
     val sramDepth: Int,
     val elementsPerBlock: Int
   ) extends Bundle {
-    val addrHi = UInt(width = log2Up(sramDepth))
-    val addrLo = UInt(width = log2Up(elementsPerBlock))
+    val addrHi = UInt(log2Up(sramDepth).W)
+    val addrLo = UInt(log2Up(elementsPerBlock).W)
     override def cloneType = new AddrBundle(
       sramDepth = sramDepth,
       elementsPerBlock = elementsPerBlock).asInstanceOf[this.type]
@@ -94,16 +94,16 @@ class SRAMElementIncrement (
     dataWidth = dataWidth,
     sramDepth = sramDepth)))
 
-  val tmp0 = Wire(Vec(numPorts,Vec(elementsPerBlock,UInt(width=elementWidth))))
-  val tmp1 = Wire(Vec(numPorts,Vec(elementsPerBlock,UInt(width=elementWidth))))
+  val tmp0 = Wire(Vec(numPorts,Vec(elementsPerBlock,UInt(elementWidth.W))))
+  val tmp1 = Wire(Vec(numPorts,Vec(elementsPerBlock,UInt(elementWidth.W))))
   val forwarding = Wire(Vec(numPorts, Bool()))
 
   // Combinational Logic
   for (i <- 0 until numPorts) {
     // Assign the addresses: addrHi->block address, addrLo->element address
-    addr(i).addrHi := io.addr(i).asUInt()(
+    addr(i).addrHi := io.addr(i)(
       log2Up(sramDepth * elementsPerBlock) - 1, log2Up(elementsPerBlock))
-    addr(i).addrLo := io.addr(i).asUInt()(log2Up(elementsPerBlock) - 1, 0)
+    addr(i).addrLo := io.addr(i)(log2Up(elementsPerBlock) - 1, 0)
 
     // Connections to the sram
     sram.io.weW(i) := writePending(i).valid
@@ -123,27 +123,27 @@ class SRAMElementIncrement (
     when (writePending(i).valid) {
       // Write pending data to tmp0
       switch (writePending(i).wType) {
-        is (UInt(0)) {
+        is (0.U) {
           writeElement(tmp0(i), writePending(i).addrLo, writePending(i).dataElement) }
-        is (UInt(1)) {
+        is (1.U) {
           writeBlock(tmp0(i), writePending(i).dataBlock) }
-        is (UInt(2)) {
+        is (2.U) {
           writeBlockIncrement(tmp0(i), sram.io.doutR(i), writePending(i).dataBlock) }}
 
       // Handle forwarding by updating tmp1
       when (forwarding(i)) {
         switch (io.wType(i)) {
-          is (UInt(0)) {
+          is (0.U) {
             writeElement(tmp1(i), addr(i).addrLo, io.dinElement(i)) }
-          is (UInt(1)) {
+          is (1.U) {
             writeBlock(tmp1(i), io.din(i)) }
-          is (UInt(2)) {
+          is (2.U) {
             writeBlockIncrement(tmp1(i), tmp0(i).asUInt, io.din(i)) }}}
 
       printf("[INFO] SramEleInc: WRITE port/type/fwd?/fwdType 0x%x/0x%x/0x%x/0x%x\n",
-        UInt(i), writePending(i).wType, forwarding(i), io.wType(i))
+        i.U, writePending(i).wType, forwarding(i), io.wType(i))
       printf("[INFO]              DATA addr/dataOld/dataNew 0x%x/0x%x/0x%x\n",
-        writePending(i).addrHi##writePending(i).addrLo, sram.io.doutR(i).asUInt,
+        writePending(i).addrHi##writePending(i).addrLo, sram.io.doutR(i),
         tmp1(i).asUInt)
     }
   }
@@ -151,9 +151,9 @@ class SRAMElementIncrement (
   // Sequential Logic
   for (i <- 0 until numPorts) {
     // Assign the pending write data
-    writePending(i).valid := Bool(false)
-    when ((io.we(i)) && (forwarding(i) === Bool(false))) {
-      writePending(i).valid := Bool(true)
+    writePending(i).valid := false.B
+    when ((io.we(i)) && (forwarding(i) === false.B)) {
+      writePending(i).valid := true.B
       writePending(i).wType := io.wType(i)
       writePending(i).dataElement := io.dinElement(i)
       writePending(i).dataBlock := io.din(i)
@@ -166,6 +166,6 @@ class SRAMElementIncrement (
 
   // We only define write types up through 2
   assert(!Vec((0 until numPorts).map(i =>
-    io.we(i) && io.wType(i) > UInt(2))).contains(Bool(true)),
+    io.we(i) && io.wType(i) > 2.U)).contains(true.B),
     "SRAMElementIncrement saw unsupported wType > 2")
 }

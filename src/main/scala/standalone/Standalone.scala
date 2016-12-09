@@ -3,7 +3,7 @@ package xfiles.standalone
 import chisel3._
 import chisel3.util._
 import chisel3.testers.BasicTester
-import cde.{Field, Parameters}
+import config._
 import rocket.{RoCCCommand, RoCCResponse, RoCC, RoccNPTWPorts}
 import xfiles._
 import dana._
@@ -18,8 +18,8 @@ class HoneyPot[T <: Bundle](name: String = "", fatal: Boolean = true) extends Mo
     val resp = Valid(new Bundle{})
   })
 
-  io.req.ready := Bool(true)
-  io.resp.valid := Bool(false)
+  io.req.ready := true.B
+  io.resp.valid := false.B
   val i = s"Module tried to access HoneyPot $name"
   if (fatal)
     assert(!(io.req.valid), i)
@@ -32,9 +32,9 @@ class RoccTester[T <: RoCC](gen: => T)(implicit val p: Parameters)
   val io = IO(new Bundle {
     val cmd = Decoupled(new RoCCCommand).flip
     val resp = Decoupled(new RoCCResponse)
-    val busy = Bool(OUTPUT)
-    val interrupt = Bool(INPUT)
-    val exception = Bool(OUTPUT)
+    val busy = Output(Bool())
+    val interrupt = Output(Bool())
+    val exception = Output(Bool())
   })
   val dut = gen
 

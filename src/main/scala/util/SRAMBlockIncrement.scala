@@ -26,7 +26,7 @@ class SRAMBlockIncrementInterface (
     sramDepth = sramDepth,
     numPorts = numPorts,
     elementWidth = elementWidth).asInstanceOf[this.type]
-  val inc = Vec(numPorts, Bool(INPUT))
+  val inc = Vec(numPorts, Bool()).asInput
 }
 
 class WritePendingBlockIncrementBundle (
@@ -40,8 +40,8 @@ class WritePendingBlockIncrementBundle (
     sramDepth = sramDepth).asInstanceOf[this.type]
   val valid = Bool()
   val inc = Bool()
-  val data = UInt(width = dataWidth)
-  val addr = UInt(width = log2Up(sramDepth))
+  val data = UInt(dataWidth.W)
+  val addr = UInt(log2Up(sramDepth).W)
 }
 
 // A special instance of the generic SRAM that allows for masked
@@ -78,15 +78,15 @@ class SRAMBlockIncrement (
     dataWidth = dataWidth,
     sramDepth = sramDepth)))
 
-  val tmp0 = Wire(Vec(numPorts, Vec(elementsPerBlock, UInt(width = elementWidth))))
-  val tmp1 = Wire(Vec(numPorts, Vec(elementsPerBlock, UInt(width = elementWidth))))
+  val tmp0 = Wire(Vec(numPorts, Vec(elementsPerBlock, UInt(elementWidth.W))))
+  val tmp1 = Wire(Vec(numPorts, Vec(elementsPerBlock, UInt(elementWidth.W))))
   val forwarding = Wire(Vec(numPorts, Bool()))
 
   // Combinational Logic
   for (i <- 0 until numPorts) {
     // Connections to the sram
     sram.io.weW(i) := writePending(i).valid
-    sram.io.dinW(i) := tmp1(i).asUInt()
+    sram.io.dinW(i) := tmp1(i).asUInt
     sram.io.addrW(i) := writePending(i).addr
     sram.io.addrR(i) := io.addr(i)
     io.dout(i) := sram.io.doutR(i)
@@ -113,16 +113,16 @@ class SRAMBlockIncrement (
           writeBlockIncrement(tmp1(i), tmp0(i).asUInt, io.din(i)) }}
 
       printf("[INFO] SramBloInc: WRITE port/inc?/fwd?/fwdInc? 0x%x/0x%x/0x%x/0x%x\n",
-        UInt(i), writePending(i).inc, forwarding(i), io.inc(i))
+        i.U, writePending(i).inc, forwarding(i), io.inc(i))
       printf("[INFO]              DATA addr/dataOld/dataNew 0x%x/0x%x/0x%x\n",
-        writePending(i).addr, sram.io.doutR(i).asUInt, tmp1(i).asUInt) }}
+        writePending(i).addr, sram.io.doutR(i), tmp1(i).asUInt) }}
 
   // Sequential Logic
   for (i <- 0 until numPorts) {
     // Assign the pending write data
-    writePending(i).valid := Bool(false)
-    when ((io.we(i)) && (forwarding(i) === Bool(false))) {
-      writePending(i).valid := Bool(true)
+    writePending(i).valid := false.B
+    when ((io.we(i)) && (forwarding(i) === false.B)) {
+      writePending(i).valid := true.B
       writePending(i).inc := io.inc(i)
       writePending(i).data := io.din(i)
       writePending(i).addr := io.addr(i) }}

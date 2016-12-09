@@ -20,18 +20,18 @@ class SRAMInterface(
     sramDepth = sramDepth
   ).asInstanceOf[this.type]
   // Data Input
-  val din   = Vec(numReadWritePorts, UInt(INPUT, width = dataWidth))
-  val dinW  = Vec(numWritePorts,     UInt(INPUT, width = dataWidth))
+  val din   = Vec(numReadWritePorts, UInt(dataWidth.W)).asInput
+  val dinW  = Vec(numWritePorts,     UInt(dataWidth.W)).asInput
   // Data Output
-  val dout  = Vec(numReadWritePorts, UInt(OUTPUT, width = dataWidth))
-  val doutR = Vec(numReadPorts,      UInt(OUTPUT, width = dataWidth))
+  val dout  = Vec(numReadWritePorts, UInt(dataWidth.W)).asOutput
+  val doutR = Vec(numReadPorts,      UInt(dataWidth.W)).asOutput
   // Addresses
-  val addr  = Vec(numReadWritePorts, UInt(INPUT, width = log2Up(sramDepth)))
-  val addrR = Vec(numReadPorts,      UInt(INPUT, width = log2Up(sramDepth)))
-  val addrW = Vec(numWritePorts,     UInt(INPUT, width = log2Up(sramDepth)))
+  val addr  = Vec(numReadWritePorts, UInt(log2Up(sramDepth).W)).asInput
+  val addrR = Vec(numReadPorts,      UInt(log2Up(sramDepth).W)).asInput
+  val addrW = Vec(numWritePorts,     UInt(log2Up(sramDepth).W)).asInput
   // Write enable
-  val we    = Vec(numReadWritePorts, Bool(INPUT))
-  val weW   = Vec(numWritePorts,     Bool(INPUT))
+  val we    = Vec(numReadWritePorts, Bool()).asInput
+  val weW   = Vec(numWritePorts,     Bool()).asInput
 }
 
 class SRAM (
@@ -65,10 +65,10 @@ class SRAM (
     numReadWritePorts = numReadWritePorts,
     dataWidth = dataWidth,
     sramDepth = sramDepth))
-  val mem = Mem(sramDepth, UInt(width = dataWidth))
+  val mem = Mem(sramDepth, UInt(dataWidth.W))
 
   if (numReadWritePorts > 0) {
-    val buf = Reg(Vec(numReadWritePorts, UInt(width = dataWidth)))
+    val buf = Reg(Vec(numReadWritePorts, UInt(dataWidth.W)))
     for (i <- 0 until numReadWritePorts) {
       when (io.we(i)) {
         mem(io.addr(i)) := io.din(i)
@@ -79,7 +79,7 @@ class SRAM (
   }
 
   if (numReadPorts > 0) {
-    val bufR = Reg(Vec(numReadPorts, UInt(width = dataWidth)))
+    val bufR = Reg(Vec(numReadPorts, UInt(dataWidth.W)))
     for (i <- 0 until numReadPorts) {
       bufR(i) := mem(io.addrR(i))
       io.doutR(i) := bufR(i)
@@ -103,10 +103,10 @@ class SRAMSinglePortInterface(
   override def cloneType = new SRAMDualPortInterface(
     dataWidth = dataWidth,
     sramDepth = sramDepth).asInstanceOf[this.type]
-  val we = Bool(OUTPUT)
-  val din = UInt(OUTPUT, width = dataWidth)
-  val addr = UInt(OUTPUT, width = log2Up(sramDepth))
-  val dout = UInt(INPUT, width = dataWidth)
+  val we = Output(Bool())
+  val din = Output(UInt(dataWidth.W))
+  val addr = Output(UInt(log2Up(sramDepth).W))
+  val dout = Input(UInt(dataWidth.W))
 }
 
 class SRAMDualPortInterface(
@@ -116,10 +116,10 @@ class SRAMDualPortInterface(
   override def cloneType = new SRAMDualPortInterface(
     dataWidth = dataWidth,
     sramDepth = sramDepth).asInstanceOf[this.type]
-  val we = Vec(2, Bool(OUTPUT))
-  val din = Vec(2, UInt(OUTPUT, width = dataWidth))
-  val addr = Vec(2, UInt(OUTPUT, width = log2Up(sramDepth)))
-  val dout = Vec(2, UInt(INPUT, width = dataWidth))
+  val we = Vec(2, Bool()).asOutput
+  val din = Vec(2, UInt(dataWidth.W)).asOutput
+  val addr = Vec(2, UInt(log2Up(sramDepth).W)).asOutput
+  val dout = Vec(2, UInt(dataWidth.W)).asInput
 }
 
 class SRAMDualPort(
@@ -145,26 +145,3 @@ class SRAMDualPort(
     io.dout(i) := sram.dout(i)
   }
 }
-
-// class SRAMTests(uut: SRAM, isTrace: Boolean = true)
-//     extends Tester(uut, isTrace) {
-//   // Generate a local copy of the memory in a vector
-//   val copy = Array.fill(uut.sramDepth){0}
-//   for (i <- 0 until uut.sramDepth) {
-//     copy(i) = rnd.nextInt((Math.pow(2, uut.dataWidth) - 1).toInt)
-//   }
-//   // Write all the data into the memory
-//   for (i <- 0 until uut.sramDepth) {
-//     poke(uut.io.we(0), 1)
-//     poke(uut.io.addr(0), i)
-//     poke(uut.io.din(0), copy(i))
-//     step(1)
-//     poke(uut.io.we(0), 0)
-//   }
-//   // Verify that all the data is correct
-//   for (i <- 0 until uut.sramDepth) {
-//     poke(uut.io.addr(1), i)
-//     step(1)
-//     expect(uut.io.dout(1), copy(i))
-//   }
-// }

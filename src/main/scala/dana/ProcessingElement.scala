@@ -3,43 +3,43 @@
 package dana
 
 import Chisel._
-import cde.Parameters
+import config._
 
 class ProcessingElementReq(implicit p: Parameters) extends DanaBundle()(p) {
-  val numWeights         = UInt(width = 8)         // [TODO] fragile
-  val index              = UInt(width = log2Up(peTableNumEntries))
-  val decimalPoint       = UInt(width = decimalPointWidth)
-  val steepness          = UInt(width = steepnessWidth)
-  val activationFunction = UInt(width = activationFunctionWidth)
-  val iBlock             = Vec(elementsPerBlock, SInt(width = elementWidth))
-  val wBlock             = Vec(elementsPerBlock, SInt(width = elementWidth))
-  val bias               = SInt(width = elementWidth)
+  val numWeights         = UInt(8.W)         // [TODO] fragile
+  val index              = UInt(log2Up(peTableNumEntries).W)
+  val decimalPoint       = UInt(decimalPointWidth.W)
+  val steepness          = UInt(steepnessWidth.W)
+  val activationFunction = UInt(activationFunctionWidth.W)
+  val iBlock             = Vec(elementsPerBlock, SInt(elementWidth.W))
+  val wBlock             = Vec(elementsPerBlock, SInt(elementWidth.W))
+  val bias               = SInt(elementWidth.W)
 }
 
 class ProcessingElementReqLearn(implicit p: Parameters)
     extends ProcessingElementReq()(p) {
-  val errorFunction      = UInt(width = log2Up(2)) // [TODO] fragile
-  val learningRate       = UInt(width = 16)        // [TODO] fragile
-  val lambda             = SInt(width = 16)        // [TODO] fragile
-  val learnReg           = SInt(width = elementWidth)
-  val stateLearn         = UInt(width = log2Up(8)) // [TODO] fragile
+  val errorFunction      = UInt(log2Up(2).W) // [TODO] fragile
+  val learningRate       = UInt(16.W)        // [TODO] fragile
+  val lambda             = SInt(16.W)        // [TODO] fragile
+  val learnReg           = SInt(elementWidth.W)
+  val stateLearn         = UInt(log2Up(8).W) // [TODO] fragile
   val inLast             = Bool()
   val inFirst            = Bool()
-  val dw_in              = SInt(width = elementWidth)
-  val tType              = UInt(width = log2Up(3))
+  val dw_in              = SInt(elementWidth.W)
+  val tType              = UInt(log2Up(3).W)
 }
 
 class ProcessingElementResp(implicit p: Parameters) extends DanaBundle()(p) {
-  val data               = SInt(width = elementWidth)
-  val state              = UInt(width = log2Up(PE_states.size))
-  val index              = UInt(width = log2Up(peTableNumEntries))
+  val data               = SInt(elementWidth.W)
+  val state              = UInt(log2Up(PE_states.size).W)
+  val index              = UInt(log2Up(peTableNumEntries).W)
   val incWriteCount      = Bool()
 }
 
 class ProcessingElementRespLearn(implicit p: Parameters)
     extends ProcessingElementResp()(p) {
-  val dataBlock          = Vec(elementsPerBlock, SInt(width = elementWidth))
-  val error              = SInt(width = elementWidth)
+  val dataBlock          = Vec(elementsPerBlock, SInt(elementWidth.W))
+  val error              = SInt(elementWidth.W)
   val resetWeightPtr     = Bool()
 }
 
@@ -65,34 +65,34 @@ class ProcessingElement(implicit p: Parameters) extends DanaModule()(p) {
   // Activation Function module
   lazy val af = Module(new ActivationFunction)
 
-  val index    = Reg(UInt(width = 8)) // [TODO] fragile, should match numWeights
-  val acc      = Reg(SInt(width = elementWidth))
-  val dataOut  = Reg(SInt(width = elementWidth))
+  val index    = Reg(UInt(8.W)) // [TODO] fragile, should match numWeights
+  val acc      = Reg(SInt(elementWidth.W))
+  val dataOut  = Reg(SInt(elementWidth.W))
   val reqSent  = Reg(Bool())
   val eleIndex = index(log2Up(elementsPerBlock) - 1, 0)
 
   // [TODO] fragile on PE stateu enum (Common.scala)
-  val state = Reg(UInt(width = log2Up(PE_states.size)),
+  val state = Reg(UInt(log2Up(PE_states.size).W),
     init = PE_states('e_PE_UNALLOCATED))
-  val nextState = Wire(UInt(width = log2Up(PE_states.size)))
+  val nextState = Wire(UInt(log2Up(PE_states.size).W))
   nextState := state
 
   // Local state storage. Any and all of these are possible kludges
   // which could be implemented more cleanly.
   val hasBias = Reg(Bool())
-  val steepness = UInt(steepnessOffset) - io.req.bits.steepness
-  val decimal = UInt(decimalPointOffset, width = decimalPointWidth + 1) +
+  val steepness = steepnessOffset.U - io.req.bits.steepness
+  val decimal = decimalPointOffset.U((decimalPointWidth + 1).W) +
     io.req.bits.decimalPoint
-  val one = SInt(1) << decimal
+  val one = 1.S << decimal
 
   def applySteepness(x: SInt, steepness: UInt): SInt = {
     val tmp = Wire(SInt())
-    when (steepness < UInt(steepnessOffset)) {
-      tmp := x >> (UInt(steepnessOffset) - steepness)
-    } .elsewhen (steepness === UInt(steepnessOffset)) {
+    when (steepness < (steepnessOffset).U) {
+      tmp := x >> ((steepnessOffset).U - steepness)
+    } .elsewhen (steepness === (steepnessOffset).U) {
       tmp := x
     } .otherwise {
-      tmp := x << (steepness - UInt(steepnessOffset))
+      tmp := x << (steepness - (steepnessOffset).U)
     }
     tmp
   }
@@ -104,7 +104,7 @@ class ProcessingElement(implicit p: Parameters) extends DanaModule()(p) {
     dsp.b := b
     dsp.c := c
   }
-  DSP(SInt(0), SInt(0), UInt(0))
+  DSP(0.S, 0.S, 0.U)
 
   // Default values
   acc := acc
@@ -118,7 +118,7 @@ class ProcessingElement(implicit p: Parameters) extends DanaModule()(p) {
   index := index
   // Activation function unit default values
   af.io.req.valid := Bool(false)
-  af.io.req.bits.in := SInt(0)
+  af.io.req.bits.in := (0).S
   af.io.req.bits.decimal := io.req.bits.decimalPoint
   af.io.req.bits.steepness := io.req.bits.steepness
   af.io.req.bits.activationFunction := io.req.bits.activationFunction
@@ -132,17 +132,17 @@ class ProcessingElement(implicit p: Parameters) extends DanaModule()(p) {
   // response
   def reqWaitForResp() = {
       when (!reqSent) {
-        io.resp.valid := Bool(true)
+        io.resp.valid := true.B
         reqSent := io.req.valid
       } .elsewhen (io.req.valid) {
-        reqSent := Bool(false)
+        reqSent := false.B
         state := nextState }}
   def reqAf() = {
     when (!reqSent) {
-      af.io.req.valid := Bool(true)
-      reqSent := Bool(true)
+      af.io.req.valid := true.B
+      reqSent := true.B
     } .elsewhen (af.io.resp.valid) {
-      reqSent := Bool(false)
+      reqSent := false.B
       state := nextState }}
 
   // State-driven logic
@@ -150,36 +150,36 @@ class ProcessingElement(implicit p: Parameters) extends DanaModule()(p) {
     is (PE_states('e_PE_UNALLOCATED)) {
       nextState := PE_states('e_PE_GET_INFO)
       reqNoResp()
-      io.req.ready := Bool(true)
-      hasBias := Bool(false)
-      index := UInt(0)
-      reqSent := Bool(false)
+      io.req.ready := true.B
+      hasBias := false.B
+      index := (0).U
+      reqSent := false.B
     }
     is (PE_states('e_PE_GET_INFO)) {
-      dataOut := SInt(0)
-      index := UInt(0)
+      dataOut := (0).S
+      index := (0).U
       nextState := PE_states('e_PE_REQUEST_INPUTS_AND_WEIGHTS)
       reqWaitForResp()
     }
     is (PE_states('e_PE_REQUEST_INPUTS_AND_WEIGHTS)) {
       // If hasBias is false, then this is the first time we're in this
       // state and we need to load the bias into the accumulator
-      hasBias := Bool(true)
-      when (hasBias === Bool(false)) {
+      hasBias := true.B
+      when (hasBias === false.B) {
         acc := io.req.bits.bias
       }
       nextState := PE_states('e_PE_RUN)
       reqWaitForResp()
     }
     is (PE_states('e_PE_RUN)) {
-      when (index === (io.req.bits.numWeights - UInt(1))) {
+      when (index === (io.req.bits.numWeights - (1).U)) {
         state := PE_states('e_PE_ACTIVATION_FUNCTION)
-      } .elsewhen (eleIndex === UInt(elementsPerBlock - 1)) {
+      } .elsewhen (eleIndex === (elementsPerBlock - 1).U) {
         state := PE_states('e_PE_REQUEST_INPUTS_AND_WEIGHTS)
       }
       DSP(io.req.bits.iBlock(eleIndex), io.req.bits.wBlock(eleIndex), decimal)
       acc := acc + dsp.d
-      index := index + UInt(1)
+      index := index + (1).U
       printfInfo("PE: run 0x%x + (0x%x * 0x%x) >> 0x%x = 0x%x\n",
         acc, io.req.bits.iBlock(eleIndex), io.req.bits.wBlock(eleIndex),
         decimal, acc + dsp.d)
@@ -193,8 +193,8 @@ class ProcessingElement(implicit p: Parameters) extends DanaModule()(p) {
     is (PE_states('e_PE_DONE)) {
       nextState := PE_states('e_PE_UNALLOCATED)
       reqNoResp()
-      io.resp.bits.incWriteCount := Bool(true)
-      io.resp.valid := Bool(true)
+      io.resp.bits.incWriteCount := true.B
+      io.resp.valid := true.B
     }
   }
 
@@ -206,10 +206,10 @@ class ProcessingElementLearn(implicit p: Parameters)
   override lazy val io = IO(new ProcessingElementInterfaceLearn)
   override lazy val af = Module(new ActivationFunctionLearn)
 
-  val weightWB        = Reg(Vec(elementsPerBlock, SInt(width=elementWidth)))
-  val derivative      = Reg(SInt(width = elementWidth)) //delta
-  val errorOut        = Reg(SInt(width = elementWidth)) //ek
-  val mse             = Reg(SInt(width = elementWidth))
+  val weightWB        = Reg(Vec(elementsPerBlock, SInt(elementWidth.W)))
+  val derivative      = Reg(SInt(elementWidth.W)) //delta
+  val errorOut        = Reg(SInt(elementWidth.W)) //ek
+  val mse             = Reg(SInt(elementWidth.W))
   val dwWritebackDone = Reg(Bool())
   val stateLearn = io.req.bits.stateLearn
 
@@ -217,13 +217,13 @@ class ProcessingElementLearn(implicit p: Parameters)
   derivative := derivative
   io.resp.bits.dataBlock := weightWB
   io.resp.bits.error := errorOut
-  io.resp.bits.resetWeightPtr := Bool(false)
+  io.resp.bits.resetWeightPtr := false.B
   af.io.req.bits.afType := e_AF_DO_ACTIVATION_FUNCTION
   af.io.req.bits.errorFunction := io.req.bits.errorFunction
 
   switch (state) {
     is (PE_states('e_PE_UNALLOCATED)) {
-      dwWritebackDone := Bool(false)
+      dwWritebackDone := false.B
     }
     is (PE_states('e_PE_GET_INFO)) {
       nextState := PE_states('e_PE_REQUEST_OUTPUTS_ERROR_BACKPROP)
@@ -249,14 +249,14 @@ class ProcessingElementLearn(implicit p: Parameters)
       reqWaitForResp()
     }
     is (PE_states('e_PE_RUN)) {
-      when (index === (io.req.bits.numWeights - UInt(1))) {
+      when (index === (io.req.bits.numWeights - 1.U)) {
         state := PE_states('e_PE_ACTIVATION_FUNCTION)
-      } .elsewhen (eleIndex === UInt(elementsPerBlock - 1)) {
+      } .elsewhen (eleIndex === (elementsPerBlock - 1).U) {
         state := PE_states('e_PE_REQUEST_INPUTS_AND_WEIGHTS)
       }
       DSP(io.req.bits.iBlock(eleIndex), io.req.bits.wBlock(eleIndex), decimal)
       acc := acc + dsp.d
-      index := index + UInt(1)
+      index := index + 1.U
     }
     is (PE_states('e_PE_ACTIVATION_FUNCTION)) {
       af.io.req.bits.afType := e_AF_DO_ACTIVATION_FUNCTION
@@ -269,7 +269,7 @@ class ProcessingElementLearn(implicit p: Parameters)
         nextState := PE_states('e_PE_UNALLOCATED)
       }
       reqNoResp()
-      io.resp.bits.resetWeightPtr := Bool(true)
+      io.resp.bits.resetWeightPtr := true.B
     }
     is (PE_states('e_PE_COMPUTE_DERIVATIVE)){
       state := Mux((stateLearn === e_TTABLE_STATE_LEARN_ERROR_BACKPROP),
@@ -278,40 +278,38 @@ class ProcessingElementLearn(implicit p: Parameters)
       val af = io.req.bits.activationFunction
       when (af === e_FANN_LINEAR) {
         printfWarn("Linear activation function untested\n")
-        when (steepness < UInt(steepnessOffset)) {
-          derivative := one >> (UInt(steepnessOffset) - steepness)
+        when (steepness < steepnessOffset.U) {
+          derivative := one >> (steepnessOffset.U - steepness)
           printfInfo("PE: derivative linear: 0x%x\n",
-            one >> (UInt(steepnessOffset) - steepness))
-        } .elsewhen (steepness === UInt(steepnessOffset)) {
+            one >> (steepnessOffset.U - steepness))
+        } .elsewhen (steepness === steepnessOffset.U) {
           derivative := one
           printfInfo("PE: derivative linear: 0x%x\n", one)
         } .otherwise {
-          derivative := one << (steepness - UInt(steepnessOffset))
+          derivative := one << (steepness - steepnessOffset.U)
           printfInfo("PE: derivative linear: 0x%x\n",
-            one << (steepness - UInt(steepnessOffset)))
+            one << (steepness - steepnessOffset.U))
         }
       } .elsewhen (af === e_FANN_SIGMOID || af === e_FANN_SIGMOID_STEPWISE) {
-        DSP(dataOut, one - dataOut, decimal + steepness - UInt(1))
+        DSP(dataOut, one - dataOut, decimal + steepness - 1.U)
         derivative := dsp.d
-        // derivative := (dataOut * (one - dataOut)) >>
-        //   (decimal + steepness - UInt(1))
         printfInfo("PE: derivative sigmoid: 0x%x\n", dsp.d)
       } .elsewhen (af === e_FANN_SIGMOID_SYMMETRIC ||
         af === e_FANN_SIGMOID_SYMMETRIC_STEPWISE) {
         val steepness = io.req.bits.steepness
         DSP(dataOut, dataOut, decimal)
-        when (steepness < UInt(steepnessOffset)) {
-          derivative := (one - dsp.d) >> (UInt(steepnessOffset) - steepness)
+        when (steepness < steepnessOffset.U) {
+          derivative := (one - dsp.d) >> (steepnessOffset.U - steepness)
           printfInfo("PE: derivative sigmoid symmetric: 0x%x\n",
-            (one - dsp.d) >> (UInt(steepnessOffset) - steepness))
-        } .elsewhen (steepness === UInt(steepnessOffset)) {
+            (one - dsp.d) >> (steepnessOffset.U - steepness))
+        } .elsewhen (steepness === steepnessOffset.U) {
           derivative := one - dsp.d
           printfInfo("PE: derivative sigmoid symmetric: 0x%x\n",
             one - dsp.d)
         } .otherwise {
-          derivative := (one - dsp.d) << (steepness - UInt(steepnessOffset))
+          derivative := (one - dsp.d) << (steepness - steepnessOffset.U)
           printfInfo("PE: derivative sigmoid symmetric: 0x%x\n",
-            (one - dsp.d) << (steepness - UInt(steepnessOffset)))
+            (one - dsp.d) << (steepness - steepnessOffset.U))
         }
       }
     }
@@ -321,7 +319,7 @@ class ProcessingElementLearn(implicit p: Parameters)
     }
     is (PE_states('e_PE_COMPUTE_ERROR)) {
       val error = io.req.bits.learnReg - dataOut
-      val errorSym = error >> UInt(1)
+      val errorSym = error >> 1.U
       // Divide by 2 should be conditional on being in a symmetric
       when (io.req.bits.activationFunction === e_FANN_SIGMOID_SYMMETRIC ||
         io.req.bits.activationFunction === e_FANN_SIGMOID_SYMMETRIC_STEPWISE) {
@@ -354,8 +352,8 @@ class ProcessingElementLearn(implicit p: Parameters)
     is (PE_states('e_PE_COMPUTE_DELTA)){
       // Reset the index in preparation for doing the deltas in the
       // previous layer
-      val der = Mux(derivative === SInt(0), SInt(1), derivative)
-      index := UInt(0)
+      val der = Mux(derivative === 0.S, 1.S, derivative)
+      index := 0.U
 
       switch(stateLearn){
         is(e_TTABLE_STATE_LEARN_FEEDFORWARD){
@@ -386,8 +384,8 @@ class ProcessingElementLearn(implicit p: Parameters)
     is (PE_states('e_PE_ERROR_BACKPROP_DELTA_WEIGHT_MUL)) {
       // Loop over all the weights in the weight buffer, multiplying
       // these by their delta
-      when (index === (io.req.bits.numWeights - UInt(1)) ||
-        eleIndex === UInt(elementsPerBlock - 1)) {
+      when (index === (io.req.bits.numWeights - 1.U) ||
+        eleIndex === (elementsPerBlock - 1).U) {
         state := PE_states('e_PE_ERROR_BACKPROP_WEIGHT_WB)
       }
       DSP(errorOut, io.req.bits.wBlock(eleIndex), decimal)
@@ -397,20 +395,20 @@ class ProcessingElementLearn(implicit p: Parameters)
       printfInfo("PE: d*weight (0x%x * 0x%x) >> 0x%x = 0x%x\n",
         errorOut, io.req.bits.wBlock(eleIndex), decimal,
         dsp.d)
-      index := index + UInt(1)
+      index := index + 1.U
     }
     is (PE_states('e_PE_ERROR_BACKPROP_WEIGHT_WB)) {
       when (io.req.valid) {
         when (index === io.req.bits.numWeights) {
-          index := UInt(0)
+          index := 0.U
           state := PE_states('e_PE_REQUEST_INPUTS_AND_WEIGHTS)
-          io.resp.bits.resetWeightPtr := Bool(true)
+          io.resp.bits.resetWeightPtr := true.B
         } .otherwise {
           state := PE_states('e_PE_ERROR_BACKPROP_REQUEST_WEIGHTS)
         }
       }
-      dwWritebackDone := Bool(true)
-      io.resp.valid := Bool(true)
+      dwWritebackDone := true.B
+      io.resp.valid := true.B
     }
     is (PE_states('e_PE_REQUEST_OUTPUTS_ERROR_BACKPROP)) {
       nextState := PE_states('e_PE_REQUEST_DELTA_WEIGHT_PRODUCT_ERROR_BACKPROP)
@@ -425,9 +423,9 @@ class ProcessingElementLearn(implicit p: Parameters)
       // val delta = Mux(io.req.bits.inFirst, errorOut, io.req.bits.learnReg)
       val delta =  errorOut
       // [TODO] This is actually an element index!
-      val inLastElement = (index === (io.req.bits.numWeights - UInt(1)) ||
-        eleIndex === UInt(elementsPerBlock - 1))
-      index := index + UInt(1)
+      val inLastElement = (index === (io.req.bits.numWeights - 1.U) ||
+        eleIndex === (elementsPerBlock - 1).U)
+      index := index + 1.U
       when (inLastElement) {
         state := PE_states('e_PE_SLOPE_WB)
         when (io.req.bits.tType === e_TTYPE_INCREMENTAL) {
@@ -436,7 +434,7 @@ class ProcessingElementLearn(implicit p: Parameters)
           // as this will be reused during weight update
           // [TODO] #54: Does this actually work?
           index := index(index.getWidth - 1, log2Up(elementsPerBlock)) ##
-            UInt(0, width = log2Up(elementsPerBlock))
+            0.U(log2Up(elementsPerBlock).W)
         }
       }
       DSP(delta, io.req.bits.iBlock(eleIndex), decimal)
@@ -452,19 +450,19 @@ class ProcessingElementLearn(implicit p: Parameters)
         PE_states('e_PE_SLOPE_BIAS_WB),
         PE_states('e_PE_REQUEST_INPUTS_AND_WEIGHTS))
       reqNoResp()
-      io.resp.valid := Bool(true)
+      io.resp.valid := true.B
       // Setup the bias to be written back (bias is in delta!)
       dataOut := delta
     }
     is (PE_states('e_PE_SLOPE_BIAS_WB)) {
       nextState := PE_states('e_PE_UNALLOCATED)
       reqNoResp()
-      io.resp.valid := Bool(true)
+      io.resp.valid := true.B
       printfInfo("PE: bias wb: 0x%x\n", dataOut)
     }
     is (PE_states('e_PE_RUN_WEIGHT_UPDATE)){
-      when (index === (io.req.bits.numWeights - UInt(1)) ||
-        eleIndex === UInt(elementsPerBlock - 1)) {
+      when (index === (io.req.bits.numWeights - 1.U) ||
+        eleIndex === (elementsPerBlock - 1).U) {
         state := PE_states('e_PE_WEIGHT_UPDATE_WRITE_BACK)
       }
       val weightDecay = (-io.req.bits.wBlock(eleIndex) * io.req.bits.lambda) >>
@@ -491,7 +489,7 @@ class ProcessingElementLearn(implicit p: Parameters)
           weightWB(eleIndex), io.req.bits.learningRate, weightDecay,
           dsp.d + weightDecay)
       }
-      index := index + UInt(1)
+      index := index + 1.U
     }
     is (PE_states('e_PE_WEIGHT_UPDATE_WRITE_BACK)){
       when (io.req.valid) {
@@ -511,14 +509,14 @@ class ProcessingElementLearn(implicit p: Parameters)
           }
         }
       }
-      io.resp.valid := Bool(true)
+      io.resp.valid := true.B
     }
     is (PE_states('e_PE_WEIGHT_UPDATE_REQUEST_BIAS)) {
       when (!reqSent) {
-        io.resp.valid := Bool(true)
+        io.resp.valid := true.B
         reqSent := io.req.valid
       } .elsewhen (io.req.valid) {
-        reqSent := Bool(false)
+        reqSent := false.B
         state := PE_states('e_PE_WEIGHT_UPDATE_COMPUTE_BIAS)
       }
     }
@@ -533,7 +531,7 @@ class ProcessingElementLearn(implicit p: Parameters)
     }
     is (PE_states('e_PE_WEIGHT_UPDATE_WRITE_BIAS)) {
       when (io.req.valid) { state := PE_states('e_PE_UNALLOCATED) }
-      io.resp.valid := Bool(true)
+      io.resp.valid := true.B
     }
   }
 
@@ -545,82 +543,3 @@ class ProcessingElementLearn(implicit p: Parameters)
       state === PE_states('e_PE_SLOPE_BIAS_WB))),
     "PE entered a disallowed state for incremental learning")
 }
-
-// [TODO] This whole testbench is broken due to the integration with
-// the PE Table
-// class ProcessingElementTests(uut: ProcessingElement, isTrace: Boolean = true)
-//     extends DanaTester(uut, isTrace) {
-//   // Helper functions
-//   def getDecimal(): Int = {
-//     peek(uut.io.req.bits.decimalPoint).intValue + uut.decimalPointOffset }
-//   def getSteepness(): Int = {
-//     peek(uut.io.req.bits.steepness).intValue - 4 }
-//   def fixedConvert(data: Bits): Double = {
-//     peek(data).floatValue() / Math.pow(2, getDecimal) }
-//   def fixedConvert(data: Int): Double = {
-//     data.floatValue() / Math.pow(2, getDecimal) }
-//   def activationFunction(af: Int, data: Bits, steepness: Int = 1): Double = {
-//     val x = fixedConvert(data)
-//     // printf("[INFO]   af:   %d\n", af)
-//     // printf("[INFO]   data: %f\n", x)
-//     // printf("[INFO]   stee: %d\n", steepness)
-//     af match {
-//       // FANN_THRESHOLD
-//       case 1 => if (x > 0) 1 else 0
-//       // FANN_THRESHOLD_SYMMETRIC
-//       case 2 => if (x > 0) 1 else if (x == 0) 0 else -1
-//       // FANN_SIGMOID
-//       case 3 => 1 / (1 + Math.exp(-Math.pow(2, steepness.toFloat) * x / 0.5))
-//       case 4 => 1 / (1 + Math.exp(-Math.pow(2, steepness.toFloat) * x / 0.5))
-//       // FANN_SIGMOID_SYMMETRIC
-//       case 5 => 2 / (1 + Math.exp(-Math.pow(2, steepness.toFloat) * x / 0.5)) - 1
-//       case 6 => 2 / (1 + Math.exp(-Math.pow(2, steepness.toFloat) * x / 0.5)) - 1
-//       case _ => 0
-//     }
-//   }
-
-//   val dataIn = Array.fill(uut.elementsPerBlock){0}
-//   val weight = Array.fill(uut.elementsPerBlock){0}
-//   var correct = 0
-//   printf("[INFO] Sigmoid Activation Function Test\n")
-//   for (t <- 0 until 100) {
-//     // poke(uut.io.req.bits.decimalPoint, 3)
-//     poke(uut.io.req.bits.decimalPoint, rnd.nextInt(8))
-//     // poke(uut.io.req.bits.steepness, 4)
-//     poke(uut.io.req.bits.steepness, rnd.nextInt(8))
-//     // poke(uut.io.req.bits.activationFunction, 5)
-//     poke(uut.io.req.bits.activationFunction, rnd.nextInt(5) + 1)
-//     correct = 0
-//     for (i <- 0 until uut.elementsPerBlock) {
-//       dataIn(i) = rnd.nextInt(Math.pow(2, getDecimal + 2).toInt) -
-//         Math.pow(2, getDecimal + 1).toInt
-//       weight(i) = rnd.nextInt(Math.pow(2, getDecimal + 2).toInt) -
-//         Math.pow(2, getDecimal + 1).toInt
-//       correct = correct + (dataIn(i) * weight(i) >> getDecimal)
-//       // printf("[INFO] In(%d): %f, %f\n", i, fixedConvert(dataIn(i)),
-//       //   fixedConvert(weight(i)))
-//     }
-//     // printf("[INFO] Correct Acc: %f\n", fixedConvert(correct))
-//     for (i <- 0 until uut.elementsPerBlock) {
-//       poke(uut.io.req.bits.iBlock(i), dataIn(i))
-//       poke(uut.io.req.bits.wBlock(i), weight(i))
-//     }
-//     poke(uut.io.req.valid, 1)
-//     step(1)
-//     poke(uut.io.req.valid, 0)
-//     while(peek(uut.io.resp.valid) == 0) {
-//       step(1)
-//       // printf("[INFO]   acc: %f\n", fixedConvert(uut.acc))
-//     }
-//     // printf("[INFO] Acc:         %f\n", fixedConvert(uut.acc))
-//     // printf("[INFO] Output:      %f\n", fixedConvert(uut.io.req.bitsOut))
-//     // printf("[INFO] AF Good:     %f\n",
-//     //   activationFunction(peek(uut.io.activationFunction).toInt, uut.acc,
-//     //     getSteepness))
-//     expect(uut.acc, correct)
-//     expect(Math.abs(fixedConvert(uut.io.resp.bits.data) -
-//       activationFunction(peek(uut.io.req.bits.activationFunction).toInt, uut.acc,
-//         getSteepness)) < 0.1, "Activation Function Check")
-//     step(1)
-//   }
-// }
