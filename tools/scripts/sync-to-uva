@@ -1,4 +1,5 @@
 #!/bin/bash
+set -e
 
 base_dir=`pwd`
 uva_repo=git@gitlab.com:the-lone-gunmen
@@ -6,8 +7,12 @@ uva_repo=git@gitlab.com:the-lone-gunmen
 sync () {
     cd $1
     git remote add uva $2
-    git checkout `git log -n1 --pretty=oneline --decorate | awk '{print $3}' | sed 's/[,)]//g' | sed 's/^.\+\///'`
-    git push uva `git branch | grep \* | awk '{print $2}'`
+    branch=`git log -n1 --pretty=oneline --decorate | awk '{print $3}' | sed 's/[,)]//g' | sed 's/^.\+\///'`
+    # Do not try to sync merge commits
+    if [[ $branch != Merge ]]; then
+        git checkout `git log -n1 --pretty=oneline --decorate | awk '{print $3}' | sed 's/[,)]//g' | sed 's/^.\+\///'`;
+        git push --force uva `git branch | grep \* | awk '{print $2}'`;
+    fi
 }
 
 cat xfiles-dana/tools/scripts/known_hosts >> ~/.ssh/known_hosts
