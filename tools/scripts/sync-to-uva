@@ -10,6 +10,7 @@ sync () {
     git push uva `git branch | grep \* | awk '{print $2}'`
 }
 
+cat xfiles-dana/tools/scripts/known_hosts >> ~/.ssh/known_hosts
 sync $base_dir $uva_repo/rocket-chip
 sync $base_dir/xfiles-dana $uva_repo/xfiles-dana
 sync $base_dir/xfiles-dana/tests $uva_repo/xfiles-dana-tests
