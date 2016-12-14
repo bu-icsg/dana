@@ -11,8 +11,8 @@ sync () {
 }
 
 cat xfiles-dana/tools/scripts/known_hosts >> ~/.ssh/known_hosts
-sync $base_dir $uva_repo/rocket-chip
-sync $base_dir/xfiles-dana $uva_repo/xfiles-dana
-sync $base_dir/xfiles-dana/tests $uva_repo/xfiles-dana-tests
-sync $base_dir/xfiles-dana/tests/rocc-software $uva_repo/rocc-software
 sync $base_dir/xfiles-dana/util/hdl-tools $uva_repo/hdl-tools
+sync $base_dir/xfiles-dana/tests/rocc-software $uva_repo/rocc-software
+sync $base_dir/xfiles-dana/tests $uva_repo/xfiles-dana-tests
+sync $base_dir/xfiles-dana $uva_repo/xfiles-dana
+sync $base_dir $uva_repo/rocket-chip
