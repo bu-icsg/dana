@@ -5,8 +5,9 @@ uva_repo=git@gitlab.com:the-lone-gunmen
 
 sync () {
     cd $1
-    echo git remote add uva $2
-    echo git push uva `git branch | grep \* | awk '{print $2}'`
+    git remote add uva $2
+    git checkout `git log -n1 --pretty=oneline --decorate | awk '{print $3}' | sed 's/[,)]//g' | sed 's/^.\+\///'`
+    git push uva `git branch | grep \* | awk '{print $2}'`
 }
 
 sync $base_dir $uva_repo/rocket-chip
