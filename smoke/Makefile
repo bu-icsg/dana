@@ -5,7 +5,7 @@ ID_TTABLE ?= 1
 EPB ?= 4
 PES ?= 1
 ID_CACHE ?= 2
-ID_STRING ?= 0x$(shell echo "16o $(ID_CACHE) $(PES) 2 4^*+ $(EPB) 2 10^*+ $(ID_TTABLE) 2 48^*+ p" | dc)
+ID_STRING ?= 0x$(shell echo "obase=16; $(ID_CACHE) + ($(PES) * (2 ^ 4)) + ($(EPB) * (2 ^ 10)) + ($(ID_TTABLE) * (2 ^ 48))" | bc)
 
 default: all
 src_dir = .
