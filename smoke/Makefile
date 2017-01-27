@@ -1,16 +1,24 @@
 XLEN ?= 64
 
+# Compute the ID String
+ID_TTABLE ?= 1
+EPB ?= 4
+PES ?= 1
+ID_CACHE ?= 2
+ID_STRING ?= 0x$(shell echo "16o $(ID_CACHE) $(PES) 2 4^*+ $(EPB) 2 10^*+ $(ID_TTABLE) 2 48^*+ p" | dc)
+
 default: all
 src_dir = .
 
 tests = \
-	debug
+	debug \
+	id
 
 tests_p = $(addprefix $(ROCC)-p-, $(tests))
 
 RISCV_PREFIX ?= riscv$(XLEN)-unknown-elf-
 RISCV_GCC ?= $(RISCV_PREFIX)gcc
-RISCV_GCC_OPTS ?= -static -mcmodel=medany -fvisibility=hidden -nostdlib -nostartfiles -I$(abs_top_srcdir)/include -I$(abs_top_srcdir) -I$(abs_top_srcdir)/..
+RISCV_GCC_OPTS ?= -static -mcmodel=medany -fvisibility=hidden -nostdlib -nostartfiles -I$(abs_top_srcdir)/include -I$(abs_top_srcdir) -I$(abs_top_srcdir)/.. -DID_STRING=$(ID_STRING)
 RISCV_OBJDUMP ?= $(RISCV_PREFIX)objdump --disassemble-all --disassemble-zeroes --section=.text --section=.text.startup --section=.text.init --section=.data
 RISCV_SIM ?= spike
 
