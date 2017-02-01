@@ -1,10 +1,10 @@
 # See LICENSE.ibm for license details.
 
 #*****************************************************************************
-# feedforward.S
+# id.S
 #-----------------------------------------------------------------------------
 #
-# Generic feedforward transaction
+# Check that the ID matches what we expect
 #
 
 #include "riscv_test.h"
