@@ -7,10 +7,10 @@ uva_repo=git@gitlab.com:the-lone-gunmen
 sync () {
     cd $1
     git remote | grep SYNC || git remote add SYNC $2
-    branch=`git log -n1 --pretty=oneline --decorate | awk '{print $3}' | sed 's/[,)]//g' | sed 's/^.\+\///'`
+    branch=`git branch | tail -n1 | xargs -n1 git checkout`
     # Do not try to sync merge commits
     if [[ $branch != Merge ]]; then
-        git checkout `git log -n1 --pretty=oneline --decorate | awk '{print $3}' | sed 's/[,)]//g' | sed 's/^.\+\///'`;
+        git checkout $branch;
         git push --force SYNC `git branch | grep \* | awk '{print $2}'`;
     fi
 }
