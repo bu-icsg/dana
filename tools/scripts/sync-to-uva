@@ -6,12 +6,11 @@ uva_repo=git@gitlab.com:the-lone-gunmen
 
 sync () {
     cd $1
-    git remote | grep SYNC || git remote add SYNC $2
-    branch=`git branch | tail -n1 | xargs -n1 git checkout`
+    branch=`git branch | tail -n1 | perl -n -e '$_ =~ /^(\*?\s+)?(.+)$/; print $2'`
     # Do not try to sync merge commits
     if [[ $branch != Merge ]]; then
         git checkout $branch;
-        git push --force SYNC `git branch | grep \* | awk '{print $2}'`;
+        git push --dry-run --force $2 $branch;
     fi
 }
 
