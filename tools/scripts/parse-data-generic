@@ -1,4 +1,4 @@
-#! /usr/bin/perl
+#!/usr/bin/env perl
 
 # Completely generic data parser that adheres to a specific output log
 # format. All lines that we care about look like:
