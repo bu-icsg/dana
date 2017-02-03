@@ -10,10 +10,6 @@
 #define SYSCALL_SET_ANTP 513
 #define SYSCALL_DEBUG_ECHO 514
 
-#define t_SUP_UPDATE_ASID 0
-#define t_SUP_WRITE_REG 1
-#define t_SUP_READ_CSR 2
-
 typedef enum {
   csr_CAUSE = 0
 } xfiles_csr_t;

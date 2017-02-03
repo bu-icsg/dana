@@ -5,6 +5,7 @@
 
 #include "src/main/c/xfiles.h"
 #include "src/main/c/xfiles-supervisor-types.h"
+#include "src/main/c/xfiles-supervisor.S"
 
 // Set the ASID to a new value
 xlen_t set_asid(asid_type asid);

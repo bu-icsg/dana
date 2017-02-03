@@ -5,16 +5,10 @@ package dana
 import chisel3._
 import config._
 import xfiles.{BuildXFilesBackend, XFilesBackendParameters}
+import dana.util._
 
 class DefaultDanaConfig extends Config ( {
   (pname,site,here) =>
-  def divUp (dividend: Int, divisor: Int): Int = {
-    (dividend + divisor - 1) / divisor}
-  def packInfo (epb: Int, pes: Int, cache: Int): Int = {
-    var x = epb << (6 + 4);
-    x = x | pes << 4;
-    x = x | cache;
-    x}
   pname match {
     // NN Config Global Info
     case DecimalPointOffset        => 7
