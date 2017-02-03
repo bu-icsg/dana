@@ -12,7 +12,8 @@ src_dir = .
 
 tests = \
 	debug \
-	id
+	id \
+	xorSigmoidSymmetric
 
 tests_p = $(addprefix $(ROCC)-p-, $(tests))
 
