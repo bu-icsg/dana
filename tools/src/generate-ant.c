@@ -87,11 +87,11 @@ void array_destroy(t_array * a) {
 }
 int array_push(t_array * a, void * new_x, int verbose) {
   if ((*a).used == (*a).total) {
-    if (verbose) printf("[INFO] Realloc'ing\n");
+    if (verbose) fprintf(stderr, "[INFO] Realloc'ing\n");
     (*a).x = (char **) realloc((*a).x, (*a).total * 2 * sizeof(char *));
   }
   (*a).x[(*a).used++] = new_x;
-  if (verbose) printf("[INFO] Pushing 0x%p onto array\n", new_x);
+  if (verbose) fprintf(stderr, "[INFO] Pushing 0x%p onto array\n", new_x);
   return 0;
 }
 
@@ -99,8 +99,8 @@ int ant_dump(ant * table, FILE * file, int verbose) {
   int exit_code = 0;
   char * offset = (char *) table;
   char * last = offset;
-  if (verbose) printf("[INFO] Writing Header:\n");
-  if (verbose) printf("[INFO]   0x%lx: header (0x%lx B)\n", last - offset,
+  if (verbose) fprintf(stderr, "[INFO] Writing Header:\n");
+  if (verbose) fprintf(stderr, "[INFO]   0x%lx: header (0x%lx B)\n", last - offset,
                       sizeof(ant));
   last += sizeof(ant) * fwrite(table, sizeof(ant), 1, file);
 
@@ -118,7 +118,7 @@ int ant_dump(ant * table, FILE * file, int verbose) {
 
   // Loop over the ASID array and write the binary output
   long int padding;
-  if (verbose) printf("[INFO] Writing ASIDs:\n");
+  if (verbose) fprintf(stderr, "[INFO] Writing ASIDs:\n");
   for (ant_entry * a = (ant_entry *) (*asids.x);
        a < (ant_entry *) (*asids.x) + asids.used; a++) {
     padding = (char *) a - last;
@@ -128,16 +128,16 @@ int ant_dump(ant * table, FILE * file, int verbose) {
       exit_code = 1;
       goto bail;
     }
-    if (verbose) printf("[INFO]   0x%lx: Padding (0x%ld B)\n",
+    if (verbose) fprintf(stderr, "[INFO]   0x%lx: Padding (0x%ld B)\n",
                         last - offset, padding);
     last += pad_dump(file, padding);
-    if (verbose) printf("[INFO]   0x%lx: VAddr 0x%p (0x%lx B)\n",
+    if (verbose) fprintf(stderr, "[INFO]   0x%lx: VAddr 0x%p (0x%lx B)\n",
                         last - offset, a, sizeof(ant_entry));
     last += sizeof(ant_entry) * fwrite(a, sizeof(ant_entry), 1, file);
   }
 
   // Loop over the NNID array twice, writing NNID info followed by the configs
-  if (verbose) printf("[INFO] Writing NNIDs:\n");
+  if (verbose) fprintf(stderr, "[INFO] Writing NNIDs:\n");
   for (char ** x = nnids.x; x < nnids.x + nnids.used; x++) {
     nn_config * n = (nn_config *) (*x);
     padding = (char *) n - last;
@@ -147,14 +147,14 @@ int ant_dump(ant * table, FILE * file, int verbose) {
       exit_code = 1;
       goto bail;
     }
-    if (verbose) printf("[INFO]   0x%lx: Padding (0x%ld B)\n",
+    if (verbose) fprintf(stderr, "[INFO]   0x%lx: Padding (0x%ld B)\n",
                         last - offset, padding);
     last += pad_dump(file, padding);
-    if (verbose) printf("[INFO]   0x%lx: NNID VAddr 0x%p (0x%lx B)\n",
+    if (verbose) fprintf(stderr, "[INFO]   0x%lx: NNID VAddr 0x%p (0x%lx B)\n",
                         last - offset, n, sizeof(nn_config));
     last += sizeof(nn_config) * fwrite(n, sizeof(nn_config), 1, file);
   }
-  if (verbose) printf("[INFO] Writing NN Configs:\n");
+  if (verbose) fprintf(stderr, "[INFO] Writing NN Configs:\n");
   for (char ** x = nnids.x; x < nnids.x + nnids.used; x++) {
     nn_config * n = (nn_config *) (*x);
     padding = (char *) n->config_v - last;
@@ -164,10 +164,10 @@ int ant_dump(ant * table, FILE * file, int verbose) {
       exit_code = 1;
       goto bail;
     }
-    if (verbose) printf("[INFO]   0x%lx: Padding (0x%ld B)\n",
+    if (verbose) fprintf(stderr, "[INFO]   0x%lx: Padding (0x%ld B)\n",
                         last - offset, padding);
     last += pad_dump(file, padding);
-    if (verbose) printf("[INFO]   0x%lx: Config (VAddr 0x%p, 0x%lx B)\n",
+    if (verbose) fprintf(stderr, "[INFO]   0x%lx: Config (VAddr 0x%p, 0x%lx B)\n",
                         last - offset, n->config_v, n->size * sizeof(xlen_t));
     last += n->size * sizeof(xlen_t) *
             fwrite(n->config_v, n->size * sizeof(xlen_t), 1, file);
@@ -179,7 +179,7 @@ bail:
   return exit_code;
 }
 
-void make_relative(ant * table, int verbose) {
+void make_relative(ant * table) {
   void * offset = table;
   table->entry_p = (void *) ((size_t) table->entry_p - (size_t) offset);
   for (ant_entry * e = table->entry_v; e < &table->entry_v[table->size]; e++) {
@@ -264,11 +264,11 @@ int main(int argc, char ** argv) {
       exit_code = 2;
       goto bail;
     }
-    if (opt_verbose) printf("[INFO] asid: %d\n"
-                            "[INFO] file: %s\n", x->asid, x->file);
+    if (opt_verbose) fprintf(stderr, "[INFO] asid: %d\n"
+                             "[INFO] file: %s\n", x->asid, x->file);
   }
-  if (opt_verbose) printf("[INFO] max asid: %d\n", s_af.max_asid);
-  make_relative(table, opt_verbose);
+  if (opt_verbose) fprintf(stderr, "[INFO] max asid: %d\n", s_af.max_asid);
+  make_relative(table);
   if (opt_verbose) asid_nnid_table_info(table);
 
   // Dump the raw bits

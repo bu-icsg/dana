@@ -8,47 +8,47 @@
 
 void asid_nnid_table_info(ant * table) {
   int i = 0;
-  printf("[INFO] 0x%p <- Table Head\n", table);
-  printf("[INFO]   |-> 0x%p: size:                     0x%lx\n"
-         "[INFO]       0x%p: * entry_p:                0x%p\n"
-         "[INFO]       0x%p: * entry_v:                0x%p\n",
-         &table->size,  table->size,
-         &table->entry_p, table->entry_p,
-         &table->entry_v, table->entry_v);
+  fprintf(stderr, "[INFO] 0x%p <- Table Head\n", table);
+  fprintf(stderr, "[INFO]   |-> 0x%p: size:                     0x%lx\n"
+          "[INFO]       0x%p: * entry_p:                0x%p\n"
+          "[INFO]       0x%p: * entry_v:                0x%p\n",
+          &table->size,  table->size,
+          &table->entry_p, table->entry_p,
+          &table->entry_v, table->entry_v);
   for (ant_entry * e = table->entry_v; e < &table->entry_v[table->size]; e++, i++) {
-    printf("[INFO]         |-> [%0d] 0x%p: num_configs:    0x%x\n"
-           "[INFO]         |       0x%p: num_valid:      0x%x\n"
-           "[INFO]         |       0x%p: asid_nnid_p:    0x%p\n"
-           "[INFO]         |       0x%p: asid_nnid_v:    0x%p\n",
-           i,
-           &e->num_configs, e->num_configs,
-           &e->num_valid, e->num_valid,
-           &e->asid_nnid_p, e->asid_nnid_p,
-           &e->asid_nnid_v, e->asid_nnid_v);
+    fprintf(stderr, "[INFO]         |-> [%0d] 0x%p: num_configs:    0x%x\n"
+            "[INFO]         |       0x%p: num_valid:      0x%x\n"
+            "[INFO]         |       0x%p: asid_nnid_p:    0x%p\n"
+            "[INFO]         |       0x%p: asid_nnid_v:    0x%p\n",
+            i,
+            &e->num_configs, e->num_configs,
+            &e->num_valid, e->num_valid,
+            &e->asid_nnid_p, e->asid_nnid_p,
+            &e->asid_nnid_v, e->asid_nnid_v);
     // Dump the `nn_configuration`
     int j = 0;
     for (nn_config * n = e->asid_nnid_v; n < &e->asid_nnid_v[e->num_valid]; n++, j++) {
-      printf("[INFO]         |         |-> [%0d] 0x%p: size:             0x%lx\n"
-             "[INFO]         |         |       0x%p: elements_per_block: 0d%lx\n"
-             "[INFO]         |         |       0x%p: * config_raw:       0x%p\n"
-             "[INFO]         |         |       0x%p: * config_p:         0x%p\n"
-             "[INFO]         |         |       0x%p: * config_v:         0x%p\n",
-             j,
-             &n->size, n->size,
-             &n->elements_per_block, n->elements_per_block,
-             &n->config_raw, n->config_raw,
-             &n->config_p, n->config_p,
-             &n->config_v, n->config_v);
+      fprintf(stderr, "[INFO]         |         |-> [%0d] 0x%p: size:             0x%lx\n"
+              "[INFO]         |         |       0x%p: elements_per_block: 0d%lx\n"
+              "[INFO]         |         |       0x%p: * config_raw:       0x%p\n"
+              "[INFO]         |         |       0x%p: * config_p:         0x%p\n"
+              "[INFO]         |         |       0x%p: * config_v:         0x%p\n",
+              j,
+              &n->size, n->size,
+              &n->elements_per_block, n->elements_per_block,
+              &n->config_raw, n->config_raw,
+              &n->config_p, n->config_p,
+              &n->config_v, n->config_v);
     }
     // Back to `asid_nnid_table_entry`
-    printf("[INFO]         |       0x%p: transaction_io: 0x%p\n"
-           "[INFO]         |         |-> 0x%p: header:   0x%lx\n"
-           "[INFO]         |         |   0x%p: * input:  0x%p\n"
-           "[INFO]         |         |   0x%p: * output: 0x%p\n",
-           &e->transaction_io, e->transaction_io,
-           &e->transaction_io->header, e->transaction_io->header,
-           &e->transaction_io->input, e->transaction_io->input,
-           &e->transaction_io->output, e->transaction_io->output);
+    fprintf(stderr, "[INFO]         |       0x%p: transaction_io: 0x%p\n"
+            "[INFO]         |         |-> 0x%p: header:   0x%lx\n"
+            "[INFO]         |         |   0x%p: * input:  0x%p\n"
+            "[INFO]         |         |   0x%p: * output: 0x%p\n",
+            &e->transaction_io, e->transaction_io,
+            &e->transaction_io->header, e->transaction_io->header,
+            &e->transaction_io->input, e->transaction_io->input,
+            &e->transaction_io->output, e->transaction_io->output);
   }
 }
 
