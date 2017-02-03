@@ -157,7 +157,7 @@ class XFilesArbiter(genInfo: => UInt)(implicit p: Parameters)
   io.backend.rocc.cmd.bits.status.prv := supReqToBackend
 
   when (asidUnit.cmdFwd.valid) {
-    printfInfo("XFiles Arbiter: cmdFwd asserted\n")
+    printfInfo("XF Arbiter: cmdFwd asserted\n")
     io.backend.rocc.cmd.bits := asidUnit.cmdFwd.bits
     io.backend.rocc.cmd.bits.status.prv := cmd.bits.status.prv
   }
@@ -174,10 +174,10 @@ class XFilesArbiter(genInfo: => UInt)(implicit p: Parameters)
   debugUnit.mem.req.ready := io.core.mem.req.ready
 
   when (io.core.mem.req.fire()) {
-    printfInfo("XFilesArbiter: Mem request from core with tag 0x%x for addr 0x%x\n",
+    printfInfo("XF Arbiter: Mem request from core with tag 0x%x for addr 0x%x\n",
       io.core.mem.req.bits.tag, io.core.mem.req.bits.addr) }
   when (io.core.mem.resp.fire()) {
-    printfInfo("""XFilesArbiter: Mem response from core with tag 0x%x for addr 0x%x and data 0x%x
+    printfInfo("""XF Arbiter: Mem response from core with tag 0x%x for addr 0x%x and data 0x%x
 """,
       io.core.mem.resp.bits.tag, io.core.mem.resp.bits.addr,
       io.core.mem.resp.bits.data_word_bypass) }
@@ -251,7 +251,7 @@ class XFilesArbiter(genInfo: => UInt)(implicit p: Parameters)
   val totalResponses = Vec(asidUnit.resp.valid, debugUnit.resp.valid,
     tTable.xfiles.resp.valid)
   assert(!(totalResponses.count((x: Bool) => x) > 1.U),
-    "X-FILES Arbiter: A response to the core was aliased")
+    "XF Arbiter: A response to the core was aliased")
 
   val newRequestToTransactionTable = RegNext(tTable.xfiles.cmd.fire()&
     tTable.xfiles.cmd.bits.inst.funct === t_USR_NEW_REQUEST.U)
