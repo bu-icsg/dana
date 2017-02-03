@@ -28,9 +28,11 @@
 RVTEST_WITH_ROCC
 
 RVTEST_CODE_BEGIN
-  TEST_CASE( 1, x3, ID_STRING, XFILES_DANA_ID(3) )
+  TEST_CASE( 1, x3, ID_STRING, XFILES_DANA_ID(3) );
 
   // New Request
+  // x4: TID
+  TEST_CASE( 2, x4, 0, NEW_WRITE_REQUEST(4, 1, 0, 0, 0) );
 
   // Write data
 
