@@ -23,14 +23,20 @@ RISCV_GCC_OPTS ?= -static -mcmodel=medany -fvisibility=hidden -nostdlib -nostart
 RISCV_OBJDUMP ?= $(RISCV_PREFIX)objdump --disassemble-all --disassemble-zeroes --section=.text --section=.text.startup --section=.text.init --section=.data
 RISCV_SIM ?= spike
 
+HEADERS = $(shell find \
+	$(abs_top_srcdir)/rocc-software/src \
+	$(abs_top_srcdir)/../src/main/c)
+HEADERS_P = $(HEADERS) $(shell find $(abs_top_srcdir)/env/p)
+HEADERS_V = $(HEADERS) $(shell find $(abs_top_srcdir)/env/v)
+
 all: $(tests_p)
 
 vpath %.S $(src_dir)
 
-$(ROCC)-p-%: %.S
+$(ROCC)-p-%: %.S $(HEADERS_P)
 	$(RISCV_GCC) $(RISCV_GCC_OPTS) -I$(abs_top_srcdir)/env/p -T$(abs_top_srcdir)/env/p/link.ld $< -o $@
 
-$(ROCC)-v-%: %.S
+$(ROCC)-v-%: %.S $(HEADERS_V)
 	$(RISCV_GCC) $(RISCV_GCC_OPTS) -I$(abs_top_srcdir)/env/v -T$(abs_top_srcdir)/env/v/link.ld $< -o $@
 
 junk += $(tests_p)
