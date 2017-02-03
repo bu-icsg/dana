@@ -19,12 +19,14 @@ class RegressionTests(rocc: String, testDir: String,
 object XFilesDanaTestSuites {
   val smoke = LinkedHashSet (
     "debug",
-    "id"
+    "id",
+    "xorSigmoidSymmetric"
   )
 
   val xfilesDanaRegrTestNames = LinkedHashSet (
     "xfiles-dana-p-debug",
-    "xfiles-dana-p-id"
+    "xfiles-dana-p-id",
+    "xfiles-dana-p-xorSigmoidSymmetric"
   )
 
   val xfilesDanaSmoke = new AssemblyTests("xfiles-dana", "smoke", smoke)(_)
