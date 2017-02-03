@@ -23,7 +23,7 @@
 #undef EXTRA_INIT
 #define EXTRA_INIT                              \
   SET_ASID(1, 1, 1);                            \
-  SET_ANTP(1, 1, antp);
+  SET_ANTP(1, 1, 2, antp);
 
 RVTEST_WITH_ROCC
 
