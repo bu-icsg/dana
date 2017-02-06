@@ -12,7 +12,7 @@
 #include "include/xfiles-dana.h"
 #include "rocc-software/src/xcustom.h"
 #include "rocc-software/src/riscv_test_rocc.h"
-#include "src/main/c/xfiles-debug.S"
+#include "libs/src/xfiles-debug.S"
 
 #define CUSTOM_X 0
 

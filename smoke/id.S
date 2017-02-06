@@ -12,7 +12,7 @@
 #include "include/xfiles-dana.h"
 #include "rocc-software/src/xcustom.h"
 #include "rocc-software/src/riscv_test_rocc.h"
-#include "src/main/c/xfiles-user.S"
+#include "libs/src/xfiles-user.S"
 
 #define CUSTOM_X 0
 
@@ -28,7 +28,7 @@
 RVTEST_WITH_ROCC
 
 RVTEST_CODE_BEGIN
-  TEST_CASE( 1, x3, ID_STRING, XFILES_DANA_ID(3) )
+  TEST_CASE( 1, a0, ID_STRING, XFILES_DANA_ID )
 
   TEST_PASSFAIL
 
