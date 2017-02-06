@@ -4,3 +4,6 @@
 [submodule "rocc-software"]
 	path = rocc-software
 	url = ../rocc-software
+[submodule "libs"]
+	path = libs
+	url = ../xfiles-dana-libs
