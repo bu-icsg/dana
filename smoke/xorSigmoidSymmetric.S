@@ -32,9 +32,10 @@ RVTEST_CODE_BEGIN
 
   // New Request
   // x4: TID
-  TEST_CASE( 2, x4, 0, NEW_WRITE_REQUEST(4, 1, 0, 0, 0) );
+  TEST_CASE( 2, x7, 0, NEW_WRITE_REQUEST(7, 1, 0, 0, 0) );
 
   // Write data
+  TEST_CASE( 3, x1, 0, WRITE_DATA(1, 2, 3, 4, 5, 6, 7, data_in, 2) );
 
   // Poll until done
 
@@ -47,6 +48,11 @@ RVTEST_DATA_BEGIN
 
   TEST_DATA
 
+data_in:
+  .word 0xdead
+  .word 0xbeef
+data_out:
+  .word 0x0
 antp:
 // ./tools/bin/generate-ant -a 1,build/nets/xorSigmoidSymmetric-fixed.16bin | util/hdl-tools/scripts/bits-to-asm
 // [INFO] asid: 1
