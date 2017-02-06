@@ -1,6 +1,6 @@
 #include <stdio.h>
 
-#include "src/main/c/xfiles-supervisor.h"
+#include "src/include/xfiles-supervisor.h"
 
 int main() {
   ant_entry asidEntry;

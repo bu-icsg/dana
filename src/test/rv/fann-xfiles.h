@@ -3,8 +3,8 @@
 
 #include <string.h>
 #include "submodules/fann/src/include/fixedfann.h"
-#include "src/main/c/xfiles-user-pk.h"
-#include "src/main/c/xfiles-asid-nnid-table.h"
+#include "src/include/xfiles-user-pk.h"
+#include "src/include/xfiles-asid-nnid-table.h"
 
 #define read_csr(reg) ({ unsigned long __tmp; \
   asm volatile ("csrr %0, " #reg : "=r"(__tmp)); \

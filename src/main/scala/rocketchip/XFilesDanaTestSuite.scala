@@ -19,17 +19,21 @@ class RegressionTests(rocc: String, testDir: String,
 object XFilesDanaTestSuites {
   val smoke = LinkedHashSet (
     "debug",
-    "id",
+    "id"
+  )
+
+  val nets = LinkedHashSet (
     "xorSigmoidSymmetric"
   )
 
   val xfilesDanaRegrTestNames = LinkedHashSet (
-    "xfiles-dana-p-debug",
-    "xfiles-dana-p-id",
-    "xfiles-dana-p-xorSigmoidSymmetric"
+    "xfiles-dana-smoke-p-debug",
+    "xfiles-dana-smoke-p-id",
+    "xfiles-dana-nets-p-xorSigmoidSymmetric"
   )
 
-  val xfilesDanaSmoke = new AssemblyTests("xfiles-dana", "smoke", smoke)(_)
-  val xfilesDanaRegressions = new RegressionTests("xfiles-dana", "smoke",
+  val xfilesDanaSmoke = new AssemblyTests("xfiles-dana-smoke", "all_tests", smoke)(_)
+  val xfilesDanaNets = new AssemblyTests("xfiles-dana-nets", "all_tests", nets)(_)
+  val xfilesDanaRegressions = new RegressionTests("xfiles-dana", "all_tests",
     xfilesDanaRegrTestNames)
 }

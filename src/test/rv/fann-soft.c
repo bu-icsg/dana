@@ -6,7 +6,7 @@
 #include <getopt.h>
 
 #include "submodules/fann/src/include/fann.h"
-#include "src/main/c/xfiles.h"
+#include "src/include/xfiles.h"
 
 #define read_csr(reg) ({ unsigned long __tmp; \
   asm volatile ("csrr %0, " #reg : "=r"(__tmp)); \

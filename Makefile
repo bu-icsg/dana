@@ -41,10 +41,12 @@ RV_TESTS_EXECUTABLES = $(RV_TESTS:%.c=$(DIR_BUILD)/$(TARGET)/%.rv)
 RV_TESTS_DISASM      = $(RV_TESTS:%.c=$(DIR_BUILD)/$(TARGET)/%.rvS)
 
 # X-FILES libraries related
-XFILES_LIBRARIES = $(DIR_BUILD)/$(TARGET)/libxfiles-user.a \
-	$(DIR_BUILD)/$(TARGET)/libxfiles-user-pk.a \
-	$(DIR_BUILD)/$(TARGET)/libxfiles-supervisor.a \
-	$(DIR_BUILD)/$(TARGET)/libxfiles-ant.a
+xfiles_libraries = \
+	libxfiles-user.a \
+	libxfiles-user-pk.a \
+	libxfiles-supervisor.a \
+	libxfiles-ant.a
+XFILES_LIBRARIES = $(xfiles_libraries:%=$(DIR_TOP)/tests/libs/build/$(TARGET)/%)
 
 DECIMAL_POINT_OFFSET=7
 DECIMAL_POINT_BITS=3
@@ -66,7 +68,7 @@ vpath %-float.net $(DIR_MAIN_RES)
 
 default: all
 
-all: lib tests nets
+all: tests nets
 
 checkstyle:
 	env ROCKETCHIP_ADDONS=$(ROCKETCHIP_ADDONS) $(SBT) $(SBT_FLAGS) scalastyle test:scalastyle
@@ -92,8 +94,6 @@ vcd-verilog: $(DIR_BUILD)/t_XFilesDana$(FPGA_CONFIG_DOT)-vcd.vvp Makefile
 
 debug: $(TEST_EXECUTABLES) Makefile
 	$< -d $(<:$(DIR_BUILD)/t_%=$(DIR_BUILD)/%.prm)
-
-lib: $(XFILES_LIBRARIES)
 
 tests: $(RV_TESTS_EXECUTABLES)
 

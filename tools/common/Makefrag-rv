@@ -17,20 +17,24 @@ vpath %.c $(DIR_TOP)/src/test/rv
 
 HEADERS = $(wildcard $(DIR_TOP)/src/main/c/*.h)
 
-CFLAGS += -Wall -Werror -static --std=gnu11 -I$(DIR_TOP) -I$(DIR_BUILD)/nets
-LFLAGS = -L$(DIR_BUILD)/$(TARGET) -L$(DIR_BUILD)/fann/$(TARGET)
+CFLAGS += \
+	-Wall \
+	-Werror \
+	-static \
+	--std=gnu11 \
+	-I$(DIR_TOP) \
+	-I$(DIR_TOP)/tests/libs \
+	-I$(DIR_BUILD)/nets
+LFLAGS = \
+	-L$(DIR_TOP)/tests/libs/build/$(TARGET) \
+	-L$(DIR_BUILD)/fann/$(TARGET)
 
-#------------------- Library Targets
 $(dir_build)/%.o: %.c $(HEADERS) | $(dir_build)
 	$(CC) $(CFLAGS) -c $< -o $@
-$(dir_build)/libxfiles-user.a: $(dir_build)/xfiles-user.o $(dir_build)/xfiles-debug.o | $(dir_build)
-	$(AR) rcs $@ $^
-$(dir_build)/libxfiles-supervisor.a: $(dir_build)/xfiles-supervisor.o $(dir_build)/xfiles-asid-nnid-table.o | $(dir_build)
-	$(AR) rcs $@ $^
-$(dir_build)/libxfiles-user-pk.a: $(dir_build)/xfiles-user.o $(dir_build)/xfiles-user-pk.o $(dir_build)/xfiles-supervisor.o $(dir_build)/xfiles-asid-nnid-table.o $(dir_build)/xfiles-debug.o | $(dir_build)
-	$(AR) rcs $@ $^
-$(dir_build)/libxfiles-ant.a: $(dir_build)/xfiles-asid-nnid-table.o | $(dir_build)
-	$(AR) rcs $@ $^
+
+#------------------- Library Targets
+$(DIR_TOP)/tests/libs/build/$(TARGET)/lib%.a:
+	make -C $(DIR_TOP)/tests/libs/
 
 #------------------- RISC-V Tests
 $(dir_build)/fann-soft.rv: fann-soft.c $(XFILES_LIBRARIES) $(DIR_BUILD)/fann/$(TARGET)/libfann.a
