@@ -65,8 +65,6 @@ typedef enum {
   int_UNKNOWN     = -1
 } xfiles_interrupt_t;
 
-#define RESP_CODE_WIDTH 3
-
 #define OPCODE 0
 // Standard macro that passes rd_, rs1_, and rs2_ via registers
 #define XFILES_INSTRUCTION(rd, rs1, rs2, funct) \

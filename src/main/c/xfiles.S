@@ -11,4 +11,6 @@
 #define t_USR_XFILES_DEBUG 9
 #define t_USR_XFILES_DANA_ID 10
 
+#define RESP_CODE_WIDTH 3
+
 #endif  // SRC_MAIN_C_XFILES_S_
