@@ -3,10 +3,11 @@
 #ifndef XFILES_DANA_LIBS_SRC_XFILES_USER_S_
 #define XFILES_DANA_LIBS_SRC_XFILES_USER_S_
 
-#include "src/include/xfiles.S"
+#include "src/xfiles.S"
 
-#define XFILES_DANA_ID(rd)                                              \
-  ROCC_INSTRUCTION_RAW_R_R_R(CUSTOM_X, rd, 0, 0, t_USR_XFILES_DANA_ID);
+#define XFILES_DANA_ID                          \
+  li a0, 0;                                     \
+  jal ra, xfiles_dana_id;
 
 // rd = new_write_request(nnid, learning_type, num_train_outputs)
 // clobbers: (rs1)

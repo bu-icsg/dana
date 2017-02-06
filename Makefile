@@ -20,7 +20,14 @@ libs = \
 	xfiles-user-pk \
 	xfiles-ant
 
-CFLAGS += -Wall -Werror -static --std=gnu11 -I$(DIR_TOP) -I$(DIR_BUILD)/nets
+CFLAGS += \
+	-Wall \
+	-Werror \
+	-O3 \
+	-static \
+	--std=gnu11 \
+	-I$(DIR_TOP) \
+	-I$(DIR_BUILD)/nets
 LFLAGS = -L$(DIR_BUILD)/$(TARGET) -L$(DIR_BUILD)/fann/$(TARGET)
 
 vpath %.h $(DIR_TOP)/src/include
