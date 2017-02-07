@@ -51,11 +51,14 @@ all: $(tests_p)
 
 vpath %.S $(src_dir)
 
-$(ROCC)-p-%: %.S $(HEADERS_P)
+$(ROCC)-p-%: %.S $(HEADERS_P) $(abs_top_srcdir)/libs/build/libxfiles-user.a $(abs_top_srcdir)/libs/build/libxfiles-debug.a
 	$(RISCV_GCC) $(RISCV_GCC_OPTS) -I$(abs_top_srcdir)/env/p -T$(abs_top_srcdir)/env/p/link.ld $< $(RISCV_LD_OPTS) -o $@
 
-$(ROCC)-v-%: %.S $(HEADERS_V)
+$(ROCC)-v-%: %.S $(HEADERS_V) $(abs_top_srcdir)/libs/build/libxfiles-user.a $(abs_top_srcdir)/libs/build/libxfiles-debug.a
 	$(RISCV_GCC) $(RISCV_GCC_OPTS) -I$(abs_top_srcdir)/env/v -T$(abs_top_srcdir)/env/v/link.ld $(RISCV_LD_OPTS) $< -o $@
+
+$(abs_top_srcdir)/libs/build/lib%.a:
+	make -C $(abs_top_srcdir)/libs
 
 junk += $(tests_p)
 
