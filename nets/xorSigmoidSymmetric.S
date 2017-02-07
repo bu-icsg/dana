@@ -22,23 +22,19 @@
 // the ASID and ANTP for a single transaction test.
 #undef EXTRA_INIT
 #define EXTRA_INIT                              \
-  SET_ASID(1, 1, 1);                            \
-  SET_ANTP(1, 1, 2, antp);
+  SET_ASID(1);                                  \
+  SET_ANTP(antp_dana, antp_os);
 
 RVTEST_WITH_ROCC
 
 RVTEST_CODE_BEGIN
   TEST_CASE( 1, a0, ID_STRING, XFILES_DANA_ID );
-
-  // New Request
-  // x4: TID
-  // TEST_CASE( 2, x7, 0, NEW_WRITE_REQUEST(7, 1, 0, 0, 0) );
+  TEST_CASE( 2, a0, 0, NEW_WRITE_REQUEST(0, 0, 0) );
+  // I am dangerously _not_ saving the TID here, but we know it's '0'
+  TEST_CASE( 3, a0, 0, WRITE_DATA(0, data_in, 2) );
 
   // Write data
   // TEST_CASE( 3, x1, 0, WRITE_DATA(1, 2, 3, 4, 5, 6, 7, data_in, 2) );
-
-  TEST_CASE( 100, x0, 0)
-
   // Poll until done
 
   TEST_PASSFAIL
@@ -55,7 +51,6 @@ data_in:
   .word 0xbeef
 data_out:
   .word 0x0
-antp:
 // ./tools/bin/generate-ant -a 1,build/nets/xorSigmoidSymmetric-fixed.16bin | util/hdl-tools/scripts/bits-to-asm
 // [INFO] asid: 1
 // [INFO] file: build/nets/xorSigmoidSymmetric-fixed.16bin
@@ -102,6 +97,8 @@ antp:
 // [INFO] Writing NN Configs:
 // [INFO]   0x3d8: Padding (0x1416 B)
 // [INFO]   0x960: Config (VAddr 0x0x2632580, 0x110 B)
+.align 8
+antp_os:
 .word 0x00000002
 .word 0x00000000
 .word 0x00000020
@@ -110,6 +107,7 @@ antp:
 .word 0x00000000
 .word 0x00000000
 .word 0x00000000
+antp_dana:
 .word 0x0000000a
 .word 0x00000000
 .word 0x00000070
@@ -120,7 +118,7 @@ antp:
 .word 0x00000000
 .word 0x0000000a
 .word 0x00000001
-.word 0x000003b0
+.word 0x000003b0 + antp_os
 .word 0x00000000
 .word 0x02631fd0
 .word 0x00000000
@@ -344,7 +342,7 @@ antp:
 .word 0x00000000
 .word 0x02632550
 .word 0x00000000
-.word 0x00000960
+.word data
 .word 0x00000000
 .word 0x02632580
 .word 0x00000000
@@ -702,6 +700,9 @@ antp:
 .word 0x00000000
 .word 0x00000000
 .word 0x00000000
+
+.align 8
+data:
 .word 0x000a000f
 .word 0x00020009
 .word 0x00700010
