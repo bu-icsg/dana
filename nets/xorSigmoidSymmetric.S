@@ -32,10 +32,7 @@ RVTEST_CODE_BEGIN
   TEST_CASE( 2, a0, 0, NEW_WRITE_REQUEST(0, 0, 0) );
   // I am dangerously _not_ saving the TID here, but we know it's '0'
   TEST_CASE( 3, a0, 0, WRITE_DATA(0, data_in, 2) );
-
-  // Write data
-  // TEST_CASE( 3, x1, 0, WRITE_DATA(1, 2, 3, 4, 5, 6, 7, data_in, 2) );
-  // Poll until done
+  TEST_CASE( 4, a0, 0, READ_DATA_SPINLOCK(0, data_out, 1) );
 
   TEST_PASSFAIL
 
