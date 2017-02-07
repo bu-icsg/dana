@@ -14,7 +14,7 @@ install: smoke nets | all_tests
 	for a in $^; do for b in `ls $$a`; do ln -sf ../$$a/$$b all_tests/; done ; done
 
 all_tests:
-	mkdir $@
+	mkdir -p $@
 
 smoke:
 	mkdir -p $@

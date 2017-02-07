@@ -17,15 +17,20 @@
 
 #define CUSTOM_X 0
 
+#define STACK_TOP (_end + 4096)
+
 // RVTEST_CODE_BEGIN includes the EXTRA_INIT macro before its final
 // `mret` and the resulting drop to user mode. We use this to setup
 // the ASID and ANTP for a single transaction test.
 #undef EXTRA_INIT
 #define EXTRA_INIT                              \
   SET_ASID(1);                                  \
-  SET_ANTP(antp_dana, antp_os);
+  SET_ANTP(antp_dana, antp_os); \
+  la sp, _end;
 
 RVTEST_WITH_ROCC
+
+start:
 
 RVTEST_CODE_BEGIN
   TEST_CASE( 1, a0, ID_STRING, XFILES_DANA_ID );
@@ -768,4 +773,5 @@ data:
 .word 0x0000240a
 .word 0x00001f71
 .word 0xffffeb18
+
 RVTEST_DATA_END
