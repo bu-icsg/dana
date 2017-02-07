@@ -5,7 +5,7 @@
 
 #include <stdint.h>
 #include <stddef.h>
-#include "src/include/xcustom.h"
+#include "../rocc-software/src/xcustom.h"
 #include "src/xfiles.S"
 
 // [TODO] Any changes to these types need to occur in conjunction with
@@ -67,17 +67,18 @@ typedef enum {
 
 #define OPCODE 0
 // Standard macro that passes rd_, rs1_, and rs2_ via registers
-#define XFILES_INSTRUCTION(rd, rs1, rs2, funct) \
-  XFILES_INSTRUCTION_R_R_R(rd, rs1, rs2, funct)
-#define XFILES_INSTRUCTION_R_R_R(rd, rs1, rs2, funct)   \
-  XCUSTOM_R_R_R(OPCODE, rd, rs1, rs2, funct)
+#define XFILES_INSTRUCTION(rd, rs1, rs2, funct)                 \
+  ROCC_INSTRUCTION_R_R_R(OPCODE, rd, rs1, rs2, funct, 5, 6, 7)
+
+#define XFILES_INSTRUCTION_R_R_R(rd, rs1, rs2, funct)           \
+  ROCC_INSTRUCTION_R_R_R(OPCODE, rd, rs1, rs2, funct, 5, 6, 7)
 
 // Macro to pass rs2_ as an immediate
-#define XFILES_INSTRUCTION_R_R_I(rd, rs1, rs2, funct)   \
-  XCUSTOM_R_R_R(OPCODE, rd, rs1, rs2, funct)
+#define XFILES_INSTRUCTION_R_R_I(rd, rs1, rs2, funct)           \
+  ROCC_INSTRUCTION_R_R_R(OPCODE, rd, rs1, rs2, funct, 5, 6, 7)
 
 // Macro to pass rs1_ and rs2_ as immediates
-#define XFILES_INSTRUCTION_R_I_I(rd, rs1, rs2, funct)   \
-  XCUSTOM_R_R_R(OPCODE, rd, rs1, rs2, funct)
+#define XFILES_INSTRUCTION_R_I_I(rd, rs1, rs2, funct)           \
+  ROCC_INSTRUCTION_R_R_R(OPCODE, rd, rs1, rs2, funct, 5, 6, 7)
 
 #endif  // XFILES_DANA_LIBS_SRC_XFILES_H_

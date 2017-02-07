@@ -26,4 +26,10 @@
   li a2, count;                                  \
   jal write_data;                                \
 
+#define READ_DATA_SPINLOCK(tid, data, count) \
+  li a0, tid;                                \
+  la a1, data;                               \
+  li a2, count;                              \
+  jal read_data_spinlock;
+
 #endif  // XFILES_DANA_LIBS_SRC_XFILES_USER_S_

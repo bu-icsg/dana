@@ -22,7 +22,7 @@
 xlen_t xfiles_dana_id() {
   xlen_t out;
 
-  XFILES_INSTRUCTION_R_I_I(out, 0, 0, t_USR_XFILES_DANA_ID);
+  XFILES_INSTRUCTION_R_I_I(out, 0, 0, t_USR_XFILES_DANA_ID)
 
   return out;
 }
@@ -133,7 +133,7 @@ xlen_t write_data_train_incremental(tid_type tid, element_type * input,
 }
 
 xlen_t read_data_spinlock(tid_type tid, element_type * data, size_t count) {
-  uint64_t out;
+  volatile uint64_t out;
 
   // Poll via READ_DATA requests until we've gotten enough OK
   // responses equal to the count that we're looking for.
