@@ -13,7 +13,7 @@ src_dir = .
 tests = \
 	xorSigmoidSymmetric
 
-tests_p = $(addprefix $(ROCC)-p-, $(tests))
+tests_p = $(addprefix $(PREFIX)-p-, $(tests))
 
 RISCV_PREFIX ?= riscv$(XLEN)-unknown-elf
 RISCV_GCC ?= $(RISCV_PREFIX)-gcc
@@ -51,14 +51,10 @@ all: $(tests_p)
 
 vpath %.S $(src_dir)
 
-# $(ROCC)-p-%: %.S $(HEADERS_P)
-# 	echo $(abs_top_srcdir)/libs/build/libxfiles-user.a
-# 	echo $(abs_top_srcdir)/libs/build/libxfiles-supervisor.a
-
-$(ROCC)-p-%: %.S $(HEADERS_P) $(abs_top_srcdir)/libs/build/libxfiles-user.a $(abs_top_srcdir)/libs/build/libxfiles-supervisor.a
+$(PREFIX)-p-%: %.S $(HEADERS_P) $(abs_top_srcdir)/libs/build/libxfiles-user.a $(abs_top_srcdir)/libs/build/libxfiles-supervisor.a
 	$(RISCV_GCC) $(RISCV_GCC_OPTS) -I$(abs_top_srcdir)/env/p $< $(RISCV_LD_OPTS) -T$(abs_top_srcdir)/env/p/link.ld -o $@
 
-$(ROCC)-v-%: %.S $(HEADERS_V) $(asb_top_srcdir)/libs/build/libxfiles-user.a $(abs_top_srcdir)/libs/build/libxfiles-supervisor.a
+$(PREFIX)-v-%: %.S $(HEADERS_V) $(asb_top_srcdir)/libs/build/libxfiles-user.a $(abs_top_srcdir)/libs/build/libxfiles-supervisor.a
 	$(RISCV_GCC) $(RISCV_GCC_OPTS) -I$(abs_top_srcdir)/env/v $(RISCV_LD_OPTS) -T$(abs_top_srcdir)/env/v/link.ld $< -o $@
 
 $(abs_top_srcdir)/libs/build/lib%.a:

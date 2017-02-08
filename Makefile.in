@@ -8,21 +8,15 @@ test_nets_dir   := $(abs_top_srcdir)/nets
 
 .PHONY: all smoke nets clean
 
-all: install
-
-install: smoke nets | all_tests
-	for a in $^; do for b in `ls $$a`; do ln -sf ../$$a/$$b all_tests/; done ; done
-
-all_tests:
-	mkdir -p $@
+all: smoke nets
 
 smoke:
 	mkdir -p $@
-	$(MAKE) -C $@ -f $(test_smoke_dir)/Makefile abs_top_srcdir=$(abs_top_srcdir) src_dir=$(test_smoke_dir) XLEN=$(XLEN) ROCC=$(ROCC)
+	$(MAKE) -C $@ -f $(test_smoke_dir)/Makefile abs_top_srcdir=$(abs_top_srcdir) src_dir=$(test_smoke_dir) XLEN=$(XLEN) PREFIX=$(ROCC)-$@
 
 nets:
 	mkdir -p $@
-	$(MAKE) -C $@ -f $(test_nets_dir)/Makefile abs_top_srcdir=$(abs_top_srcdir) src_dir=$(test_nets_dir) XLEN=$(XLEN) ROCC=$(ROCC)
+	$(MAKE) -C $@ -f $(test_nets_dir)/Makefile abs_top_srcdir=$(abs_top_srcdir) src_dir=$(test_nets_dir) XLEN=$(XLEN) PREFIX=$(ROCC)-$@
 
 clean:
 	$(MAKE) -C smoke -f $(test_smoke_dir)/Makefile abs_top_srcdir=$(abs_top_srcdir) src_dir=$(test_smoke_dir) ROCC=$(ROCC) clean
