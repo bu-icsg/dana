@@ -26,7 +26,7 @@
 #define EXTRA_INIT                              \
   SET_ASID(1);                                  \
   SET_ANTP(antp_dana, antp_os); \
-  la sp, _end;
+  la sp, _end + 1024;
 
 RVTEST_WITH_ROCC
 
