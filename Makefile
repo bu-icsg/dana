@@ -5,20 +5,22 @@ DIR_BUILD         ?= $(DIR_TOP)/build/$(TARGET)
 # RISC-V related options
 ifeq "$(TARGET)" "host"
 CFLAGS = -DNO_VM=1
+libs = \
+	xfiles-ant
 else
 TARGET_DASH = $(TARGET)-
-endif
-CC            = $(TARGET_DASH)gcc
-CXX           = $(TARGET_DASH)g++
-AR            = $(TARGET_DASH)ar
-OBJDUMP       = $(TARGET_DASH)objdump
-
 libs = \
 	xfiles-user \
 	xfiles-supervisor \
 	xfiles-debug \
 	xfiles-user-pk \
 	xfiles-ant
+endif
+CC            = $(TARGET_DASH)gcc
+CXX           = $(TARGET_DASH)g++
+AR            = $(TARGET_DASH)ar
+OBJDUMP       = $(TARGET_DASH)objdump
+
 
 CFLAGS += \
 	-Wall \
@@ -41,7 +43,9 @@ all: $(libs:%=$(DIR_BUILD)/lib%.a)
 LIBS = \
 	$(DIR_BUILD)/libxfiles-user.a \
 	$(DIR_BUILD)/libxfiles-supervisor.a \
-	$(DIR_BUILD)/libxfiles-user-pk.a
+	$(DIR_BUILD)/libxfiles-user-pk.a \
+	$(DIR_BUILD)/libxfiles-debug.a \
+	$(DIR_BUILD)/libxfiles-ant.a
 $(DIR_BUILD)/libxfiles-user.a: \
 	$(DIR_BUILD)/xfiles-user.o \
 	$(DIR_BUILD)/xfiles-debug.o
@@ -70,3 +74,6 @@ $(DIR_BUILD):
 
 clean:
 	rm -rf $(DIR_BUILD)
+
+mrproper:
+	rm -rf $(DIR_TOP)/build

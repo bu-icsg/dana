@@ -162,7 +162,7 @@ int attach_nn_configuration(ant ** table, asid_type asid,
   // Compute the elements per block as set in the neural network
   // configuration and write this into the ASID--NNID Table Entry
   uint64_t block_64;
-  fread(&block_64, sizeof(block_64), 1, fp);
+  assert(fread(&block_64, sizeof(block_64), 1, fp) > 0);
   fseek(fp, 0L, SEEK_SET);
   block_64 = (block_64 >> 4) & 3;
   n->elements_per_block = 1 << (block_64 + 2);
@@ -173,7 +173,7 @@ int attach_nn_configuration(ant ** table, asid_type asid,
   assert(n->config_v != NULL);
 
   // Write the configuration
-  fread(n->config_v, sizeof(xlen_t), file_size, fp);
+  assert(fread(n->config_v, sizeof(xlen_t), file_size, fp) > 0);
   // [TODO] Assumes memory contiguity
 #ifdef NO_VM
   n->config_p = (char *) n->config_v;
