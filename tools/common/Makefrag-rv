@@ -41,7 +41,7 @@ $(dir_build)/%.o: %.c $(HEADERS) | $(dir_build)
 
 #------------------- Library Targets
 $(DIR_TOP)/tests/libs/build/$(TARGET)/lib%.a:
-	make -C $(DIR_TOP)/tests/libs/
+	make -C $(DIR_TOP)/tests/libs/ TARGET=$(TARGET)
 
 #------------------- RISC-V Tests
 $(dir_build)/fann-soft.rv: fann-soft.c $(XFILES_LIBRARIES) $(libfann_dep) | $(dir_build)
