@@ -4,31 +4,32 @@
 
 #include "submodules/fann/src/include/fann.h"
 
+#define OPTARG_STAT_BIT_FAIL 1024
+
 static char * usage_message =
-  "fann-train -n[config] -t[train file] [options]\n"
-  "Run batch training on a specific neural network and training file.\n"
-  "\n"
-  "Options:\n"
-  "  -b, --video-data           generate a trace of execution over time\n"
-  "  --stat-cups                print information about the # of connectsion\n"
-  "  -d, --num-batch-items      number of batch items to use\n"
-  "  -e, --max-epochs           the epoch limit (default 10k)\n"
-  "  -f, --bit-fail-limit       sets the bit fail limit (default 0.05)\n"
-  "  -g, --mse-fail-limit       sets the maximum MSE (default -1, i.e., off)\n"
-  "  -h, --help                 print this help and exit\n"
-  "  -i, --id                   numeric id to use for printing data (default 0)\n"
-  "  --stat-last                print last epoch number statistic\n"
-  "  -m, --stat-mse             print mse statistics (optional arg: MSE period)\n"
-  "  -n, --nn-config            the binary NN configuration to use\n"
-  "  -o, --stat-bit-fail        print bit fail percent (optional arg: period)\n"
-  "  -q, --stat-percent-correct print the percent correct (optional arg: period)\n"
-  "  -r, --learning-rate        set the learning rate (default 0.7)\n"
-  "  -t, --train-file           the fixed point FANN training file to use\n"
-  "  --verbose                  turn on per-item inputs/output printfs\n"
-  "  -x, --training-type        no arg: incremental, arg: use specific enum\n"
-  "  --ignore-limits            continue blindly ignoring bit fail/mse limits"
-  "\n"
-  "-n and -t are required\n";
+    "fann-train -n[config] -t[train file] [options] [FILE]\n"
+    "Run batch training on a specific neural network and training file.\n"
+    "\n"
+    "Options:\n"
+    "  -b, --video-data           generate a trace of execution over time\n"
+    "  --stat-cups                print information about the # of connectsion\n"
+    "  -d, --num-batch-items      number of batch items to use\n"
+    "  -e, --max-epochs           the epoch limit (default 10k)\n"
+    "  -f, --bit-fail-limit       sets the bit fail limit (default 0.05)\n"
+    "  -g, --mse-fail-limit       sets the maximum MSE (default -1, i.e., off)\n"
+    "  -h, --help                 print this help and exit\n"
+    "  -i, --id                   numeric id to use for printing data (default 0)\n"
+    "  --stat-last                print last epoch number statistic\n"
+    "  -m, --stat-mse             print mse statistics (optional arg: MSE period)\n"
+    "  -n, --nn-config [FILE]     read FANN floating point network from FILE\n"
+    "  -q, --stat-percent-correct print the percent correct (optional arg: period)\n"
+    "  -r, --learning-rate        set the learning rate (default 0.7)\n"
+    "  --stat-bit-fail            print bit fail percent (optional arg: period)\n"
+    "  -t, --train-file [FILE]    read FANN training file FILE\n"
+    "  --verbose                  turn on per-item inputs/output printfs\n"
+    "  -x, --training-type        no arg: incremental, arg: use specific enum\n"
+    "  --ignore-limits            continue blindly ignoring bit fail/mse limits"
+    "\n";
 
 void usage () {
   printf("Usage: %s", usage_message);
@@ -40,7 +41,7 @@ int main (int argc, char * argv[]) {
   static int flag_cups, flag_last, flag_verbose, flag_ignore_limits;
   int flag_mse = 0, flag_bit_fail = 0, flag_percent_correct = 0;
   int mse_reporting_period = 1, bit_fail_reporting_period = 1,
-    percent_correct_reporting_period = 1;
+percent_correct_reporting_period = 1;
   float bit_fail_limit = 0.05, mse_fail_limit = -1.0;
   double learning_rate = 0.7;
   char id[100] = "0";
@@ -51,7 +52,7 @@ int main (int argc, char * argv[]) {
   fann_type * calc_out;
   enum fann_train_enum type_training = FANN_TRAIN_BATCH;
 
-  char * file_nn = NULL, * file_train = NULL;
+  char * file_nn = NULL, * file_train = NULL, * file_out = NULL;
   int c;
   while (1) {
     static struct option long_options[] = {
@@ -66,7 +67,7 @@ int main (int argc, char * argv[]) {
       {"stat-last",            no_argument,       &flag_last, 1},
       {"stat-mse",             optional_argument, 0, 'm'},
       {"nn-config",            required_argument, 0, 'n'},
-      {"stat-bit-fail",        optional_argument, 0, 'o'},
+      {"stat-bit-fail",        optional_argument, 0, OPTARG_STAT_BIT_FAIL},
       {"stat-percent-correct", optional_argument, 0, 'q'},
       {"learning-rate",        required_argument, 0, 'r'},
       {"train-file",           required_argument, 0, 't'},
@@ -75,44 +76,45 @@ int main (int argc, char * argv[]) {
       {"ignore-limits",        no_argument,       &flag_ignore_limits, 1}
     };
     int option_index = 0;
-     c = getopt_long (argc, argv, "b:d:e:f:g:hi:m::n:o::q::r:t:x:",
+    c = getopt_long (argc, argv, "b:d:e:f:g:hi:m::n:q::r:t:x:",
                      long_options, &option_index);
     if (c == -1)
       break;
     switch (c) {
-    case 'b': file_video_string = optarg; break;
-    case 'd': batch_items = atoi(optarg); break;
-    case 'e': max_epochs = atoi(optarg); break;
-    case 'f': bit_fail_limit = atof(optarg); break;
-    case 'g': mse_fail_limit = atof(optarg); break;
-    case 'h': usage(); exit_code = 0; goto bail;
-    case 'i': strcpy(id, optarg); break;
-    case 'l': flag_last = 1; break;
-    case 'm':
-      if (optarg)
-        mse_reporting_period = atoi(optarg);
-      flag_mse = 1;
-      break;
-    case 'n': file_nn = optarg; break;
-    case 'o':
-      if (optarg)
-        bit_fail_reporting_period = atoi(optarg);
-      flag_bit_fail = 1;
-      break;
-    case 'q':
-      if (optarg)
-        percent_correct_reporting_period = atoi(optarg);
-      flag_percent_correct = 1;
-      break;
-    case 'r': learning_rate = atof(optarg); break;
-    case 't': file_train = optarg; break;
-    case 'x': type_training=(optarg)?atoi(optarg):FANN_TRAIN_INCREMENTAL; break;
+      case 'b': file_video_string = optarg; break;
+      case 'd': batch_items = atoi(optarg); break;
+      case 'e': max_epochs = atoi(optarg); break;
+      case 'f': bit_fail_limit = atof(optarg); break;
+      case 'g': mse_fail_limit = atof(optarg); break;
+      case 'h': usage(); exit_code = 0; goto bail;
+      case 'i': strcpy(id, optarg); break;
+      case 'l': flag_last = 1; break;
+      case 'm':
+        if (optarg)
+          mse_reporting_period = atoi(optarg);
+        flag_mse = 1;
+        break;
+      case 'n': file_nn = optarg; break;
+      case OPTARG_STAT_BIT_FAIL:
+        if (optarg)
+          bit_fail_reporting_period = atoi(optarg);
+        flag_bit_fail = 1;
+        break;
+      case 'q':
+        if (optarg)
+          percent_correct_reporting_period = atoi(optarg);
+        flag_percent_correct = 1;
+        break;
+      case 'r': learning_rate = atof(optarg); break;
+      case 't': file_train = optarg; break;
+      case 'x': type_training=(optarg)?atoi(optarg):FANN_TRAIN_INCREMENTAL; break;
     }
   };
 
-  // Make sure there aren't any arguments left over
-  if (optind != argc) {
-    fprintf(stderr, "[ERROR] Bad argument\n\n");
+  if (optind == argc - 1)
+    file_out = argv[optind];
+  else if (optind < argc - 1) {
+    fprintf(stderr, "[ERROR] Expected only one file to output to\n\n");
     usage();
     exit_code = -1;
     goto bail;
@@ -139,7 +141,7 @@ int main (int argc, char * argv[]) {
   if (batch_items != -1 && batch_items < data->num_data)
     data->num_data = batch_items;
   enum fann_activationfunc_enum af =
-    fann_get_activation_function(ann, ann->last_layer - ann->first_layer -1, 0);
+      fann_get_activation_function(ann, ann->last_layer - ann->first_layer -1, 0);
 
   ann->training_algorithm = type_training;
   ann->learning_rate = learning_rate;
@@ -167,7 +169,7 @@ int main (int argc, char * argv[]) {
         if (flag_verbose)
           printf("%8.5f ", calc_out[k]);
         num_bits_failing +=
-          fabs(calc_out[k] - data->output[i][k]) > bit_fail_limit;
+            fabs(calc_out[k] - data->output[i][k]) > bit_fail_limit;
         if (fabs(calc_out[k] - data->output[i][k]) > bit_fail_limit)
           correct = 0;
         if (file_video)
@@ -186,17 +188,17 @@ int main (int argc, char * argv[]) {
     if (flag_mse  && (epoch % mse_reporting_period == 0)) {
       mse = fann_get_MSE(ann);
       switch(af) {
-      case FANN_LINEAR_PIECE_SYMMETRIC:
-      case FANN_THRESHOLD_SYMMETRIC:
-      case FANN_SIGMOID_SYMMETRIC:
-      case FANN_SIGMOID_SYMMETRIC_STEPWISE:
-      case FANN_ELLIOT_SYMMETRIC:
-      case FANN_GAUSSIAN_SYMMETRIC:
-      case FANN_SIN_SYMMETRIC:
-      case FANN_COS_SYMMETRIC:
-        mse *= 4.0;
-      default:
-        break;
+        case FANN_LINEAR_PIECE_SYMMETRIC:
+        case FANN_THRESHOLD_SYMMETRIC:
+        case FANN_SIGMOID_SYMMETRIC:
+        case FANN_SIGMOID_SYMMETRIC_STEPWISE:
+        case FANN_ELLIOT_SYMMETRIC:
+        case FANN_GAUSSIAN_SYMMETRIC:
+        case FANN_SIN_SYMMETRIC:
+        case FANN_COS_SYMMETRIC:
+          mse *= 4.0;
+        default:
+          break;
       }
       printf("[STAT] epoch %d id %s mse %8.8f\n", epoch, id, mse);
     }
@@ -212,14 +214,16 @@ int main (int argc, char * argv[]) {
     // printf("%8.5f\n\n", fann_get_MSE(ann));
   }
 
- finish:
+finish:
   if (flag_last)
     printf("[STAT] x 0 id %s epoch %d\n", id, epoch);
   if (flag_cups)
     printf("[STAT] x 0 id %s cups %d / ?\n", id,
            epoch * fann_get_total_connections(ann));
+  if (file_out)
+    fann_save(ann, file_out);
 
- bail:
+bail:
   if (ann != NULL)
     fann_destroy(ann);
   if (data != NULL)
