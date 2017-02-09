@@ -8,7 +8,8 @@ DIR_BIN  = bin
 DIR_INC  = $(DIR_SRC)/include
 COMMA    = ,
 
-TOOLS = fann-float-to-fixed \
+TOOLS = \
+	fann-float-to-fixed \
 	write-fann-config-for-accelerator \
 	bin-config-to-c-header \
 	fann-train-to-c-header \
@@ -33,7 +34,10 @@ include common/Makefrag-submodule
 
 INCLUDE_PATHS  = $(DIR_TOP)
 
-LIB_PATHS = $(DIR_BUILD)/$(TARGET) $(DIR_BUILD)/fann/$(TARGET)
+LIB_PATHS = \
+	$(DIR_BUILD)/$(TARGET) \
+	$(DIR_BUILD)/fann/$(TARGET) \
+	$(DIR_TOP)/tests/libs/build/$(TARGET)
 LIBS      = fann m
 LIBS_F    = fixedfann m
 LFLAGS    = $(addprefix -Wl$(COMMA)-R, $(shell readlink -f $(LIB_PATHS))) \
@@ -43,7 +47,7 @@ LFLAGS_F    = $(addprefix -Wl$(COMMA)-R, $(shell readlink -f $(LIB_PATHS))) \
             $(addprefix -L, $(LIB_PATHS)) \
             $(addprefix -l, $(LIBS_F))
 
-$(DIR_BIN)/generate-ant: $(DIR_BIN)/generate-ant.o $(DIR_BUILD)/$(TARGET)/libxfiles-ant.a
+$(DIR_BIN)/generate-ant: $(DIR_BIN)/generate-ant.o $(DIR_TOP)/tests/libs/build/$(TARGET)/libxfiles-ant.a
 	$(CC) $(CFLAGS) $^ $(LFLAGS) -lxfiles-ant -o $@
 
 $(DIR_BIN)/write-fann-config-for-accelerator: $(DIR_BIN)/write-fann-config-for-accelerator.o $(DIR_BUILD)/fann/$(TARGET)/libfixedfann.a

@@ -10,23 +10,23 @@ static char * usage_message =
   "\n"
   "Options:\n"
   "  -b, --video-data           generate a trace of execution over time\n"
-  "  -c, --stat-cups            print information about the # of connectsion\n"
+  "  --stat-cups                print information about the # of connectsion\n"
   "  -d, --num-batch-items      number of batch items to use\n"
   "  -e, --max-epochs           the epoch limit (default 10k)\n"
   "  -f, --bit-fail-limit       sets the bit fail limit (default 0.05)\n"
   "  -g, --mse-fail-limit       sets the maximum MSE (default -1, i.e., off)\n"
   "  -h, --help                 print this help and exit\n"
   "  -i, --id                   numeric id to use for printing data (default 0)\n"
-  "  -l, --stat-last            print last epoch number statistic\n"
+  "  --stat-last                print last epoch number statistic\n"
   "  -m, --stat-mse             print mse statistics (optional arg: MSE period)\n"
   "  -n, --nn-config            the binary NN configuration to use\n"
   "  -o, --stat-bit-fail        print bit fail percent (optional arg: period)\n"
   "  -q, --stat-percent-correct print the percent correct (optional arg: period)\n"
   "  -r, --learning-rate        set the learning rate (default 0.7)\n"
   "  -t, --train-file           the fixed point FANN training file to use\n"
-  "  -v, --verbose              turn on per-item inputs/output printfs\n"
+  "  --verbose                  turn on per-item inputs/output printfs\n"
   "  -x, --training-type        no arg: incremental, arg: use specific enum\n"
-  "  -z, --ignore-limits        continue blindly ignoring bit fail/mse limits"
+  "  --ignore-limits            continue blindly ignoring bit fail/mse limits"
   "\n"
   "-n and -t are required\n";
 
@@ -37,8 +37,8 @@ void usage () {
 int main (int argc, char * argv[]) {
   int i, epoch, k, num_bits_failing, num_correct;
   int max_epochs = 10000, exit_code = 0, batch_items = -1;
-  int flag_cups = 0, flag_last = 0, flag_mse = 0, flag_verbose = 0,
-    flag_bit_fail = 0, flag_ignore_limits = 0, flag_percent_correct = 0;
+  static int flag_cups, flag_last, flag_verbose, flag_ignore_limits;
+  int flag_mse = 0, flag_bit_fail = 0, flag_percent_correct = 0;
   int mse_reporting_period = 1, bit_fail_reporting_period = 1,
     percent_correct_reporting_period = 1;
   float bit_fail_limit = 0.05, mse_fail_limit = -1.0;
@@ -56,32 +56,31 @@ int main (int argc, char * argv[]) {
   while (1) {
     static struct option long_options[] = {
       {"video-data",           required_argument, 0, 'b'},
-      {"stat-cups",            no_argument,       0, 'c'},
+      {"stat-cups",            no_argument,       &flag_cups, 1},
       {"num-batch-items",      required_argument, 0, 'd'},
       {"max-epochs",           required_argument, 0, 'e'},
       {"bit-fail-limit",       required_argument, 0, 'f'},
       {"mse-fail-limit",       required_argument, 0, 'g'},
       {"help",                 no_argument,       0, 'h'},
       {"id",                   required_argument, 0, 'i'},
-      {"stat-last",            no_argument,       0, 'l'},
+      {"stat-last",            no_argument,       &flag_last, 1},
       {"stat-mse",             optional_argument, 0, 'm'},
       {"nn-config",            required_argument, 0, 'n'},
       {"stat-bit-fail",        optional_argument, 0, 'o'},
       {"stat-percent-correct", optional_argument, 0, 'q'},
       {"learning-rate",        required_argument, 0, 'r'},
       {"train-file",           required_argument, 0, 't'},
-      {"verbose",              no_argument,       0, 'v'},
+      {"verbose",              no_argument,       &flag_verbose, 1},
       {"incremental",          optional_argument, 0, 'x'},
-      {"ignore-limits",        no_argument,       0, 'z'}
+      {"ignore-limits",        no_argument,       &flag_ignore_limits, 1}
     };
     int option_index = 0;
-     c = getopt_long (argc, argv, "b:cd:e:f:g:hi:lm::n:o::q::r:t:vx::z",
+     c = getopt_long (argc, argv, "b:d:e:f:g:hi:m::n:o::q::r:t:x:",
                      long_options, &option_index);
     if (c == -1)
       break;
     switch (c) {
     case 'b': file_video_string = optarg; break;
-    case 'c': flag_cups = 1; break;
     case 'd': batch_items = atoi(optarg); break;
     case 'e': max_epochs = atoi(optarg); break;
     case 'f': bit_fail_limit = atof(optarg); break;
@@ -107,9 +106,7 @@ int main (int argc, char * argv[]) {
       break;
     case 'r': learning_rate = atof(optarg); break;
     case 't': file_train = optarg; break;
-    case 'v': flag_verbose = 1; break;
     case 'x': type_training=(optarg)?atoi(optarg):FANN_TRAIN_INCREMENTAL; break;
-    case 'z': flag_ignore_limits = 1; break;
     }
   };
 

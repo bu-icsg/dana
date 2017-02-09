@@ -5,7 +5,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <assert.h>
-#include "src/main/c/xfiles-asid-nnid-table.h"
+#include "tests/libs/src/include/xfiles-asid-nnid-table.h"
 
 void usage(char * argv) {
   printf("Usage: %s -a [asid],[nn-config] [OPTIONS] [output_file]\n"

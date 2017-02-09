@@ -192,7 +192,7 @@ $(DIR_BUILD)/nets/%-128bin-64.h: $(DIR_BUILD)/nets/%.128bin $(NETS_TOOLS) | $(DI
 	$(subst -,_,init-$(basename $(notdir $<))-128bin-64) 64 > $@
 
 #--------- Fixed point training files
-$(DIR_BUILD)/nets/%_train.h: %.train $(NETS_TOOLS)
+$(DIR_BUILD)/nets/%_train.h: %.train $(NETS_TOOLS) | $(DIR_BUILD)/nets
 	@ if [[ -e $(DIR_MAIN_RES)/$(notdir $(basename $<)-float.net) ]]; \
 	then $(TRAIN_TO_C_HEADER) \
 	$(basename $<)-float.net $< $(basename $(notdir $<)) > $@;\
