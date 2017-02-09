@@ -33,7 +33,6 @@ RVTEST_WITH_ROCC
 start:
 
 RVTEST_CODE_BEGIN
-  TEST_CASE( 1, a0, ID_STRING, XFILES_DANA_ID );
   TEST_CASE( 2, a0, 0, NEW_WRITE_REQUEST(0, 0, 0) );
   // I am dangerously _not_ saving the TID here, but we know it's '0'
   TEST_CASE( 3, a0, 0, WRITE_DATA(0, data_in, 2) );
@@ -49,8 +48,8 @@ RVTEST_DATA_BEGIN
   TEST_DATA
 
 data_in:
-  .word 0xdead
-  .word 0xbeef
+  .word 0x0
+  .word 0x16384
 data_out:
   .word 0x0
 // ./tools/bin/generate-ant -a 1,build/nets/xorSigmoidSymmetric-fixed.16bin | util/hdl-tools/scripts/bits-to-asm
@@ -714,64 +713,63 @@ data:
 .word 0x00000000
 .word 0x00000000
 .word 0x65020070
-.word 0x0000022d
+.word 0x00005bae
 .word 0x65020080
-.word 0xffffed69
+.word 0xffffed88
 .word 0x65020090
-.word 0x0000182f
+.word 0x000021ca
 .word 0x650200a0
-.word 0xffffec96
+.word 0xfffff516
 .word 0x650200b0
-.word 0x0000258b
+.word 0x0000639c
 .word 0x650200c0
-.word 0x00000254
+.word 0xffff9cc8
 .word 0x650200d0
-.word 0x00000ea0
+.word 0x0000671e
 .word 0x650200e0
-.word 0xffffd8f3
+.word 0xffffdab4
 .word 0x650800f0
-.word 0x00000390
+.word 0x000000c6
 .word 0x00000000
 .word 0x00000000
-.word 0xffffedb9
-.word 0x00000c53
+.word 0xffffa040
+.word 0x00005c62
 .word 0x00000000
 .word 0x00000000
-.word 0xffffff6d
-.word 0x00002a5c
+.word 0x0000012e
+.word 0x00002a62
 .word 0x00000000
 .word 0x00000000
-.word 0x00001850
-.word 0x00000265
+.word 0x0000175c
+.word 0xffffe8da
 .word 0x00000000
 .word 0x00000000
-.word 0xfffff70f
-.word 0x00002315
-.word 0x00000000
-.word 0x00000000
-.word 0xfffff2c8
-.word 0x00001b92
-.word 0x00000000
-.word 0x00000000
-.word 0xffffd973
-.word 0x00002842
-.word 0x00000000
-.word 0x00000000
-.word 0xffffdae9
-.word 0xffffe46c
-.word 0x00000000
-.word 0x00000000
-.word 0x000022f7
-.word 0xfffff276
-.word 0x00000000
-.word 0x00000000
-.word 0xffffd4fe
 .word 0xfffffc36
-.word 0xffffd8da
-.word 0xffffe88d
-.word 0x00002a2b
-.word 0x0000240a
-.word 0x00001f71
-.word 0xffffeb18
-
+.word 0x00001fe4
+.word 0x00000000
+.word 0x00000000
+.word 0x0000644a
+.word 0x00006294
+.word 0x00000000
+.word 0x00000000
+.word 0xffff9dac
+.word 0x00006510
+.word 0x00000000
+.word 0x00000000
+.word 0xffff9aae
+.word 0xffff985c
+.word 0x00000000
+.word 0x00000000
+.word 0x00001e52
+.word 0xfffff738
+.word 0x00000000
+.word 0x00000000
+.word 0xffff7efc
+.word 0xfffffc96
+.word 0xffffd8ce
+.word 0xffffeaf6
+.word 0x00008638
+.word 0x00007d92
+.word 0x00008466
+.word 0x00000582
 RVTEST_DATA_END
