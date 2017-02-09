@@ -20,11 +20,13 @@ HEADERS = $(wildcard $(DIR_TOP)/src/main/c/*.h)
 CFLAGS += \
 	-Wall \
 	-Werror \
-	-static \
 	--std=gnu11 \
 	-I$(DIR_TOP) \
 	-I$(DIR_TOP)/tests/libs \
 	-I$(DIR_BUILD)/nets
+CFLAGS_RV += \
+	$(CFLAGS) \
+	-static
 LFLAGS = \
 	-L$(DIR_TOP)/tests/libs/build/$(TARGET) \
 	-L$(DIR_BUILD)/fann/$(TARGET)
@@ -39,15 +41,15 @@ $(DIR_TOP)/tests/libs/build/$(TARGET)/lib%.a:
 #------------------- RISC-V Tests
 $(dir_build)/fann-soft.rv: fann-soft.c $(XFILES_LIBRARIES) $(DIR_BUILD)/fann/$(TARGET)/libfann.a | $(dir_build)
 	echo $(XFILES_LIBRARIES)
-	$(CC) $(CFLAGS) $< -o $@ $(LFLAGS) -lfann -lm
+	$(CC) $(CFLAGS_RV) $< -o $@ $(LFLAGS) -lfann -lm
 $(dir_build)/fann-xfiles.rv: fann-xfiles.c $(XFILES_LIBRARIES) $(DIR_BUILD)/fann/$(TARGET)/libfann.a | $(dir_build)
-	$(CC) $(CFLAGS) $< -o $@ $(LFLAGS) -lxfiles-user-pk -lfixedfann -lm
+	$(CC) $(CFLAGS_RV) $< -o $@ $(LFLAGS) -lxfiles-user-pk -lfixedfann -lm
 $(dir_build)/trap-%.rv: trap-%.c $(XFILES_LIBRARIES) | $(dir_build)
-	$(CC) $(CFLAGS) $< -o $@ $(LFLAGS) -lxfiles-user-pk
+	$(CC) $(CFLAGS_RV) $< -o $@ $(LFLAGS) -lxfiles-user-pk
 $(dir_build)/dana-benchmark.rv: dana-benchmark.c $(XFILES_LIBRARIES) | $(dir_build)
-	$(CC) $(CFLAGS) $< -o $@ $(LFLAGS) -lxfiles-user-pk
+	$(CC) $(CFLAGS_RV) $< -o $@ $(LFLAGS) -lxfiles-user-pk
 $(dir_build)/%.rv: %.c $(XFILES_LIBRARIES) $(DIR_BUILD)/fann/$(TARGET)/libfann.a | $(dir_build)
-	$(CC) $(CFLAGS) $< -o $@ $(LFLAGS) -lxfiles-user
+	$(CC) $(CFLAGS_RV) $< -o $@ $(LFLAGS) -lxfiles-user
 $(dir_build)/%.rvS: $(dir_build)/%.rv | $(dir_build)
 	$(OBJDUMP) -S $< > $@
 
