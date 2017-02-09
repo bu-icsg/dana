@@ -47,13 +47,13 @@ LFLAGS_F    = $(addprefix -Wl$(COMMA)-R, $(shell readlink -f $(LIB_PATHS))) \
             $(addprefix -L, $(LIB_PATHS)) \
             $(addprefix -l, $(LIBS_F))
 
-$(DIR_BIN)/generate-ant: $(DIR_BIN)/generate-ant.o $(DIR_TOP)/tests/libs/build/$(TARGET)/libxfiles-ant.a $(DIR_BUILD)/fann/$(TARGET)/libfann.a
+$(DIR_BIN)/generate-ant: $(DIR_BIN)/generate-ant.o $(DIR_TOP)/tests/libs/build/$(TARGET)/libxfiles-ant.a $(libfann_dep)
 	$(CC) $(CFLAGS) $< $(LFLAGS) -lxfiles-ant -o $@
 
-$(DIR_BIN)/write-fann-config-for-accelerator: $(DIR_BIN)/write-fann-config-for-accelerator.o $(DIR_BUILD)/fann/$(TARGET)/libfann.a
+$(DIR_BIN)/write-fann-config-for-accelerator: $(DIR_BIN)/write-fann-config-for-accelerator.o $(libfann_dep)
 	$(CC) $(CFLAGS) $< $(LFLAGS_F) -fopenmp -o $@
 
-$(DIR_BIN)/%: $(DIR_BIN)/%.o $(DIR_BUILD)/fann/$(TARGET)/libfann.a
+$(DIR_BIN)/%: $(DIR_BIN)/%.o $(libfann_dep)
 	$(CC) $(CFLAGS) $^ $(LFLAGS) -fopenmp -o $@
 
 $(DIR_BIN)/%.o: %.c | $(DIR_BIN)
