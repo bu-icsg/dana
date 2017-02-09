@@ -15,7 +15,8 @@ TOOLS = \
 	fann-train-to-c-header \
 	fann-random \
 	fann-train \
-	generate-ant
+	generate-ant \
+	fann-eval
 BINARIES = $(TOOLS)
 BINS     = $(addprefix $(DIR_BIN)/, $(BINARIES))
 SOURCES  = fann-float-to-fixed.c
@@ -47,10 +48,10 @@ LFLAGS_F    = $(addprefix -Wl$(COMMA)-R, $(shell readlink -f $(LIB_PATHS))) \
             $(addprefix -L, $(LIB_PATHS)) \
             $(addprefix -l, $(LIBS_F))
 
-$(DIR_BIN)/generate-ant: $(DIR_BIN)/generate-ant.o $(DIR_TOP)/tests/libs/build/$(TARGET)/libxfiles-ant.a
+$(DIR_BIN)/generate-ant: $(DIR_BIN)/generate-ant.o $(DIR_TOP)/tests/libs/build/$(TARGET)/libxfiles-ant.a $(DIR_BUILD)/fann/$(TARGET)/libfann.a
 	$(CC) $(CFLAGS) $^ $(LFLAGS) -lxfiles-ant -o $@
 
-$(DIR_BIN)/write-fann-config-for-accelerator: $(DIR_BIN)/write-fann-config-for-accelerator.o $(DIR_BUILD)/fann/$(TARGET)/libfixedfann.a
+$(DIR_BIN)/write-fann-config-for-accelerator: $(DIR_BIN)/write-fann-config-for-accelerator.o $(DIR_BUILD)/fann/$(TARGET)/libfann.a
 	$(CC) $(CFLAGS) $^ $(LFLAGS_F) -fopenmp -o $@
 
 $(DIR_BIN)/%: $(DIR_BIN)/%.o $(DIR_BUILD)/fann/$(TARGET)/libfann.a
