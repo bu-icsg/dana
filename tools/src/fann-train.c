@@ -43,7 +43,7 @@ int main (int argc, char * argv[]) {
   static int flag_cups, flag_last, flag_verbose, flag_ignore_limits;
   int flag_mse = 0, flag_bit_fail = 0, flag_percent_correct = 0;
   int mse_reporting_period = 1, bit_fail_reporting_period = 1,
-percent_correct_reporting_period = 1;
+      percent_correct_reporting_period = 1;
   float bit_fail_limit = 0.05, mse_fail_limit = -1.0;
   double learning_rate = 0.7;
   char id[100] = "0";
