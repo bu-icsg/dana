@@ -12,18 +12,17 @@ all: smoke nets
 
 vars = \
 	abs_top_srcdir=$(abs_top_srcdir) \
-	src_dir=$(test_smoke_dir) \
 	XLEN=$(XLEN) \
 	PREFIX=$(ROCC)-$@
 
 smoke:
 	mkdir -p $@
 	$(MAKE) -C $@ \
-	-f $(test_smoke_dir)/Makefile  $(vars)
+	-f $(test_smoke_dir)/Makefile $(vars) src_dir=$(test_smoke_dir)
 
 nets:
 	mkdir -p $@
-	$(MAKE) -C $@ -f $(test_nets_dir)/Makefile $(vars)
+	$(MAKE) -C $@ -f $(test_nets_dir)/Makefile $(vars) src_dir=$(test_nets_dir)
 
 clean:
 	$(MAKE) -C smoke -f $(test_smoke_dir)/Makefile $(vars) clean
