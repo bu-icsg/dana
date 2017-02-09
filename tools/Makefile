@@ -15,7 +15,9 @@ TOOLS = \
 	fann-train-to-c-header \
 	fann-random \
 	fann-train \
-	generate-ant
+	generate-ant \
+	fann-eval \
+	fann-eval-fixed
 BINARIES = $(TOOLS)
 BINS     = $(addprefix $(DIR_BIN)/, $(BINARIES))
 SOURCES  = fann-float-to-fixed.c
@@ -53,8 +55,14 @@ $(DIR_BIN)/generate-ant: $(DIR_BIN)/generate-ant.o $(DIR_TOP)/tests/libs/build/$
 $(DIR_BIN)/write-fann-config-for-accelerator: $(DIR_BIN)/write-fann-config-for-accelerator.o $(libfann_dep)
 	$(CC) $(CFLAGS) $< $(LFLAGS_F) -fopenmp -o $@
 
+$(DIR_BIN)/fann-eval-fixed: $(DIR_BIN)/fann-eval-fixed.o $(libfann_dep)
+	$(CC) $(CFLAGS) $< $(LFLAGS_F) -fopenmp -o $@
+
 $(DIR_BIN)/%: $(DIR_BIN)/%.o $(libfann_dep)
-	$(CC) $(CFLAGS) $^ $(LFLAGS) -fopenmp -o $@
+	$(CC) $(CFLAGS) $< $(LFLAGS) -fopenmp -o $@
+
+$(DIR_BIN)/fann-eval-fixed.o: fann-eval.c | $(DIR_BIN)
+	$(CC) $(CFLAGS) -DFIXEDFANN $< -c -o $@
 
 $(DIR_BIN)/%.o: %.c | $(DIR_BIN)
 	$(CC) $(CFLAGS) $< -c -o $@
