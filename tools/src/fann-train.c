@@ -29,7 +29,9 @@ static char * usage_message =
     "  --verbose                  turn on per-item inputs/output printfs\n"
     "  -x, --training-type        no arg: incremental, arg: use specific enum\n"
     "  --ignore-limits            continue blindly ignoring bit fail/mse limits"
-    "\n";
+    "\n"
+    "Notes:\n"
+    "  * The output FILE may be \"/dev/stdout\" or \"-\" to write to STDOUT\n";
 
 void usage () {
   printf("Usage: %s", usage_message);
@@ -220,8 +222,12 @@ finish:
   if (flag_cups)
     printf("[STAT] x 0 id %s cups %d / ?\n", id,
            epoch * fann_get_total_connections(ann));
-  if (file_out)
-    fann_save(ann, file_out);
+  if (file_out) {
+    if (strcmp(file_out, "-") == 0)
+      fann_save(ann, "/dev/stdout");
+    else
+      fann_save(ann, file_out);
+  }
 
 bail:
   if (ann != NULL)
