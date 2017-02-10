@@ -143,11 +143,11 @@ def parse_arguments():
         description='Populate an ASID--NNID Table assembly data region')
     parser.add_argument(
         '--verbose', dest='verbose', action='store_true', default=False,
-        help='print debugging information')
+        help='print debugging information (default: %(default)s)')
     parser.add_argument(
         '-a', '--attach', dest='asid_nns', type=asid_nn, action='append',
-        required=True,
-        help='[ASID,NN] tuples to attach'),
+        metavar="ASID,NN_FILE", required=True,
+        help='%(metavar)s tuples to attach (at least one is required)'),
     return parser.parse_args()
 
 def main():
