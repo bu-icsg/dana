@@ -68,8 +68,8 @@ class ant_entry(object):
     def emit(self):
         header = """\
 asid_{}:
-.word 0x{:>08x} // int num_configs
-.word 0x{:>08x} // int num_valid
+.word  0x{:>08x} // int num_configs
+.word  0x{:>08x} // int num_valid
 .dword {} // char * asid_nnid_p
 .dword 0x{:>016x} // nn_config * asid_nnid_v
 .dword 0x{:>016x} // io * transaction_io\
@@ -120,7 +120,7 @@ asid_{}_nnid_{}_config: // {}\
                             asid, self.nnid,
                             0,
                             asid, self.nnid, self.filename))
-        list(map(lambda x: print(".word 0x{:>08x}".format(struct.unpack("<L", x)[0])), self.bits))
+        list(map(lambda x: print(".word  0x{:>08x}".format(struct.unpack("<L", x)[0])), self.bits))
 
 # class io(object):
 
