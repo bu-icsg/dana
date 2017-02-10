@@ -2,6 +2,7 @@
 
 import argparse
 import struct
+import os.path
 
 class ant(object):
 
@@ -128,7 +129,14 @@ asid_{}_nnid_{}_config: // {}\
 def parse_arguments():
     def asid_nn(s):
         asid, nn = s.split(',')
-        int(asid) and type(nn) is str
+        try:
+            int(asid)
+        except ValueError:
+            msg = "ASID '{}' must be an int".format(asid)
+            raise argparse.ArgumentTypeError(msg)
+        if not os.path.isfile(nn):
+            msg = "Unable to find NN Config '{}' (did you misspell it?)".format(nn)
+            raise argparse.ArgumentTypeError(msg)
         return int(asid), nn
 
     parser = argparse.ArgumentParser(
