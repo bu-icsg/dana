@@ -25,7 +25,7 @@
 #undef EXTRA_INIT
 #define EXTRA_INIT                              \
   SET_ASID(1);                                  \
-  SET_ANTP(antp_dana, antp_os); \
+  SET_ANTP(antp_dana, antp_os);                 \
   la sp, _end + 1024;
 
 RVTEST_WITH_ROCC
@@ -34,9 +34,11 @@ start:
 
 RVTEST_CODE_BEGIN
   TEST_CASE( 2, a0, 0, NEW_WRITE_REQUEST(0, 0, 0) );
-  // I am dangerously _not_ saving the TID here, but we know it's '0'
-  TEST_CASE( 3, a0, 0, WRITE_DATA(0, data_in, 2) );
-  TEST_CASE( 4, a0, 0, READ_DATA_SPINLOCK(0, data_out, 1) );
+  addi sp, sp, -16
+#define TID 12(sp)
+  sw a0, TID
+  TEST_CASE( 3, a0, 0, WRITE_DATA(TID, data_in, 2) );
+  TEST_CASE( 4, a0, 0, READ_DATA_SPINLOCK(TID, data_out, 1) );
 
   TEST_PASSFAIL
 
@@ -52,6 +54,8 @@ data_in:
 .word  0x00004000
 data_out:
 .word  0x0
+data_expected:
+.word  0x00001549
 // ./tools/scripts/generate-ant -a1,build/nets/xorSigmoidSymmetric-fixed.16bin
 .align 4
 antp_os:
