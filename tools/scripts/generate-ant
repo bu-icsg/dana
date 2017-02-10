@@ -1,0 +1,159 @@
+#!/usr/bin/env python3
+
+import argparse
+import struct
+
+class ant(object):
+
+    def __init__(self):
+        self.size = 0
+        self.entry_p = 0
+        self.entry_v = 0
+        self.asids = {}
+
+    def attach(self, asid, nn_configuration):
+        if asid in self.asids:
+            self.asids[asid].attach(nn_configuration)
+        else:
+            self.asids[asid] = ant_entry(asid)
+            self.asids[asid].attach(nn_configuration)
+
+        if self.size < asid + 1:
+            self.size = asid + 1
+
+    def print(self):
+        for key, value in sorted(self.asids.items()):
+            print("{}:".format(int(key)))
+            value.print()
+
+    def emit(self):
+        header = """\
+.align 4
+antp_os:
+.dword 0x{:>016x} // size_t size
+.dword asid_0 // char * entry_p
+.dword 0x{:>016x} // ant_entry * entry_v
+.align 4
+antp_dana:\
+"""
+        print(header.format(self.size, self.entry_v))
+        for a in range(self.size):
+            if a in self.asids:
+                self.asids[a].emit()
+            else:
+                self.asids[a] = ant_entry(a)
+                self.asids[a].emit()
+
+class ant_entry(object):
+
+    def __init__(self, asid):
+        self.asid = asid
+        self.num_configs = 0
+        self.num_valid = 0
+        self.asid_nnid_p = 0
+        self.asid_nnid_v = 0
+        self.transaction_io = 0
+        self.nnids = []
+
+    def attach(self, nn_configuration):
+        self.num_configs += 1
+        self.nnids.append(nn_config(nn_configuration, self.num_valid))
+        self.num_valid += 1
+
+    def print(self):
+        for n in self.nnids:
+            n.print()
+
+    def emit(self):
+        header = """\
+asid_{}:
+.word 0x{:>08x} // int num_configs
+.word 0x{:>08x} // int num_valid
+.dword {} // char * asid_nnid_p
+.dword 0x{:>016x} // nn_config * asid_nnid_v
+.dword 0x{:>016x} // io * transaction_io\
+"""
+        print(header.format(
+            self.asid,
+            self.num_configs,
+            self.num_valid,
+            ("asid_{}_nnid_0").format(self.asid) if self.num_configs else ("{:>016x}").format(0),
+            0,
+            self.transaction_io))
+        for n in self.nnids:
+            n.emit(self.asid)
+
+class nn_config(object):
+
+    def __init__(self, config, nnid):
+        self.size = 0
+        self.elements_per_block = 0
+        self.nnid = nnid
+        self.filename = config
+        self.bits = []
+        with open(config, mode='rb') as f:
+            bytes = 0
+            for word in iter(lambda: f.read(4), b''):
+                self.bits.append(word)
+                bytes += 4 * 8
+            self.size = int(bytes / 64) # Magic Number (TL2 beat width, I think)
+            # The Elements per Blcok is bits [6:4] of the first word
+            self.elements_per_block = 1 << (((struct.unpack("<L", self.bits[0])[0] >> 4) & 3) + 2)
+
+    def emit(self, asid):
+        header = """\
+.align 4
+asid_{}_nnid_{}: //
+.dword 0x{:>016x} // size_t size
+.dword 0x{:>016x} // size_t elements_per_block
+.dword 0x{:>016x} // xlen_t * config_raw
+.dword asid_{}_nnid_{}_config // char * config_p
+.dword 0x{:>016x} // char * config_v
+.align 6
+asid_{}_nnid_{}_config: // {}\
+"""
+        print(header.format(asid, self.nnid,
+                            self.size,
+                            self.elements_per_block,
+                            0,
+                            asid, self.nnid,
+                            0,
+                            asid, self.nnid, self.filename))
+        list(map(lambda x: print(".word 0x{:>08x}".format(struct.unpack("<L", x)[0])), self.bits))
+
+# class io(object):
+
+# class queue(object):
+
+def parse_arguments():
+    def asid_nn(s):
+        asid, nn = s.split(',')
+        int(asid) and type(nn) is str
+        return int(asid), nn
+
+    parser = argparse.ArgumentParser(
+        description='Populate an ASID--NNID Table assembly data region')
+    parser.add_argument(
+        '--verbose', dest='verbose', action='store_true', default=False,
+        help='print debugging information')
+    parser.add_argument(
+        '-a', '--attach', dest='asid_nns', type=asid_nn, action='append',
+        required=True,
+        help='[ASID,NN] tuples to attach'),
+    return parser.parse_args()
+
+def main():
+    args = parse_arguments()
+
+    t = ant()
+
+    for an in args.asid_nns:
+        t.attach(*an)
+
+    if (args.verbose):
+        t.print()
+
+    t.emit()
+
+if __name__ == '__main__':
+    main()
