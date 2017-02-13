@@ -33,12 +33,8 @@ RVTEST_WITH_ROCC
 start:
 
 RVTEST_CODE_BEGIN
-  TEST_CASE( 2, a0, 0, NEW_WRITE_REQUEST(0, 0, 0) );
-  addi sp, sp, -16
-#define TID 12(sp)
-  sw a0, TID
-  TEST_CASE( 3, a0, 0, WRITE_DATA(TID, data_in, 2) );
-  TEST_CASE( 4, a0, 0, READ_DATA_SPINLOCK(TID, data_out, 1) );
+
+  FANN_TEST(0, 0, 2, 1, 4, data_in, data_out, data_expected);
 
   TEST_PASSFAIL
 
@@ -51,11 +47,24 @@ RVTEST_DATA_BEGIN
 
 data_in:
 .word  0xFFFFC000
+.word  0xFFFFC000
+.word  0xFFFFC000
+.word  0x00004000
+.word  0x00004000
+.word  0xFFFFC000
+.word  0x00004000
 .word  0x00004000
 data_out:
-.word  0x0
+.word  0x00000000
+.word  0x00000000
+.word  0x00000000
+.word  0x00000000
 data_expected:
+.word  0x000013ea
 .word  0x00001549
+.word  0xfffffc31
+.word  0xfffffe8c
+
 // ./tools/scripts/generate-ant -a1,build/nets/xorSigmoidSymmetric-fixed.16bin
 .align 4
 antp_os:
