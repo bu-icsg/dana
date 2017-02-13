@@ -6,6 +6,8 @@
 #include "submodules/fann/src/include/fann.h"
 #else
 #include "submodules/fann/src/include/fixedfann.h"
+#undef FANNPRINTF
+#define FANNPRINTF "%08x"
 #endif
 
 static char * usage_message =
