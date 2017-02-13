@@ -366,7 +366,7 @@ class ProcessingElementTable(implicit p: Parameters)
     extends ProcessingElementTableBase[ProcessingElementState,
       ProcessingElementResp, ProcessingElementInterface](new ProcessingElementState,
         new ProcessingElementResp,
-        Vec.fill(p(PeTableNumEntries)){ Module(new ProcessingElement).io })(p) {
+        Vec.tabulate(p(PeTableNumEntries)){ i => Module(new ProcessingElement(i)).io })(p) {
   when (io.regFile.resp.valid) {
     val peIndex = io.regFile.resp.bits.peIndex
     table(peIndex).inBlock := io.regFile.resp.bits.data
@@ -388,7 +388,7 @@ class ProcessingElementTableLearn(implicit p: Parameters)
       ProcessingElementRespLearn, ProcessingElementInterfaceLearn](
   new ProcessingElementStateLearn,
         new ProcessingElementRespLearn,
-        Vec.fill(p(PeTableNumEntries)){ Module(new ProcessingElementLearn).io })(p) {
+        Vec.tabulate(p(PeTableNumEntries)){ i => Module(new ProcessingElementLearn(i)).io })(p) {
   override lazy val io = IO(new PETableInterfaceLearn)
 
   def regFileReadReq(addr: UInt, peIndex:UInt, tIdx: UInt,
