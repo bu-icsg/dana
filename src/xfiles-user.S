@@ -56,7 +56,7 @@
   bne a1, a2, 2b;
 
 #define TRANSACTION_FF(nnid, learning_type, num_train_outputs, addr_i, addr_o, addr_e) \
-  NEW_WRITE_REQUEST(0, 0, 0);                                          \
+  NEW_WRITE_REQUEST(nnid, 0, 0);                                       \
   addi sp, sp, -16;                                                    \
   sw a0, 12(sp);                                                       \
   WRITE_DATA(12(sp), addr_i, 2);                                       \
@@ -71,7 +71,7 @@
   li x24, num_data;                \
 fann_test_top:                     \
   addi TESTNUM, TESTNUM, 1;        \
-  NEW_WRITE_REQUEST(0, 0, 0);      \
+  NEW_WRITE_REQUEST(nnid, 0, 0);   \
   mv x23, a0;                      \
   WRITE_DATA(x23, x27, 2);         \
   READ_DATA_SPINLOCK(x23, x26, 1); \
