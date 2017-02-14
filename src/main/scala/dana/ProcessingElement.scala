@@ -200,7 +200,7 @@ class ProcessingElement(id: Int = 0)(implicit p: Parameters) extends DanaModule(
     }
   }
 
-  assert (!(state === PE_states('e_PE_ERROR)), "[ERROR] PE is in error state\n")
+  assert (!(state === PE_states('e_PE_ERROR)), "[ERROR] " ++ printfSigil ++ "is in error state\n")
 }
 
 class ProcessingElementLearn(id: Int = 0)(implicit p: Parameters)
@@ -543,5 +543,5 @@ class ProcessingElementLearn(id: Int = 0)(implicit p: Parameters)
   assert(!(io.req.bits.tType === e_TTYPE_INCREMENTAL &&
     (state === PE_states('e_PE_SLOPE_WB) ||
       state === PE_states('e_PE_SLOPE_BIAS_WB))),
-    "PE entered a disallowed state for incremental learning")
+    "[ERROR] " ++ printfSigil ++ "PE entered a disallowed state for incremental learning")
 }
