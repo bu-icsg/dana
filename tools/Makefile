@@ -13,6 +13,7 @@ TOOLS = \
 	write-fann-config-for-accelerator \
 	bin-config-to-c-header \
 	fann-train-to-c-header \
+	fann-train-to-c-header-fixed \
 	fann-random \
 	fann-train \
 	generate-ant \
@@ -55,8 +56,8 @@ $(DIR_BIN)/generate-ant: $(DIR_BIN)/generate-ant.o $(DIR_TOP)/tests/libs/build/$
 $(DIR_BIN)/write-fann-config-for-accelerator: $(DIR_BIN)/write-fann-config-for-accelerator.o $(libfann_dep)
 	$(CC) $(CFLAGS) $< $(LFLAGS_F) -fopenmp -o $@
 
-$(DIR_BIN)/fann-eval-fixed: $(DIR_BIN)/fann-eval-fixed.o $(libfann_dep)
-	$(CC) $(CFLAGS) $< $(LFLAGS_F) -fopenmp -o $@
+$(DIR_BIN)/%-fixed: $(DIR_BIN)/%-fixed.o $(libfann_dep)
+	$(CC) $(CFLAGS) $< $(LFLAGS_F) -o $@
 
 $(DIR_BIN)/%: $(DIR_BIN)/%.o $(libfann_dep)
 	$(CC) $(CFLAGS) $< $(LFLAGS) -fopenmp -o $@

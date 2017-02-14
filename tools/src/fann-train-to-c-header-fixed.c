@@ -68,8 +68,8 @@ int main (int argc, char * argv[]) {
   for (i = 0; i < num_data; i++) {
     printf("  {");
     for (j = 0; j < num_input - 1; j++)
-      printf("%d,", (int) (inputs[i][j]));
-    printf("%d},\n", (int) (inputs[i][j]));
+      printf("0x08%x,", (int) (inputs[i][j]));
+    printf("0x%08x},\n", (int) (inputs[i][j]));
   }
   printf("};\n");
 
@@ -79,8 +79,8 @@ int main (int argc, char * argv[]) {
   for (i = 0; i < num_data; i++) {
     printf("  {");
     for (j = 0; j < num_output - 1; j++)
-      printf("%d,", (int) (outputs_expected[i][j]));
-    printf("%d},\n", (int) (outputs_expected[i][j]));
+      printf("0x%08x,", (int) (outputs_expected[i][j]));
+    printf("0x%08x},\n", (int) (outputs_expected[i][j]));
   }
   printf("};\n");
 
@@ -90,8 +90,8 @@ int main (int argc, char * argv[]) {
   for (i = 0; i < num_data; i++) {
     printf("  {");
     for (j = 0; j < num_output - 1; j++)
-      printf("%d,", (int) (outputs_fann[i][j]));
-    printf("%d},\n", (int) (outputs_fann[i][j]));
+      printf("0x%08x,", (int) (outputs_fann[i][j]));
+    printf("0x%08x},\n", (int) (outputs_fann[i][j]));
   }
   printf("};\n");
 
