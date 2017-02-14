@@ -34,7 +34,7 @@ start:
 
 RVTEST_CODE_BEGIN
 
-  FANN_TEST(0, 0, 2, 1, 4, data_in, data_out, data_expected);
+  FANN_TEST_CC(0, 2, 1, 4, data_in, data_out, data_expected);
 
   TEST_PASSFAIL
 
