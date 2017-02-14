@@ -449,7 +449,7 @@ class DanaTransactionTableBase[StateType <: TransactionState,
   }
 
   val readyCache = Reg(next = io.control.resp.bits.readyCache)
-  val readyPeTable = Reg(next = io.control.resp.bits.readyPeTable)
+  val readyPeTable = io.control.resp.bits.readyPeTable
   // Round Robin Arbitration of Transaction Table entries. One of
   // these is passed out over an interface to DANA's control module.
   val entryArbiter = Module(new RRArbiter(genControlReq,
@@ -457,7 +457,8 @@ class DanaTransactionTableBase[StateType <: TransactionState,
   for (i <- 0 until transactionTableNumEntries) {
     val isValid = table(i).flags.valid
     val isNotWaiting = !table(i).waiting
-    val noRequestLastCycle = Reg(next = !entryArbiter.io.out.valid)
+    // val noRequestLastCycle = Reg(next = !entryArbiter.io.out.valid)
+    val noRequestLastCycle = true.B
     val cacheWorkToDo = (table(i).decInUse || !table(i).cacheValid ||
       table(i).needsLayerInfo)
     val peWorkToDo = (table(i).currentNode =/= table(i).numNodes)
