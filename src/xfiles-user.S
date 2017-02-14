@@ -86,4 +86,18 @@ fann_test_top:                     \
   add x25, x25, x23;               \
   blt TESTNUM, x24, fann_test_top;
 
+#define FANN_TEST_CC(nnid, num_input, num_output, num_data, addr_i, addr_o, addr_e) \
+  li TESTNUM, 0;               \
+  li a0, nnid;                 \
+  la a1, addr_i;               \
+  la a2, addr_o;               \
+  la a3, addr_e;               \
+  li a4, num_input;            \
+  li a5, num_output;           \
+  li a6, num_data;             \
+  jal xfiles_fann_run_compare; \
+  beq a0, x0, pass;            \
+  srli TESTNUM, a0, 32;        \
+  j fail;
+
 #endif  // XFILES_DANA_LIBS_SRC_XFILES_USER_S_

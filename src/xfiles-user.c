@@ -122,6 +122,36 @@ xlen_t write_data_last(tid_type tid, element_type * data, size_t count) {
   }
 }
 
+xlen_t transaction_feedforward(nnid_type nnid, element_type * addr_i,
+                               element_type * addr_o, int num_inputs,
+                               int num_outputs) {
+  tid_type tid = new_write_request(nnid, 0, 0);
+  write_data(tid, addr_i, num_inputs);
+  return read_data_spinlock(tid, addr_o, num_outputs);
+}
+
+xlen_t xfiles_fann_run_compare(nnid_type nnid,
+                               element_type * addr_i,
+                               element_type * addr_o,
+                               element_type * addr_e,
+                               int num_inputs,
+                               int num_outputs,
+                               int num_data) {
+  int failures = 0;
+  element_type * last = addr_i + num_inputs * num_data;
+  element_type * first = addr_i;
+  for (; addr_i < last;
+       addr_i += num_inputs, addr_o += num_outputs, addr_e += num_outputs) {
+    if (transaction_feedforward(nnid, addr_i, addr_o, num_inputs, num_outputs))
+      return -1;
+    for (int j = 0; j < num_outputs; j++)
+      failures += addr_o[j] != addr_e[j];
+    if (failures)
+      return ((addr_i - first) / num_inputs + 1) << 32 | failures;
+  }
+  return 0;
+}
+
 xlen_t write_data_train_incremental(tid_type tid, element_type * input,
                                     element_type * output, size_t count_input,
                                     size_t count_output) {
