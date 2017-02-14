@@ -86,6 +86,9 @@ class XFilesTransactionTable(implicit p: Parameters) extends XFilesModule()(p)
     // val xfiles = new XFilesTransactionTableCmdResp
     // val backend = (new XFilesTransactionTableCmdResp).flip
   })
+
+  override val printfSigil = "XF.TTable: "
+
   val queueSize = p(TransactionTableQueueSize)
 
   val cmd = io.xfiles.cmd
@@ -261,48 +264,48 @@ class XFilesTransactionTable(implicit p: Parameters) extends XFilesModule()(p)
   // Check for too many reads without a response
   val readDataPollCount = Reg(init = 0.U(32.W))
 
-  when (newRequest)    { printfInfo("XF TTable: Saw newRequest\n")    }
-  when (unknownCmd)    { printfInfo("XF TTable: Saw unknownCmd\n")    }
-  when (writeData)     { printfInfo("XF TTable: Saw writeData\n")     }
-  when (writeDataLast) { printfInfo("XF TTable: Saw writeDataLast\n") }
-  when (readDataPoll)  { printfInfo("XF TTable: Saw readDataPoll\n")
+  when (newRequest)    { printfInfo("Saw newRequest\n")    }
+  when (unknownCmd)    { printfInfo("Saw unknownCmd\n")    }
+  when (writeData)     { printfInfo("Saw writeData\n")     }
+  when (writeDataLast) { printfInfo("Saw writeDataLast\n") }
+  when (readDataPoll)  { printfInfo("Saw readDataPoll\n")
     val entry = table(idxAsidTid)
     val finished = entry.flags.done && queueOutput(idxAsidTid).count === 1.U
     readDataPollCount := readDataPollCount + 1.U
     // error := readDataPollCount > 512.U
     when (queueOutput(idxAsidTid).deq.fire() & finished) {
-      printfInfo("XF TTable: T0d%d is done via queue, evicting...\n", idxAsidTid)
+      printfInfo("T0d%d is done via queue, evicting...\n", idxAsidTid)
     }
   }
 
   when (arbiter.out.fire()) {
     val tidx = arbiter.chosen
-    printfInfo("XF TTable: Arbiter scheduled tidx 0d%d (ASID:0x%x/TID:0x%x)\n",
+    printfInfo("Arbiter scheduled tidx 0d%d (ASID:0x%x/TID:0x%x)\n",
       tidx, table(tidx).asid, table(tidx).tid)
   }
 
   when (io.xfiles.resp.fire()) {
-    printfInfo("XF TTable: XF TTable response to R0d%d with data 0x%x\n",
+    printfInfo("XF TTable response to R0d%d with data 0x%x\n",
       io.xfiles.resp.bits.rd, io.xfiles.resp.bits.data)
   }
 
   (0 until numEntries).map(i => {
     // Input Queue
     assert(!(queueInput(i).enq.valid & !queueInput(i).enq.ready),
-      "XF TTable: Input queue overflowed\n")
+      printfSigil ++ "Input queue overflowed\n")
     when (queueInput(i).enq.fire()) {
-      printfInfo("XF TTable: queueIn[%d] enq [f:0x%x, rs1:0x%x, rs2:0x%x], #:0d%d\n",
+      printfInfo("queueIn[%d] enq [f:0x%x, rs1:0x%x, rs2:0x%x], #:0d%d\n",
         i.U, queueInput(i).enq.bits.funct, queueInput(i).enq.bits.rs1,
         queueInput(i).enq.bits.rs2, queueInput(i).count) }
     when (queueInput(i).deq.fire()) {
-      printfInfo("XF TTable: queueIn[%d] deq [f:0x%x, rs1:0x%x, rs2:0x%x], #:0d%d\n",
+      printfInfo("queueIn[%d] deq [f:0x%x, rs1:0x%x, rs2:0x%x], #:0d%d\n",
         i.U, queueInput(i).deq.bits.funct, queueInput(i).deq.bits.rs1,
         queueInput(i).deq.bits.rs2, queueInput(i).count) }
     when (queueOutput(i).enq.fire()) {
-      printfInfo("XF TTable: queueOut[%d] enq [data:0x%x], #:0d%d\n",
+      printfInfo("queueOut[%d] enq [data:0x%x], #:0d%d\n",
         i.U, queueOutput(i).enq.bits, queueOutput(i).count) }
     when (queueOutput(i).deq.fire()) {
-      printfInfo("XF TTable: queueOut[%d] deq [data:0x%x], #:0d%d\n",
+      printfInfo("queueOut[%d] deq [data:0x%x], #:0d%d\n",
         i.U, queueOutput(i).deq.bits, queueOutput(i).count) }
   })
 
@@ -312,9 +315,9 @@ class XFilesTransactionTable(implicit p: Parameters) extends XFilesModule()(p)
 
   // Explicit assertions
   assert(!(resp_d.valid & io.backend.rocc.resp.valid),
-    "XF TTable: newRequest resp just aliased backend resp")
+    printfSigil ++ "newRequest resp just aliased backend resp")
   assert(!((writeData | writeDataLast) & !hitAsidTid),
-    "XF TTable: writeData or writeDataLast without TTable ASID/TID hit")
+    printfSigil ++ "writeData or writeDataLast without TTable ASID/TID hit")
   assert(!(error),
-    "XF TTable error asserted")
+    printfSigil ++ "error asserted")
 }
