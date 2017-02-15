@@ -47,7 +47,7 @@ class DSP(implicit p: Parameters) extends DanaModule()(p) {
 
 class ActivationFunction(id: Int = 0)(implicit p: Parameters) extends DanaModule()(p) {
   lazy val io = (new ActivationFunctionInterface)
-  override val printfSigil = "PE[" + id + "]: "
+  override val printfSigil = "dana.PE[" + id + "]: "
 
   // Temporary values
   val inD0 = Wire(SInt(elementWidth.W))

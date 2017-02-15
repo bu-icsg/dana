@@ -107,6 +107,69 @@ class TransactionState(implicit p: Parameters) extends TableEntry()(p)
     this.waiting             := false.B
     this.regFileLocationBit  := 0.U
   }
+  def cacheValid(resp: ControlResp) {
+    this.cacheValid := true.B
+    this.numLayers := resp.data(0)
+    this.numNodes := resp.data(1)
+    this.cacheIndex := resp.data(2)(
+      log2Up(cacheNumEntries) + errorFunctionWidth - 1, errorFunctionWidth)
+    this.decimalPoint := resp.decimalPoint
+    // this.learningRate := resp.data(3)
+    // this.lambda := resp.data(4)
+    // Once we know the cache is valid, this entry is no longer waiting
+    this.waiting := false.B
+    printfInfo("DANA TTable: Updating global info from Cache...\n")
+    printfInfo("  total layers:            0x%x\n", resp.data(0))
+    printfInfo("  total nodes:             0x%x\n", resp.data(1))
+    printfInfo("  cache index:             0x%x\n", resp.data(2)(
+      log2Up(cacheNumEntries) + errorFunctionWidth - 1, errorFunctionWidth))
+  }
+  def newLayer(resp: ControlResp) {
+    this.needsLayerInfo := false.B
+    this.currentNodeInLayer := 0.U
+    this.nodesInCurrentLayer := resp.data(0)
+    this.neuronPointer := resp.data(2)
+
+    // Once we have layer information, we can update the
+    // previous and current layer addresses. These are adjusted
+    // to be on block boundaries, so there's an optional round
+    // term.
+    val nicl = resp.data(0)
+    val niclMSBs = // Nodes in previous layer MSBs [TODO] fragile
+      nicl(15, log2Up(elementsPerBlock)) ##
+    0.U(log2Up(elementsPerBlock).W)
+    val niclLSBs = // Nodes in previous layer LSBs
+      nicl(log2Up(elementsPerBlock)-1, 0)
+    val round = Mux(niclLSBs =/= 0.U, elementsPerBlock.U, 0.U)
+    val niclOffset = niclMSBs + round
+
+    val niplMSBs =
+      this.nodesInCurrentLayer(15, log2Up(elementsPerBlock)) ##
+    0.U(log2Up(elementsPerBlock).W)
+    val niplLSBs = this.nodesInCurrentLayer(log2Up(elementsPerBlock)-1,0)
+    val niplOffset = niplMSBs + Mux(niplLSBs =/= 0.U,
+      elementsPerBlock.U, 0.U)
+
+    printfInfo("DANA TTable: Updating cache layer...\n")
+    printfInfo("  total layers:               0x%x\n",
+      this.numLayers)
+    printfInfo("  layer is:                   0x%x\n",
+      this.currentLayer)
+    printfInfo("  neuron pointer:             0x%x\n", resp.data(2))
+    printfInfo("  nodes in current layer:     0x%x\n", resp.data(0))
+    printfInfo("  nodes in previous layer:    0x%x\n", resp.data(1))
+    printfInfo("  nicl:                       0x%x\n", nicl)
+    printfInfo("  niclMSBs:                   0x%x\n", niclMSBs)
+    printfInfo("  niclLSBs:                   0x%x\n", niclLSBs)
+    printfInfo("  round:                      0x%x\n", round)
+    printfInfo("  niplMSBs:                   0x%x\n", niplMSBs)
+    printfInfo("  niplLSBs:                   0x%x\n", niplLSBs)
+    printfInfo("  niplOffset:                 0x%x\n", niplOffset)
+    printfInfo("  regFileAddrIn:              0x%x\n",
+      this.regFileAddrOut)
+    printfInfo("  regFileAddrOut:             0x%x\n",
+      this.regFileAddrOut +  niplOffset)
+  }
 }
 
 class TransactionStateLearn(implicit p: Parameters)
@@ -235,6 +298,7 @@ class ControlResp(implicit p: Parameters) extends DanaBundle()(p) {
   val readyPeTable    = Bool()
   val cacheValid      = Bool()
   val tableIndex      = UInt(log2Up(transactionTableNumEntries).W)
+  val tableMask       = UInt(transactionTableNumEntries.W)
   val field           = UInt(4.W) // [TODO] fragile on Constants.scala
   val data            = Vec(6, UInt(16.W)) // [TODO] fragile
   val decimalPoint    = UInt(decimalPointWidth.W)
@@ -360,91 +424,26 @@ class DanaTransactionTableBase[StateType <: TransactionState,
 
   // Update the table when we get a request from DANA
   when (io.control.resp.valid) {
-    val tIdx = io.control.resp.bits.tableIndex
+    val resp = io.control.resp.bits
+    val tIdx = resp.tableIndex
     // table(tIdx).waiting := true.B
-    when (io.control.resp.bits.cacheValid) {
-      switch(io.control.resp.bits.field) {
-        is(e_TTABLE_CACHE_VALID) {
-          table(tIdx).cacheValid := true.B
-          table(tIdx).numLayers := io.control.resp.bits.data(0)
-          table(tIdx).numNodes := io.control.resp.bits.data(1)
-          table(tIdx).cacheIndex := io.control.resp.bits.data(2)(
-            log2Up(cacheNumEntries) + errorFunctionWidth - 1, errorFunctionWidth)
-          table(tIdx).decimalPoint := io.control.resp.bits.decimalPoint
-          // table(tIdx).learningRate := io.control.resp.bits.data(3)
-          // table(tIdx).lambda := io.control.resp.bits.data(4)
-          // Once we know the cache is valid, this entry is no longer waiting
-          table(tIdx).waiting := false.B
-          printfInfo("DANA TTable: Updating global info from Cache...\n")
-          printfInfo("  total layers:            0x%x\n",
-            io.control.resp.bits.data(0))
-          printfInfo("  total nodes:             0x%x\n",
-            io.control.resp.bits.data(1))
-          printfInfo("  cache index:             0x%x\n",
-            io.control.resp.bits.data(2)(
-            log2Up(cacheNumEntries) + errorFunctionWidth - 1, errorFunctionWidth))
-        }
-        is(e_TTABLE_LAYER) {
-          table(tIdx).needsLayerInfo := false.B
-          table(tIdx).currentNodeInLayer := 0.U
-          table(tIdx).nodesInCurrentLayer := io.control.resp.bits.data(0)
-          table(tIdx).neuronPointer := io.control.resp.bits.data(2)
-
-          // Once we have layer information, we can update the
-          // previous and current layer addresses. These are adjusted
-          // to be on block boundaries, so there's an optional round
-          // term.
-          val nicl = io.control.resp.bits.data(0)
-          val niclMSBs = // Nodes in previous layer MSBs [TODO] fragile
-            nicl(15, log2Up(elementsPerBlock)) ##
-              0.U(log2Up(elementsPerBlock).W)
-          val niclLSBs = // Nodes in previous layer LSBs
-            nicl(log2Up(elementsPerBlock)-1, 0)
-          val round = Mux(niclLSBs =/= 0.U, elementsPerBlock.U, 0.U)
-          val niclOffset = niclMSBs + round
-
-          val niplMSBs =
-            table(tIdx).nodesInCurrentLayer(15, log2Up(elementsPerBlock)) ##
-              0.U(log2Up(elementsPerBlock).W)
-          val niplLSBs = table(tIdx).nodesInCurrentLayer(log2Up(elementsPerBlock)-1,0)
-          val niplOffset = niplMSBs + Mux(niplLSBs =/= 0.U,
-            elementsPerBlock.U, 0.U)
-
-          printfInfo("DANA TTable: Updating cache layer...\n")
-          printfInfo("  total layers:               0x%x\n",
-            table(tIdx).numLayers)
-          printfInfo("  layer is:                   0x%x\n",
-            table(tIdx).currentLayer)
-          printfInfo("  neuron pointer:             0x%x\n",
-            io.control.resp.bits.data(2))
-          printfInfo("  nodes in current layer:     0x%x\n",
-            io.control.resp.bits.data(0))
-          printfInfo("  nodes in previous layer:    0x%x\n",
-            io.control.resp.bits.data(1))
-          printfInfo("  nicl:                       0x%x\n", nicl)
-          printfInfo("  niclMSBs:                   0x%x\n", niclMSBs)
-          printfInfo("  niclLSBs:                   0x%x\n", niclLSBs)
-          printfInfo("  round:                      0x%x\n", round)
-          printfInfo("  niplMSBs:                   0x%x\n", niplMSBs)
-          printfInfo("  niplLSBs:                   0x%x\n", niplLSBs)
-          printfInfo("  niplOffset:                 0x%x\n", niplOffset)
-          printfInfo("  regFileAddrIn:              0x%x\n",
-            table(tIdx).regFileAddrOut)
-          printfInfo("  regFileAddrOut:             0x%x\n",
-            table(tIdx).regFileAddrOut +  niplOffset)
-        }
+    when (resp.cacheValid) {
+      switch(resp.field) {
+        is(e_TTABLE_CACHE_VALID) { table.zipWithIndex.map({case(t, i) =>
+          when (resp.tableMask(i)) { table(i).cacheValid(resp) }})}
+        is(e_TTABLE_LAYER)       { table(tIdx).newLayer(resp)   }
       }
     }
     // If the register file has all valid entries, then this specific
     // entry should stop waiting. Note, that this logic will correctly
     // overwrite that of the e_TTABLE_LAYER.
-    when (io.control.resp.bits.layerValid) {
-      val tIdx = io.control.resp.bits.layerValidIndex
+    when (resp.layerValid) {
+      val tIdx = resp.layerValidIndex
       val inLastOld = table(tIdx).inLast
       val inLastNew = table(tIdx).currentLayer === (table(tIdx).numLayers - 1.U)
       table(tIdx).inLast := inLastNew
       printfInfo("DANA TTable: RegFile has all outputs of tIdx 0x%x\n",
-        io.control.resp.bits.layerValidIndex)
+        resp.layerValidIndex)
     }
   }
 

@@ -59,7 +59,7 @@ class ProcessingElementInterfaceLearn(implicit p: Parameters)
 }
 
 class ProcessingElement(id: Int = 0)(implicit p: Parameters) extends DanaModule()(p) {
-  override val printfSigil = "PE[" + id + "]: "
+  override val printfSigil = "dana.PE[" + id + "]: "
 
   // Interface to the PE Table
   lazy val io = IO(new ProcessingElementInterface)

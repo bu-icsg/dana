@@ -8,6 +8,7 @@ import rocket.{RoCC, HasCoreParameters, CoreModule, CoreBundle}
 import config._
 import math.pow
 import _root_.util.ParameterizedBundle
+import perfect.util.UniformPrintfs
 
 case object TidWidth extends Field[Int]
 case object AsidWidth extends Field[Int]
@@ -77,7 +78,7 @@ trait XFilesResponseCodes extends HasCoreParameters with XFilesParameters {
 abstract class XFilesBundle(implicit val p: Parameters)
     extends ParameterizedBundle()(p) with HasCoreParameters
     with XFilesParameters with XFilesErrorCodes
-    with XFilesUserRequests {
+    with XFilesUserRequests with UniformPrintfs {
 
   val aliasList = scala.collection.mutable.Map[String, String]()
   def alias (name: String): String = {

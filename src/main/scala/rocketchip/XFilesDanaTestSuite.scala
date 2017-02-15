@@ -23,13 +23,15 @@ object XFilesDanaTestSuites {
   )
 
   val nets = LinkedHashSet (
-    "xorSigmoidSymmetric"
+    "xorSigmoidSymmetric",
+    "xorSigmoidSymmetric-smp"
   )
 
   val xfilesDanaRegrTestNames = LinkedHashSet (
     "xfiles-dana-smoke-p-debug",
     "xfiles-dana-smoke-p-id",
-    "xfiles-dana-nets-p-xorSigmoidSymmetric"
+    "xfiles-dana-nets-p-xorSigmoidSymmetric",
+    "xfiles-dana-nets-p-xorSigmoidSymmetric-smp"
   )
 
   val xfilesDanaSmoke = new AssemblyTests("xfiles-dana", "smoke", smoke)(_)

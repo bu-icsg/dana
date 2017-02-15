@@ -78,6 +78,8 @@ abstract class CacheBase[SramIfType <: SRAMVariantInterface,
     extends DanaModule()(p) {
   val mem = genSram
 
+  override val printfSigil = "dana.Cache"
+
   lazy val io = IO(new CacheInterface)
 
   // Create the table of cache entries
@@ -141,6 +143,7 @@ abstract class CacheBase[SramIfType <: SRAMVariantInterface,
     table(index).fetch := true.B
     table(index).notifyFlag := false.B
     table(index).notifyIndex := tTableReqQueue.deq.bits.tableIndex
+    table(index).notifyMask := UIntToOH(tTableReqQueue.deq.bits.tableIndex)
     table(index).inUseCount := 1.U
   }
 
@@ -310,7 +313,7 @@ abstract class CacheBase[SramIfType <: SRAMVariantInterface,
     // that it's being passed correctly.
     mem(io.pe.req.bits.cacheIndex).addr(0) :=
       io.pe.req.bits.cacheAddr >> ((2 + log2Up(elementsPerBlock)).U)
-    printfInfo("cache: block address from byte address 0x%x/0x%x\n",
+    printfInfo("block address from byte address 0x%x/0x%x\n",
       io.pe.req.bits.cacheAddr,
       io.pe.req.bits.cacheAddr >> ((2 + log2Up(elementsPerBlock)).U) )
     // Fill the first stage of the PE pipeline
@@ -319,7 +322,7 @@ abstract class CacheBase[SramIfType <: SRAMVariantInterface,
         peRespPipe(0).valid := true.B
       }
       is (e_CACHE_WEIGHT) {
-        printfInfo("Cache: PE 0x%x req for weight @ addr 0x%x\n",
+        printfInfo("PE 0x%x req for weight @ addr 0x%x\n",
           io.pe.req.bits.peIndex, io.pe.req.bits.cacheAddr)
         peRespPipe(0).valid := true.B
       }
@@ -340,7 +343,7 @@ abstract class CacheBase[SramIfType <: SRAMVariantInterface,
 
   // Handle responses from memory (ANTW or similar)
   when (io.mem.resp.valid) {
-    printfInfo("Cache: saw write to SRAM_%x(%x) <= %x\n",
+    printfInfo("saw write to SRAM_%x(%x) <= %x\n",
       io.mem.resp.bits.cacheIndex,
       io.mem.resp.bits.addr,
       io.mem.resp.bits.data)
@@ -351,7 +354,7 @@ abstract class CacheBase[SramIfType <: SRAMVariantInterface,
     // when block above to generate a response when the cache isn't
     // dealing with other requests
     when (io.mem.resp.bits.done) {
-      printfInfo("Cache: SRAM_%x received DONE response\n",
+      printfInfo("SRAM_%x received DONE response\n",
         io.mem.resp.bits.cacheIndex)
       table(io.mem.resp.bits.cacheIndex).notifyFlag := true.B
     }
@@ -440,12 +443,12 @@ class CacheLearn(implicit p: Parameters)
   when (io.pe.req.valid) {
     switch (io.pe.req.bits.field) {
       is (e_CACHE_WEIGHT_ONLY) {
-        printfInfo("Cache: PE 0x%x req for weight @ addr 0x%x\n",
+        printfInfo("PE 0x%x req for weight @ addr 0x%x\n",
           io.pe.req.bits.peIndex, io.pe.req.bits.cacheAddr)
         peRespPipe(0).valid := true.B
       }
       is (e_CACHE_WEIGHT_WB) {
-        printfInfo("Cache: PE 0x%x req to inc weight @addr 0x%x\n",
+        printfInfo("PE 0x%x req to inc weight @addr 0x%x\n",
           io.pe.req.bits.peIndex, io.pe.req.bits.cacheAddr)
         printfInfo("       block: 0x%x\n", io.pe.req.bits.data)
         mem(io.pe.req.bits.cacheIndex).we(0) := true.B
