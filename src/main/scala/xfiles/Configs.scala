@@ -13,7 +13,7 @@ class DefaultXFilesConfig extends Config (
     case AsidWidth                  => 16
     case DebugEnabled               => false
     case TableDebug                 => true
-    case TransactionTableNumEntries => 1
+    case TransactionTableNumEntries => 2
     case TransactionTableQueueSize  => 32
     case _ => throw new CDEMatchError
   }
