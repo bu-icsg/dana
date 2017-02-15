@@ -29,7 +29,6 @@ object XFilesDanaTestSuites {
 
   val xfilesDanaRegrTestNames = LinkedHashSet (
     "xfiles-dana-smoke-p-debug",
-    "xfiles-dana-smoke-p-id",
     "xfiles-dana-nets-p-xorSigmoidSymmetric",
     "xfiles-dana-nets-p-xorSigmoidSymmetric-smp"
   )
