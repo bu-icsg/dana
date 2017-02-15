@@ -45,8 +45,9 @@ class DSP(implicit p: Parameters) extends DanaModule()(p) {
   io.d := (((io.a * io.b) >> io.c)(elementWidth - 1, 0)).asSInt
 }
 
-class ActivationFunction(implicit p: Parameters) extends DanaModule()(p) {
+class ActivationFunction(id: Int = 0)(implicit p: Parameters) extends DanaModule()(p) {
   lazy val io = (new ActivationFunctionInterface)
+  override val printfSigil = "PE[" + id + "]: "
 
   // Temporary values
   val inD0 = Wire(SInt(elementWidth.W))
@@ -134,7 +135,7 @@ class ActivationFunction(implicit p: Parameters) extends DanaModule()(p) {
   val dataIn = RegNext(io.req.bits.in)
 
   when (ioVal_d1) {
-    printfInfo("AF: (0x%x) = 0x%x\n", dataIn, out)
+    printfInfo("af(0x%x) = 0x%x\n", dataIn, out)
   }
 
   def applySteepness(x: SInt, steepness: UInt): SInt = {
@@ -236,8 +237,8 @@ class ActivationFunction(implicit p: Parameters) extends DanaModule()(p) {
   }
 }
 
-class ActivationFunctionLearn(implicit p: Parameters)
-    extends ActivationFunction()(p) {
+class ActivationFunctionLearn(id: Int = 0)(implicit p: Parameters)
+    extends ActivationFunction(id)(p) {
   override lazy val io = (new ActivationFunctionInterfaceLearn)
 
   // atanh specific
