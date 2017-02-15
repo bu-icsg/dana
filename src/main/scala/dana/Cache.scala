@@ -7,8 +7,6 @@ import chisel3.util._
 import config._
 
 // [TODO]
-//   * The notifyMask/tableMask isn't being set in the response, but
-//     this needs to be used
 //   * I don't think that the location bit is used at all. Remove this
 //     if it isn't
 
