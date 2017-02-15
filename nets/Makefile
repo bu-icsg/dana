@@ -13,6 +13,9 @@ src_dir = .
 tests = \
 	xorSigmoidSymmetric
 
+tests += \
+	xorSigmoidSymmetric-smp
+
 tests_p = $(addprefix $(PREFIX)-p-, $(tests))
 
 RISCV_PREFIX ?= riscv$(XLEN)-unknown-elf

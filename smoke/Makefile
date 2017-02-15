@@ -1,7 +1,7 @@
 XLEN ?= 64
 
 # Compute the ID String
-ID_TTABLE ?= 1
+ID_TTABLE ?= 2
 EPB ?= 4
 PES ?= 1
 ID_CACHE ?= 2
