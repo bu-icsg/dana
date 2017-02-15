@@ -152,6 +152,39 @@ xlen_t xfiles_fann_run_compare(nnid_type nnid,
   return 0;
 }
 
+xlen_t xfiles_fann_run_smp_compare(nnid_type nnid,
+                                   element_type * addr_i,
+                                   element_type * addr_o,
+                                   element_type * addr_e,
+                                   int num_inputs,
+                                   int num_outputs,
+                                   int num_data) {
+  // Read the info block to figure out how many simultaneous
+  // transactions we can support
+  xlen_t id = xfiles_dana_id();
+  int entries = id >> (64 - 16);
+  element_type * last = addr_i + num_inputs * num_data;
+  // element_type * first = addr_i;
+  for (; addr_i < last; addr_i += num_inputs, addr_o += num_outputs,
+                        addr_e += num_outputs) {
+    tid_type tid = -1;
+    // Prime all transactions
+    for (int i = 0; i < entries; i++) {
+      tid = new_write_request(nnid, 0, 0);
+      write_data_except_last(tid, addr_i, num_inputs);
+    }
+    // Start all transactions
+    for (int i = 0; i < entries; i++)
+      write_data_last(tid - (entries - 1) + i, addr_i, num_inputs);
+    // Reap transactions
+    for (int i = 0; i < entries; i++)
+      read_data_spinlock(tid - (entries - 1) + i, addr_o, num_outputs);
+
+    // [TODO] Add checking
+  }
+  return 0;
+}
+
 xlen_t write_data_train_incremental(tid_type tid, element_type * input,
                                     element_type * output, size_t count_input,
                                     size_t count_output) {
