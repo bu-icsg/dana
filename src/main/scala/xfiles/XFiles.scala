@@ -12,7 +12,6 @@ import perfect.util.UniformPrintfs
 
 case object TidWidth extends Field[Int]
 case object AsidWidth extends Field[Int]
-case object DebugEnabled extends Field[Boolean]
 case object TableDebug extends Field[Boolean]
 case object TransactionTableNumEntries extends Field[Int]
 
@@ -50,7 +49,6 @@ trait XFilesParameters {
   val asidWidth = p(AsidWidth)
   val transactionTableNumEntries = p(TransactionTableNumEntries)
 
-  val debugEnabled = p(DebugEnabled)
   val tableDebug = p(TableDebug)
 
   val k_NULL_ASID = pow(2, asidWidth) - 1
@@ -118,7 +116,8 @@ abstract class XFilesBundle(implicit val p: Parameters)
 }
 
 abstract class XFilesModule(implicit p: Parameters) extends CoreModule()(p)
-    with XFilesParameters with XFilesErrorCodes with XFilesUserRequests {
+    with XFilesParameters with XFilesErrorCodes with XFilesUserRequests
+    with UniformPrintfs {
 
   // Create a tupled version of printf
   def printfe(s: String, d: Seq[Bits]) = {
@@ -131,17 +130,6 @@ abstract class XFilesModule(implicit p: Parameters) extends CoreModule()(p)
     if (tableDebug) {
       printf(x(0).printElements(prepend))
         (0 until x.length).map(i => printft(x(i).printAll(","))) }}
-
-  def printfPrefix(prefix: String, message: String, args: Bits*): Unit = {
-    if (debugEnabled) { printf(prefix + message, args:_*) }}
-
-  val printfSigil = ""
-
-  def printfInfo (m: String, a: Bits*) { printfPrefix("[INFO] ",  printfSigil++m, a:_*) }
-  def printfWarn (m: String, a: Bits*) { printfPrefix("[WARN] ",  printfSigil++m, a:_*) }
-  def printfError(m: String, a: Bits*) { printfPrefix("[ERROR] ", printfSigil++m, a:_*) }
-  def printfDebug(m: String, a: Bits*) { printfPrefix("[DEBUG] ", printfSigil++m, a:_*) }
-  def printfTodo (m: String, a: Bits*) { printfPrefix("[TODO] ",  printfSigil++m, a:_*) }
 }
 
 class XFiles(implicit p: Parameters) extends RoCC()(p)

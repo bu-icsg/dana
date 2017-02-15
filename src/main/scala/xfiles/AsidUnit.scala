@@ -24,6 +24,8 @@ class AsidUnit(id: Int = 0)(implicit p: Parameters) extends XFilesModule()(p)
     val cmdFwd = Valid(new RoCCCommand)
   })
 
+  override val printfSigil = "xfiles.ASIDUnit[" + id + "]: "
+
   val asidReg = Reg(Valid(new AsidTid))
   val tid = asidReg.bits.tid
   val asid = asidReg.bits.asid
@@ -40,8 +42,8 @@ class AsidUnit(id: Int = 0)(implicit p: Parameters) extends XFilesModule()(p)
     asidReg.valid := true.B
     asid := io.cmd.bits.rs1(asidWidth - 1, 0)
     tid := 0.U
-    printfInfo("ASID Unit[%d]: supervisor request to update ASID to 0x%x\n",
-      id.U, io.cmd.bits.rs1(asidWidth - 1, 0));
+    printfInfo("supervisor request to update ASID to 0x%x\n",
+      io.cmd.bits.rs1(asidWidth - 1, 0));
     // [TODO] This needs to respond to the core with the ASID and TID
     // so that the OS can save the ASID/TID for reloading later.
   }
@@ -52,8 +54,8 @@ class AsidUnit(id: Int = 0)(implicit p: Parameters) extends XFilesModule()(p)
   io.cmdFwd.valid := (io.cmd.fire() & sup & funct < 4.U)
 
   when (io.cmdFwd.valid) {
-    printfInfo("ASID Unit[%d] is forwarding request with funct code 0x%x\n",
-      id.U, io.cmdFwd.bits.inst.funct) }
+    printfInfo("forwarding request with funct code 0x%x\n",
+      io.cmdFwd.bits.inst.funct) }
 
   // Respond with the ASID and TID if we have a vliad ASID, otherwise
   // respond with a generic -1
@@ -64,8 +66,8 @@ class AsidUnit(id: Int = 0)(implicit p: Parameters) extends XFilesModule()(p)
   io.resp.valid := updateAsid
 
   when (io.resp.valid) {
-    printfInfo("AsidUnit[%d]: responding to R%d with data 0x%x\n",
-      id.U, io.resp.bits.rd, io.resp.bits.data)}
+    printfInfo("responding to R%d with data 0x%x\n", io.resp.bits.rd,
+      io.resp.bits.data)}
 
   // Increment the TID when a new request shows up. Negative TIDs are
   // reserved for error codes, so the valid ranges of TIDs is then:
@@ -79,5 +81,5 @@ class AsidUnit(id: Int = 0)(implicit p: Parameters) extends XFilesModule()(p)
 
   // Assertions
   assert(!(io.resp.valid && !io.resp.ready),
-    "AsidUnit tried to respond when core was not ready")
+    printfSigil ++ "tried to respond when core was not ready")
 }

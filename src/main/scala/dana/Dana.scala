@@ -255,6 +255,7 @@ abstract class DanaBundle(implicit p: Parameters) extends XFilesBundle()(p)
 
 class Dana(implicit p: Parameters) extends XFilesBackend()(p)
     with DanaParameters with XFilesSupervisorRequests {
+  override val printfSigil = "dana.Dana: "
 
   // Module instantiation
   val control = if (learningEnabled) Module(new ControlLearn) else
@@ -300,7 +301,7 @@ class Dana(implicit p: Parameters) extends XFilesBackend()(p)
     io.rocc.resp.bits := antw.io.xfiles.rocc.resp.bits
   }
   assert(!(tTable.io.arbiter.rocc.resp.valid & antw.io.xfiles.rocc.resp.valid),
-    "ANTW register response just aliased DANA's Transaction TAble")
+    printfSigil ++ "ANTW register response just aliased DANA's Transaction TAble")
 
   // Transaction Table
   tTable.io.arbiter.rocc.cmd.valid := io.rocc.cmd.valid
@@ -320,8 +321,7 @@ class Dana(implicit p: Parameters) extends XFilesBackend()(p)
   io.rocc.interrupt := false.B
   io.interrupt <> antw.io.xfiles.interrupt
 
-  when (io.rocc.cmd.valid) {
-    printfInfo("Dana: io.tTable.rocc.cmd.valid asserted\n")}
+  when (io.rocc.cmd.valid) { printfInfo("io.tTable.rocc.cmd.valid asserted\n") }
 }
 
 // These must match the configuration specified in

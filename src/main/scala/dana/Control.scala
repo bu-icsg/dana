@@ -123,7 +123,7 @@ class ControlInterfaceLearn(implicit p: Parameters)
 class ControlBase(implicit p: Parameters) extends DanaModule()(p) {
   lazy val io = IO(new ControlInterface)
 
-  override val printfSigil = "Dana.Control: "
+  override val printfSigil = "dana.Control: "
 
   // Transaction Table connections
   io.tTable.req.ready := true.B

@@ -16,6 +16,8 @@ class XFilesArbiter(genInfo: => UInt)(implicit p: Parameters)
     extends XFilesModule()(p) with XFilesSupervisorRequests {
   val io = IO(new XFilesArbiterInterface)
 
+  override val printfSigil = "xfiles.Arbiter: "
+
   val asidUnit = Module(new AsidUnit).io
   val tTable = Module(new XFilesTransactionTable).io
 
@@ -45,7 +47,7 @@ class XFilesArbiter(genInfo: => UInt)(implicit p: Parameters)
   //   * readCsr -- read a CSR, like the exception cause register
   //   * isDebug -- an access to the Debug Unit
   val reqInfo = cmd.fire() & !sup & funct === t_USR_XFILES_ID.U
-  when (reqInfo) { printfInfo("XF Arbiter: Received reqInfo\n") }
+  when (reqInfo) { printfInfo("Received reqInfo\n") }
   val badRequest = cmd.fire() & ((!asidValid & !sup &
     (funct =/= t_USR_XFILES_ID.U) & (funct =/= t_USR_XFILES_DEBUG.U)) |
     (!sup & funct < 4.U))
@@ -81,7 +83,7 @@ class XFilesArbiter(genInfo: => UInt)(implicit p: Parameters)
   val supReqToBackend = asidUnit.cmdFwd.valid
 
   when (cmd.fire()) {
-    printfDebug("XF Arbiter: funct 0x%x, rs1 0x%x, rs2 0x%x\n",
+    printfDebug("funct 0x%x, rs1 0x%x, rs2 0x%x\n",
       funct, cmd.bits.rs1, cmd.bits.rs2)
   }
 
@@ -123,7 +125,7 @@ class XFilesArbiter(genInfo: => UInt)(implicit p: Parameters)
   val backendException = io.backend.interrupt.fire()
   exception.valid := exception.valid | badRequest | backendException
   when (badRequest) { exception.bits := int_INVREQ.U
-    printfWarn("XF Arbiter: Saw badRequest\n") }
+    printfWarn("Saw badRequest\n") }
   when (backendException) { exception.bits := io.backend.interrupt.bits.code }
 
   // Other connections
@@ -131,11 +133,11 @@ class XFilesArbiter(genInfo: => UInt)(implicit p: Parameters)
   io.core.busy := io.backend.rocc.busy
 
   when (backendException) {
-    printfError("XF Arbiter: RoCC Exception asserted\n")
+    printfError("RoCC Exception asserted\n")
   }
 
   when (io.backend.interrupt.fire()) {
-    printfError("XF Arbiter: Backend interrupt asserted w/ code 0d%d\n",
+    printfError("Backend interrupt asserted w/ code 0d%d\n",
       io.backend.interrupt.bits.code) }
 
   // Connections to the backend. [TODO] Clean these up such that the
@@ -157,7 +159,7 @@ class XFilesArbiter(genInfo: => UInt)(implicit p: Parameters)
   io.backend.rocc.cmd.bits.status.prv := supReqToBackend
 
   when (asidUnit.cmdFwd.valid) {
-    printfInfo("XF Arbiter: cmdFwd asserted\n")
+    printfInfo("cmdFwd asserted\n")
     io.backend.rocc.cmd.bits := asidUnit.cmdFwd.bits
     io.backend.rocc.cmd.bits.status.prv := cmd.bits.status.prv
   }
@@ -174,10 +176,10 @@ class XFilesArbiter(genInfo: => UInt)(implicit p: Parameters)
   debugUnit.mem.req.ready := io.core.mem.req.ready
 
   when (io.core.mem.req.fire()) {
-    printfInfo("XF Arbiter: Mem request from core with tag 0x%x for addr 0x%x\n",
+    printfInfo("Mem request from core with tag 0x%x for addr 0x%x\n",
       io.core.mem.req.bits.tag, io.core.mem.req.bits.addr) }
   when (io.core.mem.resp.fire()) {
-    printfInfo("""XF Arbiter: Mem response from core with tag 0x%x for addr 0x%x and data 0x%x
+    printfInfo("""Mem response from core with tag 0x%x for addr 0x%x and data 0x%x
 """,
       io.core.mem.resp.bits.tag, io.core.mem.resp.bits.addr,
       io.core.mem.resp.bits.data_word_bypass) }
@@ -244,17 +246,17 @@ class XFilesArbiter(genInfo: => UInt)(implicit p: Parameters)
   when (reset) { exception.valid := false.B }
 
   when (io.core.resp.valid) {
-    printfInfo("XF Arbiter: Responding to core rd 0d%d with data 0x%x\n",
+    printfInfo("Responding to core rd 0d%d with data 0x%x\n",
       io.core.resp.bits.rd, io.core.resp.bits.data) }
 
   // Assertions
   val totalResponses = Vec(asidUnit.resp.valid, debugUnit.resp.valid,
     tTable.xfiles.resp.valid)
   assert(!(totalResponses.count((x: Bool) => x) > 1.U),
-    "XF Arbiter: A response to the core was aliased")
+    printfSigil ++ "response to the core was aliased")
 
   val newRequestToTransactionTable = RegNext(tTable.xfiles.cmd.fire()&
     tTable.xfiles.cmd.bits.inst.funct === t_USR_NEW_REQUEST.U)
   assert(!(newRequestToTransactionTable & !io.core.resp.valid),
-    "XF Arbiter: TTable failed to generate resposne after newRequest")
+    printfSigil ++ "TTable failed to generate resposne after newRequest")
 }
