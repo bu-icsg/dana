@@ -57,6 +57,9 @@ vpath %.S $(src_dir)
 $(PREFIX)-p-%: %.S $(HEADERS_P) $(abs_top_srcdir)/libs/build/libxfiles-user.a $(abs_top_srcdir)/libs/build/libxfiles-supervisor.a
 	$(RISCV_GCC) $(RISCV_GCC_OPTS) -I$(abs_top_srcdir)/env/p $< $(RISCV_LD_OPTS) -T$(abs_top_srcdir)/env/p/link.ld -o $@
 
+$(PREFIX)-p-%-smp: %.S $(HEADERS_P) $(abs_top_srcdir)/libs/build/libxfiles-user.a $(abs_top_srcdir)/libs/build/libxfiles-supervisor.a
+	$(RISCV_GCC) $(RISCV_GCC_OPTS) -DSMP -I$(abs_top_srcdir)/env/p $< $(RISCV_LD_OPTS) -T$(abs_top_srcdir)/env/p/link.ld -o $@
+
 $(PREFIX)-v-%: %.S $(HEADERS_V) $(asb_top_srcdir)/libs/build/libxfiles-user.a $(abs_top_srcdir)/libs/build/libxfiles-supervisor.a
 	$(RISCV_GCC) $(RISCV_GCC_OPTS) -I$(abs_top_srcdir)/env/v $(RISCV_LD_OPTS) -T$(abs_top_srcdir)/env/v/link.ld $< -o $@
 
