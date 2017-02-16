@@ -80,11 +80,10 @@ class RespBundle(implicit p: Parameters) extends XFilesBundle()(p) {
 
 class XFilesTransactionTable(implicit p: Parameters) extends XFilesModule()(p)
     with HasTable with XFilesResponseCodes {
-  val io = IO(new Bundle { // The portion of the RoCCInterface this uses
+  val io = IO( new Bundle {
     val xfiles = new RoCCInterface
-    val backend = (new XFilesBackendInterface).flip
-    // val xfiles = new XFilesTransactionTableCmdResp
-    // val backend = (new XFilesTransactionTableCmdResp).flip
+    val backend = Flipped(new XFilesBackendInterface)
+    val status = Input(p(BuildXFilesBackend).csrData_gen(p))
   })
 
   override val printfSigil = "xfiles.TTable: "
@@ -122,8 +121,8 @@ class XFilesTransactionTable(implicit p: Parameters) extends XFilesModule()(p)
   // provide arbitration to generate an index
   val arbiter = Module(new RRArbiter(Bool(), numEntries)).io
 
-  val hasFree = table.exists(isFree(_: TableEntry))
   val idxFree = table.indexWhere(isFree(_: TableEntry))
+  val hasFree = table.exists(isFree(_: TableEntry)) && idxFree < io.status.ttable_entries
 
   val newRequest = cmd.fire() & funct === t_USR_NEW_REQUEST.U
   val writeData = cmd.fire() & funct === t_USR_WRITE_DATA.U
@@ -141,6 +140,7 @@ class XFilesTransactionTable(implicit p: Parameters) extends XFilesModule()(p)
   io.backend.rocc.cmd.valid := io.xfiles.cmd.valid & unknownCmd & hitAsidTid
   io.backend.rocc.cmd.bits := io.xfiles.cmd.bits
   io.xfiles.cmd.ready := io.backend.rocc.cmd.ready
+  io.backend.status := io.status
 
   io.xfiles.busy := io.backend.rocc.busy
 
@@ -221,7 +221,9 @@ class XFilesTransactionTable(implicit p: Parameters) extends XFilesModule()(p)
   // applicable), and the correct response.
   when (newRequest) {
     val queue = queueInput(idxFree)
-    genResp(resp_d.bits.rocc.data, resp_TID, -(err_XFILES_TTABLEFULL.S))
+    genResp(resp_d.bits.rocc.data, resp_TID, (-err_XFILES_TTABLEFULL).S(tidWidth.W))
+    printfInfo("newRequest: idxFree 0x%x, ttable_entries 0x%x\n", idxFree,
+      io.status.ttable_entries)
     when (hasFree & queue.enq.ready) {
       genResp(resp_d.bits.rocc.data, resp_TID, tid)
       table(idxFree).reserve(asid, tid)
@@ -250,7 +252,7 @@ class XFilesTransactionTable(implicit p: Parameters) extends XFilesModule()(p)
   }
 
   when (unknownCmd) {
-    genResp(resp_d.bits.rocc.data, resp_OK, -(err_XFILES_INVALIDTID.S))
+    genResp(resp_d.bits.rocc.data, resp_OK, (-err_XFILES_INVALIDTID).S(tidWidth.W))
     when (hitAsidTid) {
       genResp(resp_d.bits.rocc.data, resp_OK, tid)
     }
@@ -264,11 +266,11 @@ class XFilesTransactionTable(implicit p: Parameters) extends XFilesModule()(p)
   // Check for too many reads without a response
   val readDataPollCount = Reg(init = 0.U(32.W))
 
-  when (newRequest)    { printfInfo("Saw newRequest\n")    }
-  when (unknownCmd)    { printfInfo("Saw unknownCmd\n")    }
-  when (writeData)     { printfInfo("Saw writeData\n")     }
-  when (writeDataLast) { printfInfo("Saw writeDataLast\n") }
-  when (readDataPoll)  { printfInfo("Saw readDataPoll\n")
+  when (newRequest)    { printfInfo("newRequest(ASID 0x%x, TID 0x%x)\n", asid, tid)    }
+  when (unknownCmd)    { printfInfo("unknownCmd(ASID 0x%x, TID 0x%x)\n", asid, tid)    }
+  when (writeData)     { printfInfo("writeData(ASID 0x%x, TID 0x%x)\n", asid, tid)     }
+  when (writeDataLast) { printfInfo("writeDataLast(ASID 0x%x, TID 0x%x)\n", asid, tid) }
+  when (readDataPoll)  { printfInfo("readDataPoll(ASID 0x%x, TID 0x%x)\n", asid, tid)
     val entry = table(idxAsidTid)
     val finished = entry.flags.done && queueOutput(idxAsidTid).count === 1.U
     readDataPollCount := readDataPollCount + 1.U

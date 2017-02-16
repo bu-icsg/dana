@@ -4,7 +4,7 @@ package dana
 
 import chisel3._
 import chisel3.util._
-import rocket.{RoCCCommand, RoCCResponse, HellaCacheReq, HellaCacheIO, MStatus, MT_D}
+import rocket.{HellaCacheReq, HellaCacheIO, MStatus, MT_D}
 import uncore.tilelink.{HasTileLinkParameters, ClientUncachedTileLinkIO, Get,
   GetBlock}
 import uncore.util.{CacheName, CacheBlockBytes}
@@ -22,16 +22,12 @@ trait AntParameters {
 }
 
 class ANTWXFilesInterface(implicit p: Parameters) extends DanaBundle()(p) {
-  val rocc      = new Bundle {
-    val cmd     = Decoupled(new RoCCCommand).flip
-    val resp    = Decoupled(new RoCCResponse)
-    val status  = new MStatus().asInput
-  }
   val autl      = new ClientUncachedTileLinkIO
   val dcache    = new Bundle {
     val mem     = new HellaCacheIO()(p.alterPartial({ case CacheName => "L1D" }))
   }
   val interrupt = Valid(new InterruptBundle)
+  val status = Input(new DanaStatus)
 }
 
 class AsidNnidTableWalkerInterface(implicit p: Parameters) extends DanaBundle()(p) {
@@ -41,12 +37,6 @@ class AsidNnidTableWalkerInterface(implicit p: Parameters) extends DanaBundle()(
 
 class HellaCacheReqWithCore(implicit p: Parameters) extends DanaBundle()(p) {
   val req       = new HellaCacheReq()(p)
-}
-
-class antp(implicit p: Parameters) extends DanaBundle()(p) {
-  val valid     = Bool()
-  val antp      = UInt(xLen.W)
-  val size      = UInt(xLen.W)
 }
 
 class ConfigRobEntry(implicit p: Parameters) extends DanaBundle()(p)
@@ -60,7 +50,6 @@ class AsidNnidTableWalker(implicit p: Parameters) extends DanaModule()(p)
     with AntParameters {
   val io = IO(new AsidNnidTableWalkerInterface)
   override val printfSigil = "xfiles.ANTW: "
-  val antpReg = Reg(new antp)
 
   val (s_IDLE :: s_CHECK_ASID :: s_GET_VALID_NNIDS :: s_GET_NN_POINTER ::
     s_GET_NN_SIZE :: s_GET_NN_EPB :: s_GET_CONFIG_POINTER :: s_GET_NN_CONFIG ::
@@ -81,9 +70,6 @@ class AsidNnidTableWalker(implicit p: Parameters) extends DanaModule()(p)
   cacheReqQueue.io.enq <> io.cache.req
   val cacheReqCurrent = Reg(new CacheMemReq)
 
-  // Default values
-  io.xfiles.rocc.cmd.ready := true.B
-
   io.cache.resp.valid := false.B
   io.cache.resp.bits.done := false.B
   io.cache.resp.bits.data := 0.U
@@ -98,29 +84,6 @@ class AsidNnidTableWalker(implicit p: Parameters) extends DanaModule()(p)
   io.xfiles.dcache.mem.req.valid := false.B
   io.xfiles.dcache.mem.invalidate_lr := false.B
   io.xfiles.dcache.mem.req.bits.phys := false.B
-
-  // RoCC requests that come in for changing the ANTP are handled
-  // here. The old ASID value will be returned to the operating
-  // system. In the event of an invalid ASID, a value
-  // of -int_DANA_NOANTP (defined in src/main/scala/Dana.scala) is
-  // returned.
-  val funct = io.xfiles.rocc.cmd.bits.inst.funct
-  val updateAntp = io.xfiles.rocc.status.prv.orR && funct === t_SUP_WRITE_REG.U
-  when (io.xfiles.rocc.cmd.fire() && updateAntp) {
-    antpReg.valid := true.B
-    antpReg.antp := io.xfiles.rocc.cmd.bits.rs1
-    antpReg.size := io.xfiles.rocc.cmd.bits.rs2
-    printfInfo("changing ANTP to 0x%x with size 0x%x\n",
-      io.xfiles.rocc.cmd.bits.rs1, io.xfiles.rocc.cmd.bits.rs2) }
-
-  io.xfiles.rocc.resp.bits.rd := io.xfiles.rocc.cmd.bits.inst.rd
-  io.xfiles.rocc.resp.bits.data := Mux(antpReg.valid, antpReg.antp,
-    (-int_DANA_NOANTP.S(xLen.W)).asUInt)
-  io.xfiles.rocc.resp.valid := io.xfiles.rocc.cmd.fire() && updateAntp
-
-  when (io.xfiles.rocc.resp.valid) {
-    printfInfo("Responding to core R%d with data 0x%x\n",
-      io.xfiles.rocc.resp.bits.rd, io.xfiles.rocc.resp.bits.data) }
 
   // New cache requests get entered on the queue
   when (io.cache.req.fire()) {
@@ -208,13 +171,15 @@ class AsidNnidTableWalker(implicit p: Parameters) extends DanaModule()(p)
   val hasCacheRequests = cacheReqQueue.io.count > 0.U
   val configRob = Reg(new ConfigRobEntry)
   cacheReqQueue.io.deq.ready := state === s_IDLE & hasCacheRequests
+  val antp = io.xfiles.status.antp
+  val antpValid = antp =/= ~(0.U(xLen.W))
   when (state === s_IDLE & hasCacheRequests) {
     // Pull data out of the cache request queue and save it in the
     // "current" buffer
     val deq = cacheReqQueue.io.deq.bits
     cacheReqCurrent := deq
     state := s_CHECK_ASID
-    when (!antpReg.valid) {
+    when (!antpValid) {
       state := s_INTERRUPT
       setInterrupt(int_DANA_NOANTP)
     }
@@ -222,23 +187,23 @@ class AsidNnidTableWalker(implicit p: Parameters) extends DanaModule()(p)
 
     configRob.valid map (x => x := false.B)
 
-    printfInfo("Dequeue mem req ASID/NNID/Idx 0x%x/0x%x/0x%x\n",
-      deq.asid, deq.nnid, deq.cacheIndex)
+    printfInfo("Dequeue mem req ANTP/ASID/NNID/Idx 0x%x/0x%x/0x%x/0x%x\n",
+      antp, deq.asid, deq.nnid, deq.cacheIndex)
   }
 
   val asid = cacheReqCurrent.asid
   val nnid = cacheReqCurrent.nnid
   when (state === s_CHECK_ASID) {
     state := s_GET_VALID_NNIDS
-    when (asid >= antpReg.size) {
+    when (asid >= io.xfiles.status.num_asids) {
       state := s_INTERRUPT
       setInterrupt(int_INVASID)
     }
   }
 
-  autlAddr := antpReg.antp + asid * sizeAsidStruct.U
+  autlAddr := antp + asid * sizeAsidStruct.U
   when (state === s_GET_VALID_NNIDS) {
-    val reqAddr = antpReg.antp + asid * sizeAsidStruct.U
+    val reqAddr = antp + asid * sizeAsidStruct.U
     val numValidNnids = autlDataWord(63, 32)
     autlAcqGrant(s_GET_NN_POINTER, nnid < numValidNnids, int_INVNNID)
   }
@@ -246,7 +211,7 @@ class AsidNnidTableWalker(implicit p: Parameters) extends DanaModule()(p)
   val nnidPointer = Reg(UInt())
   nnidPointer := nnidPointer
   when (state === s_GET_NN_POINTER) {
-    autlAddr := antpReg.antp + asid * sizeAsidStruct.U + offsetNnidPtr.U
+    autlAddr := antp + asid * sizeAsidStruct.U + offsetNnidPtr.U
     nnidPointer := autlDataWord + nnid * sizeNnidStruct.U
     autlAcqGrant(s_GET_NN_SIZE, autlDataWord =/= 0.U, int_NULLREAD)
   }
@@ -405,10 +370,7 @@ class AsidNnidTableWalker(implicit p: Parameters) extends DanaModule()(p)
       io.xfiles.dcache.mem.resp.bits.data_word_bypass) }
 
   // Reset conditions
-  when (reset) {
-    (0 until configRob.valid.length).map(i => configRob.valid(i) := false.B)
-    antpReg.valid := false.B
-  }
+  when (reset) { configRob.valid map (_ := false.B) }
 
   // Assertions
   assert(!(io.cache.req.fire() && !io.cache.req.ready),
