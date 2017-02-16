@@ -161,9 +161,11 @@ xlen_t xfiles_fann_run_smp_compare(nnid_type nnid,
                                    int num_data) {
   // Read the info block to figure out how many simultaneous
   // transactions we can support
+  int failures = 0;
   xlen_t id = xfiles_dana_id();
   int entries = id >> (64 - 16);
   element_type * last = addr_i + num_inputs * num_data;
+  element_type * first = addr_i;
   // element_type * first = addr_i;
   for (; addr_i < last; addr_i += num_inputs, addr_o += num_outputs,
                         addr_e += num_outputs) {
@@ -177,10 +179,15 @@ xlen_t xfiles_fann_run_smp_compare(nnid_type nnid,
     for (int i = 0; i < entries; i++)
       write_data_last(tid - (entries - 1) + i, addr_i, num_inputs);
     // Reap transactions
-    for (int i = 0; i < entries; i++)
+    for (int i = 0; i < entries; i++) {
       read_data_spinlock(tid - (entries - 1) + i, addr_o, num_outputs);
-
-    // [TODO] Add checking
+      for (int j = 0; j < num_outputs; j++) {
+        failures += addr_o[j] != addr_e[j];
+        addr_o[j] = 0;
+      }
+      if (failures)
+        return ((addr_i - first) / num_inputs + 1) << 32 | failures;
+    }
   }
   return 0;
 }
