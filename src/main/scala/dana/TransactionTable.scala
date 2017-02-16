@@ -457,8 +457,6 @@ class DanaTransactionTableBase[StateType <: TransactionState,
   for (i <- 0 until transactionTableNumEntries) {
     val isValid = table(i).flags.valid
     val isNotWaiting = !table(i).waiting
-    // val noRequestLastCycle = Reg(next = !entryArbiter.io.out.valid)
-    val noRequestLastCycle = true.B
     val cacheWorkToDo = (table(i).decInUse || !table(i).cacheValid ||
       table(i).needsLayerInfo)
     val peWorkToDo = (table(i).currentNode =/= table(i).numNodes)
@@ -467,7 +465,6 @@ class DanaTransactionTableBase[StateType <: TransactionState,
     // cycle, and either there is cache or PE table work to do and the
     // backend can support one of these.
     entryArbiter.io.in(i).valid := isValid && isNotWaiting &&
-      noRequestLastCycle &&
       ((readyCache && cacheWorkToDo) || (readyPeTable && peWorkToDo))
     // All connections here are explicit as these are not bundles of
     // the same type
