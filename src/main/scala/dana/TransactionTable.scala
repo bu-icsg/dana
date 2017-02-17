@@ -107,6 +107,69 @@ class TransactionState(implicit p: Parameters) extends TableEntry()(p)
     this.waiting             := false.B
     this.regFileLocationBit  := 0.U
   }
+  def cacheValid(resp: ControlResp) {
+    this.cacheValid := true.B
+    this.numLayers := resp.data(0)
+    this.numNodes := resp.data(1)
+    this.cacheIndex := resp.data(2)(
+      log2Up(cacheNumEntries) + errorFunctionWidth - 1, errorFunctionWidth)
+    this.decimalPoint := resp.decimalPoint
+    // this.learningRate := resp.data(3)
+    // this.lambda := resp.data(4)
+    // Once we know the cache is valid, this entry is no longer waiting
+    this.waiting := false.B
+    printfInfo("DANA TTable: Updating global info from Cache...\n")
+    printfInfo("  total layers:            0x%x\n", resp.data(0))
+    printfInfo("  total nodes:             0x%x\n", resp.data(1))
+    printfInfo("  cache index:             0x%x\n", resp.data(2)(
+      log2Up(cacheNumEntries) + errorFunctionWidth - 1, errorFunctionWidth))
+  }
+  def newLayer(resp: ControlResp) {
+    this.needsLayerInfo := false.B
+    this.currentNodeInLayer := 0.U
+    this.nodesInCurrentLayer := resp.data(0)
+    this.neuronPointer := resp.data(2)
+
+    // Once we have layer information, we can update the
+    // previous and current layer addresses. These are adjusted
+    // to be on block boundaries, so there's an optional round
+    // term.
+    val nicl = resp.data(0)
+    val niclMSBs = // Nodes in previous layer MSBs [TODO] fragile
+      nicl(15, log2Up(elementsPerBlock)) ##
+    0.U(log2Up(elementsPerBlock).W)
+    val niclLSBs = // Nodes in previous layer LSBs
+      nicl(log2Up(elementsPerBlock)-1, 0)
+    val round = Mux(niclLSBs =/= 0.U, elementsPerBlock.U, 0.U)
+    val niclOffset = niclMSBs + round
+
+    val niplMSBs =
+      this.nodesInCurrentLayer(15, log2Up(elementsPerBlock)) ##
+    0.U(log2Up(elementsPerBlock).W)
+    val niplLSBs = this.nodesInCurrentLayer(log2Up(elementsPerBlock)-1,0)
+    val niplOffset = niplMSBs + Mux(niplLSBs =/= 0.U,
+      elementsPerBlock.U, 0.U)
+
+    printfInfo("DANA TTable: Updating cache layer...\n")
+    printfInfo("  total layers:               0x%x\n",
+      this.numLayers)
+    printfInfo("  layer is:                   0x%x\n",
+      this.currentLayer)
+    printfInfo("  neuron pointer:             0x%x\n", resp.data(2))
+    printfInfo("  nodes in current layer:     0x%x\n", resp.data(0))
+    printfInfo("  nodes in previous layer:    0x%x\n", resp.data(1))
+    printfInfo("  nicl:                       0x%x\n", nicl)
+    printfInfo("  niclMSBs:                   0x%x\n", niclMSBs)
+    printfInfo("  niclLSBs:                   0x%x\n", niclLSBs)
+    printfInfo("  round:                      0x%x\n", round)
+    printfInfo("  niplMSBs:                   0x%x\n", niplMSBs)
+    printfInfo("  niplLSBs:                   0x%x\n", niplLSBs)
+    printfInfo("  niplOffset:                 0x%x\n", niplOffset)
+    printfInfo("  regFileAddrIn:              0x%x\n",
+      this.regFileAddrOut)
+    printfInfo("  regFileAddrOut:             0x%x\n",
+      this.regFileAddrOut +  niplOffset)
+  }
 }
 
 class TransactionStateLearn(implicit p: Parameters)
@@ -235,6 +298,7 @@ class ControlResp(implicit p: Parameters) extends DanaBundle()(p) {
   val readyPeTable    = Bool()
   val cacheValid      = Bool()
   val tableIndex      = UInt(log2Up(transactionTableNumEntries).W)
+  val tableMask       = UInt(transactionTableNumEntries.W)
   val field           = UInt(4.W) // [TODO] fragile on Constants.scala
   val data            = Vec(6, UInt(16.W)) // [TODO] fragile
   val decimalPoint    = UInt(decimalPointWidth.W)
@@ -302,6 +366,7 @@ class DanaTransactionTableBase[StateType <: TransactionState,
   implicit p: Parameters) extends DanaModule()(p) with HasTable
     with XFilesResponseCodes {
   lazy val io = IO(new DanaTransactionTableInterface)
+  override val printfSigil = "dana.TTable: "
 
   // IO aliases
   // val cmd = new DanaBundle {
@@ -360,96 +425,31 @@ class DanaTransactionTableBase[StateType <: TransactionState,
 
   // Update the table when we get a request from DANA
   when (io.control.resp.valid) {
-    val tIdx = io.control.resp.bits.tableIndex
+    val resp = io.control.resp.bits
+    val tIdx = resp.tableIndex
     // table(tIdx).waiting := true.B
-    when (io.control.resp.bits.cacheValid) {
-      switch(io.control.resp.bits.field) {
-        is(e_TTABLE_CACHE_VALID) {
-          table(tIdx).cacheValid := true.B
-          table(tIdx).numLayers := io.control.resp.bits.data(0)
-          table(tIdx).numNodes := io.control.resp.bits.data(1)
-          table(tIdx).cacheIndex := io.control.resp.bits.data(2)(
-            log2Up(cacheNumEntries) + errorFunctionWidth - 1, errorFunctionWidth)
-          table(tIdx).decimalPoint := io.control.resp.bits.decimalPoint
-          // table(tIdx).learningRate := io.control.resp.bits.data(3)
-          // table(tIdx).lambda := io.control.resp.bits.data(4)
-          // Once we know the cache is valid, this entry is no longer waiting
-          table(tIdx).waiting := false.B
-          printfInfo("DANA TTable: Updating global info from Cache...\n")
-          printfInfo("  total layers:            0x%x\n",
-            io.control.resp.bits.data(0))
-          printfInfo("  total nodes:             0x%x\n",
-            io.control.resp.bits.data(1))
-          printfInfo("  cache index:             0x%x\n",
-            io.control.resp.bits.data(2)(
-            log2Up(cacheNumEntries) + errorFunctionWidth - 1, errorFunctionWidth))
-        }
-        is(e_TTABLE_LAYER) {
-          table(tIdx).needsLayerInfo := false.B
-          table(tIdx).currentNodeInLayer := 0.U
-          table(tIdx).nodesInCurrentLayer := io.control.resp.bits.data(0)
-          table(tIdx).neuronPointer := io.control.resp.bits.data(2)
-
-          // Once we have layer information, we can update the
-          // previous and current layer addresses. These are adjusted
-          // to be on block boundaries, so there's an optional round
-          // term.
-          val nicl = io.control.resp.bits.data(0)
-          val niclMSBs = // Nodes in previous layer MSBs [TODO] fragile
-            nicl(15, log2Up(elementsPerBlock)) ##
-              0.U(log2Up(elementsPerBlock).W)
-          val niclLSBs = // Nodes in previous layer LSBs
-            nicl(log2Up(elementsPerBlock)-1, 0)
-          val round = Mux(niclLSBs =/= 0.U, elementsPerBlock.U, 0.U)
-          val niclOffset = niclMSBs + round
-
-          val niplMSBs =
-            table(tIdx).nodesInCurrentLayer(15, log2Up(elementsPerBlock)) ##
-              0.U(log2Up(elementsPerBlock).W)
-          val niplLSBs = table(tIdx).nodesInCurrentLayer(log2Up(elementsPerBlock)-1,0)
-          val niplOffset = niplMSBs + Mux(niplLSBs =/= 0.U,
-            elementsPerBlock.U, 0.U)
-
-          printfInfo("DANA TTable: Updating cache layer...\n")
-          printfInfo("  total layers:               0x%x\n",
-            table(tIdx).numLayers)
-          printfInfo("  layer is:                   0x%x\n",
-            table(tIdx).currentLayer)
-          printfInfo("  neuron pointer:             0x%x\n",
-            io.control.resp.bits.data(2))
-          printfInfo("  nodes in current layer:     0x%x\n",
-            io.control.resp.bits.data(0))
-          printfInfo("  nodes in previous layer:    0x%x\n",
-            io.control.resp.bits.data(1))
-          printfInfo("  nicl:                       0x%x\n", nicl)
-          printfInfo("  niclMSBs:                   0x%x\n", niclMSBs)
-          printfInfo("  niclLSBs:                   0x%x\n", niclLSBs)
-          printfInfo("  round:                      0x%x\n", round)
-          printfInfo("  niplMSBs:                   0x%x\n", niplMSBs)
-          printfInfo("  niplLSBs:                   0x%x\n", niplLSBs)
-          printfInfo("  niplOffset:                 0x%x\n", niplOffset)
-          printfInfo("  regFileAddrIn:              0x%x\n",
-            table(tIdx).regFileAddrOut)
-          printfInfo("  regFileAddrOut:             0x%x\n",
-            table(tIdx).regFileAddrOut +  niplOffset)
-        }
+    when (resp.cacheValid) {
+      switch(resp.field) {
+        is(e_TTABLE_CACHE_VALID) { table.zipWithIndex.map({case(t, i) =>
+          when (resp.tableMask(i)) { table(i).cacheValid(resp) }})}
+        is(e_TTABLE_LAYER)       { table(tIdx).newLayer(resp)   }
       }
     }
     // If the register file has all valid entries, then this specific
     // entry should stop waiting. Note, that this logic will correctly
     // overwrite that of the e_TTABLE_LAYER.
-    when (io.control.resp.bits.layerValid) {
-      val tIdx = io.control.resp.bits.layerValidIndex
+    when (resp.layerValid) {
+      val tIdx = resp.layerValidIndex
       val inLastOld = table(tIdx).inLast
       val inLastNew = table(tIdx).currentLayer === (table(tIdx).numLayers - 1.U)
       table(tIdx).inLast := inLastNew
-      printfInfo("DANA TTable: RegFile has all outputs of tIdx 0x%x\n",
-        io.control.resp.bits.layerValidIndex)
+      printfInfo("RegFile has all outputs of tIdx 0x%x\n",
+        resp.layerValidIndex)
     }
   }
 
   val readyCache = Reg(next = io.control.resp.bits.readyCache)
-  val readyPeTable = Reg(next = io.control.resp.bits.readyPeTable)
+  val readyPeTable = io.control.resp.bits.readyPeTable
   // Round Robin Arbitration of Transaction Table entries. One of
   // these is passed out over an interface to DANA's control module.
   val entryArbiter = Module(new RRArbiter(genControlReq,
@@ -457,7 +457,6 @@ class DanaTransactionTableBase[StateType <: TransactionState,
   for (i <- 0 until transactionTableNumEntries) {
     val isValid = table(i).flags.valid
     val isNotWaiting = !table(i).waiting
-    val noRequestLastCycle = Reg(next = !entryArbiter.io.out.valid)
     val cacheWorkToDo = (table(i).decInUse || !table(i).cacheValid ||
       table(i).needsLayerInfo)
     val peWorkToDo = (table(i).currentNode =/= table(i).numNodes)
@@ -466,7 +465,6 @@ class DanaTransactionTableBase[StateType <: TransactionState,
     // cycle, and either there is cache or PE table work to do and the
     // backend can support one of these.
     entryArbiter.io.in(i).valid := isValid && isNotWaiting &&
-      noRequestLastCycle &&
       ((readyCache && cacheWorkToDo) || (readyPeTable && peWorkToDo))
     // All connections here are explicit as these are not bundles of
     // the same type
@@ -517,7 +515,7 @@ class DanaTransactionTableBase[StateType <: TransactionState,
         io.arbiter.xfResp.tidx.valid := true.B
         io.arbiter.xfResp.flags.set("vi")
         entry.validIO := false.B
-        printfInfo("DANA TTable: Entry 0d%d needs INFO, but In Queue not ready\n",
+        printfInfo("Entry 0d%d needs INFO, but In Queue not ready\n",
           ioArbiter.chosen)
       } .otherwise {
         // io.arbiter.xfResp.tidx.valid := true.B
@@ -530,7 +528,7 @@ class DanaTransactionTableBase[StateType <: TransactionState,
         entry.tid := tid
         entry.nnid := nnid
         entry.needsAsidNnid := false.B
-        printfInfo("DANA TTable: T0d%d got (ASID:0x%x/TID:0x%x/NNID:0x%x) from queue\n",
+        printfInfo("T0d%d got (ASID:0x%x/TID:0x%x/NNID:0x%x) from queue\n",
           ioArbiter.chosen, asid, tid, nnid)
         entry.needsInputs := true.B
       }
@@ -542,7 +540,7 @@ class DanaTransactionTableBase[StateType <: TransactionState,
         io.arbiter.xfResp.tidx.valid := true.B
         io.arbiter.xfResp.flags.set("vi")
         entry.validIO := false.B
-        printfInfo("DANA TTable: Entry 0d%d needs INPUTS, but In Queue not ready\n",
+        printfInfo("Entry 0d%d needs INPUTS, but In Queue not ready\n",
           ioArbiter.chosen)
       } .otherwise {
         // io.arbiter.xfResp.tidx.valid := true.B
@@ -554,7 +552,7 @@ class DanaTransactionTableBase[StateType <: TransactionState,
         io.regFile.req.bits.addr := entry.indexElement
         val data = io.arbiter.xfQueue.in.bits.rs2
         io.regFile.req.bits.data := data
-        printfInfo("DANA TTable: T0d%d got (INPUT:0x%x) from queue\n",
+        printfInfo("T0d%d got (INPUT:0x%x) from queue\n",
           ioArbiter.chosen, data)
 
         val isLast = io.arbiter.xfQueue.in.bits.funct === t_USR_WRITE_DATA_LAST.U
@@ -576,7 +574,7 @@ class DanaTransactionTableBase[StateType <: TransactionState,
         io.arbiter.xfResp.tidx.valid := true.B
         io.arbiter.xfResp.flags.set("vo")
         entry.validIO := false.B
-        printfInfo("DANA TTable: Entry 0d%d has OUTPUTS, but Out Queue not ready\n",
+        printfInfo("Entry 0d%d has OUTPUTS, but Out Queue not ready\n",
           ioArbiter.chosen)
       } .otherwise {
         // [TODO] Kludge to slow down the output rate so that we don't
@@ -589,8 +587,7 @@ class DanaTransactionTableBase[StateType <: TransactionState,
 
         queueOutTidx_d.valid := true.B
 
-        printfInfo("DANA TTable: Req output 0x%x from Reg File sent\n",
-          entry.readIdx)
+        printfInfo("Req output 0x%x from Reg File sent\n", entry.readIdx)
       }
     }
   }
@@ -625,7 +622,7 @@ class DanaTransactionTableBase[StateType <: TransactionState,
     val tIdx = entryArbiter.io.out.bits.tableIndex
     table(tIdx).waiting := true.B
     when (entryArbiter.io.out.bits.isDone) {
-      printfInfo("DANA TTable entry for ASID/TID %x/%x is done\n",
+      printfInfo("entry for ASID/TID %x/%x is done\n",
         table(tIdx).asid, table(tIdx).tid)
       table(tIdx).flags.done := true.B }}
   when (isPeReq) {
@@ -673,18 +670,18 @@ class DanaTransactionTableBase[StateType <: TransactionState,
   // Temporary printfs and assertions
   when (io.arbiter.xfReq.tidx.fire()) {
     val idx = io.arbiter.xfReq.tidx.bits
-    printfInfo("DANA TTable: XF scheduled tidx 0d%d (ASID:0x%x/TID:0x%x)\n",
+    printfInfo("XF scheduled tidx 0d%d (ASID:0x%x/TID:0x%x)\n",
       idx, table(idx).asid, table(idx).tid)
   }
 
   when (io.arbiter.xfResp.tidx.fire()) {
     val flags = io.arbiter.xfResp.flags
     when (flags.input | flags.output) {
-      printfInfo("DANA TTable: Deschedule T0d%d with flags VDIO/%b%b%b%b\n",
+      printfInfo("Deschedule T0d%d with flags VDIO/%b%b%b%b\n",
         io.arbiter.xfResp.tidx.bits, flags.valid, flags.done, flags.input,
         flags.output)
     } .otherwise {
-      printfInfo("DANA TTable: Reschedule T0d%d with flags VDIO/%b%b%b%b\n",
+      printfInfo("Reschedule T0d%d with flags VDIO/%b%b%b%b\n",
         io.arbiter.xfResp.tidx.bits, flags.valid, flags.done, flags.input,
         flags.output)
     }
@@ -807,7 +804,7 @@ class DanaTransactionTableLearn(implicit p: Parameters)
       is (e_TTABLE_WRITE_REG_LEARNING_RATE) { e.learningRate := cmd.regValue }
       is (e_TTABLE_WRITE_REG_WEIGHT_DECAY_LAMBDA) { e.lambda := cmd.regValue }
     }
-    printfInfo("DANA TTable: saw reg write TID/Reg/Value 0x%x/0x%x/0x%x\n",
+    printfInfo("saw reg write TID/Reg/Value 0x%x/0x%x/0x%x\n",
       cmd.tid, cmd.regId, cmd.regValue)
     assert(!(cmd.regId > e_TTABLE_WRITE_REG_WEIGHT_DECAY_LAMBDA),
       "DANA TTable: saw unexpected regWrite regId")
@@ -827,7 +824,7 @@ class DanaTransactionTableLearn(implicit p: Parameters)
         entry.needsInputs := false.B
         entry.needsOutputs := true.B
       }
-      printfInfo("DANA TTable:     (transactionType:0x%x)\n",
+      printfInfo("    (transactionType:0x%x)\n",
         transactionType)
     }
 
@@ -852,7 +849,7 @@ class DanaTransactionTableLearn(implicit p: Parameters)
         io.arbiter.xfResp.tidx.valid := true.B
         io.arbiter.xfResp.flags.set("vi")
         entry.validIO := false.B
-        printfInfo("DANA TTable: Entry 0d%d needs OUTPUTS, but In Queue not ready\n",
+        printfInfo("Entry 0d%d needs OUTPUTS, but In Queue not ready\n",
           ioArbiter.chosen)
       } .otherwise {
         // io.arbiter.xfResp.tidx.valid := true.B
@@ -864,7 +861,7 @@ class DanaTransactionTableLearn(implicit p: Parameters)
         io.regFile.req.bits.addr := entry.indexElement
         val data = io.arbiter.xfQueue.in.bits.rs2
         io.regFile.req.bits.data := data
-        printfInfo("DANA TTable: T0d%d got (E[OUTPUT]:0x%x) from queue\n",
+        printfInfo("T0d%d got (E[OUTPUT]:0x%x) from queue\n",
           ioArbiter.chosen, data)
 
         when (isLast) {
@@ -877,7 +874,7 @@ class DanaTransactionTableLearn(implicit p: Parameters)
           entry.regFileAddrInFixed := nextIndexBlock
           entry.regFileAddrOut := nextIndexBlock
           entry.numOutputs := entry.indexElement + 1.U
-          printfInfo("DANA TTable: Saving numOutputs 0d%d\n", entry.indexElement)
+          printfInfo("Saving numOutputs 0d%d\n", entry.indexElement)
         } .otherwise {
           entry.indexElement := entry.indexElement + 1.U
         }
@@ -904,13 +901,13 @@ class DanaTransactionTableLearn(implicit p: Parameters)
         entry.flags.valid := false.B
         entry.flags.done := false.B
         entry.needsOutputs := true.B
-        printfInfo("DANA TTable: Learn TX batch done\n")
+        printfInfo("Learn TX batch done\n")
       }
 
-      printfInfo("DANA TTable: entry.flags.done asserted\n")
-      printfInfo("DANA TTable:   finished: %d\n", finished)
-      printfInfo("DANA TTable:   entry.readIdx: %d\n", entry.readIdx)
-      printfInfo("DANA TTable:   entry.numOutputs: %d\n", entry.numOutputs)
+      printfInfo("entry.flags.done asserted\n")
+      printfInfo("  finished: %d\n", finished)
+      printfInfo("  entry.readIdx: %d\n", entry.readIdx)
+      printfInfo("  entry.numOutputs: %d\n", entry.numOutputs)
     }
   }
 
@@ -928,8 +925,7 @@ class DanaTransactionTableLearn(implicit p: Parameters)
             errorFunctionWidth - 1, 0)
           table(tIdx).numWeightBlocks := io.control.resp.bits.data(5)
           printfInfo("  error function:          0x%x\n",
-            io.control.resp.bits.data(2)(
-              errorFunctionWidth - 1, 0))
+            io.control.resp.bits.data(2)(errorFunctionWidth - 1, 0))
           printfInfo("  learning rate:           0x%x (NOT SET)\n",
             io.control.resp.bits.data(3))
           printfInfo("  lambda:                  0x%x (NOT SET)\n",
@@ -1059,7 +1055,7 @@ class DanaTransactionTableLearn(implicit p: Parameters)
             }
             is(e_TTABLE_STATE_LEARN_WEIGHT_UPDATE){
               when(table(tIdx).transactionType === e_TTYPE_BATCH){
-                printfInfo("DANA TTable Layer Update, state == LEARN_WEIGHT_UPDATE\n")
+                printfInfo("Layer Update, state == LEARN_WEIGHT_UPDATE\n")
                 when (table(tIdx).currentLayer === 0.U){
                   table(tIdx).regFileAddrDW := table(tIdx).regFileAddrInFixed
                   table(tIdx).regFileAddrIn := table(tIdx).regFileAddrInFixed +

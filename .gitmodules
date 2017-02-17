@@ -10,3 +10,6 @@
 [submodule "util/hdl-tools"]
 	path = util/hdl-tools
 	url = ../hdl-tools
+[submodule "src/main/scala/perfect"]
+	path = src/main/scala/perfect
+	url = ../perfect-chisel

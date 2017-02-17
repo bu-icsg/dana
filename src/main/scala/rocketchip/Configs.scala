@@ -5,7 +5,7 @@ package rocketchip
 import chisel3._
 import uncore.util.CacheName
 import rocket._
-import xfiles.{XFiles, XFilesDebugConfig, DefaultXFilesConfig}
+import xfiles.{XFiles, DefaultXFilesConfig}
 import dana.{DefaultDanaConfig, DanaNoLearningConfig, DanaConfig, PeTableNumEntries, ElementsPerBlock}
 import coreplex.WithL2Cache
 import config._
@@ -55,9 +55,8 @@ class XFilesDanaNoLearningSmallScratchpadVLSIConfig extends Config(
     new DefaultConfig)
 
 // CPP Configs (these are the same as VLSI Configs)
-class XFilesDanaCPPConfig extends Config(new XFilesDebugConfig ++
-  new XFilesDanaConfig ++ new DefaultXFilesDanaConfig ++
-  new DefaultConfig)
+class XFilesDanaCPPConfig extends Config(new XFilesDanaConfig ++
+  new DefaultXFilesDanaConfig ++ new DefaultConfig)
 
 class XFilesDanaNoLearningCPPConfig extends Config(
   new DanaNoLearningConfig ++ new XFilesDanaCPPConfig)

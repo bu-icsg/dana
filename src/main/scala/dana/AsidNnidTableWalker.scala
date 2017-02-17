@@ -59,6 +59,7 @@ class AsidNnidTableWalker(implicit p: Parameters) extends DanaModule()(p)
     with XFilesSupervisorRequests with HasTileLinkParameters
     with AntParameters {
   val io = IO(new AsidNnidTableWalkerInterface)
+  override val printfSigil = "xfiles.ANTW: "
   val antpReg = Reg(new antp)
 
   val (s_IDLE :: s_CHECK_ASID :: s_GET_VALID_NNIDS :: s_GET_NN_POINTER ::
@@ -109,7 +110,7 @@ class AsidNnidTableWalker(implicit p: Parameters) extends DanaModule()(p)
     antpReg.valid := true.B
     antpReg.antp := io.xfiles.rocc.cmd.bits.rs1
     antpReg.size := io.xfiles.rocc.cmd.bits.rs2
-    printfInfo("ANTW changing ANTP to 0x%x with size 0x%x\n",
+    printfInfo("changing ANTP to 0x%x with size 0x%x\n",
       io.xfiles.rocc.cmd.bits.rs1, io.xfiles.rocc.cmd.bits.rs2) }
 
   io.xfiles.rocc.resp.bits.rd := io.xfiles.rocc.cmd.bits.inst.rd
@@ -118,12 +119,12 @@ class AsidNnidTableWalker(implicit p: Parameters) extends DanaModule()(p)
   io.xfiles.rocc.resp.valid := io.xfiles.rocc.cmd.fire() && updateAntp
 
   when (io.xfiles.rocc.resp.valid) {
-    printfInfo("ANTW: Responding to core R%d with data 0x%x\n",
+    printfInfo("Responding to core R%d with data 0x%x\n",
       io.xfiles.rocc.resp.bits.rd, io.xfiles.rocc.resp.bits.data) }
 
   // New cache requests get entered on the queue
   when (io.cache.req.fire()) {
-    printfInfo("ANTW: Enqueue mem req ASID/NNID/Idx 0x%x/0x%x/0x%x\n",
+    printfInfo("Enqueue mem req ASID/NNID/Idx 0x%x/0x%x/0x%x\n",
       io.cache.req.bits.asid, io.cache.req.bits.nnid,
       io.cache.req.bits.cacheIndex) }
 
@@ -194,13 +195,13 @@ class AsidNnidTableWalker(implicit p: Parameters) extends DanaModule()(p)
   }
 
   when (acq.fire()) {
-    printfInfo("ANTW: AUTL ACQ.%d | addr 0x%x, addr_block 0x%x, addr_beat 0x%x, addr_byte 0x%x\n",
+    printfInfo("AUTL ACQ.%d | addr 0x%x, addr_block 0x%x, addr_beat 0x%x, addr_byte 0x%x\n",
       acq.bits.a_type, autlAddr, acq.bits.addr_block, acq.bits.addr_beat,
       acq.bits.addr_byte())
   }
 
   when (gnt.fire()) {
-    printfInfo("ANTW: AUTL GNT | data 0x%x, addr_beat 0x%x, addr_word 0x%x, word 0x%x\n",
+    printfInfo("AUTL GNT | data 0x%x, addr_beat 0x%x, addr_word 0x%x, word 0x%x\n",
       gnt.bits.data, gnt.bits.addr_beat, autlAddrWord_d, autlDataWord)
   }
 
@@ -221,7 +222,7 @@ class AsidNnidTableWalker(implicit p: Parameters) extends DanaModule()(p)
 
     configRob.valid map (x => x := false.B)
 
-    printfInfo("ANTW: Dequeue mem req ASID/NNID/Idx 0x%x/0x%x/0x%x\n",
+    printfInfo("Dequeue mem req ASID/NNID/Idx 0x%x/0x%x/0x%x\n",
       deq.asid, deq.nnid, deq.cacheIndex)
   }
 
@@ -312,13 +313,13 @@ class AsidNnidTableWalker(implicit p: Parameters) extends DanaModule()(p)
     configRob.data(beatOffset) := gnt.bits.data
     configRob.valid(beatOffset) := true.B
 
-    printfInfo("ANTW: feedConfigRob[%d] data 0x%x\n", beatOffset, gnt.bits.data)
-    printfInfo("ANTW:   autlAddrWithBeat_d 0x%x, (%d, %d) 0x%x\n",
+    printfInfo("feedConfigRob[%d] data 0x%x\n", beatOffset, gnt.bits.data)
+    printfInfo("  autlAddrWithBeat_d 0x%x, (%d, %d) 0x%x\n",
       autlAddrWithBeat_d,
       (tlByteAddrBits + log2Up(beatsPerResp) - 1).U, tlByteAddrBits.U,
       autlAddrWithBeat_d(tlByteAddrBits + log2Up(beatsPerResp) - 1, tlByteAddrBits))
     assert(!(configRob.valid(beatOffset) & !io.cache.resp.valid),
-      "ANTW: overwrite occurred in configRob" )
+      printfSigil ++ "overwrite occurred in configRob" )
   }
 
   // We need to look at the Config ROB and determine if anything is
@@ -341,9 +342,9 @@ class AsidNnidTableWalker(implicit p: Parameters) extends DanaModule()(p)
     }
 
     (0 until configRob.valid.length).map(i => configRob.valid(i) := false.B)
-    printfInfo("ANTW: Cache[%d] Resp: done 0x%x, addr 0x%x, data 0x%x\n",
+    printfInfo("Cache[%d] Resp: done 0x%x, addr 0x%x, data 0x%x\n",
       cacheIdx, done, cacheAddr, configRob.data.asUInt)
-    printfInfo("ANTW:   cacheAddr/configSize/cS>>cbs 0x%x/0x%x/0x%x\n",
+    printfInfo("  cacheAddr/configSize/cS>>cbs 0x%x/0x%x/0x%x\n",
       cacheAddr, configSize, (configSize >> log2Up(configBufSize).U) - 1.U)
   }
 
@@ -355,7 +356,7 @@ class AsidNnidTableWalker(implicit p: Parameters) extends DanaModule()(p)
 
     when (acq.fire()) {
       configReqCount := configReqCount + (tlDataBits / xLen * tlDataBeats).U
-      printfInfo("ANTW: configReqCount 0x%x\n", configReqCount + (tlDataBits / xLen).U)
+      printfInfo("configReqCount 0x%x\n", configReqCount + (tlDataBits / xLen).U)
     }
 
     when (gnt.fire()) {
@@ -364,7 +365,7 @@ class AsidNnidTableWalker(implicit p: Parameters) extends DanaModule()(p)
 
     when (gnt.fire() & gnt.bits.addr_beat === (tlDataBeats - 1).U) {
       configPointer := configPointer + (1.U << autlBlockOffset)
-      printfInfo("ANTW: configPointer 0x%x\n",
+      printfInfo("configPointer 0x%x\n",
         configPointer + (1.U << autlBlockOffset)) }
   }
 
@@ -385,21 +386,21 @@ class AsidNnidTableWalker(implicit p: Parameters) extends DanaModule()(p)
     // Table and kill whatever is there?
 
     state := s_IDLE
-    printfError("ANTW: Exception code 0d%d\n", interruptCode.bits)
+    printfError("Exception code 0d%d\n", interruptCode.bits)
   }
 
   assert(!((state === s_INTERRUPT) & (interruptCode.bits > int_MISALIGNED.U)),
-    "ANTW: hit interrupt")
+    printfSigil ++ "hit interrupt")
   val interruptDelay = Module(new Pipe(UInt(1.W), 500))
   interruptDelay.io.enq.valid := state === s_INTERRUPT
   // assert(!(interruptDelay.io.deq.valid), "ANTW: hit interrupt")
 
   when (io.xfiles.dcache.mem.req.fire()) {
-    printfInfo("ANTW: Mem req to core with tag 0x%x for addr 0x%x\n",
+    printfInfo("Mem req to core with tag 0x%x for addr 0x%x\n",
       io.xfiles.dcache.mem.req.bits.tag, io.xfiles.dcache.mem.req.bits.addr) }
 
   when (io.xfiles.dcache.mem.resp.fire()) {
-    printfInfo("ANTW: Mem resp from Core with tag 0x%x data 0x%x\n",
+    printfInfo("Mem resp from Core with tag 0x%x data 0x%x\n",
       io.xfiles.dcache.mem.resp.bits.tag,
       io.xfiles.dcache.mem.resp.bits.data_word_bypass) }
 
@@ -411,13 +412,13 @@ class AsidNnidTableWalker(implicit p: Parameters) extends DanaModule()(p)
 
   // Assertions
   assert(!(io.cache.req.fire() && !io.cache.req.ready),
-    "ANTW saw a cache request, but it's cache queue is full")
+    printfSigil ++ "saw a cache request, but it's cache queue is full")
   assert(!(RegNext(RegNext(RegNext(state === s_ERROR)))),
-    "ANTW is in an error state")
+    printfSigil ++ "is in an error state")
   assert((isPow2(configBufSize)).B,
-    "ANTW derived parameter configBufSize must be a power of 2")
+    printfSigil ++ "derived parameter configBufSize must be a power of 2")
   // Outbound memory requests shouldn't try to read NULL
   assert(!(io.xfiles.dcache.mem.req.valid &&
     io.xfiles.dcache.mem.req.bits.addr === 0.U),
-    "INTERRUPT: ANTW tried to read from NULL")
+    printfSigil ++ "INTERRUPT: ANTW tried to read from NULL")
 }

@@ -122,6 +122,9 @@ class ControlInterfaceLearn(implicit p: Parameters)
 
 class ControlBase(implicit p: Parameters) extends DanaModule()(p) {
   lazy val io = IO(new ControlInterface)
+
+  override val printfSigil = "dana.Control: "
+
   // Transaction Table connections
   io.tTable.req.ready := true.B
 
@@ -131,6 +134,7 @@ class ControlBase(implicit p: Parameters) extends DanaModule()(p) {
   io.tTable.resp.bits.field := 0.U
   io.tTable.resp.bits.data := io.cache.resp.bits.data
   io.tTable.resp.bits.tableIndex := io.cache.resp.bits.tableIndex
+  io.tTable.resp.bits.tableMask := io.cache.resp.bits.tableMask
   io.tTable.resp.bits.decimalPoint := io.cache.resp.bits.decimalPoint
   io.tTable.resp.bits.cacheValid := io.cache.resp.valid
   io.tTable.resp.bits.layerValidIndex := io.regFile.resp.bits.tIdx
@@ -187,6 +191,7 @@ class ControlBase(implicit p: Parameters) extends DanaModule()(p) {
     !io.tTable.req.bits.needsLayerInfo && io.peTable.req.ready
 
   io.cache.req.valid := cacheLoad || cacheLayer || cacheDone
+
   when (cacheLoad) {
     io.cache.req.bits.request := e_CACHE_LOAD } .elsewhen(cacheLayer) {
     io.cache.req.bits.request := e_CACHE_LAYER_INFO } .elsewhen(cacheDone) {

@@ -59,13 +59,13 @@ class ProcessingElementInterfaceLearn(implicit p: Parameters)
 }
 
 class ProcessingElement(id: Int = 0)(implicit p: Parameters) extends DanaModule()(p) {
-  override val printfSigil = "PE[" + id + "]: "
+  override val printfSigil = "dana.PE[" + id + "]: "
 
   // Interface to the PE Table
   lazy val io = IO(new ProcessingElementInterface)
 
   // Activation Function module
-  lazy val af = Module(new ActivationFunction)
+  lazy val af = Module(new ActivationFunction(id))
 
   val index    = Reg(UInt(8.W)) // [TODO] fragile, should match numWeights
   val acc      = Reg(SInt(elementWidth.W))
@@ -200,13 +200,14 @@ class ProcessingElement(id: Int = 0)(implicit p: Parameters) extends DanaModule(
     }
   }
 
-  assert (!(state === PE_states('e_PE_ERROR)), "[ERROR] " ++ printfSigil ++ "is in error state\n")
+  assert (!(state === PE_states('e_PE_ERROR)), printfSigil ++
+    "is in error state\n")
 }
 
 class ProcessingElementLearn(id: Int = 0)(implicit p: Parameters)
     extends ProcessingElement(id)(p) {
   override lazy val io = IO(new ProcessingElementInterfaceLearn)
-  override lazy val af = Module(new ActivationFunctionLearn)
+  override lazy val af = Module(new ActivationFunctionLearn(id))
 
   val weightWB        = Reg(Vec(elementsPerBlock, SInt(elementWidth.W)))
   val derivative      = Reg(SInt(elementWidth.W)) //delta
@@ -543,5 +544,5 @@ class ProcessingElementLearn(id: Int = 0)(implicit p: Parameters)
   assert(!(io.req.bits.tType === e_TTYPE_INCREMENTAL &&
     (state === PE_states('e_PE_SLOPE_WB) ||
       state === PE_states('e_PE_SLOPE_BIAS_WB))),
-    "[ERROR] " ++ printfSigil ++ "PE entered a disallowed state for incremental learning")
+    printfSigil ++ "PE entered a disallowed state for incremental learning")
 }

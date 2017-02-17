@@ -24,6 +24,8 @@ class DebugUnit(id: Int = 0)(implicit p: Parameters) extends XFilesModule()(p)
   with HasTileLinkParameters {
   val io = IO(new DebugUnitInterface)
 
+  override val printfSigil = "xfiles.DebugUnit[" + id + "]: "
+
   val a_ = Enum(UInt(), List('REG, 'MEM_READ, 'MEM_WRITE, 'VIRT_TO_PHYS,
     'UTL_READ, 'UTL_WRITE))
   val s_ = Enum(UInt(), List('IDLE, 'REG, 'MEM_REQ, 'MEM_WAIT, 'TRANSLATE_REQ,
@@ -109,7 +111,7 @@ class DebugUnit(id: Int = 0)(implicit p: Parameters) extends XFilesModule()(p)
   when (state === s_('TRANSLATE_RESP)) {
     val offset = addr_d(pgIdxBits - 1, 0)
     io.resp.bits.data := Mux(pte.leaf(), Cat(pte.ppn, offset), ~0.U(xLen.W))
-    printfDebug("DUnit[%d]: Seeing: 0x%x\n", id.U, pte.ppn)
+    printfDebug("Seeing: 0x%x\n", pte.ppn)
     state := s_('IDLE)
   }
 
@@ -157,52 +159,51 @@ class DebugUnit(id: Int = 0)(implicit p: Parameters) extends XFilesModule()(p)
     io.resp.bits.data := Mux(action_d === a_('UTL_READ),
       utlDataGetVec(addr_word), 0.U)
     state := s_('IDLE)
-    printfDebug("DUnit[%d]: tlBeatAddrBits: 0d%d\n", id.U, tlBeatAddrBits.U)
-    printfDebug("DUnit[%d]: tlByteAddrBits: 0d%d\n", id.U, tlByteAddrBits.U)
-    printfDebug("DUnit[%d]: tlDataBytes:    0d%d\n", id.U, (log2Up(tlDataBytes)).U)
-    printfDebug("DUnit[%d]: addr_word       0d%d\n", id.U, addr_word)
-    printfDebug("DUnit[%d]: log2Up(xLen):   0d%d\n", id.U, (log2Up(xLen/8).U))
+    printfDebug("tlBeatAddrBits: 0d%d\n", tlBeatAddrBits.U)
+    printfDebug("tlByteAddrBits: 0d%d\n", tlByteAddrBits.U)
+    printfDebug("tlDataBytes:    0d%d\n", (log2Up(tlDataBytes)).U)
+    printfDebug("addr_word       0d%d\n", addr_word)
+    printfDebug("log2Up(xLen):   0d%d\n", (log2Up(xLen/8).U))
   }
 
   when (io.autl.acquire.fire()) {
     val data = io.autl.acquire.bits
-    printfDebug("DUnit[%d]: autl.acquire.fire | addr_d 0x%x, addr_block 0x%x, addr_beat 0x%x, addr_byte 0x%x, data 0x%x, wmask 0x%x\n",
-      id.U, addr_d, data.addr_block, data.addr_beat, data.addr_byte(),
-      data.data, data.wmask())
+    printfDebug("autl.acquire.fire | addr_d 0x%x, addr_block 0x%x, addr_beat 0x%x, addr_byte 0x%x, data 0x%x, wmask 0x%x\n",
+      addr_d, data.addr_block, data.addr_beat, data.addr_byte(), data.data,
+      data.wmask())
 
     (0 until tlDataBits/xLen).map(i =>
-      printfDebug("DUnit[%d]:                   | utlDataPutVec(%d): 0x%x\n",
-        id.U, i.U, utlDataPutVec(i)))
+      printfDebug("                  | utlDataPutVec(%d): 0x%x\n", i.U,
+        utlDataPutVec(i)))
   }
 
   when (state === s_('UTL_GRANT) & io.autl.grant.fire()) {
-    printfDebug("DUnit[%d]: autl.grant.fire   | data 0x%x, beat 0x%x\n",
-      id.U, io.autl.grant.bits.data, io.autl.grant.bits.addr_beat) }
+    printfDebug("autl.grant.fire   | data 0x%x, beat 0x%x\n",
+      io.autl.grant.bits.data, io.autl.grant.bits.addr_beat) }
 
   when (ptw.req.fire()) {
-    printfDebug("DUnit[%d]: ptw.req.fire | addr_v 0x%x\n", id.U,
-      ptw.req.bits.addr) }
+    printfDebug("ptw.req.fire | addr_v 0x%x\n", ptw.req.bits.addr) }
 
   when (state === s_('TRANSLATE_WAIT) & ptw.resp.fire()) {
-    printfDebug("DUnit[%d]: ptw.resp.fire\n", id.U) }
+    printfDebug("ptw.resp.fire\n") }
 
   when (io.mem.req.fire()) {
-    printfDebug("DUnit[%d]: mem.req.fire | addr 0x%x, tag 0x%x, cmd 0x%x, data0x%x\n",
-      id.U, io.mem.req.bits.addr, io.mem.req.bits.tag, io.mem.req.bits.cmd,
+    printfDebug("mem.req.fire | addr 0x%x, tag 0x%x, cmd 0x%x, data0x%x\n",
+      io.mem.req.bits.addr, io.mem.req.bits.tag, io.mem.req.bits.cmd,
       io.mem.req.bits.data) }
 
   when (state === s_('MEM_WAIT) & io.mem.resp.fire()) {
-    printfDebug("DUnit[%d]: mem.resp.fire | addr 0x%x, data 0x%x\n", id.U,
+    printfDebug("mem.resp.fire | addr 0x%x, data 0x%x\n",
       io.mem.resp.bits.addr, io.mem.resp.bits.data) }
 
   when (io.resp.fire()) {
-    printfDebug("DUnit[%d]: io.resp.fire | rd 0x%x, data 0x%x\n", id.U,
+    printfDebug("io.resp.fire | rd 0x%x, data 0x%x\n",
       io.resp.bits.rd, io.resp.bits.data) }
 
   when (isDebug) {
-    printfDebug("DUnit[%d]: isDebug | funct 0x%x, rs1 0x%x, rs2 0x%x, action 0x%x\n",
-      id.U, funct, rs1, rs2, action)
-    printfDebug("                  | rd_d 0x%x, action_d 0x%x, data_d 0x%x, addr_d 0x%x\n",
+    printfDebug("isDebug | funct 0x%x, rs1 0x%x, rs2 0x%x, action 0x%x\n",
+      funct, rs1, rs2, action)
+    printfDebug("        | rd_d 0x%x, action_d 0x%x, data_d 0x%x, addr_d 0x%x\n",
     inst.rd, action, data, rs2)
   }
 }

@@ -87,7 +87,7 @@ class XFilesTransactionTable(implicit p: Parameters) extends XFilesModule()(p)
     // val backend = (new XFilesTransactionTableCmdResp).flip
   })
 
-  override val printfSigil = "XF.TTable: "
+  override val printfSigil = "xfiles.TTable: "
 
   val queueSize = p(TransactionTableQueueSize)
 
