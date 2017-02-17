@@ -65,4 +65,21 @@ uint64_t read_data_spinlock(tid_type tid,
 // Forcibly kill a running transaction
 xlen_t kill_transaction(tid_type tid);
 
+// Run feedforward inference on one input--output pair
+xlen_t transaction_feedforward(nnid_type nnid,
+                               element_type * addr_i,
+                               element_type * addr_o,
+                               int num_inputs,
+                               int num_outputs);
+
+// Run over an input--output dataset for a given NNID, returning the
+// number of differences with the expected output
+xlen_t xfiles_fann_run_compare(nnid_type nnid,
+                               element_type * addr_i,
+                               element_type * addr_o,
+                               element_type * addr_e,
+                               int num_inputs,
+                               int num_outputs,
+                               int num_data);
+
 #endif  // XFILES_DANA_LIBS_SRC_XFILES_USER_H_
