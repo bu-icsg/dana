@@ -1,10 +1,10 @@
 # See LICENSE.ibm for license details.
 
 #*****************************************************************************
-# id.S
+# xorSigmoidSymmetric.S
 #-----------------------------------------------------------------------------
 #
-# Check that the ID matches what we expect
+# Single transaction test of xorSigmoidSymmetric
 #
 
 #include "riscv_test.h"
@@ -34,7 +34,11 @@ start:
 
 RVTEST_CODE_BEGIN
 
-  FANN_TEST(0, 0, 2, 1, 4, data_in, data_out, data_expected);
+#ifndef SMP
+  FANN_TEST_CC(0, 2, 1, 4, data_in, data_out, data_expected);
+#else
+  FANN_TEST_SMP_CC(0, 2, 1, 4, data_in, data_out, data_expected);
+#endif  // SMP
 
   TEST_PASSFAIL
 
