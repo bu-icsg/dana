@@ -43,12 +43,14 @@ LIB_PATHS = \
 	$(DIR_TOP)/tests/libs/build/$(TARGET)
 LIBS      = fann m
 LIBS_F    = fixedfann m
-LFLAGS    = $(addprefix -Wl$(COMMA)-R, $(shell readlink -f $(LIB_PATHS))) \
-            $(addprefix -L, $(LIB_PATHS)) \
-            $(addprefix -l, $(LIBS))
-LFLAGS_F    = $(addprefix -Wl$(COMMA)-R, $(shell readlink -f $(LIB_PATHS))) \
-            $(addprefix -L, $(LIB_PATHS)) \
-            $(addprefix -l, $(LIBS_F))
+LFLAGS    = \
+	$(addprefix -Wl$(COMMA)-R, $(shell echo $(LIB_PATHS) | xargs -n1 readlink -f)) \
+	$(addprefix -L, $(LIB_PATHS)) \
+	$(addprefix -l, $(LIBS))
+LFLAGS_F    = \
+	$(addprefix -Wl$(COMMA)-R, $(shell echo $(LIB_PATHS) | xargs -n1 readlink -f)) \
+	$(addprefix -L, $(LIB_PATHS)) \
+	$(addprefix -l, $(LIBS_F))
 
 $(DIR_BIN)/generate-ant: $(DIR_BIN)/generate-ant.o $(DIR_TOP)/tests/libs/build/$(TARGET)/libxfiles-ant.a $(libfann_dep)
 	$(CC) $(CFLAGS) $< $(LFLAGS) -lxfiles-ant -o $@
