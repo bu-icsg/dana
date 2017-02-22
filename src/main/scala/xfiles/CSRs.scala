@@ -52,7 +52,6 @@ abstract class CSRFile(implicit p: Parameters) extends XFilesModule()(p)
   val reg_ttable_size = Reg(init = transactionTableNumEntries.U)
   val reg_asid = Reg(UInt(asidWidth.W), init = ~(0.U(asidWidth.W)))
   val reg_tid = Reg(UInt(tidWidth.W))
-  val reg_xfstatus = Reg(init = new XFStatus().fromBits(0.U))
 
   val read_mapping = collection.mutable.LinkedHashMap[Int, Bits] (
     CSRs.exception    -> reg_exception,
@@ -91,8 +90,4 @@ abstract class CSRFile(implicit p: Parameters) extends XFilesModule()(p)
   io.status.asid := reg_asid
   io.status.tid := reg_tid
   io.status.asidValid := reg_asid =/= ~(0.U(asidWidth.W))
-
-  val statusBits = reg_xfstatus.asUInt
-  when (statusBits =/= RegNext(statusBits)) {
-    printfInfo("Status change: 0x%x -> 0x%x\n", RegNext(statusBits), statusBits) }
 }
