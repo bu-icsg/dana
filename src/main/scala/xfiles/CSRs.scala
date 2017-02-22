@@ -48,17 +48,17 @@ abstract class CSRFile(implicit p: Parameters) extends XFilesModule()(p)
   lazy val io = IO(new CSRFileIO)
   override val printfSigil = "xfiles.CSRFile: "
 
-  val reg_exception = Reg(UInt(xLen.W), init = 0.U)
-  val reg_ttable_size = Reg(init = transactionTableNumEntries.U)
+  val reg_exception = Reg(init = 0.U(xLen.W))
+  val reg_ttable_size = Reg(init = transactionTableNumEntries.U(log2Up(transactionTableNumEntries + 1).W))
   val reg_asid = Reg(UInt(asidWidth.W), init = ~(0.U(asidWidth.W)))
   val reg_tid = Reg(UInt(tidWidth.W))
 
-  val read_mapping = collection.mutable.LinkedHashMap[Int, Bits] (
+  lazy val read_mapping = collection.mutable.LinkedHashMap[Int, Bits] (
     CSRs.exception    -> reg_exception,
     CSRs.ttable_size  -> reg_ttable_size,
     CSRs.xfid         -> transactionTableNumEntries.U ##
                          buildBackend.info.U((xLen - 16).W),
-    CSRs.xfid_current -> reg_ttable_size(15, 0) ## backendId,
+    CSRs.xfid_current -> reg_ttable_size.pad(16)(15, 0) ## backendId,
     CSRs.asid         -> reg_asid,
     CSRs.tid          -> reg_tid
   )

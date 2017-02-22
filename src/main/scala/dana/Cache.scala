@@ -39,7 +39,7 @@ class CacheMemInterface(implicit p: Parameters) extends DanaBundle()(p) {
   val resp = Valid(new CacheMemResp).flip
 }
 
-class CacheInterface(implicit p: Parameters) extends Bundle {
+class CacheInterface(implicit p: Parameters) extends DanaStatusIO()(p) {
   val mem          = new CacheMemInterface
   lazy val control = (new ControlCacheInterface).flip
   lazy val pe      = (new PECacheInterface).flip

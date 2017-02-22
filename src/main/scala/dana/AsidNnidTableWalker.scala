@@ -27,10 +27,9 @@ class ANTWXFilesInterface(implicit p: Parameters) extends DanaBundle()(p) {
     val mem     = new HellaCacheIO()(p.alterPartial({ case CacheName => "L1D" }))
   }
   val interrupt = Valid(new InterruptBundle)
-  val status = Input(new DanaStatus)
 }
 
-class AsidNnidTableWalkerInterface(implicit p: Parameters) extends DanaBundle()(p) {
+class AsidNnidTableWalkerInterface(implicit p: Parameters) extends DanaStatusIO()(p) {
   val cache     = (new CacheMemInterface).flip
   val xfiles    = new ANTWXFilesInterface
 }
@@ -171,7 +170,7 @@ class AsidNnidTableWalker(implicit p: Parameters) extends DanaModule()(p)
   val hasCacheRequests = cacheReqQueue.io.count > 0.U
   val configRob = Reg(new ConfigRobEntry)
   cacheReqQueue.io.deq.ready := state === s_IDLE & hasCacheRequests
-  val antp = io.xfiles.status.antp
+  val antp = io.status.antp
   val antpValid = antp =/= ~(0.U(xLen.W))
   when (state === s_IDLE & hasCacheRequests) {
     // Pull data out of the cache request queue and save it in the
@@ -195,7 +194,7 @@ class AsidNnidTableWalker(implicit p: Parameters) extends DanaModule()(p)
   val nnid = cacheReqCurrent.nnid
   when (state === s_CHECK_ASID) {
     state := s_GET_VALID_NNIDS
-    when (asid >= io.xfiles.status.num_asids) {
+    when (asid >= io.status.num_asids) {
       state := s_INTERRUPT
       setInterrupt(int_INVASID)
     }

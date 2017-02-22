@@ -8,7 +8,7 @@ import scala.math.pow
 import xfiles.{TransactionTableNumEntries}
 import config._
 
-class RegisterFileInterface(implicit p: Parameters) extends DanaBundle()(p) {
+class RegisterFileInterface(implicit p: Parameters) extends DanaStatusIO()(p) {
   lazy val pe = (new PERegisterFileInterface).flip
   val control = (new ControlRegisterFileInterface).flip
   val tTable  = (new TTableRegisterFileInterface).flip

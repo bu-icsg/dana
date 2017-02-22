@@ -272,6 +272,8 @@ class Dana(implicit p: Parameters) extends XFilesBackend()(p)
 
   io.rocc.busy := false.B
 
+  List(cache, peTable, regFile, antw, tTable).map(_.io.status := io.status)
+
   // Wire everything up. Ordering shouldn't matter here.
   cache.io.control <> control.io.cache
   peTable.io.control <> control.io.peTable
@@ -282,7 +284,6 @@ class Dana(implicit p: Parameters) extends XFilesBackend()(p)
   antw.io.cache <> cache.io.mem
   io.rocc.mem <> antw.io.xfiles.dcache.mem
   io.rocc.autl <> antw.io.xfiles.autl
-  antw.io.xfiles.status := io.status
 
   // Arbitration between TTable and ANTW
   io.rocc.cmd.ready := tTable.io.arbiter.rocc.cmd.ready
@@ -345,6 +346,10 @@ class NnConfigNeuron(implicit p: Parameters) extends DanaBundle()(p) {
   val neuronsInPreviousLayer = UInt(neuronsInPrevLayerWidth.W)
   val neuronsInLayer         = UInt(neuronsInLayerWidth.W)
   val neuronPointer          = UInt(neuronPointerWidth.W)
+}
+
+class DanaStatusIO(implicit p: Parameters) extends DanaBundle()(p) {
+  val status = Input(new DanaStatus)
 }
 
 trait UsrCmdRs1 {

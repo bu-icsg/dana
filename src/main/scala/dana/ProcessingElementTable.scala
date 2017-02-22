@@ -72,7 +72,7 @@ class PETransactionTableInterfaceResp(implicit p: Parameters) extends DanaBundle
   val data                  = UInt(bitsPerBlock.W)
 }
 
-class PETableInterface(implicit p: Parameters) extends DanaBundle()(p) {
+class PETableInterface(implicit p: Parameters) extends DanaStatusIO()(p) {
   val control               = (new ControlPETableInterface).flip
   lazy val cache            = new PECacheInterface
   lazy val regFile          = new PERegisterFileInterface

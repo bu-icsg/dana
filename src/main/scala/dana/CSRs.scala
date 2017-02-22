@@ -18,9 +18,9 @@ class DanaStatus(implicit p: Parameters) extends xfiles.XFStatus()(p)
     with DanaParameters {
   val pes_active = UInt(log2Up(peTableNumEntries + 1).W)
   val cache_active = UInt(log2Up(cacheNumEntries + 1).W)
-  val pe_cooldown = UInt(log2Up(16).W)
+  val pe_cooldown = UInt(log2Up(16 + 1).W)
   val antp = UInt(xLen.W)
-  val num_asids = UInt(16.W)
+  val num_asids = UInt(p(xfiles.AsidWidth).W)
 }
 
 class CSRFileIO(implicit p: Parameters) extends xfiles.CSRFileIO()(p) {
@@ -30,11 +30,11 @@ class CSRFileIO(implicit p: Parameters) extends xfiles.CSRFileIO()(p) {
 class CSRFile(implicit p: Parameters) extends xfiles.CSRFile()(p) with DanaParameters {
   override lazy val io = IO(new dana.CSRFileIO)
 
-  lazy val reg_pe_size = Reg(init = peTableNumEntries.U(log2Up(peTableNumEntries + 1).W))
-  lazy val reg_cache_size = Reg(init = cacheNumEntries.U(log2Up(cacheNumEntries + 1).W))
-  lazy val reg_pe_cooldown = Reg(init = 0.U(log2Up(16).W))
+  lazy val reg_pe_size = Reg(init = p(PeTableNumEntries).U(log2Up(p(PeTableNumEntries)+1).W))
+  lazy val reg_cache_size = Reg(init = p(CacheNumEntries).U(log2Up(p(CacheNumEntries)+1).W))
+  lazy val reg_pe_cooldown = Reg(init = 0.U(log2Up(16 + 1).W))
   lazy val reg_antp = Reg(init = ~(0.U(xLen.W)))
-  lazy val reg_num_asids = Reg(init = 0.U(16.W))
+  lazy val reg_num_asids = Reg(init = 0.U(p(xfiles.AsidWidth).W))
 
   def backendId = ( p(ElementsPerBlock).U ## reg_pe_size.pad(6) ##
     reg_cache_size.pad(4) ).pad(48)
