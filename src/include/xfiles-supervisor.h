@@ -14,6 +14,9 @@ xlen_t set_asid(asid_type asid);
 xlen_t set_antp(ant_entry * antp, size_t size);
 
 // Read a csr from XFiles
-xlen_t xf_read_csr(xfiles_csr_t csr);
+xlen_t xf_read_csr(xlen_t csr);
+
+// Write (swap) a csr from XFiles
+xlen_t xf_write_csr(xlen_t csr, xlen_t val);
 
 #endif  // XFILES_DANA_LIBS_SRC_XFILES_SUPERVISOR_H_

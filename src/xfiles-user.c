@@ -2,6 +2,7 @@
 
 #include "src/include/xfiles-user.h"
 #include "src/include/xfiles-debug.h"
+#include "src/include/xfiles-supervisor.h"
 
 // All RoCC communication occurs using the "custom0" RISC-V
 // instruction of the following format:
@@ -18,14 +19,6 @@
 //
 //   |       [6:3]|       2|      1|            0|
 //   | **unused** | isLast | isNew | readOrWrite |
-
-xlen_t xfiles_dana_id() {
-  xlen_t out;
-
-  XFILES_INSTRUCTION_R_I_I(out, 0, 0, t_USR_XFILES_DANA_ID)
-
-  return out;
-}
 
 tid_type new_write_request(nnid_type nnid, learning_type_t learning_type,
                            element_type num_train_outputs) {
@@ -162,7 +155,7 @@ xlen_t xfiles_fann_run_smp_compare(nnid_type nnid,
   // Read the info block to figure out how many simultaneous
   // transactions we can support
   int failures = 0;
-  xlen_t id = xfiles_dana_id();
+  xlen_t id = xf_read_csr(csr_XFID_CURRENT);
   int entries = id >> (64 - 16);
   element_type * last = addr_i + num_inputs * num_data;
   element_type * first = addr_i;

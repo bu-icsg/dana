@@ -10,10 +10,6 @@
 #define SYSCALL_SET_ANTP 513
 #define SYSCALL_DEBUG_ECHO 514
 
-typedef enum {
-  csr_CAUSE = 0
-} xfiles_csr_t;
-
 typedef int16_t asid_type;
 
 // ASID--NNID Table Data Structure. To help clarify this, I'm
