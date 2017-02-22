@@ -12,7 +12,8 @@ src_dir = .
 
 tests = \
 	debug \
-	id
+	id \
+	csr
 
 tests_p = $(addprefix $(PREFIX)-p-, $(tests))
 
@@ -30,6 +31,7 @@ RISCV_GCC_OPTS ?= \
 	-DID_STRING=$(ID_STRING)
 RISCV_LD_OPTS ?= \
 	-lxfiles-user \
+	-lxfiles-supervisor \
 	-L$(abs_top_srcdir)/libs/build/$(RISCV_PREFIX)
 RISCV_OBJDUMP ?= \
 	$(RISCV_PREFIX)-objdump \
