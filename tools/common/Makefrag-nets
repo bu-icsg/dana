@@ -80,6 +80,9 @@ $(DIR_BUILD)/nets/%-float.net: $(FANN_RANDOM) $(DIR_BUILD)/fann/host/libfann.so 
 	`$(DIR_TOP)/usr/bin/find-net $* $(DIR_TOP)/tools/common/nets.txt` $@
 
 #--------------------------------------- Generate special training files
+$(DIR_BUILD)/nets/%-float.train: %.train | $(DIR_BUILD)/nets
+	ln -sf $< $@
+
 $(DIR_BUILD)/nets/parity-%-float.train: | $(DIR_BUILD)/nets
 	$(GEN_BOOLEAN_DATA) -n $* -f xor -s > $@
 
@@ -146,15 +149,6 @@ $(DIR_BUILD)/nets/%.128bin: $(DIR_BUILD)/nets/%.net $(WRITE_FANN_CONFIG) | $(DIR
 	$(WRITE_FANN_CONFIG) 128 $< $@ $(DECIMAL_POINT_OFFSET)
 
 #--------------------------------------- Training Files
-$(DIR_BUILD)/nets/%-fixed.train: src/main/resources/%.train $(DIR_BUILD)/nets/%-fixed.net $(NETS_TOOLS) | $(DIR_BUILD)/nets
-	$(FANN_TRAIN_TO_FIXED) $< $@ `grep decimal_point $(word 2,$^) | sed 's/^.\+=//'`
-
-$(DIR_BUILD)/nets/%-fixed.train: %.train $(DIR_BUILD)/nets/%-fixed.net $(NETS_TOOLS) | $(DIR_BUILD)/nets
-	$(FANN_TRAIN_TO_FIXED) $< $@ `grep decimal_point $(word 2,$^) | sed 's/^.\+=//'`
-
-# $(DIR_BUILD)/nets/sin-%-fixed.train: $(DIR_BUILD)/nets/sin-%-float.train $(DIR_BUILD)/nets/sin-fixed.net $(NETS_TOOLS)
-# 	$(FANN_TRAIN_TO_FIXED) $< $@ `grep decimal_point $(word 2,$^) | sed 's/^.\+=//'`
-
 $(DIR_BUILD)/nets/%-fixed.train: $(DIR_BUILD)/nets/%-float.train $(DIR_BUILD)/nets/%-fixed.net $(NETS_TOOLS) | $(DIR_BUILD)/nets
 	$(FANN_TRAIN_TO_FIXED) $< $@ `grep decimal_point $(word 2,$^) | sed 's/^.\+=//'`
 
