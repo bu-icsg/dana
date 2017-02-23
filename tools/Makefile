@@ -43,14 +43,12 @@ LIB_PATHS = \
 	$(DIR_TOP)/tests/libs/build/$(TARGET)
 LIBS      = fann m
 LIBS_F    = fixedfann m
-LFLAGS    = \
-	$(addprefix -Wl$(COMMA)-R, $(shell echo $(LIB_PATHS) | xargs -n1 readlink -f)) \
-	$(addprefix -L, $(LIB_PATHS)) \
-	$(addprefix -l, $(LIBS))
-LFLAGS_F    = \
-	$(addprefix -Wl$(COMMA)-R, $(shell echo $(LIB_PATHS) | xargs -n1 readlink -f)) \
-	$(addprefix -L, $(LIB_PATHS)) \
-	$(addprefix -l, $(LIBS_F))
+LFLAGS    = $(addprefix -Wl$(COMMA)-R, $(shell readlink -f $(LIB_PATHS))) \
+            $(addprefix -L, $(LIB_PATHS)) \
+            $(addprefix -l, $(LIBS))
+LFLAGS_F    = $(addprefix -Wl$(COMMA)-R, $(shell readlink -f $(LIB_PATHS))) \
+            $(addprefix -L, $(LIB_PATHS)) \
+            $(addprefix -l, $(LIBS_F))
 
 $(DIR_BIN)/generate-ant: $(DIR_BIN)/generate-ant.o $(DIR_TOP)/tests/libs/build/$(TARGET)/libxfiles-ant.a $(libfann_dep)
 	$(CC) $(CFLAGS) $< $(LFLAGS) -lxfiles-ant -o $@
@@ -60,6 +58,9 @@ $(DIR_BIN)/write-fann-config-for-accelerator: $(DIR_BIN)/write-fann-config-for-a
 
 $(DIR_BIN)/%-fixed: $(DIR_BIN)/%-fixed.o $(libfann_dep)
 	$(CC) $(CFLAGS) $< $(LFLAGS_F) -o $@
+
+$(DIR_BIN)/fann-float-to-fixed: $(DIR_BIN)/fann-float-to-fixed.o $(libfann_dep)
+	$(CC) $(CFLAGS) $< $(LFLAGS) -o $@
 
 $(DIR_BIN)/%: $(DIR_BIN)/%.o $(libfann_dep)
 	$(CC) $(CFLAGS) $< $(LFLAGS) -fopenmp -o $@
