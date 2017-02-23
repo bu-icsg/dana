@@ -14,6 +14,7 @@ case object ElementsPerBlock extends Field[Int]
 case object NnidWidth extends Field[Int]
 case object FeedbackWidth extends Field[Int]
 case object PeTableNumEntries extends Field[Int]
+case object PeCooldownWidth extends Field[Int]
 case object CacheNumEntries extends Field[Int]
 case object CacheDataSize extends Field[Int]
 case object RegisterFileNumElements extends Field[Int]
@@ -82,6 +83,7 @@ trait DanaParameters {
 
   // Processing Element Table
   val peTableNumEntries = p(PeTableNumEntries)
+  val peCooldownWidth = p(PeCooldownWidth)
   // Configuration Cache
   val cacheNumEntries = p(CacheNumEntries)
   val cacheDataSize = p(CacheDataSize)

@@ -18,7 +18,7 @@ class DanaStatus(implicit p: Parameters) extends xfiles.XFStatus()(p)
     with DanaParameters {
   val pes_active = UInt(log2Up(peTableNumEntries + 1).W)
   val caches_active = UInt(log2Up(cacheNumEntries + 1).W)
-  val pe_cooldown = UInt(log2Up(16 + 1).W)
+  val pe_cooldown = UInt(peCooldownWidth.W)
   val antp = UInt(xLen.W)
   val num_asids = UInt(p(xfiles.AsidWidth).W)
 }
@@ -32,7 +32,7 @@ class CSRFile(implicit p: Parameters) extends xfiles.CSRFile()(p) with DanaParam
 
   lazy val reg_pe_size = Reg(init = p(PeTableNumEntries).U(log2Up(p(PeTableNumEntries)+1).W))
   lazy val reg_cache_size = Reg(init = p(CacheNumEntries).U(log2Up(p(CacheNumEntries)+1).W))
-  lazy val reg_pe_cooldown = Reg(init = 0.U(log2Up(16 + 1).W))
+  lazy val reg_pe_cooldown = Reg(init = 0.U(p(PeCooldownWidth).W))
   lazy val reg_antp = Reg(init = ~(0.U(xLen.W)))
   lazy val reg_num_asids = Reg(init = 0.U(p(xfiles.AsidWidth).W))
 

@@ -191,7 +191,11 @@ class ProcessingElementTableBase[PeStateType <: ProcessingElementState,
   val nextFree = pe.indexWhere(fIsFree(_))
   val hasFree = pe.exists(fIsFree(_)) && nextFree < io.status.pes_active
 
-  io.control.req.ready := hasFree
+  val peCooldown = Reg(UInt(peCooldownWidth.W), init = 0.U)
+  when (io.control.req.fire()) { peCooldown := io.status.pe_cooldown }
+  when (peCooldown =/= 0.U)    { peCooldown := peCooldown - 1.U
+    printfInfo("Cooldown 0x%x\n", peCooldown) }
+  io.control.req.ready := hasFree & peCooldown === 0.U
 
   // Default values for Cache interface
   io.cache.req.valid := false.B
