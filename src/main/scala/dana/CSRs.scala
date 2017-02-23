@@ -12,6 +12,12 @@ object CSRs {
   val pe_cooldown = 0x12
   val antp = 0x13
   val num_asids = 0x14
+  val pe_governor = 0x15
+}
+
+object PeGovernor {
+  val cooldown = 0x0
+  val backoff_linear = 0x1
 }
 
 class DanaStatus(implicit p: Parameters) extends xfiles.XFStatus()(p)
@@ -21,6 +27,7 @@ class DanaStatus(implicit p: Parameters) extends xfiles.XFStatus()(p)
   val pe_cooldown = UInt(peCooldownWidth.W)
   val antp = UInt(xLen.W)
   val num_asids = UInt(p(xfiles.AsidWidth).W)
+  val pe_governor = UInt(1.W)
 }
 
 class CSRFileIO(implicit p: Parameters) extends xfiles.CSRFileIO()(p) {
@@ -35,6 +42,7 @@ class CSRFile(implicit p: Parameters) extends xfiles.CSRFile()(p) with DanaParam
   lazy val reg_pe_cooldown = Reg(init = 0.U(p(PeCooldownWidth).W))
   lazy val reg_antp = Reg(init = ~(0.U(xLen.W)))
   lazy val reg_num_asids = Reg(init = 0.U(p(xfiles.AsidWidth).W))
+  lazy val reg_pe_governor = Reg(init = 0.U(1.W))
 
   def backendId = ( p(ElementsPerBlock).U ## reg_pe_size.pad(6) ##
     reg_cache_size.pad(4) ).pad(48)
@@ -44,7 +52,8 @@ class CSRFile(implicit p: Parameters) extends xfiles.CSRFile()(p) with DanaParam
     CSRs.cache_size  -> reg_cache_size,
     CSRs.pe_cooldown -> reg_pe_cooldown,
     CSRs.antp        -> reg_antp,
-    CSRs.num_asids   -> reg_num_asids
+    CSRs.num_asids   -> reg_num_asids,
+    CSRs.pe_governor -> reg_pe_governor
   )
 
   def backend_writes = {
@@ -53,6 +62,7 @@ class CSRFile(implicit p: Parameters) extends xfiles.CSRFile()(p) with DanaParam
     when (decoded_addr(CSRs.pe_cooldown)) { reg_pe_cooldown := io.wdata }
     when (decoded_addr(CSRs.antp))        { reg_antp := io.wdata        }
     when (decoded_addr(CSRs.num_asids))   { reg_num_asids := io.wdata   }
+    when (decoded_addr(CSRs.pe_governor)) { reg_pe_governor := io.wdata }
   }
 
   io.status.pes_active := reg_pe_size
@@ -60,4 +70,5 @@ class CSRFile(implicit p: Parameters) extends xfiles.CSRFile()(p) with DanaParam
   io.status.pe_cooldown := reg_pe_cooldown
   io.status.antp := reg_antp
   io.status.num_asids := reg_num_asids
+  io.status.pe_governor := reg_pe_governor
 }

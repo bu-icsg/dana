@@ -187,15 +187,40 @@ class ProcessingElementTableBase[PeStateType <: ProcessingElementState,
     regFileWriteReqBase(incWC, reqType, addr, tIdx, data, location)
   }
 
-  def fIsFree(x: ProcessingElementInterface): Bool = { x.req.ready }
-  val nextFree = pe.indexWhere(fIsFree(_))
-  val hasFree = pe.exists(fIsFree(_)) && nextFree < io.status.pes_active
+  def isFree(x: ProcessingElementInterface): Bool = { x.req.ready }
+  def isNotFree(x: ProcessingElementInterface): Bool = { ~x.req.ready }
+  val nextFree = pe.indexWhere(isFree(_))
+  val inUse = pe.count(isNotFree(_))
+  val hasFree = pe.exists(isFree(_)) && inUse < io.status.pes_active
+  io.control.req.ready := hasFree
 
-  val peCooldown = Reg(UInt(peCooldownWidth.W), init = 0.U)
-  when (io.control.req.fire()) { peCooldown := io.status.pe_cooldown }
-  when (peCooldown =/= 0.U)    { peCooldown := peCooldown - 1.U
-    printfInfo("Cooldown 0x%x\n", peCooldown) }
-  io.control.req.ready := hasFree & peCooldown === 0.U
+  val cooldown = Reg(init = 0.U(peCooldownWidth.W))
+  when (io.status.pe_governor === PeGovernor.cooldown.U) {
+    when (io.control.req.fire()) { cooldown := io.status.pe_cooldown }
+    when (cooldown =/= 0.U)    { cooldown := cooldown - 1.U      }
+    io.control.req.ready := hasFree && cooldown === 0.U }
+
+  val peRamp = Reg(init = 1.U((io.status.pes_active.getWidth + 1).W))
+  when (io.status.pe_governor === PeGovernor.backoff_linear.U) {
+    val allUsed = inUse === peRamp
+    when (inUse === 0.U) { cooldown := io.status.pe_cooldown }
+    when (inUse =/= 0.U) {
+      when (cooldown < io.status.pe_cooldown) {
+        cooldown := Mux(allUsed, cooldown - 1.U, io.status.pe_cooldown)
+      } .elsewhen (cooldown > io.status.pe_cooldown) {
+        cooldown := Mux(allUsed, io.status.pe_cooldown, cooldown + 1.U)
+      } .otherwise {
+        cooldown := Mux(allUsed, cooldown - 1.U, cooldown + 1.U)
+      }
+      when (cooldown === 0.U && peRamp < io.status.pes_active) {
+        peRamp := peRamp + 1.U
+        cooldown := io.status.pe_cooldown
+        printfInfo("ramp up   (0x%x++)\n", peRamp) }
+      when (cooldown === (io.status.pe_cooldown << 1) && peRamp > 1.U) {
+        peRamp := peRamp - 1.U
+        cooldown := io.status.pe_cooldown
+        printfInfo("ramp down (0x%x--)\n", peRamp) } }
+    io.control.req.ready := hasFree && inUse < peRamp }
 
   // Default values for Cache interface
   io.cache.req.valid := false.B

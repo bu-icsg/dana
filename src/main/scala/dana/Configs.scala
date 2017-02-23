@@ -40,7 +40,7 @@ class DefaultDanaConfig extends Config ( {
     case FeedbackWidth             => 12
     // Processing Element Table
     case PeTableNumEntries         => 1
-    case PeCooldownWidth           => 4
+    case PeCooldownWidth           => 8
     // Configuration Cache
     case CacheNumEntries           => 2
     case CacheDataSize             => 32 * 1024
