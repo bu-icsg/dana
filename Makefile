@@ -107,7 +107,7 @@ include $(DIR_TOP)/tools/common/Makefrag-tools
 include $(DIR_TOP)/tools/common/Makefrag-nets
 include $(DIR_TOP)/tools/common/Makefrag-video
 
-nets: $(NETS_BIN) $(TRAIN_FIXED)
+nets: $(NETS_BIN) $(TRAIN_FIXED) $(NETS_TEST)
 tools: $(NETS_TOOLS)
 
 #--------- Generate ScalaDoc documentation

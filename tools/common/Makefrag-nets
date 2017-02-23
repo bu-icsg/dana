@@ -35,6 +35,7 @@ NETS_FLOAT=$(addsuffix -float, $(NETS))
 # Only certain networks have valid training files
 NETS_TRAIN=xorSigmoid xorSigmoidSymmetric xorSigmoidSymmetricPair \
 	xorSigmoidSymmetricThreeLayer
+NETS_TEST=$(addprefix $(DIR_BUILD)/nets/, $(addsuffix -float.test, $(NETS_FANN)))
 NETS_BIN=$(addprefix $(DIR_BUILD)/nets/, $(addsuffix -fixed.16bin, $(NETS)) \
 	$(addsuffix -fixed.32bin, $(NETS)) \
 	$(addsuffix -fixed.64bin, $(NETS)) \
@@ -62,6 +63,7 @@ TRAIN_FIXED+=$(addprefix $(DIR_BUILD)/nets/, $(addsuffix -fixed.train, $(TRAIN_M
 
 vpath %.train $(DIR_TOP)/src/main/resources
 vpath %.train $(DIR_TOP)/submodules/fann/datasets
+vpath %.test $(DIR_TOP)/submodules/fann/datasets
 
 .PRECIOUS: $(DIR_BUILD)/nets/%-fixed.net \
 	$(DIR_BUILD)/nets/%-fixed.net \
@@ -81,6 +83,9 @@ $(DIR_BUILD)/nets/%-float.net: $(FANN_RANDOM) $(DIR_BUILD)/fann/host/libfann.so 
 
 #--------------------------------------- Generate special training files
 $(DIR_BUILD)/nets/%-float.train: %.train | $(DIR_BUILD)/nets
+	ln -sf $< $@
+
+$(DIR_BUILD)/nets/%-float.test: %.test | $(DIR_BUILD)/nets
 	ln -sf $< $@
 
 $(DIR_BUILD)/nets/parity-%-float.train: | $(DIR_BUILD)/nets
