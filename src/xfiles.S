@@ -23,6 +23,7 @@
 #define csr_PE_COOLDOWN 0x12
 #define csr_ANTP 0x13
 #define csr_NUM_ASIDS 0x14
+#define csr_PE_GOVERNOR 0x15
 
 #define RESP_CODE_WIDTH 3
 
