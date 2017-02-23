@@ -188,8 +188,8 @@ class ProcessingElementTableBase[PeStateType <: ProcessingElementState,
   }
 
   def fIsFree(x: ProcessingElementInterface): Bool = { x.req.ready }
-  val hasFree = pe.exists(fIsFree(_))
   val nextFree = pe.indexWhere(fIsFree(_))
+  val hasFree = pe.exists(fIsFree(_)) && nextFree < io.status.pes_active
 
   io.control.req.ready := hasFree
 
