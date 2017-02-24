@@ -349,7 +349,7 @@ class TTableArbiter(implicit p: Parameters) extends DanaBundle()(p) {
   val xfQueue = new XFilesQueueInterface
 }
 
-class DanaTransactionTableInterface(implicit p: Parameters) extends DanaBundle()(p) {
+class DanaTransactionTableInterface(implicit p: Parameters) extends DanaStatusIO()(p) {
   val arbiter = new TTableArbiter
   lazy val control = new TTableControlInterface
   val regFile = new TTableRegisterFileInterface

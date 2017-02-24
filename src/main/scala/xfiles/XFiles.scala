@@ -29,6 +29,7 @@ trait XFilesSupervisorRequests {
   val t_SUP_UPDATE_ASID = 0
   val t_SUP_WRITE_REG = 1
   val t_SUP_READ_CSR = 2
+  val t_SUP_WRITE_CSR = 3
 }
 
 trait XFilesUserRequests {
@@ -54,7 +55,8 @@ trait XFilesParameters {
   val k_NULL_ASID = pow(2, asidWidth) - 1
 }
 
-trait XFilesResponseCodes extends HasCoreParameters with XFilesParameters {
+trait XFilesResponseCodes extends HasCoreParameters with XFilesParameters
+    with UniformPrintfs {
   val respCodeWidth = 3
 
   val (resp_OK :: resp_TID :: resp_READ :: resp_NOT_DONE :: resp_QUEUE_ERR ::
@@ -70,6 +72,8 @@ trait XFilesResponseCodes extends HasCoreParameters with XFilesParameters {
     tmp.tid := tid.asUInt
     tmp.data := data
     resp := tmp.asUInt
+    printfInfo("Packing response 0x%x from (respCode: 0x%x, tid: 0x%x, data: 0x%x)\n",
+      tmp.asUInt, tmp.respCode, tmp.tid, tmp.data)
   }
 }
 
@@ -132,12 +136,15 @@ abstract class XFilesModule(implicit p: Parameters) extends CoreModule()(p)
         (0 until x.length).map(i => printft(x(i).printAll(","))) }}
 }
 
-class XFiles(implicit p: Parameters) extends RoCC()(p)
-    with HasCoreParameters {
+trait HasXFilesBackend {
+  implicit val p: Parameters
   val buildBackend = p(BuildXFilesBackend)
+}
+
+class XFiles(implicit p: Parameters) extends RoCC()(p)
+    with HasCoreParameters with HasXFilesBackend {
   val backend = buildBackend.generator(p)
-  def info = p(TransactionTableNumEntries).U ## buildBackend.info.U((xLen - 16).W)
-  val xFilesArbiter = Module(new XFilesArbiter(info)(p))
+  val xFilesArbiter = Module(new XFilesArbiter)
 
   // Core -> Arbiter connections
   xFilesArbiter.io.core.cmd <> io.cmd
@@ -146,7 +153,6 @@ class XFiles(implicit p: Parameters) extends RoCC()(p)
   io.ptw <> xFilesArbiter.io.core.ptw
   io.autl <> xFilesArbiter.io.core.autl
   io.utl <> xFilesArbiter.io.core.utl
-  // io.busy := xFilesArbiter.io.core.busy
   xFilesArbiter.io.core.cmd.bits.status := io.cmd.bits.status
   io.interrupt := xFilesArbiter.io.core.interrupt
   io.busy := xFilesArbiter.io.core.busy

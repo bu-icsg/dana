@@ -11,7 +11,10 @@ import _root_.util.ParameterizedBundle
 case object BuildXFilesBackend extends Field[XFilesBackendParameters]
 case class XFilesBackendParameters(
   generator: Parameters => XFilesBackend,
-  info: Long = 0)
+  csrFile_gen: Parameters => CSRFile,
+  csrData_gen: Parameters => XFStatus,
+  info: Long = 0
+)
 
 class InterruptBundle(implicit p: Parameters) extends XFilesBundle()(p) {
   val code = Output(UInt(xLen.W))
@@ -39,19 +42,20 @@ class XFilesQueueInterface(implicit p: Parameters) extends XFilesBundle()(p) {
   // The naming here follows what is connected to the XF TTable Input
   // and Ouptut queues. Alternatively, this is from the perspective of
   // data flowing into (in) and out of (out) the backend
-  val in = Decoupled(new XFilesRs1Rs2Funct).flip
+  val in = Flipped(Decoupled(new XFilesRs1Rs2Funct))
   val out = Decoupled(UInt(xLen.W))
 }
 
-class XFilesBackendInterface(implicit p: Parameters)
-    extends XFilesBundle()(p) {
+class XFilesBackendInterface(implicit p: Parameters) extends XFilesBundle()(p) {
   val rocc = new RoCCInterface
-  val xfReq = (new XFilesBackendReq).flip
+  val xfReq = Flipped(new XFilesBackendReq)
   val xfResp = new XFilesBackendResp
   val xfQueue = new XFilesQueueInterface
+  val status = Input(p(BuildXFilesBackend).csrData_gen(p))
   val interrupt = Valid(new InterruptBundle)
 }
 
-class XFilesBackend(implicit p: Parameters) extends XFilesModule()(p) {
+class XFilesBackend(implicit p: Parameters)
+    extends XFilesModule()(p) {
   val io = IO(new XFilesBackendInterface)
 }

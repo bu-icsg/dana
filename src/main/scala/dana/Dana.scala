@@ -14,6 +14,7 @@ case object ElementsPerBlock extends Field[Int]
 case object NnidWidth extends Field[Int]
 case object FeedbackWidth extends Field[Int]
 case object PeTableNumEntries extends Field[Int]
+case object PeCooldownWidth extends Field[Int]
 case object CacheNumEntries extends Field[Int]
 case object CacheDataSize extends Field[Int]
 case object RegisterFileNumElements extends Field[Int]
@@ -82,6 +83,7 @@ trait DanaParameters {
 
   // Processing Element Table
   val peTableNumEntries = p(PeTableNumEntries)
+  val peCooldownWidth = p(PeCooldownWidth)
   // Configuration Cache
   val cacheNumEntries = p(CacheNumEntries)
   val cacheDataSize = p(CacheDataSize)
@@ -102,15 +104,14 @@ trait DanaParameters {
   def divUp (dividend: Int, divisor: Int): Int = {
     (dividend + divisor - 1) / divisor}
 
-  val int_RESERVED    = 0 // This is used by X-FILES
-  val int_DANA_NOANTP = 1
-  val int_INVASID     = 2
-  val int_INVNNID     = 3
-  val int_NULLREAD    = 4
-  val int_ZEROSIZE    = 5
-  val int_INVEPB      = 6
-  val int_MISALIGNED  = 7
-  val int_UNKNOWN     = -1
+  val int_DANA_NOANTP = 0x10
+  val int_INVASID     = 0x11
+  val int_INVNNID     = 0x12
+  val int_NULLREAD    = 0x13
+  val int_ZEROSIZE    = 0x14
+  val int_INVEPB      = 0x15
+  val int_MISALIGNED  = 0x16
+  val int_UNKNOWN     = 0x17
 }
 
 trait DanaEnums {
@@ -273,6 +274,8 @@ class Dana(implicit p: Parameters) extends XFilesBackend()(p)
 
   io.rocc.busy := false.B
 
+  List(cache, peTable, regFile, antw, tTable).map(_.io.status := io.status)
+
   // Wire everything up. Ordering shouldn't matter here.
   cache.io.control <> control.io.cache
   peTable.io.control <> control.io.peTable
@@ -280,28 +283,15 @@ class Dana(implicit p: Parameters) extends XFilesBackend()(p)
   cache.io.pe <> peTable.io.cache
   regFile.io.pe <> peTable.io.regFile
 
-  // ASID--NNID Table Walker
-  antw.io.xfiles.rocc.cmd.valid := io.rocc.cmd.valid
-  antw.io.xfiles.rocc.cmd.bits := io.rocc.cmd.bits
-  antw.io.xfiles.rocc.resp.ready := io.rocc.resp.ready
-  antw.io.xfiles.rocc.status := io.rocc.cmd.bits.status
-
   antw.io.cache <> cache.io.mem
   io.rocc.mem <> antw.io.xfiles.dcache.mem
   io.rocc.autl <> antw.io.xfiles.autl
 
   // Arbitration between TTable and ANTW
-  io.rocc.cmd.ready := antw.io.xfiles.rocc.cmd.ready &
-    tTable.io.arbiter.rocc.cmd.ready
+  io.rocc.cmd.ready := tTable.io.arbiter.rocc.cmd.ready
   io.rocc.resp.valid := tTable.io.arbiter.rocc.resp.valid
   io.rocc.resp.bits := tTable.io.arbiter.rocc.resp.bits
   tTable.io.arbiter.rocc.resp.ready := io.rocc.resp.ready
-  when (antw.io.xfiles.rocc.resp.valid) {
-    io.rocc.resp.valid := antw.io.xfiles.rocc.resp.valid
-    io.rocc.resp.bits := antw.io.xfiles.rocc.resp.bits
-  }
-  assert(!(tTable.io.arbiter.rocc.resp.valid & antw.io.xfiles.rocc.resp.valid),
-    printfSigil ++ "ANTW register response just aliased DANA's Transaction TAble")
 
   // Transaction Table
   tTable.io.arbiter.rocc.cmd.valid := io.rocc.cmd.valid
@@ -358,6 +348,10 @@ class NnConfigNeuron(implicit p: Parameters) extends DanaBundle()(p) {
   val neuronsInPreviousLayer = UInt(neuronsInPrevLayerWidth.W)
   val neuronsInLayer         = UInt(neuronsInLayerWidth.W)
   val neuronPointer          = UInt(neuronPointerWidth.W)
+}
+
+class DanaStatusIO(implicit p: Parameters) extends DanaBundle()(p) {
+  val status = Input(new DanaStatus)
 }
 
 trait UsrCmdRs1 {

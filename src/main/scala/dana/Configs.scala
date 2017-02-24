@@ -40,6 +40,7 @@ class DefaultDanaConfig extends Config ( {
     case FeedbackWidth             => 12
     // Processing Element Table
     case PeTableNumEntries         => 1
+    case PeCooldownWidth           => 8
     // Configuration Cache
     case CacheNumEntries           => 2
     case CacheDataSize             => 32 * 1024
@@ -55,6 +56,8 @@ class DefaultDanaConfig extends Config ( {
     case NNConfigNeuronWidth       => 64
     case BuildXFilesBackend        => XFilesBackendParameters(
       generator = (p: Parameters)  => Module(new Dana()(p)),
+      csrFile_gen = (p: Parameters) => Module(new dana.CSRFile()(p)),
+      csrData_gen = (p: Parameters) => new DanaStatus()(p),
       info = packInfo(site(ElementsPerBlock), site(PeTableNumEntries),
         site(CacheNumEntries)))
     case _ => throw new CDEMatchError

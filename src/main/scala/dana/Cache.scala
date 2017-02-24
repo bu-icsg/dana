@@ -39,7 +39,7 @@ class CacheMemInterface(implicit p: Parameters) extends DanaBundle()(p) {
   val resp = Valid(new CacheMemResp).flip
 }
 
-class CacheInterface(implicit p: Parameters) extends Bundle {
+class CacheInterface(implicit p: Parameters) extends DanaStatusIO()(p) {
   val mem          = new CacheMemInterface
   lazy val control = (new ControlCacheInterface).flip
   lazy val pe      = (new PECacheInterface).flip
@@ -122,9 +122,9 @@ abstract class CacheBase[SramIfType <: SRAMVariantInterface,
   def fIsDoneFetching(x: CacheState): Bool
 
   // State that we need to derive from the cache
-  val hasFree = table.exists(fIsFree(_))
   val hasUnused = table.exists(fIsUnused(_))
   val nextFree = table.indexWhere(fIsFree(_))
+  val hasFree = table.exists(fIsFree(_)) && nextFree < io.status.caches_active
   val nextUnused = table.indexWhere(fIsUnused(_))
   val foundNnid = table.exists(fDerefNnid(_: CacheState,
     tTableReqQueue.deq.bits.nnid))
