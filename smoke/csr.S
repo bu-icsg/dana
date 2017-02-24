@@ -39,6 +39,7 @@
   XF_WRITE_CSR(csr_PE_COOLDOWN,  0x7);          \
   XF_WRITE_CSR(csr_ANTP,         0x103);        \
   XF_WRITE_CSR(csr_NUM_ASIDS,    0x104);        \
+  XF_WRITE_CSR(csr_PE_GOVERNOR,  0x1);          \
   la sp, _end + 1024;
 
 RVTEST_WITH_ROCC
@@ -57,6 +58,7 @@ RVTEST_CODE_BEGIN
   TEST_CASE(  8, a0, 0x7,               XF_READ_CSR(csr_PE_COOLDOWN)  );
   TEST_CASE(  9, a0, 0x103,             XF_READ_CSR(csr_ANTP)         );
   TEST_CASE( 10, a0, 0x104,             XF_READ_CSR(csr_NUM_ASIDS)    );
+  TEST_CASE( 11, a0, 0x1,               XF_READ_CSR(csr_PE_GOVERNOR)  );
 
   TEST_PASSFAIL
 
