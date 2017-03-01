@@ -3,7 +3,7 @@ XLEN ?= 64
 # Compute the ID String
 ID_TTABLE ?= 2
 EPB ?= 4
-PES ?= 1
+PES ?= 4
 ID_CACHE ?= 2
 ID_STRING ?= 0x$(shell echo "obase=16; $(ID_CACHE) + ($(PES) * (2 ^ 4)) + ($(EPB) * (2 ^ 10)) + ($(ID_TTABLE) * (2 ^ 48))" | bc)
 
@@ -12,7 +12,8 @@ src_dir = .
 
 tests = \
 	debug \
-	id
+	id \
+	csr
 
 tests_p = $(addprefix $(PREFIX)-p-, $(tests))
 
@@ -30,6 +31,7 @@ RISCV_GCC_OPTS ?= \
 	-DID_STRING=$(ID_STRING)
 RISCV_LD_OPTS ?= \
 	-lxfiles-user \
+	-lxfiles-supervisor \
 	-L$(abs_top_srcdir)/libs/build/$(RISCV_PREFIX)
 RISCV_OBJDUMP ?= \
 	$(RISCV_PREFIX)-objdump \
