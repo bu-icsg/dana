@@ -17,6 +17,7 @@
 #define csr_XFID_CURRENT 0x3
 #define csr_ASID 0x4
 #define csr_TID 0x5
+#define csr_DEBUG 0x6
 
 #define csr_PE_SIZE 0x10
 #define csr_CACHE_SIZE 0x11
