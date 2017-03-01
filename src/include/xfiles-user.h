@@ -8,10 +8,6 @@
 
 //-------------------------------------- Userland
 
-// Request information about the specific X-FILES/DANA configuration
-// and return it in an XLen sized packed representation.
-xlen_t xfiles_dana_id();
-
 // Initiate a new Transaction for a specific NNID. The X-Files Arbiter
 // will then assign and return a TID necessary for other userland
 // functions. The second parameter, "num_train_outputs", when set to
