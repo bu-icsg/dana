@@ -53,7 +53,7 @@ class XFilesArbiter()(implicit p: Parameters)
   val badRequest = cmd.fire() & (
     (!asidValid & !sup & (funct =/= t_USR_XFILES_DEBUG.U | funct =/= t_SUP_READ_CSR.U)) |
       (asidValid & !sup & (funct < t_USR_READ_DATA.U & funct =/= t_SUP_READ_CSR.U)) |
-      (reqInfo))
+      (reqInfo)) & !csrFile.io.status.debug
   val readCsr = cmd.fire() & funct === t_SUP_READ_CSR.U
   val writeCsr = cmd.fire() & funct === t_SUP_WRITE_CSR.U
   val isDebug = cmd.fire() & funct === t_USR_XFILES_DEBUG.U
