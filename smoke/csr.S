@@ -34,6 +34,7 @@
   XF_WRITE_CSR(csr_TTABLE_SIZE,  0x1);          \
   XF_WRITE_CSR(csr_ASID,         0x14);         \
   XF_WRITE_CSR(csr_TID,          0x15);         \
+  XF_WRITE_CSR(csr_DEBUG,        0x1);          \
   XF_WRITE_CSR(csr_PE_SIZE,      0x0);          \
   XF_WRITE_CSR(csr_CACHE_SIZE,   0x1);          \
   XF_WRITE_CSR(csr_PE_COOLDOWN,  0x7);          \
@@ -52,13 +53,17 @@ RVTEST_CODE_BEGIN
   TEST_CASE(  3, a0, ID_STRING_CURRENT, XF_READ_CSR(csr_XFID_CURRENT) );
   TEST_CASE(  4, a0, 0x14,              XF_READ_CSR(csr_ASID)         );
   TEST_CASE(  5, a0, 0x15,              XF_READ_CSR(csr_TID)          );
+  TEST_CASE(  6, a0, 0x1,               XF_READ_CSR(csr_DEBUG)        );
 
-  TEST_CASE(  6, a0, 0x0,               XF_READ_CSR(csr_PE_SIZE)      );
-  TEST_CASE(  7, a0, 0x1,               XF_READ_CSR(csr_CACHE_SIZE)   );
-  TEST_CASE(  8, a0, 0x7,               XF_READ_CSR(csr_PE_COOLDOWN)  );
-  TEST_CASE(  9, a0, 0x103,             XF_READ_CSR(csr_ANTP)         );
-  TEST_CASE( 10, a0, 0x104,             XF_READ_CSR(csr_NUM_ASIDS)    );
-  TEST_CASE( 11, a0, 0x1,               XF_READ_CSR(csr_PE_GOVERNOR)  );
+  TEST_CASE( 10, a0, 0x0,               XF_READ_CSR(csr_PE_SIZE)      );
+  TEST_CASE( 11, a0, 0x1,               XF_READ_CSR(csr_CACHE_SIZE)   );
+  TEST_CASE( 12, a0, 0x7,               XF_READ_CSR(csr_PE_COOLDOWN)  );
+  TEST_CASE( 13, a0, 0x103,             XF_READ_CSR(csr_ANTP)         );
+  TEST_CASE( 14, a0, 0x104,             XF_READ_CSR(csr_NUM_ASIDS)    );
+  TEST_CASE( 15, a0, 0x1,               XF_READ_CSR(csr_PE_GOVERNOR)  );
+
+  XF_WRITE_CSR(csr_TID, 0x20);
+  TEST_CASE( 20, a0, 0x20,              XF_READ_CSR(csr_TID));
 
   TEST_PASSFAIL
 
