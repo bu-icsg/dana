@@ -4,9 +4,6 @@
 [submodule "submodules/fann"]
 	path = submodules/fann
 	url = https://github.com/libfann/fann.git
-[submodule "tests"]
-	path = tests
-	url = ../xfiles-dana-tests
 [submodule "util/hdl-tools"]
 	path = util/hdl-tools
 	url = ../hdl-tools
