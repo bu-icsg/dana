@@ -124,10 +124,11 @@ TAGS_SCALA = \
 TAGS_C = \
 	$(DIR_TOP)/src/main/c \
 	$(DIR_TOP)/src/test/rv \
-	$(DIR_TOP)/src/main/resources \
 	$(DIR_TOP)/tests/smoke \
+	$(DIR_TOP)/tests/nets \
 	$(DIR_TOP)/tests/rocc-software/src \
-	$(DIR_TOP)/tests/env/
+	$(DIR_TOP)/tests/env/ \
+	$(DIR_TOP)/tests/libs/src
 tags:
 	find $(TAGS_SCALA) -name *.scala -exec ctags --output-format=etags {} +
 	find $(TAGS_C) -exec ctags --append=yes --output-format=etags {} +

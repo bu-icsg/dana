@@ -20,6 +20,10 @@
 //   |       [6:3]|       2|      1|            0|
 //   | **unused** | isLast | isNew | readOrWrite |
 
+xlen_t xfiles_dana_id() {
+  return xf_read_csr(csr_XFID_CURRENT);
+}
+
 tid_type new_write_request(nnid_type nnid, learning_type_t learning_type,
                            element_type num_train_outputs) {
   uint64_t out, rs2;

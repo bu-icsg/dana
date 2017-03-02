@@ -53,6 +53,8 @@ $(dir_build)/trap-%.rv: trap-%.c $(XFILES_LIBRARIES) | $(dir_build)
 	$(CC) $(CFLAGS_RV) $< -o $@ $(LFLAGS) -lxfiles-user-pk
 $(dir_build)/dana-benchmark.rv: dana-benchmark.c $(XFILES_LIBRARIES) | $(dir_build)
 	$(CC) $(CFLAGS_RV) $< -o $@ $(LFLAGS) -lxfiles-user-pk
+$(dir_build)/read-xfiles-dana-id.rv: dana-benchmark.c $(XFILES_LIBRARIES) | $(dir_build)
+	$(CC) $(CFLAGS_RV) $< -o $@ $(LFLAGS) -lxfiles-user-pk -lxfiles-supervisor
 $(dir_build)/%.rv: %.c $(XFILES_LIBRARIES) $(libfann_dep) | $(dir_build)
 	$(CC) $(CFLAGS_RV) $< -o $@ $(LFLAGS) -lxfiles-user
 $(dir_build)/%.rvS: $(dir_build)/%.rv | $(dir_build)
