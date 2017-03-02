@@ -1,0 +1,6 @@
+[submodule "env"]
+	path = env
+	url = https://github.com/ucb-bar/riscv-test-env.git
+[submodule "rocc-software"]
+	path = rocc-software
+	url = ../rocc-software
