@@ -43,10 +43,10 @@ LIB_PATHS = \
 	$(DIR_TOP)/tests/libs/build/$(TARGET)
 LIBS      = fann m
 LIBS_F    = fixedfann m
-LFLAGS    = $(addprefix -Wl$(COMMA)-R, $(shell readlink -f $(LIB_PATHS))) \
+LFLAGS    = $(addprefix -Wl$(COMMA)-R, $(shell echo $(LIB_PATHS) | xargs -n1 readlink -f)) \
             $(addprefix -L, $(LIB_PATHS)) \
             $(addprefix -l, $(LIBS))
-LFLAGS_F    = $(addprefix -Wl$(COMMA)-R, $(shell readlink -f $(LIB_PATHS))) \
+LFLAGS_F    = $(addprefix -Wl$(COMMA)-R, $(shell echo $(LIB_PATHS) | xargs -n1 readlink -f)) \
             $(addprefix -L, $(LIB_PATHS)) \
             $(addprefix -l, $(LIBS_F))
 
