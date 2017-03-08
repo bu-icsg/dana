@@ -13,6 +13,7 @@ import config._
 
 class CacheState(implicit p: Parameters) extends DanaBundle()(p) {
   val valid       = Bool()
+  val dirty       = Bool()
   val notifyFlag  = Bool()
   val fetch       = Bool()
   val notifyIndex = UInt(log2Up(transactionTableNumEntries).W)
@@ -137,6 +138,7 @@ abstract class CacheBase[SramIfType <: SRAMVariantInterface,
   // This initializes a new cache entry
   def tableInit(index: UInt) {
     table(index).valid := true.B
+    table(index).dirty := false.B
     table(index).asid := tTableReqQueue.deq.bits.asid
     table(index).nnid := tTableReqQueue.deq.bits.nnid
     table(index).fetch := true.B
@@ -440,6 +442,7 @@ class CacheLearn(implicit p: Parameters)
   controlRespPipe(1).bits.globalWtptr := dataDecode.weightsPointer
 
   when (io.pe.req.valid) {
+    val cacheIdx = io.pe.req.bits.cacheIndex
     switch (io.pe.req.bits.field) {
       is (e_CACHE_WEIGHT_ONLY) {
         printfInfo("PE 0x%x req for weight @ addr 0x%x\n",
@@ -450,9 +453,10 @@ class CacheLearn(implicit p: Parameters)
         printfInfo("PE 0x%x req to inc weight @addr 0x%x\n",
           io.pe.req.bits.peIndex, io.pe.req.bits.cacheAddr)
         printfInfo("       block: 0x%x\n", io.pe.req.bits.data)
-        mem(io.pe.req.bits.cacheIndex).we(0) := true.B
-        mem(io.pe.req.bits.cacheIndex).inc(0) := true.B
-        mem(io.pe.req.bits.cacheIndex).din(0) := io.pe.req.bits.data.asUInt
+        mem(cacheIdx).we(0) := true.B
+        mem(cacheIdx).inc(0) := true.B
+        mem(cacheIdx).din(0) := io.pe.req.bits.data.asUInt
+        table(cacheIdx).dirty := true.B
       }
     }
   }
