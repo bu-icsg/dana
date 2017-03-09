@@ -1,3 +1,5 @@
+// See LICENSE.BU for license details.
+
 #include <getopt.h>
 
 #include "submodules/fann/src/include/fann.h"

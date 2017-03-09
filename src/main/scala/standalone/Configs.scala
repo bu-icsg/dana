@@ -1,3 +1,5 @@
+// See LICENSE.IBM for license details.
+
 package xfiles.standalone
 
 import config._

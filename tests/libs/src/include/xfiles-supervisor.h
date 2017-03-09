@@ -1,4 +1,4 @@
-// See LICENSE for license details.
+// See LICENSE.IBM for license details.
 
 #ifndef XFILES_DANA_LIBS_SRC_XFILES_SUPERVISOR_H_
 #define XFILES_DANA_LIBS_SRC_XFILES_SUPERVISOR_H_

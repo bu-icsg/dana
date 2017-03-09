@@ -1,3 +1,5 @@
+// See LICENSE.BU for license details.
+
 // Writes a binary configuration file suitable for use with the
 // accelerator. The format can be found in
 // `nnsim-hdl/src/include/types.vh`

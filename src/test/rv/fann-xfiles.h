@@ -1,3 +1,5 @@
+// See LICENSE.BU for license details.
+
 #ifndef SRC_TEST_RV_FANN_XFILES_H
 #define SRC_TEST_RV_FANN_XFILES_H
 

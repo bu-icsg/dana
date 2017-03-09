@@ -1,4 +1,4 @@
-// See LICENSE for license details.
+// See LICENSE.BU for license details.
 
 #include "xfiles_dana.h"
 

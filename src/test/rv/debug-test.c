@@ -1,3 +1,5 @@
+// See LICENSE.BU for license details.
+
 #include <stdio.h>
 #include <unistd.h>
 #include <assert.h>

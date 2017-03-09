@@ -1,3 +1,5 @@
+// See LICENSE.BU for license details.
+
 #include "src/include/xfiles-user-pk.h"
 #include "src/include/xfiles-asid-nnid-table.h"
 

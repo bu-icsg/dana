@@ -1,4 +1,4 @@
-// See LICENSE for license details.
+// See LICENSE.BU for license details.
 
 // A wrapper for ram_infer
 `include "ram_infer.v"

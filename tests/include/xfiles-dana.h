@@ -1,4 +1,4 @@
-// See LICENSE.ibm for license details.
+// See LICENSE.IBM for license details.
 
 #ifndef XFILES_DANA_TESTS_INCLUDE_XFILES_DANA_H_
 #define XFILES_DANA_TESTS_INCLUDE_XFILES_DANA_H_

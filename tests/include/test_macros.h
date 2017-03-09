@@ -1,4 +1,4 @@
-// See LICENSE.berkeley for license details.
+// See LICENSE.IBM for license details.
 
 #ifndef __TEST_MACROS_SCALAR_H
 #define __TEST_MACROS_SCALAR_H

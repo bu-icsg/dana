@@ -1,3 +1,5 @@
+// See LICENSE.IBM for license details.
+
 #include <stdio.h>
 
 #include "src/include/xfiles-supervisor.h"

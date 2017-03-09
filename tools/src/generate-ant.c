@@ -1,4 +1,4 @@
-// See LICENSE for license details.
+// See LICENSE.IBM for license details.
 
 #include <getopt.h>
 #include <string.h>

@@ -1,3 +1,5 @@
+// See LICENSE.IBM for license details.
+
 module top
   (input clock,
    input reset);

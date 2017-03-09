@@ -1,4 +1,4 @@
-// See LICENSE for license details.
+// See LICENSE.IBM for license details.
 
 #ifndef SRC_TEST_CPP_ROCC_TEST_H_
 #define SRC_TEST_CPP_ROCC_TEST_H_

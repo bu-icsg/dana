@@ -1,3 +1,5 @@
+// See LICENSE.BU for license details.
+
 /**********
  * Author: Craig Einstein
  *
