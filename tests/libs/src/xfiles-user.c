@@ -127,6 +127,39 @@ xlen_t transaction_feedforward(nnid_type nnid, element_type * addr_i,
   return read_data_spinlock(tid, addr_o, num_outputs);
 }
 
+xlen_t xfiles_fann_learn(nnid_type nnid,
+                        element_type * addr_i,
+                        element_type * addr_e,
+                        int num_inputs, 
+                        int num_outputs,
+                        int num_data) {
+    tid_type tid = new_write_request(nnid, 1, 0);
+     
+    element_type * last = addr_i + num_inputs * num_data;
+    for(; addr_i < last;
+            addr_i += num_inputs, addr_e += num_outputs) {
+        if (write_data_train_incremental(tid, addr_i, addr_e, num_inputs, num_outputs))
+            return -1;
+    }
+    return 0;
+}
+
+xlen_t xfiles_fann_run_no_compare(nnid_type nnid,
+                               element_type * addr_i,
+                               element_type * addr_o,
+                               element_type * addr_e,
+                               int num_inputs,
+                               int num_outputs,
+                               int num_data) {
+  element_type * last = addr_i + num_inputs * num_data;
+  for (; addr_i < last;
+       addr_i += num_inputs, addr_o += num_outputs, addr_e += num_outputs) {
+    if (transaction_feedforward(nnid, addr_i, addr_o, num_inputs, num_outputs))
+      return -1;
+  }
+  return 0;
+}
+
 xlen_t xfiles_fann_run_compare(nnid_type nnid,
                                element_type * addr_i,
                                element_type * addr_o,

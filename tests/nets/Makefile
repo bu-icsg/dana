@@ -10,11 +10,7 @@ ID_STRING ?= 0x$(shell echo "obase=16; $(ID_CACHE) + ($(PES) * (2 ^ 4)) + ($(EPB
 default: all
 src_dir = .
 
-tests = \
-	xorSigmoidSymmetric
-
-tests += \
-	xorSigmoidSymmetric-smp
+tests = $(patsubst %-fixed.ant.h,%,$(notdir $(wildcard $(src_dir)/*-fixed.ant.h)))
 
 tests_p = $(addprefix $(PREFIX)-p-, $(tests))
 
@@ -28,6 +24,7 @@ RISCV_GCC_OPTS ?= \
 	-nostartfiles \
 	-I$(abs_top_srcdir)/include \
 	-I$(abs_top_srcdir) \
+	-I$(src_dir) \
 	-I$(abs_top_srcdir)/libs \
 	-DID_STRING=$(ID_STRING)
 RISCV_LD_OPTS ?= \
@@ -53,9 +50,10 @@ HEADERS_V = $(HEADERS) $(shell find $(abs_top_srcdir)/env/v)
 all: $(tests_p)
 
 vpath %.S $(src_dir)
+vpath %.h $(src_dir)
 
-$(PREFIX)-p-%: %.S $(HEADERS_P) $(abs_top_srcdir)/libs/build/libxfiles-user.a $(abs_top_srcdir)/libs/build/libxfiles-supervisor.a
-	$(RISCV_GCC) $(RISCV_GCC_OPTS) -I$(abs_top_srcdir)/env/p $< $(RISCV_LD_OPTS) -T$(abs_top_srcdir)/env/p/link.ld -o $@
+$(PREFIX)-p-%: genericNetTest.S %-fixed.ant.h $(HEADERS_P) $(abs_top_srcdir)/libs/build/libxfiles-user.a $(abs_top_srcdir)/libs/build/libxfiles-supervisor.a
+	$(RISCV_GCC) $(RISCV_GCC_OPTS) -I$(abs_top_srcdir)/env/p -include $*-fixed.ant.h $< $(RISCV_LD_OPTS) -T$(abs_top_srcdir)/env/p/link.ld -o $@
 
 $(PREFIX)-p-%-smp: %.S $(HEADERS_P) $(abs_top_srcdir)/libs/build/libxfiles-user.a $(abs_top_srcdir)/libs/build/libxfiles-supervisor.a
 	$(RISCV_GCC) $(RISCV_GCC_OPTS) -DSMP -I$(abs_top_srcdir)/env/p $< $(RISCV_LD_OPTS) -T$(abs_top_srcdir)/env/p/link.ld -o $@
