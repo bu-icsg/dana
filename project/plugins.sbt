@@ -1,6 +1,6 @@
 resolvers += "simplytyped" at "http://simplytyped.github.io/repo/releases"
 
-addSbtPlugin("org.scalastyle" %% "scalastyle-sbt-plugin" % "0.7.0")
+addSbtPlugin("org.scalastyle" %% "scalastyle-sbt-plugin" % "0.8.0")
 
 addSbtPlugin("com.typesafe.sbt" % "sbt-ghpages" % "0.5.4")
 

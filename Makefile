@@ -70,6 +70,8 @@ default: all
 
 all: tests nets
 
+SBT ?= sbt
+SBT_FLAGS ?=
 checkstyle:
 	env ROCKETCHIP_ADDONS=$(ROCKETCHIP_ADDONS) $(SBT) $(SBT_FLAGS) scalastyle test:scalastyle
 

@@ -9,7 +9,8 @@ import xfiles.XFilesUserRequests
 
 class DebugTester(implicit p: Parameters) extends XFilesTester()(p) {
   // val s_INIT :: s_WRITE :: s_READ :: s_DONE :: Nil = Enum(UInt(), 4)
-  // val t_ECHO :: t_UTLW :: t_UTLR :: t_L1R :: t_L1W :: t_V2P :: Nil = Enum(UInt(), 6)
+  // val t_ECHO :: t_UTLW :: t_UTLR :: t_L1R :: t_L1W :: t_V2P :: Nil =
+  //   Enum(UInt(), 6)
   // val lastTest = t_UTLR
 
   // val state = Reg(init = s_INIT)
@@ -36,12 +37,12 @@ class DebugTester(implicit p: Parameters) extends XFilesTester()(p) {
   //   test := test + UInt(1)
   //   val r = dut.io.resp.bits.data
   //   switch (test) {
-  //     is (t_ECHO) { assert (r === UInt(data(0)), "XFiles did not echo sent data") }
+  //     is (t_ECHO) { assert(r===UInt(data(0)), "XFiles did not echo sent data") }
   //     is (t_L1W)  { }
   //     is (t_L1R)  { }
   //     is (t_V2P)  { }
   //     is (t_UTLW) { }
-  //     is (t_UTLR) { assert (r === UInt(data(2)), "XFiles read wrong data over AUTL") }
+  //     is (t_UTLR) { assert(r===UInt(data(2)), "XFiles bad read over AUTL") }
   //   }
   // }
 

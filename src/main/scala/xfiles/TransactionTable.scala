@@ -97,13 +97,14 @@ class XFilesTransactionTable(implicit p: Parameters) extends XFilesModule()(p)
   def getCmdAsid() = { cmd.bits.rs1(asidWidth + tidWidth - 1, tidWidth) }
   def getCmdTid() = { cmd.bits.rs1(tidWidth - 1, 0) }
 
-  def getRespCode() = { io.backend.rocc.resp.bits.data(xLen - 1, xLen - respCodeWidth) }
+  val roccRespBits = io.backend.rocc.resp.bits.data
+  def getRespCode() = { roccRespBits(xLen - 1, xLen - respCodeWidth) }
   def getRespTid() = {
     val offset = xLen - respCodeWidth
-    io.backend.rocc.resp.bits.data(offset - 1, offset - tidWidth) }
+    roccRespBits(offset - 1, offset - tidWidth) }
   def getRespAsid() = {
     val offset = xLen - respCodeWidth - tidWidth
-    io.backend.rocc.resp.bits.data(offset - 1, offset - asidWidth) }
+    roccRespBits(offset - 1, offset - asidWidth) }
 
   val numEntries = transactionTableNumEntries
 
@@ -123,7 +124,8 @@ class XFilesTransactionTable(implicit p: Parameters) extends XFilesModule()(p)
   val arbiter = Module(new RRArbiter(Bool(), numEntries)).io
 
   val idxFree = table.indexWhere(isFree(_: TableEntry))
-  val hasFree = table.exists(isFree(_: TableEntry)) && idxFree < io.status.ttable_entries
+  val hasFree = (
+    table.exists(isFree(_: TableEntry)) && idxFree < io.status.ttable_entries )
 
   val newRequest = cmd.fire() & funct === t_USR_NEW_REQUEST.U
   val writeData = cmd.fire() & funct === t_USR_WRITE_DATA.U
