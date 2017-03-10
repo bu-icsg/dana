@@ -24,9 +24,6 @@ trait AntParameters {
 
 class ANTWXFilesInterface(implicit p: Parameters) extends DanaBundle()(p) {
   val autl      = new ClientUncachedTileLinkIO
-  val dcache    = new Bundle {
-    val mem     = new HellaCacheIO()(p.alterPartial({ case CacheName => "L1D" }))
-  }
   val interrupt = Valid(new InterruptBundle)
 }
 
@@ -81,10 +78,6 @@ class AsidNnidTableWalker(implicit p: Parameters) extends DanaModule()(p)
   acq.valid := false.B
   gnt.ready := true.B
 
-  io.xfiles.dcache.mem.req.valid := false.B
-  io.xfiles.dcache.mem.invalidate_lr := false.B
-  io.xfiles.dcache.mem.req.bits.phys := false.B
-
   // New cache requests get entered on the queue
   when (io.cache.req.fire()) {
     printfInfo("Enqueue mem req ASID/NNID/Idx 0x%x/0x%x/0x%x\n",
@@ -97,25 +90,6 @@ class AsidNnidTableWalker(implicit p: Parameters) extends DanaModule()(p)
     if (code >= 0) interruptCode.bits := code.U
     else interruptCode.bits := (code.S).asUInt }
   def clearInterrupt() { interruptCode.valid := false.B }
-
-  // Many of the state updates are gated by waiting for a response.
-  // This leverages a similar structure from
-  // src/main/scala/ProcessingElement.scala with `reqWaitForResp`.
-  // This wraps up all the logic of generating a request, waiting for
-  // a response, and using a function (`cond`) to determine of things
-  // are okay to proceed.
-  val reqSent = Reg(Bool())
-  reqSent := reqSent
-  def reqWaitForResp(nextState: UInt, cond: => Bool = true.B,
-    code: Int = int_UNKNOWN) = {
-    when (!reqSent) {
-      io.xfiles.dcache.mem.req.valid := true.B
-      reqSent := io.xfiles.dcache.mem.req.ready
-    } .elsewhen (io.xfiles.dcache.mem.resp.valid) {
-      io.xfiles.dcache.mem.req.valid := false.B
-      reqSent := false.B
-      state := Mux(cond, nextState, s_INTERRUPT)
-      setInterrupt(code) }}
 
   val autlBlockOffset = tlBeatAddrBits + tlByteAddrBits
   val autlAddr = Wire(UInt(xLen.W))
@@ -142,6 +116,13 @@ class AsidNnidTableWalker(implicit p: Parameters) extends DanaModule()(p)
   (0 until tlDataBits/xLen).map(i =>
     autlDataGetVec(i) := gnt.bits.data((i+1) * xLen-1, i * xLen))
   val autlDataWord = autlDataGetVec(autlAddrWord_d)
+  // Many of the state updates are gated by waiting for a response.
+  // This leverages a similar structure from
+  // src/main/scala/ProcessingElement.scala with `reqWaitForResp`.
+  // This wraps up all the logic of generating a request, waiting for
+  // a response, and using a function (`cond`) to determine of things
+  // are okay to proceed.
+  val reqSent = Reg(Bool())
   def autlAcqGrant(nextState: UInt, cond: => Bool = true.B,
     code: Int = int_UNKNOWN) = {
     when (!reqSent) {
@@ -360,15 +341,6 @@ class AsidNnidTableWalker(implicit p: Parameters) extends DanaModule()(p)
   interruptDelay.io.enq.valid := state === s_INTERRUPT
   // assert(!(interruptDelay.io.deq.valid), "ANTW: hit interrupt")
 
-  when (io.xfiles.dcache.mem.req.fire()) {
-    printfInfo("Mem req to core with tag 0x%x for addr 0x%x\n",
-      io.xfiles.dcache.mem.req.bits.tag, io.xfiles.dcache.mem.req.bits.addr) }
-
-  when (io.xfiles.dcache.mem.resp.fire()) {
-    printfInfo("Mem resp from Core with tag 0x%x data 0x%x\n",
-      io.xfiles.dcache.mem.resp.bits.tag,
-      io.xfiles.dcache.mem.resp.bits.data_word_bypass) }
-
   // Reset conditions
   when (reset) { configRob.valid map (_ := false.B) }
 
@@ -379,8 +351,4 @@ class AsidNnidTableWalker(implicit p: Parameters) extends DanaModule()(p)
     printfSigil ++ "is in an error state")
   assert((isPow2(configBufSize)).B,
     printfSigil ++ "derived parameter configBufSize must be a power of 2")
-  // Outbound memory requests shouldn't try to read NULL
-  assert(!(io.xfiles.dcache.mem.req.valid &&
-    io.xfiles.dcache.mem.req.bits.addr === 0.U),
-    printfSigil ++ "INTERRUPT: ANTW tried to read from NULL")
 }

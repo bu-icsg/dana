@@ -5,7 +5,7 @@ package xfiles
 
 import chisel3._
 import chisel3.util._
-import rocket.{RoCCInterface, HasCoreParameters}
+import rocket.{RoCCInterface, HasCoreParameters, HellaCacheReq}
 import config._
 import _root_.util.ParameterizedBundle
 
@@ -56,7 +56,20 @@ class XFilesBackendInterface(implicit p: Parameters) extends XFilesBundle()(p) {
   val interrupt = Valid(new InterruptBundle)
 }
 
-class XFilesBackend(implicit p: Parameters)
-    extends XFilesModule()(p) {
+trait AsicFlowSafety extends XFilesBackend {
+  io.rocc.mem.req.bits := (new HellaCacheReq).fromBits(0.U)
+}
+
+trait UserSafety extends XFilesBackend {
+  io.rocc.mem.req.valid := false.B
+  io.rocc.mem.invalidate_lr := false.B
+  io.rocc.mem.req.bits.phys := true.B
+
+  io.rocc.busy := false.B
+  io.rocc.cmd.ready := true.B
+  io.rocc.resp.valid := false.B
+}
+
+class XFilesBackend(implicit p: Parameters) extends XFilesModule()(p) {
   val io = IO(new XFilesBackendInterface)
 }

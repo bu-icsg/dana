@@ -149,11 +149,6 @@ class XFilesTransactionTable(implicit p: Parameters) extends XFilesModule()(p)
 
   // memory connections
   io.xfiles.mem <> io.backend.rocc.mem
-  // io.backned.rocc.autl <> io.xfiles.autl
-  // io.backend.rocc.utl <> io.xfiles.utl
-  // io.backend.rocc.fpu_req <> io.xfiles.fpu_req
-  // io.backend.rocc.fpu_resp <> io.xfiles.fpu_resp
-  // io.backend.rocc.excepction <> io.xfiles.exception
 
   // resp
   val resp_d = Reg(Valid(new RespBundle))

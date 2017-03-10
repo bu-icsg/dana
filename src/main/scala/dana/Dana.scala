@@ -6,8 +6,7 @@ package dana
 import chisel3._
 import chisel3.util._
 import rocket.XLen
-import xfiles.{XFilesParameters, XFilesModule, XFilesBundle, XFilesBackend,
-  TransactionTableNumEntries, XFilesSupervisorRequests, AsidWidth, TidWidth}
+import xfiles._
 import config._
 
 case object ElementWidth extends Field[Int]
@@ -256,7 +255,8 @@ abstract class DanaBundle(implicit p: Parameters) extends XFilesBundle()(p)
     with DanaParameters with DanaEnums
 
 class Dana(implicit p: Parameters) extends XFilesBackend()(p)
-    with DanaParameters with XFilesSupervisorRequests {
+    with DanaParameters with XFilesSupervisorRequests with AsicFlowSafety
+    with UserSafety {
   override val printfSigil = "dana.Dana: "
 
   // Module instantiation
@@ -285,7 +285,6 @@ class Dana(implicit p: Parameters) extends XFilesBackend()(p)
   regFile.io.pe <> peTable.io.regFile
 
   antw.io.cache <> cache.io.mem
-  io.rocc.mem <> antw.io.xfiles.dcache.mem
   io.rocc.autl <> antw.io.xfiles.autl
 
   // Arbitration between TTable and ANTW
