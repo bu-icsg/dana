@@ -13,7 +13,11 @@
 
 vpath %bin $(DIR_BUILD_NETS)
 
-NETS_GEN=xorSigmoid xorSigmoidSymmetric xorSigmoidSymmetricPair \
+NETS_GEN=\
+	andSigmoidSymmetric \
+	orSigmoidSymmetric \
+	xorSigmoid \
+	xorSigmoidSymmetric \
 	xorSigmoidSymmetricThreeLayer
 NETS_FANN=census-house mushroom diabetes gene kin32fm soybean thyroid \
 	two-spiral abelone bank32fm bank32nh building census-house \
@@ -96,6 +100,14 @@ $(DIR_BUILD)/nets/xor-sigmoid-%i-float.train: | $(DIR_BUILD)/nets
 
 $(DIR_BUILD)/nets/xor-sigmoid-%o-float.train: | $(DIR_BUILD)/nets
 	$(GEN_BOOLEAN_DATA) -n 2 -f xor --replicate-output $* > $@
+
+$(DIR_BUILD)/nets/%Sigmoid-float.train: | $(DIR_BUILD)/nets
+	$(GEN_BOOLEAN_DATA) -n 2 -f $* > $@
+
+$(DIR_BUILD)/nets/%SigmoidSymmetricThreeLayer-float.train:  | $(DIR_BUILD)/nets
+	$(GEN_BOOLEAN_DATA) -n 2 -f $* -s > $@
+$(DIR_BUILD)/nets/%SigmoidSymmetric-float.train: | $(DIR_BUILD)/nets
+	$(GEN_BOOLEAN_DATA) -n 2 -f $* -s > $@
 
 $(DIR_BUILD)/nets/sin-scale-%-float.train: | $(DIR_BUILD)/nets
 	$(GEN_MATH_DATA) -f "(lambda x: math.sin(x))" -s0 -d -1 1 -n 128 \

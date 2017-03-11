@@ -1,8 +1,5 @@
-[submodule "submodules/verilog"]
-	path = submodules/verilog
-	url = git://github.com/seldridge/verilog.git
 [submodule "submodules/fann"]
-	path = submodules/fann
+	path = fann
 	url = https://github.com/libfann/fann.git
 [submodule "util/hdl-tools"]
 	path = util/hdl-tools

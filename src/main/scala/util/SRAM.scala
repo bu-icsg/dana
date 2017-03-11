@@ -44,22 +44,6 @@ class SRAM (
   val initSwitch: Int        = -1,
   val elementsPerBlock: Int  = -1
 ) extends Module {
-  // [TODO] issue-37, chisel3 does not have support for setVerilogParameters
-  // if (initSwitch >= 0) {
-  //   setVerilogParameters(
-  //     "#(.WIDTH(" + dataWidth + ")," +
-  //       ".DEPTH(" + sramDepth + ")," +
-  //       ".LG_DEPTH(" + log2Up(sramDepth) + ")," +
-  //       ".INIT_SWITCH(" + initSwitch + ")," +
-  //       ".ELEMENTS_PER_BLOCK(" + elementsPerBlock + "))\n")
-  //   setName("sram_infer_preloaded_cache")}
-  // else {
-  //   setVerilogParameters(
-  //     "#(.WIDTH(" + dataWidth + ")," +
-  //       ".DEPTH(" + sramDepth + ")," +
-  //       ".LG_DEPTH(" + log2Up(sramDepth) + "))\n ")
-  //   setName("sram")}
-
   val io = IO(new SRAMInterface(
     numReadPorts = numReadPorts,
     numWritePorts = numWritePorts,

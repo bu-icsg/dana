@@ -88,7 +88,6 @@ zynq-uboot> fatls mmc 0
   4322320   simple_train_riscv
         0   boot.bif
   3701208   cmath_test_riscv
-  4398416   fann-soft.rv
    557055   #zed.out#
   4517524   boot.bin.orig
 

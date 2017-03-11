@@ -38,50 +38,10 @@ The name of the emulator will include the configuration. For the code above we s
 ./emulator-Top-XFilesDanaCppPe1Epb4Config pk ../xfiles-dana/build/hello.rv
 ```
 
-Similarly, you can run any program that works on the FPGA, like `fann-xfiles`:
+However, this does not provide any more information than you get from the FPGA, so we need to dump additional debug information. Any `printf` that you put inside of Chisel code translates to statement that will print when you run an emulator with the `+verbose` option. Unfortunately, this dumps a ton of information from rocket-chip each cycle. To get rid of this, remove all lines that being with `C`:
 
 ```
-./emulator-Top-XFilesDanaCppPe1Epb4Config pk ../xfiles-dana/build/fann-xfiles.rv \
-    -n../xfiles-dana/build/nets/xorSigmoidSymmetric-fixed.16bin \
-    -t ../xfiles-dana/build/nets/xorSigmoidSymmetric-fixed.train -m -e10
-```
-
-However, this does not provide any more information than you get from the FPGA, so we need to dump additional debug information. Any `printf` that you put inside of Chisel code translates to statement that will print when you run an emulator with the `+verbose` option. Unfortunately, this dumps a ton of information from rocket-chip, so I use a standard convention for my own `printf` statements that can be selected using `grep`. Furthermore, all the `+verbose` output prints on STDERR, so you need to redirect this to STDOUT in order to actually run in through `grep`. My specific convention is to prepend every `printf` with one of the following:
-* `[INFO]`
-* `[WARN]`
-* `[ERROR]`
-
-To catch assertions also look for `Assert`. To do all this, the following command works:
-
-```
-./emulator-Top-XFilesDanaCppPe1Epb4Config +verbose pk \
-    ../xfiles-dana/build/fann-xfiles.rv
-    -n ../xfiles-dana/build/nets/xorSigmoidSymmetric-fixed.16bin \
-    -t ../xfiles-dana/build/nets/xorSigmoidSymmetric-fixed.train \
-    -m -e2 -x 2>&1 | grep "INFO\|WARN\|ERROR\|Assert"
-```
-
-We can also send this to a file for better analysis:
-
-```
-./emulator-Top-XFilesDanaCppPe1Epb4Config +verbose pk \
-    ../xfiles-dana/build/fann-xfiles.rv
-    -n ../xfiles-dana/build/nets/xorSigmoidSymmetric-fixed.16bin \
-    -t ../xfiles-dana/build/nets/xorSigmoidSymmetric-fixed.train \
-    -m -e2 -x 2>&1 | grep "INFO\|WARN\|ERROR\|Assert" > issue-54.log
-```
-
-Most of the enumerated types are stored in src/main/scala/Dana.scala.
-
-### Table Based Debugging
-Debugging with straight Chisel `printfs` of events is very difficult as it requires complete knowledge of the system. We're in the process of moving to a debugging style where the state of X-FILES and DANA tables are dumped whenever they see an event which updates their state. Chisel, however, does not provide a `printf` that accepts field widths (field widths are inferred from signal widths). Each module includes a dedicated `info` method which will dump the state of the module into a CSV format prepended with `^[DEBUG] *`. The included etc/debug-table.awk can be used to convert the raw output from the C++ emulator to pretty, formatted tables. As an example, you can run this with:
-
-```
-./emulator-Top-XFilesDanaCppPe1Epb4Config +verbose pk \
-    ../xfiles-dana/build/fann-xfiles.rv
-    -n ../xfiles-dana/build/nets/xorSigmoidSymmetric-fixed.16bin \
-    -t ../xfiles-dana/build/nets/xorSigmoidSymmetric-fixed.train \
-    -m -e2 -x 2>&1 | awk -f ../xfiles-dana/usr/etc/debug-table.awk
+./emulator-Top-XFilesDanaCppPe1Epb4Config +verbose [binary] 2>&1 | grep -v ^C
 ```
 
 ### Memory Tool for Debugging Help

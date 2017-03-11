@@ -11,7 +11,6 @@ DIR_SRC_SCALA	= $(DIR_TOP)/src/main/scala
 DIR_SRC_V	= $(DIR_TOP)/src/main/verilog
 DIR_SRC_C       = $(DIR_TOP)/src/main/c
 DIR_SRC_CPP	= $(DIR_TOP)/src/main/cpp
-DIR_TEST_V	= $(DIR_TOP)/src/test/verilog
 DIR_TEST_CPP	= $(DIR_TOP)/src/test/cpp
 DIR_TEST_RV     = $(DIR_TOP)/src/test/rv
 DIR_MAIN_RES    = $(DIR_TOP)/src/main/resources
@@ -23,8 +22,6 @@ COMMA    = ,
 
 # RISCV Tests Targets
 RV_TESTS             = hello.c \
-	fann-xfiles.c \
-	fann-soft.c \
 	read-xfiles-dana-id.c \
 	trap-00-new-request-no-asid.c \
 	trap-00-write-register-no-asid.c \

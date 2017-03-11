@@ -5,10 +5,11 @@
 #include <getopt.h>
 #include <string.h>
 
+#include "tools/src/copyright.h"
 #ifndef FIXEDFANN
-#include "submodules/fann/src/include/fann.h"
+#include "fann/src/include/fann.h"
 #else
-#include "submodules/fann/src/include/fixedfann.h"
+#include "fann/src/include/fixedfann.h"
 #undef FANNPRINTF
 #define FANNPRINTF "%08x"
 #endif
@@ -30,6 +31,7 @@ void usage () {
 }
 
 int main (int argc, char * argv[]) {
+  PRINT_NOTICES(COPYRIGHT_FANN);
   int exit_code = 0;
 
   struct fann * ann = NULL;

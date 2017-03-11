@@ -4,9 +4,12 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
-#include "submodules/fann/src/include/fixedfann.h"
+
+#include "fann/src/include/fixedfann.h"
+#include "tools/src/copyright.h"
 
 int main (int argc, char * argv[]) {
+  PRINT_NOTICES(COPYRIGHT_FANN);
   FILE * fp;
   struct fann * ann;
   int i, j, decimal_point;

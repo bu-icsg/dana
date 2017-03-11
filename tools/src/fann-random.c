@@ -4,7 +4,8 @@
 #include <stdlib.h>
 #include <getopt.h>
 
-#include "submodules/fann/src/include/fann.h"
+#include "fann/src/include/fann.h"
+#include "tools/src/copyright.h"
 
 static char * usage_message =
   "fann-random -l[1st hidden size] -l[2nd hidden size] -l... [options] file\n"
@@ -53,6 +54,8 @@ void add_layer (layers_struct ** layers, int new_layer) {
 }
 
 int main (int argc, char * argv[]) {
+  PRINT_NOTICES(COPYRIGHT_FANN);
+
   int c;
   layers_struct * layers;
   const char * file;
