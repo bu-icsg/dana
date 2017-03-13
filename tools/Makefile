@@ -61,10 +61,10 @@ $(DIR_BIN)/fann-train-to-c-header-fixed: $(DIR_BIN)/fann-train-to-c-header.o $(l
 	$(CC) $(CFLAGS) $< $(LDIRS) -lm -lfixedfann -fopenmp -o $@
 $(DIR_BIN)/fann-eval-fixed: $(DIR_BIN)/fann-eval-fixed.o $(libfann_dep)
 	$(CC) $(CFLAGS) $< $(LDIRS) -lm -lfixedfann -fopenmp -o $@
+$(DIR_BIN)/write-fann-config-for-accelerator: $(DIR_BIN)/write-fann-config-for-accelerator.o $(libfann_dep)
+	$(CC) $(CFLAGS) $< $(LDIRS) -lm -lfixedfann -fopenmp -o $@
 
 # FANN
-$(DIR_BIN)/write-fann-config-for-accelerator: $(DIR_BIN)/write-fann-config-for-accelerator.o $(libfann_dep)
-	$(CC) $(CFLAGS) $< $(LDIRS) -lm -lfann -fopenmp -o $@
 $(DIR_BIN)/fann-train-to-c-header: $(DIR_BIN)/fann-train-to-c-header.o $(libfann_dep)
 	$(CC) $(CFLAGS) $< $(LDIRS) -lm -lfann -fopenmp -o $@
 $(DIR_BIN)/fann-eval: $(DIR_BIN)/fann-eval.o $(libfann_dep)

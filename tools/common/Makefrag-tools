@@ -15,12 +15,13 @@ GEN_BOOLEAN_DATA	= $(DIR_TOP)/tools/scripts/gen-boolean-data
 GEN_MATH_DATA		= $(DIR_TOP)/tools/scripts/gen-math-data
 GEN_VIDEO		= $(DIR_TOP)/tools/scripts/gen-trace-video
 
-NETS_TOOLS = $(FLOAT_TO_FIXED) \
+NETS_TOOLS = \
+	$(FLOAT_TO_FIXED) \
 	$(WRITE_FANN_CONFIG) \
 	$(BIN_TO_C_HEADER) \
 	$(TRAIN_TO_C_HEADER) \
 	$(FANN_RANDOM) \
 	$(FANN_TRAIN)
 
-$(DIR_TOP)/usr/bin/%: $(DIR_BUILD)/fann/host/libfann.so
+$(DIR_TOP)/tools/bin/%: $(DIR_BUILD)/fann/host/libfann.so
 	$(MAKE) -C $(DIR_TOP)/tools bin/$*
