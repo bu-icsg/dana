@@ -5,7 +5,7 @@
 	path = util/hdl-tools
 	url = ../hdl-tools
 [submodule "src/main/scala/perfect"]
-	path = src/main/scala/perfect
+	path = perfect-chisel
 	url = ../perfect-chisel
 [submodule "env"]
 	path = tests/env
