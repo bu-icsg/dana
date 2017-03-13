@@ -1,5 +1,5 @@
-// See LICENSE.IBM for license details.
 // See LICENSE.BU for license details.
+// See LICENSE.IBM for license details.
 
 #include <stdio.h>
 #include <getopt.h>
