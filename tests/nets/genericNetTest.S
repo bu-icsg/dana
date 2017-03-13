@@ -1,4 +1,4 @@
-# See LICENSE.ibm for license details.
+# See LICENSE.IBM for license details.
 
 #*****************************************************************************
 # xorSigmoidSymmetric.S
@@ -43,4 +43,3 @@ RVTEST_CODE_BEGIN
   TEST_PASSFAIL
 
 RVTEST_CODE_END
-

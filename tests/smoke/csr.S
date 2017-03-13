@@ -1,4 +1,4 @@
-# See LICENSE.ibm for license details.
+# See LICENSE.IBM for license details.
 
 #*****************************************************************************
 # csr.S
