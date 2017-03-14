@@ -1,8 +1,10 @@
 All contributors must agree to the Developer Certificate of Origin Version 1.1. (DCO 1.1) by signing their commits with:
 
 ```
-DCO 1.1 Signed-off-by: [NAME] <[EMAIL]>
+Signed-off-by: [NAME] <[EMAIL]>
 ```
+
+This can be simply achieved with `git commit -s` when formatting your commit message.
 
 The full text of the DCO 1.1 is as follows:
 
