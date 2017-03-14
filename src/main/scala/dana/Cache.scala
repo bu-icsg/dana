@@ -11,6 +11,13 @@ import config._
 //   * I don't think that the location bit is used at all. Remove this
 //     if it isn't
 
+object CacheTypes {
+  object Mem {
+    val read = 0x0
+    val write = 0x1
+  }
+}
+
 class CacheState(implicit p: Parameters) extends DanaBundle()(p) {
   val valid       = Bool()
   val dirty       = Bool()
@@ -27,6 +34,7 @@ class CacheMemReq(implicit p: Parameters) extends DanaBundle()(p) {
   val asid        = UInt(asidWidth.W)
   val nnid        = UInt(nnidWidth.W)
   val cacheIndex  = UInt(log2Up(cacheNumEntries).W)
+  val action      = UInt(1.W)
 }
 
 class CacheMemResp(implicit p: Parameters) extends DanaBundle()(p) {
@@ -149,11 +157,6 @@ abstract class CacheBase[SramIfType <: SRAMVariantInterface,
   }
 
   // Default values
-  io.mem.req.valid := false.B
-  io.mem.req.bits.asid := 0.U
-  io.mem.req.bits.nnid := 0.U
-  io.mem.req.bits.cacheIndex := 0.U
-
   controlRespPipe(0).valid := false.B
   controlRespPipe(0).bits.fetch := false.B
   controlRespPipe(0).bits.tableIndex := 0.U
@@ -194,8 +197,6 @@ abstract class CacheBase[SramIfType <: SRAMVariantInterface,
   tTableReqQueue.deq.ready := false.B
   // Handle requests from the control module
   val request = tTableReqQueue.deq.bits.request
-  val asid = tTableReqQueue.deq.bits.asid
-  val nnid = tTableReqQueue.deq.bits.nnid
   val tableIndex = tTableReqQueue.deq.bits.tableIndex
   val layer = tTableReqQueue.deq.bits.currentLayer
   val location = tTableReqQueue.deq.bits.regFileLocationBit
@@ -212,6 +213,13 @@ abstract class CacheBase[SramIfType <: SRAMVariantInterface,
     controlRespPipe(0).bits.tableMask := UIntToOH(tableIndex)
     controlRespPipe(0).bits.cacheIndex := derefNnid
   }
+
+  io.mem.req.valid := false.B
+  io.mem.req.bits.asid := tTableReqQueue.deq.bits.asid
+  io.mem.req.bits.nnid := tTableReqQueue.deq.bits.nnid
+  io.mem.req.bits.action := CacheTypes.Mem.read.U
+  val cacheIdx = Mux(hasFree, nextFree, nextUnused)
+  io.mem.req.bits.cacheIndex := cacheIdx
   when (tTableReqQueue.deq.valid && !io.pe.req.valid) {
     tTableReqQueue.deq.ready := true.B
     switch (request) {
@@ -224,17 +232,10 @@ abstract class CacheBase[SramIfType <: SRAMVariantInterface,
           // in the cache. However, if the cache is always sized
           // larger than the Transcation Table, the case where there
           // isn't a free cache entry should never occur.
-          val cacheIdx = Mux(hasFree, nextFree, nextUnused)
           when (hasFree | hasUnused) {
             tableInit(cacheIdx)
-            // Generate a request to memory
             io.mem.req.valid := true.B
-            io.mem.req.bits.asid := asid
-            io.mem.req.bits.nnid := nnid
-            io.mem.req.bits.cacheIndex := cacheIdx
-          } .otherwise {
           }
-
         } .elsewhen (table(derefNnid).fetch) {
           // The nnid was found, but the data is currently being
           // loaded from memory. This happens if a second request for
