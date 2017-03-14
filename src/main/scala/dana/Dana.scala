@@ -268,7 +268,7 @@ class Dana(implicit p: Parameters) extends XFilesBackend()(p)
     Module(new ProcessingElementTable)
   val regFile = if (learningEnabled) Module(new RegisterFileLearn) else
     Module(new RegisterFile)
-  val antw = Module(new AsidNnidTableWalker)
+  val antw = Module(AsidNnidTableWalker()(p))
 
   val tTable = if (learningEnabled) Module(new DanaTransactionTableLearn) else
     Module(new DanaTransactionTable)

@@ -14,6 +14,8 @@ class DefaultXFilesConfig extends Config (
     case TableDebug                 => true
     case TransactionTableNumEntries => 2
     case TransactionTableQueueSize  => 32
+    case EnablePrintfs              => true
+    case EnableAsserts              => true
     case _ => throw new CDEMatchError
   }
 )
