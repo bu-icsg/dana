@@ -43,7 +43,7 @@ RISCV_SIM ?= spike
 
 HEADERS = $(shell find \
 	$(abs_top_srcdir)/rocc-software/src \
-	$(abs_top_srcdir)/../src/main/c)
+	$(abs_top_srcdir)/libs/src)
 HEADERS_P = $(HEADERS) $(shell find $(abs_top_srcdir)/env/p)
 HEADERS_V = $(HEADERS) $(shell find $(abs_top_srcdir)/env/v)
 
