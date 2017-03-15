@@ -369,23 +369,6 @@ class DanaTransactionTableBase[StateType <: TransactionState,
   lazy val io = IO(new DanaTransactionTableInterface)
   override val printfSigil = "dana.TTable: "
 
-  // IO aliases
-  // val cmd = new DanaBundle {
-  //   val asid = io.arbiter.rocc.cmd.bits.rs1(asidWidth + tidWidth - 1, tidWidth)
-  //   val tid = io.arbiter.rocc.cmd.bits.rs1(tidWidth - 1, 0)
-  //   val countFeedback =
-  //     io.arbiter.rocc.cmd.bits.rs1(feedbackWidth + asidWidth + tidWidth - 1,
-  //       asidWidth + tidWidth)
-  //   val nnid = io.arbiter.rocc.cmd.bits.rs2(nnidWidth - 1, 0)
-  //   val data = io.arbiter.rocc.cmd.bits.rs2
-  //   val rd = io.arbiter.rocc.cmd.bits.inst.rd
-  //   val regId = io.arbiter.rocc.cmd.bits.rs2(63,32)
-  //   val regValue = io.arbiter.rocc.cmd.bits.rs2(31,0)
-  //   // Only used with learning, but maintained for assertion checking
-  //   val transactionType = io.arbiter.rocc.cmd.bits.rs2(49,48)
-  //   val numTrainOutputs = io.arbiter.rocc.cmd.bits.rs2(47,32)
-  //   val raw = io.arbiter.rocc.cmd }
-
   // Create the actual Transaction Table
   val table = Reg(genStateVec)
 
