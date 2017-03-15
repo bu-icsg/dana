@@ -14,11 +14,6 @@
 // The input registers are referred to as rs1 and rs2 in the
 // rocket-chip repo and by available RoCC documentation so we stick
 // with that convention below.
-//
-// The bits of "funct" are as follows:
-//
-//   |       [6:3]|       2|      1|            0|
-//   | **unused** | isLast | isNew | readOrWrite |
 
 xlen_t xfiles_dana_id() {
   return xf_read_csr(csr_XFID_CURRENT);
@@ -32,10 +27,6 @@ tid_type new_write_request(nnid_type nnid, learning_type_t learning_type,
     ((uint64_t) num_train_outputs << 32) |
     ((uint64_t) learning_type << 48);
 
-  // Initiate a new transaction by setting the "readOrWrite" (bit 0,
-  // read == 0 / write == 1) and "isNew" (bit 1) flags of "funct",
-  // i.e., funct == 3. The nnid goes in rs2. The output will show up
-  // in the varaible "out".
   XFILES_INSTRUCTION(out, 0, rs2, t_USR_NEW_REQUEST);
 
   // The TID is in bits [47:32] of what we get back. Pull out this
@@ -130,11 +121,11 @@ xlen_t transaction_feedforward(nnid_type nnid, element_type * addr_i,
 xlen_t xfiles_fann_learn(nnid_type nnid,
                         element_type * addr_i,
                         element_type * addr_e,
-                        int num_inputs, 
+                        int num_inputs,
                         int num_outputs,
                         int num_data) {
     tid_type tid = new_write_request(nnid, 1, 0);
-     
+
     element_type * last = addr_i + num_inputs * num_data;
     for(; addr_i < last;
             addr_i += num_inputs, addr_e += num_outputs) {

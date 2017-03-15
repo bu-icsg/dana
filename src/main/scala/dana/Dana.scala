@@ -284,7 +284,7 @@ class Dana(implicit p: Parameters) extends XFilesBackend()(p)
   cache.io.pe <> peTable.io.cache
   regFile.io.pe <> peTable.io.regFile
 
-  antw.io.cache <> cache.io.mem
+  antw.io.cache <> cache.io.antw
   io.rocc.autl <> antw.io.xfiles.autl
 
   // Arbitration between TTable and ANTW

@@ -28,7 +28,7 @@ class ANTWXFilesInterface(implicit p: Parameters) extends DanaBundle()(p) {
 }
 
 class AsidNnidTableWalkerInterface(implicit p: Parameters) extends DanaStatusIO()(p) {
-  val cache     = (new CacheMemInterface).flip
+  val cache     = (new CacheAntwInterface).flip
   val xfiles    = new ANTWXFilesInterface
 }
 
@@ -63,9 +63,9 @@ class AsidNnidTableWalker(implicit p: Parameters) extends DanaModule()(p)
   // size this queue accordingly. The head of the queue can then be
   // operated on directly or the data in the head can be dequeued into
   // a set of "current" registers. The latter approach is used here.
-  val cacheReqQueue = Module(new Queue(new CacheMemReq, cacheNumEntries))
+  val cacheReqQueue = Module(new Queue(new CacheAntwReq, cacheNumEntries))
   cacheReqQueue.io.enq <> io.cache.req
-  val cacheReqCurrent = Reg(new CacheMemReq)
+  val cacheReqCurrent = Reg(new CacheAntwReq)
 
   io.cache.resp.valid := false.B
   io.cache.resp.bits.done := false.B

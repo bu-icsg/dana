@@ -30,27 +30,27 @@ class CacheState(implicit p: Parameters) extends DanaBundle()(p) {
   val inUseCount  = UInt((log2Up(transactionTableNumEntries) + 1).W)
 }
 
-class CacheMemReq(implicit p: Parameters) extends DanaBundle()(p) {
+class CacheAntwReq(implicit p: Parameters) extends DanaBundle()(p) {
   val asid        = UInt(asidWidth.W)
   val nnid        = UInt(nnidWidth.W)
   val cacheIndex  = UInt(log2Up(cacheNumEntries).W)
   val action      = UInt(1.W)
 }
 
-class CacheMemResp(implicit p: Parameters) extends DanaBundle()(p) {
+class CacheAntwResp(implicit p: Parameters) extends DanaBundle()(p) {
   val done        = Bool()
   val data        = UInt((elementsPerBlock * elementWidth).W)
   val cacheIndex  = UInt(log2Up(cacheNumEntries).W)
   val addr        = UInt(log2Up(cacheNumBlocks).W)
 }
 
-class CacheMemInterface(implicit p: Parameters) extends DanaBundle()(p) {
-  val req  = Decoupled(new CacheMemReq)
-  val resp = Valid(new CacheMemResp).flip
+class CacheAntwInterface(implicit p: Parameters) extends DanaBundle()(p) {
+  val req  = Decoupled(new CacheAntwReq)
+  val resp = Valid(new CacheAntwResp).flip
 }
 
 class CacheInterface(implicit p: Parameters) extends DanaStatusIO()(p) {
-  val mem          = new CacheMemInterface
+  val antw         = new CacheAntwInterface
   lazy val control = (new ControlCacheInterface).flip
   lazy val pe      = (new PECacheInterface).flip
 }
@@ -214,12 +214,12 @@ abstract class CacheBase[SramIfType <: SRAMVariantInterface,
     controlRespPipe(0).bits.cacheIndex := derefNnid
   }
 
-  io.mem.req.valid := false.B
-  io.mem.req.bits.asid := tTableReqQueue.deq.bits.asid
-  io.mem.req.bits.nnid := tTableReqQueue.deq.bits.nnid
-  io.mem.req.bits.action := CacheTypes.Mem.read.U
+  io.antw.req.valid := false.B
+  io.antw.req.bits.asid := tTableReqQueue.deq.bits.asid
+  io.antw.req.bits.nnid := tTableReqQueue.deq.bits.nnid
+  io.antw.req.bits.action := CacheTypes.Mem.read.U
   val cacheIdx = Mux(hasFree, nextFree, nextUnused)
-  io.mem.req.bits.cacheIndex := cacheIdx
+  io.antw.req.bits.cacheIndex := cacheIdx
   when (tTableReqQueue.deq.valid && !io.pe.req.valid) {
     tTableReqQueue.deq.ready := true.B
     switch (request) {
@@ -234,7 +234,7 @@ abstract class CacheBase[SramIfType <: SRAMVariantInterface,
           // isn't a free cache entry should never occur.
           when (hasFree | hasUnused) {
             tableInit(cacheIdx)
-            io.mem.req.valid := true.B
+            io.antw.req.valid := true.B
           }
         } .elsewhen (table(derefNnid).fetch) {
           // The nnid was found, but the data is currently being
@@ -344,21 +344,21 @@ abstract class CacheBase[SramIfType <: SRAMVariantInterface,
   io.pe.resp.bits := peRespPipe(1).bits
 
   // Handle responses from memory (ANTW or similar)
-  when (io.mem.resp.valid) {
+  when (io.antw.resp.valid) {
     printfInfo("saw write to SRAM_%x(%x) <= %x\n",
-      io.mem.resp.bits.cacheIndex,
-      io.mem.resp.bits.addr,
-      io.mem.resp.bits.data)
-    mem(io.mem.resp.bits.cacheIndex).we(0) := true.B
-    mem(io.mem.resp.bits.cacheIndex).addr(0) := io.mem.resp.bits.addr
-    mem(io.mem.resp.bits.cacheIndex).din(0) := io.mem.resp.bits.data
+      io.antw.resp.bits.cacheIndex,
+      io.antw.resp.bits.addr,
+      io.antw.resp.bits.data)
+    mem(io.antw.resp.bits.cacheIndex).we(0) := true.B
+    mem(io.antw.resp.bits.cacheIndex).addr(0) := io.antw.resp.bits.addr
+    mem(io.antw.resp.bits.cacheIndex).din(0) := io.antw.resp.bits.data
     // If this is done, then set the notify flag which will cause the
     // when block above to generate a response when the cache isn't
     // dealing with other requests
-    when (io.mem.resp.bits.done) {
+    when (io.antw.resp.bits.done) {
       printfInfo("SRAM_%x received DONE response\n",
-        io.mem.resp.bits.cacheIndex)
-      table(io.mem.resp.bits.cacheIndex).notifyFlag := true.B
+        io.antw.resp.bits.cacheIndex)
+      table(io.antw.resp.bits.cacheIndex).notifyFlag := true.B
     }
   }
 
@@ -379,7 +379,7 @@ abstract class CacheBase[SramIfType <: SRAMVariantInterface,
     "Cache trying to send response to Control when Control not ready")
 
   // We currently have no way of handling simultaneous requests.
-  assert(!(io.control.req.valid && io.mem.req.valid),
+  assert(!(io.control.req.valid && io.antw.req.valid),
     "Multiple simultaneous requests on the cache (dropped requests possible)")
 
   // The in use count should never be decremented below zero.

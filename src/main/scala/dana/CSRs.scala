@@ -6,6 +6,10 @@ import chisel3._
 import chisel3.util._
 import config._
 
+object Interrupts {
+  val fence = 0x10
+}
+
 object CSRs {
   val pe_size = 0x10
   val cache_size = 0x11
@@ -13,6 +17,13 @@ object CSRs {
   val antp = 0x13
   val num_asids = 0x14
   val pe_governor = 0x15
+  val fence = 0x16 // saved
+
+  class FenceCSR(implicit p: Parameters) extends DanaBundle()(p) {
+    val valid = Bool()
+    val fence_type = Bool()
+    val nnid = UInt(nnidWidth.W)
+  }
 }
 
 object PeGovernor {
@@ -28,10 +39,13 @@ class DanaStatus(implicit p: Parameters) extends xfiles.XFStatus()(p)
   val antp = UInt(xLen.W)
   val num_asids = UInt(p(xfiles.AsidWidth).W)
   val pe_governor = UInt(1.W)
+  val fence = UInt((nnidWidth + 2).W)
 }
 
 class CSRFileIO(implicit p: Parameters) extends xfiles.CSRFileIO()(p) {
   override val status = Output(new DanaStatus)
+  val fence_done = Input(Bool())
+  val fence_asid = Input(UInt(asidWidth.W))
 }
 
 class CSRFile(implicit p: Parameters) extends xfiles.CSRFile()(p) with DanaParameters {
@@ -43,6 +57,7 @@ class CSRFile(implicit p: Parameters) extends xfiles.CSRFile()(p) with DanaParam
   lazy val reg_antp = Reg(init = ~(0.U(xLen.W)))
   lazy val reg_num_asids = Reg(init = 0.U(p(xfiles.AsidWidth).W))
   lazy val reg_pe_governor = Reg(init = 0.U(1.W))
+  lazy val reg_fence = Reg(init = 0.U((nnidWidth + 2).W))
 
   def backendId = ( p(ElementsPerBlock).U ## reg_pe_size.pad(6) ##
     reg_cache_size.pad(4) ).pad(48)
@@ -53,22 +68,31 @@ class CSRFile(implicit p: Parameters) extends xfiles.CSRFile()(p) with DanaParam
     CSRs.pe_cooldown -> reg_pe_cooldown,
     CSRs.antp        -> reg_antp,
     CSRs.num_asids   -> reg_num_asids,
-    CSRs.pe_governor -> reg_pe_governor
+    CSRs.pe_governor -> reg_pe_governor,
+    CSRs.fence       -> reg_fence
   )
 
   def backend_writes = {
-    when (decoded_addr(CSRs.pe_size))     { reg_pe_size := io.wdata     }
-    when (decoded_addr(CSRs.cache_size))  { reg_cache_size := io.wdata  }
-    when (decoded_addr(CSRs.pe_cooldown)) { reg_pe_cooldown := io.wdata }
-    when (decoded_addr(CSRs.antp))        { reg_antp := io.wdata        }
-    when (decoded_addr(CSRs.num_asids))   { reg_num_asids := io.wdata   }
-    when (decoded_addr(CSRs.pe_governor)) { reg_pe_governor := io.wdata }
+    val d = io.wdata
+    when (addrIs(CSRs.pe_size))     { reg_pe_size     := d }
+    when (addrIs(CSRs.cache_size))  { reg_cache_size  := d }
+    when (addrIs(CSRs.pe_cooldown)) { reg_pe_cooldown := d }
+    when (addrIs(CSRs.antp))        { reg_antp        := d }
+    when (addrIs(CSRs.num_asids))   { reg_num_asids   := d }
+    when (addrIs(CSRs.pe_governor)) { reg_pe_governor := d }
+    when (addrIs(CSRs.fence))       { reg_fence       := 1.U ## d(nnidWidth + 1, 0) }
   }
 
-  io.status.pes_active := reg_pe_size
+  io.status.pes_active    := reg_pe_size
   io.status.caches_active := reg_cache_size
-  io.status.pe_cooldown := reg_pe_cooldown
-  io.status.antp := reg_antp
-  io.status.num_asids := reg_num_asids
-  io.status.pe_governor := reg_pe_governor
+  io.status.pe_cooldown   := reg_pe_cooldown
+  io.status.antp          := reg_antp
+  io.status.num_asids     := reg_num_asids
+  io.status.pe_governor   := reg_pe_governor
+  io.status.fence         := reg_fence
+
+  when (io.fence_done) {
+    when (io.fence_asid === reg_asid) { reg_fence := 0.U                    }
+      .otherwise                      { reg_exception := Interrupts.fence.U }
+  }
 }

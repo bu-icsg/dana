@@ -15,7 +15,7 @@ object CSRs {
   val ttable_size = 0x1
   val xfid = 0x2
   val xfid_current = 0x3
-  val asid = 0x4
+  val asid = 0x4 // saved
   val tid = 0x5
   val debug = 0x6
 }
@@ -67,21 +67,22 @@ abstract class CSRFile(implicit p: Parameters) extends XFilesModule()(p)
     CSRs.debug        -> reg_debug )
   read_mapping ++= backend_csrs
 
-  val decoded_addr = read_mapping map { case(k, v) => k -> (io.addr === k.U) }
-  val addr_valid = decoded_addr.values.reduce(_||_)
+  val addrIs = read_mapping map { case(k, v) => k -> (io.addr === k.U) }
+  val addr_valid = addrIs.values.reduce(_||_)
 
-  io.rdata := Mux1H(for ((k, v) <- read_mapping) yield decoded_addr(k) -> v)
+  io.rdata := Mux1H(for ((k, v) <- read_mapping) yield addrIs(k) -> v)
 
   val prv_ok = (io.prv > rocket.PRV.U.U) || reg_debug
   val wen = io.cmd && addr_valid && prv_ok
   when (wen) {
-    when(decoded_addr(CSRs.exception))   { reg_exception   := io.wdata }
-    when(decoded_addr(CSRs.ttable_size)) { reg_ttable_size := io.wdata }
-    when(decoded_addr(CSRs.asid))        { reg_asid        := io.wdata }
-    when(decoded_addr(CSRs.tid))         { reg_tid         := io.wdata }
-    when(decoded_addr(CSRs.debug))       { reg_debug       := io.wdata }
+    val d = io.wdata
+    when(addrIs(CSRs.exception))   { reg_exception   := d }
+    when(addrIs(CSRs.ttable_size)) { reg_ttable_size := d }
+    when(addrIs(CSRs.asid))        { reg_asid        := d }
+    when(addrIs(CSRs.tid))         { reg_tid         := d }
+    when(addrIs(CSRs.debug))       { reg_debug       := d }
     backend_writes
-    printfInfo("Writing to CSR[0x%x] value 0x%x\n", io.addr, io.wdata) }
+    printfInfo("Writing to CSR[0x%x] value 0x%x\n", io.addr, d) }
 
   when (io.cmd && addr_valid && !prv_ok) {
     reg_exception := Interrupts.privilege.U
@@ -91,9 +92,9 @@ abstract class CSRFile(implicit p: Parameters) extends XFilesModule()(p)
   when (io.action.newRequest) { reg_tid := reg_tid + 1.U }
 
   io.status.ttable_entries := reg_ttable_size
-  io.status.exception := reg_exception
-  io.status.asid := reg_asid
-  io.status.tid := reg_tid
-  io.status.asidValid := reg_asid =/= ~(0.U(asidWidth.W))
-  io.status.debug := reg_debug
+  io.status.exception      := reg_exception
+  io.status.asid           := reg_asid
+  io.status.tid            := reg_tid
+  io.status.asidValid      := reg_asid =/= ~(0.U(asidWidth.W))
+  io.status.debug          := reg_debug
 }
