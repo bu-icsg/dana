@@ -43,7 +43,6 @@ trait XFilesUserRequests {
   val t_USR_WRITE_DATA_LAST = 7
   val t_USR_WRITE_REGISTER = 8
   val t_USR_XFILES_DEBUG = 9
-  val t_USR_XFILES_ID = 10
 }
 
 trait XFilesParameters {

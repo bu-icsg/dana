@@ -40,24 +40,16 @@ class XFilesArbiter()(implicit p: Parameters)
 
   io.core.resp.bits.data := (-err_XFILES_NOASID.S(xLen.W)).asUInt
 
-  // Handle direct, short-circuit responses to the core of the
-  // following types:
-  //   * reqInfo -- information request that always succeeds
-  //     regardless of ASID state
-  //   * badRequest -- some invalid action (ASID is unset, user trying
-  //     to initiate a supervisor request)
-  //   * readCsr -- read a CSR, like the exception cause register
-  //   * isDebug -- an access to the Debug Unit
-  val reqInfo = cmd.fire() & !sup & funct === t_USR_XFILES_ID.U
-  when (reqInfo) { printfInfo("Received reqInfo (deprecated!)\n") }
   val asidValid = csrFile.io.status.asidValid
-  val badRequest = cmd.fire() & (
+
+  // Types of requests
+  val badRequest = cmd.fire() & !csrFile.io.status.debug & (
     (!asidValid & !sup & (funct =/= t_USR_XFILES_DEBUG.U | funct =/= t_SUP_READ_CSR.U)) |
-      (asidValid & !sup & (funct < t_USR_READ_DATA.U & funct =/= t_SUP_READ_CSR.U)) |
-      (reqInfo)) & !csrFile.io.status.debug
+      (asidValid & !sup & (funct < t_USR_READ_DATA.U & funct =/= t_SUP_READ_CSR.U)))
   val readCsr = cmd.fire() & funct === t_SUP_READ_CSR.U
   val writeCsr = cmd.fire() & funct === t_SUP_WRITE_CSR.U
   val isDebug = cmd.fire() & funct === t_USR_XFILES_DEBUG.U
+
   // Anything that is a short circuit response or involves a
   // supervisor request gets squashed.
   val squashSup = badRequest | readCsr | writeCsr | isDebug

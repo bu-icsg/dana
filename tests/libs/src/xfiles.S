@@ -9,7 +9,6 @@
 #define t_USR_WRITE_DATA_LAST 7
 #define t_USR_WRITE_REGISTER 8
 #define t_USR_XFILES_DEBUG 9
-#define t_USR_XFILES_DANA_ID 10
 
 #define csr_EXCEPTION 0x0
 #define csr_TTABLE_SIZE 0x1
