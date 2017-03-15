@@ -7,17 +7,18 @@ import chisel3.util._
 import config._
 
 object Interrupts {
-  val privilege = 0x0
+  val privilege = 0x00
 }
 
 object CSRs {
-  val exception = 0x0
-  val ttable_size = 0x1
-  val xfid = 0x2
-  val xfid_current = 0x3
-  val asid = 0x4 // saved
-  val tid = 0x5
-  val debug = 0x6
+  val exception    = 0x100
+  val ttable_size  = 0x101
+  val asid         = 0x102 // saved
+  val tid          = 0x103
+  val debug        = 0x104
+
+  val xfid         = 0xd00 // read-only
+  val xfid_current = 0xd01
 }
 
 class XFStatus(implicit p: Parameters) extends XFilesBundle()(p) {
@@ -32,7 +33,7 @@ class XFStatus(implicit p: Parameters) extends XFilesBundle()(p) {
 class CSRFileIO(implicit p: Parameters) extends XFilesBundle()(p) {
   val action = Input(new Bundle {
     val newRequest = Bool()})
-  val addr = Input(UInt(5.W))
+  val addr = Input(UInt(12.W))
   val cmd = Input(Bool())
   val prv = Input(UInt(rocket.PRV.SZ.W))
   val rdata = Output(UInt(xLen.W))
@@ -69,11 +70,11 @@ abstract class CSRFile(implicit p: Parameters) extends XFilesModule()(p)
 
   val addrIs = read_mapping map { case(k, v) => k -> (io.addr === k.U) }
   val addr_valid = addrIs.values.reduce(_||_)
-
   io.rdata := Mux1H(for ((k, v) <- read_mapping) yield addrIs(k) -> v)
 
-  val prv_ok = (io.prv > rocket.PRV.U.U) || reg_debug
-  val wen = io.cmd && addr_valid && prv_ok
+  val (read_only, csr_addr_prv)  = (io.addr(11, 10), io.addr(9, 8))
+  val prv_ok = (io.prv >= csr_addr_prv) || reg_debug
+  val wen = io.cmd && addr_valid && prv_ok && !read_only
   when (wen) {
     val d = io.wdata
     when(addrIs(CSRs.exception))   { reg_exception   := d }

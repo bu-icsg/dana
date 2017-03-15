@@ -7,17 +7,18 @@ import chisel3.util._
 import config._
 
 object Interrupts {
-  val fence = 0x10
+  val fence = 0x20
 }
 
 object CSRs {
-  val pe_size = 0x10
-  val cache_size = 0x11
-  val pe_cooldown = 0x12
-  val antp = 0x13
-  val num_asids = 0x14
-  val pe_governor = 0x15
-  val fence = 0x16 // saved
+  val pe_size     = 0x180
+  val cache_size  = 0x181
+  val pe_cooldown = 0x182
+  val antp        = 0x183
+  val num_asids   = 0x184
+  val pe_governor = 0x185
+
+  val fence       = 0x000 // saved
 
   class FenceCSR(implicit p: Parameters) extends DanaBundle()(p) {
     val valid = Bool()
