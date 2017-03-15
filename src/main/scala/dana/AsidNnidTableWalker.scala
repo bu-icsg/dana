@@ -7,7 +7,7 @@ import chisel3._
 import chisel3.util._
 import rocket.{HellaCacheReq, HellaCacheIO, MStatus, MT_D}
 import uncore.tilelink.{HasTileLinkParameters, ClientUncachedTileLinkIO, Get,
-  GetBlock}
+  GetBlock, PutBlock}
 import uncore.util.{CacheName, CacheBlockBytes}
 import config._
 import xfiles._
@@ -49,7 +49,8 @@ class AsidNnidTableWalker(implicit p: Parameters) extends DanaModule()(p)
   val io = IO(new AsidNnidTableWalkerInterface)
   val (s_IDLE :: s_CHECK_ASID :: s_GET_VALID_NNIDS :: s_GET_NN_POINTER ::
     s_GET_NN_SIZE :: s_GET_NN_EPB :: s_GET_CONFIG_POINTER :: s_GET_NN_CONFIG ::
-    s_GET_NN_CONFIG_CLEANUP :: s_INTERRUPT :: s_ERROR :: Nil) = Enum(UInt(), 11)
+    s_GET_NN_CONFIG_CLEANUP :: s_PUT_NN_CONFIG :: s_INTERRUPT :: s_ERROR ::
+    Nil) = Enum(UInt(), 12)
 
   val state = Reg(UInt(), init = s_IDLE)
 
@@ -96,6 +97,10 @@ class AsidNnidTableWalker(implicit p: Parameters) extends DanaModule()(p)
       operand_size = MT_D,
       alloc = false.B)
   val getBlock = GetBlock(addr_block = addr_block, alloc = false.B)
+  val putBlock = PutBlock(client_xact_id = 0.U,
+    addr_block = addr_block,
+    addr_beat = addr_beat,
+    data = 0.U)
 
   acq.bits := Mux(state <= s_GET_CONFIG_POINTER, get, getBlock)
 
@@ -200,7 +205,9 @@ class AsidNnidTableWalker(implicit p: Parameters) extends DanaModule()(p)
     def aligned(addr: UInt): Bool = {
       addr(log2Up(p(CacheBlockBytes)) - 1, 0) === 0.U }
 
-    autlAcqGrant(s_GET_NN_CONFIG, aligned(autlDataWord) & autlDataWord =/= 0.U,
+    val nextState = Mux(cacheReqCurrent.action === CacheTypes.Mem.read.U,
+      s_GET_NN_CONFIG, s_PUT_NN_CONFIG)
+    autlAcqGrant(nextState, aligned(autlDataWord) & autlDataWord =/= 0.U,
       int_MISALIGNED)
     cacheAddr := 0.U
   }
@@ -290,6 +297,9 @@ class AsidNnidTableWalker(implicit p: Parameters) extends DanaModule()(p)
     }
   }
 
+  when (state === s_PUT_NN_CONFIG) {
+  }
+
   io.xfiles.interrupt.valid := state === s_INTERRUPT
   io.xfiles.interrupt.bits.code := interruptCode.bits
   when (state === s_INTERRUPT) {
@@ -354,6 +364,7 @@ object AsidNnidTableWalker {
       printfSigil ++ "is in an error state")
     assert((isPow2(configBufSize)).B,
       printfSigil ++ "derived parameter configBufSize must be a power of 2")
+    assert(state =/= s_PUT_NN_CONFIG, printfSigil ++ "Hit s_PUT_NN_CONFIG state")
   }
 
   def apply()(implicit p: Parameters): AsidNnidTableWalker =
