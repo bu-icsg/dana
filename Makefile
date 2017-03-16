@@ -121,18 +121,26 @@ TAGS_SCALA = \
 	$(DIR_TOP)/../src/main/scala $(DIR_TOP)/../chisel3 \
 	$(DIR_TOP)/src/main/scala
 TAGS_C = \
-	$(DIR_TOP)/src/main/c \
 	$(DIR_TOP)/src/test/rv \
 	$(DIR_TOP)/tests/smoke \
 	$(DIR_TOP)/tests/nets \
 	$(DIR_TOP)/tests/rocc-software/src \
 	$(DIR_TOP)/tests/env/ \
-	$(DIR_TOP)/tests/libs/src
+	$(DIR_TOP)/tests/libs/src \
+	$(DIR_TOP)/../riscv-tools/riscv-fesvr/fesvr \
+	$(DIR_TOP)/../riscv-tools/riscv-pk/pk \
+	$(DIR_TOP)/../riscv-tools/riscv-pk/machine \
+	$(DIR_TOP)/../riscv-tools/riscv-pk/bbl \
+	$(DIR_TOP)/../csrc
+TAGS_V = \
+	$(DIR_TOP)/../vsrc
 tags:
 	find $(TAGS_SCALA) -name *.scala -exec ctags --output-format=etags {} +
 	find $(TAGS_C) -exec ctags --append=yes --output-format=etags {} +
+	find $(TAGS_V) -exec ctags --append=yes --output-format=etags {} +
 	find $(TAGS_SCALA) -name *.scala -exec ctags {} +
 	find $(TAGS_C) -exec ctags --append=yes {} +
+	find $(TAGS_V) -exec ctags --append=yes {} +
 
 #------------------- Utility Targets
 clean:
