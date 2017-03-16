@@ -17,10 +17,6 @@ case class XFilesBackendParameters(
   info: Long = 0
 )
 
-class InterruptBundle(implicit p: Parameters) extends XFilesBundle()(p) {
-  val code = Output(UInt(xLen.W))
-}
-
 class XFilesBackendReq(implicit p: Parameters) extends XFilesBundle()(p) {
   val tidx = Decoupled(UInt(log2Up(transactionTableNumEntries).W))
 }
@@ -53,7 +49,6 @@ class XFilesBackendInterface(implicit p: Parameters) extends XFilesBundle()(p) {
   val xfResp = new XFilesBackendResp
   val xfQueue = new XFilesQueueInterface
   val status = Input(p(BuildXFilesBackend).csrData_gen(p))
-  val interrupt = Valid(new InterruptBundle)
 }
 
 trait AsicFlowSafety extends XFilesBackend {

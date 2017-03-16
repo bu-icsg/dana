@@ -28,8 +28,6 @@ class XFilesArbiter()(implicit p: Parameters)
   val coreQueue = Module(new Queue(new RoCCCommand, 2)).io
   val memQueue = Module(new Queue(new HellaCacheResp, 16)).io
 
-  val exception = Reg(Valid(UInt(xLen.W)))
-
   // Include a debug unit for some debugging operations
   val debugUnit = Module(new DebugUnit).io
 
@@ -43,7 +41,7 @@ class XFilesArbiter()(implicit p: Parameters)
   val asidValid = csrFile.io.status.asidValid
 
   // Types of requests
-  val badRequest = cmd.fire() & !csrFile.io.status.debug & (
+  val badRequest = cmd.fire() & (
     (!asidValid & !sup & (funct =/= t_USR_XFILES_DEBUG.U | funct =/= t_SUP_READ_CSR.U)) |
       (asidValid & !sup & (funct < t_USR_READ_DATA.U & funct =/= t_SUP_READ_CSR.U)))
   val readCsr = cmd.fire() & funct === t_SUP_READ_CSR.U
@@ -55,7 +53,7 @@ class XFilesArbiter()(implicit p: Parameters)
   val squashSup = badRequest | readCsr | writeCsr | isDebug
   val squashUser = squashSup | (sup & funct < 4.U) | !asidValid
 
-  csrFile.io.cmd := writeCsr
+  csrFile.io.cmd := Mux(readCsr, CSRs.R, Mux(writeCsr, CSRs.W, CSRs.N))
   csrFile.io.addr := cmd.bits.rs1
   csrFile.io.wdata := cmd.bits.rs2
   csrFile.io.prv := cmd.bits.status.prv
@@ -113,24 +111,9 @@ class XFilesArbiter()(implicit p: Parameters)
   when (tTable.xfiles.resp.valid) { io.core.resp.bits := tTable.xfiles.resp.bits }
   when (debugUnit.resp.valid) { io.core.resp.bits := debugUnit.resp.bits }
 
-  // Deal with exceptional cases
-  val backendException = io.backend.interrupt.fire()
-  exception.valid := exception.valid | badRequest | backendException
-  when (badRequest) { exception.bits := int_INVREQ.U
-    printfWarn("Saw badRequest\n") }
-  when (backendException) { exception.bits := io.backend.interrupt.bits.code }
-
   // Other connections
-  io.core.interrupt := exception.valid
+  io.core.interrupt := csrFile.io.interrupt
   io.core.busy := io.backend.rocc.busy
-
-  when (backendException) {
-    printfError("RoCC Exception asserted\n")
-  }
-
-  when (io.backend.interrupt.fire()) {
-    printfError("Backend interrupt asserted w/ code 0d%d\n",
-      io.backend.interrupt.bits.code) }
 
   // Connections to the backend. [TODO] Clean these up such that the
   // backend gets a single RoCC interface and some special lines for
@@ -229,8 +212,6 @@ class XFilesArbiter()(implicit p: Parameters)
   tTable.backend.xfResp <> io.backend.xfResp
   tTable.backend.xfQueue <> io.backend.xfQueue
   io.backend.status := tTable.backend.status
-
-  when (reset) { exception.valid := false.B }
 
   when (io.core.resp.valid) {
     printfInfo("Responding to core rd 0d%d with data 0x%x\n",

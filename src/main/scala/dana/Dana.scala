@@ -306,11 +306,6 @@ class Dana(implicit p: Parameters) extends XFilesBackend()(p)
   io.xfResp <> tTable.io.arbiter.xfResp
   io.xfQueue <> tTable.io.arbiter.xfQueue
 
-  // There is a difference between the RoCC interrupt (which is tied
-  // off) and the interruptBundle which includes more information
-  io.rocc.interrupt := false.B
-  io.interrupt <> antw.io.xfiles.interrupt
-
   when (io.rocc.cmd.valid) { printfInfo("io.tTable.rocc.cmd.valid asserted\n") }
 }
 
@@ -351,7 +346,7 @@ class NnConfigNeuron(implicit p: Parameters) extends DanaBundle()(p) {
 }
 
 class DanaStatusIO(implicit p: Parameters) extends DanaBundle()(p) {
-  val status = Input(new DanaStatus)
+  val status = Flipped(new DanaStatus)
 }
 
 trait UsrCmdRs1 {

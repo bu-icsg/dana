@@ -6,8 +6,18 @@ import chisel3._
 import chisel3.util._
 import config._
 
-object Interrupts {
-  val fence = 0x20
+object Causes {
+  val unknown       = 0x80
+  // ASID--NNID Table Walker
+  val no_antp       = 0x90
+  val invalid_asid  = 0x91
+  val invalid_nnid  = 0x92
+  val null_read     = 0x93
+  val zero_size     = 0x94
+  val invalid_epb   = 0x95
+  val misaligned    = 0x96
+  // Cache
+  val fence_context = 0xa0
 }
 
 object CSRs {
@@ -43,10 +53,15 @@ class DanaStatus(implicit p: Parameters) extends xfiles.XFStatus()(p)
   val fence = UInt((nnidWidth + 2).W)
 }
 
+class DanaProbes(implicit p: Parameters) extends xfiles.XFStatus()(p)
+    with DanaParameters {
+  val fence_done = Bool()
+  val fence_asid = UInt(asidWidth.W)
+}
+
 class CSRFileIO(implicit p: Parameters) extends xfiles.CSRFileIO()(p) {
   override val status = Output(new DanaStatus)
-  val fence_done = Input(Bool())
-  val fence_asid = Input(UInt(asidWidth.W))
+  override val probes = Input(new DanaProbes)
 }
 
 class CSRFile(implicit p: Parameters) extends xfiles.CSRFile()(p) with DanaParameters {
@@ -92,8 +107,9 @@ class CSRFile(implicit p: Parameters) extends xfiles.CSRFile()(p) with DanaParam
   io.status.pe_governor   := reg_pe_governor
   io.status.fence         := reg_fence
 
-  when (io.fence_done) {
-    when (io.fence_asid === reg_asid) { reg_fence := 0.U                    }
-      .otherwise                      { reg_exception := Interrupts.fence.U }
+  when (io.status.fence_done) {
+    val s = io.status
+    when (s.fence_asid === reg_asid) { reg_fence := 0.U                    }
+      .otherwise                     { reg_cause := Causes.fence_context.U }
   }
 }

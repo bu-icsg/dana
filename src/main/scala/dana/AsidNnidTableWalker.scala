@@ -24,7 +24,6 @@ trait AntParameters {
 
 class ANTWXFilesInterface(implicit p: Parameters) extends DanaBundle()(p) {
   val autl      = new ClientUncachedTileLinkIO
-  val interrupt = Valid(new InterruptBundle)
 }
 
 class AsidNnidTableWalkerInterface(implicit p: Parameters) extends DanaStatusIO()(p) {
@@ -78,12 +77,10 @@ class AsidNnidTableWalker(implicit p: Parameters) extends DanaModule()(p)
   acq.valid := false.B
   gnt.ready := true.B
 
-  val interruptCode = Reg(Valid(UInt()))
+  val interruptCode = Reg(init = 0.U(xLen.W))
   def setInterrupt(code: Int) {
-    interruptCode.valid := true.B;
-    if (code >= 0) interruptCode.bits := code.U
-    else interruptCode.bits := (code.S).asUInt }
-  def clearInterrupt() { interruptCode.valid := false.B }
+    if (code >= 0) interruptCode := code.U
+    else interruptCode := (code.S).asUInt }
 
   val autlBlockOffset = tlBeatAddrBits + tlByteAddrBits
   val autlAddr = Wire(UInt(xLen.W))
@@ -122,7 +119,7 @@ class AsidNnidTableWalker(implicit p: Parameters) extends DanaModule()(p)
   // are okay to proceed.
   val reqSent = Reg(Bool())
   def autlAcqGrant(nextState: UInt, cond: => Bool = true.B,
-    code: Int = int_UNKNOWN) = {
+    code: Int = Causes.unknown) = {
     when (!reqSent) {
       acq.valid := true.B
       reqSent := acq.fire()
@@ -149,7 +146,7 @@ class AsidNnidTableWalker(implicit p: Parameters) extends DanaModule()(p)
     state := s_CHECK_ASID
     when (!antpValid) {
       state := s_INTERRUPT
-      setInterrupt(int_DANA_NOANTP)
+      setInterrupt(Causes.no_antp)
     }
     reqSent := false.B
 
@@ -162,7 +159,7 @@ class AsidNnidTableWalker(implicit p: Parameters) extends DanaModule()(p)
     state := s_GET_VALID_NNIDS
     when (asid >= io.status.num_asids) {
       state := s_INTERRUPT
-      setInterrupt(int_INVASID)
+      setInterrupt(Causes.invalid_nnid)
     }
   }
 
@@ -170,7 +167,7 @@ class AsidNnidTableWalker(implicit p: Parameters) extends DanaModule()(p)
   when (state === s_GET_VALID_NNIDS) {
     val reqAddr = antp + asid * sizeAsidStruct.U
     val numValidNnids = autlDataWord(63, 32)
-    autlAcqGrant(s_GET_NN_POINTER, nnid < numValidNnids, int_INVNNID)
+    autlAcqGrant(s_GET_NN_POINTER, nnid < numValidNnids, Causes.invalid_nnid)
   }
 
   val nnidPointer = Reg(UInt())
@@ -178,7 +175,7 @@ class AsidNnidTableWalker(implicit p: Parameters) extends DanaModule()(p)
   when (state === s_GET_NN_POINTER) {
     autlAddr := antp + asid * sizeAsidStruct.U + offsetNnidPtr.U
     nnidPointer := autlDataWord + nnid * sizeNnidStruct.U
-    autlAcqGrant(s_GET_NN_SIZE, autlDataWord =/= 0.U, int_NULLREAD)
+    autlAcqGrant(s_GET_NN_SIZE, autlDataWord =/= 0.U, Causes.null_read)
   }
 
   val configSize = Reg(UInt())
@@ -186,13 +183,13 @@ class AsidNnidTableWalker(implicit p: Parameters) extends DanaModule()(p)
   when (state === s_GET_NN_SIZE) {
     autlAddr := nnidPointer
     configSize := autlDataWord
-    autlAcqGrant(s_GET_NN_EPB, autlDataWord =/= 0.U, int_ZEROSIZE)
+    autlAcqGrant(s_GET_NN_EPB, autlDataWord =/= 0.U, Causes.zero_size)
   }
 
   when (state === s_GET_NN_EPB) {
     autlAddr := nnidPointer + offsetEpb.U
     autlAcqGrant(s_GET_CONFIG_POINTER, autlDataWord === elementsPerBlock.U,
-      int_INVEPB)
+      Causes.invalid_epb)
   }
 
   val configPointer = Reg(UInt())
@@ -208,12 +205,12 @@ class AsidNnidTableWalker(implicit p: Parameters) extends DanaModule()(p)
     val nextState = Mux(cacheReqCurrent.action === CacheTypes.Mem.read.U,
       s_GET_NN_CONFIG, s_PUT_NN_CONFIG)
     autlAcqGrant(nextState, aligned(autlDataWord) & autlDataWord =/= 0.U,
-      int_MISALIGNED)
+      Causes.misaligned)
     cacheAddr := 0.U
   }
 
   def autlAcqGrantBlock(nextState: UInt, cond: => Bool = true.B,
-    code: Int = int_UNKNOWN) = {
+    code: Int = Causes.unknown) = {
     when (!reqSent) {
       acq.valid := true.B
       reqSent := acq.fire()
@@ -300,8 +297,8 @@ class AsidNnidTableWalker(implicit p: Parameters) extends DanaModule()(p)
   when (state === s_PUT_NN_CONFIG) {
   }
 
-  io.xfiles.interrupt.valid := state === s_INTERRUPT
-  io.xfiles.interrupt.bits.code := interruptCode.bits
+  io.status.interrupt := state === s_INTERRUPT
+  io.status.cause := interruptCode
   when (state === s_INTERRUPT) {
     // Add interrupt/exception support (#4)
 
@@ -310,6 +307,7 @@ class AsidNnidTableWalker(implicit p: Parameters) extends DanaModule()(p)
     // entry. This should then propagate back up to the Transaction
     // Table and kill whatever is there?
 
+    interruptCode := 0.U
     state := s_IDLE
   }
 
@@ -351,12 +349,12 @@ object AsidNnidTableWalker {
     }
 
     when (state === s_INTERRUPT) {
-      printfError("Exception code 0d%d\n", interruptCode.bits)
+      printfError("Exception code 0d%d\n", interruptCode)
     }
   }
 
   trait Asserts extends AsidNnidTableWalker {
-    assert(!RegNext((state === s_INTERRUPT) & (interruptCode.bits > int_MISALIGNED.U)),
+    assert(!RegNext((state === s_INTERRUPT) & (interruptCode > Causes.misaligned.U)),
       printfSigil ++ "hit interrupt")
     assert(!RegNext(io.cache.req.fire() && !io.cache.req.ready),
       printfSigil ++ "saw a cache request, but it's cache queue is full")

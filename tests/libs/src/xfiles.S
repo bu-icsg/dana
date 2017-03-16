@@ -14,11 +14,10 @@
 #define csr_FENCE        0x080 // Dana
 
 // Supervisor CSRs read/write
-#define csr_EXCEPTION    0x100 // X-Files
+#define csr_CAUSE        0x100 // X-Files
 #define csr_TTABLE_SIZE  0x101
 #define csr_ASID         0x102
 #define csr_TID          0x103
-#define csr_DEBUG        0x104
 
 #define csr_PE_SIZE      0x180 // Dana
 #define csr_CACHE_SIZE   0x181

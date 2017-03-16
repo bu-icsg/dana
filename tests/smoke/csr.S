@@ -34,7 +34,6 @@
   XF_WRITE_CSR(csr_TTABLE_SIZE,  0x1);          \
   XF_WRITE_CSR(csr_ASID,         0x14);         \
   XF_WRITE_CSR(csr_TID,          0x15);         \
-  XF_WRITE_CSR(csr_DEBUG,        0x1);          \
   XF_WRITE_CSR(csr_PE_SIZE,      0x0);          \
   XF_WRITE_CSR(csr_CACHE_SIZE,   0x1);          \
   XF_WRITE_CSR(csr_PE_COOLDOWN,  0x7);          \
