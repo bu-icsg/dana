@@ -3,3 +3,4 @@
 *.#*
 build
 autom4te.cache
+configure
