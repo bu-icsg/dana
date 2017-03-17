@@ -63,7 +63,7 @@ typedef enum {
   int_INVEPB      = 6,
   int_MISALIGNED  = 7,
   int_UNKNOWN     = -1
-} xfiles_interrupt_t;
+} xfiles_causes_t;
 
 #define OPCODE 0
 // Standard macro that passes rd_, rs1_, and rs2_ via registers

@@ -13,7 +13,8 @@ case object BuildXFilesBackend extends Field[XFilesBackendParameters]
 case class XFilesBackendParameters(
   generator: Parameters => XFilesBackend,
   csrFile_gen: Parameters => CSRFile,
-  csrData_gen: Parameters => XFStatus,
+  csrStatus_gen: Parameters => XFStatus,
+  csrProbes_gen: Parameters => BackendProbes,
   info: Long = 0
 )
 
@@ -48,7 +49,8 @@ class XFilesBackendInterface(implicit p: Parameters) extends XFilesBundle()(p) {
   val xfReq = Flipped(new XFilesBackendReq)
   val xfResp = new XFilesBackendResp
   val xfQueue = new XFilesQueueInterface
-  val status = Input(p(BuildXFilesBackend).csrData_gen(p))
+  val status = Input(p(BuildXFilesBackend).csrStatus_gen(p))
+  lazy val probes_backend = Output(p(BuildXFilesBackend).csrProbes_gen(p))
 }
 
 trait AsicFlowSafety extends XFilesBackend {
@@ -63,8 +65,10 @@ trait UserSafety extends XFilesBackend {
   io.rocc.busy := false.B
   io.rocc.cmd.ready := true.B
   io.rocc.resp.valid := false.B
+
+  io.probes_backend.interrupt := false.B
 }
 
 class XFilesBackend(implicit p: Parameters) extends XFilesModule()(p) {
-  val io = IO(new XFilesBackendInterface)
+  lazy val io = IO(new XFilesBackendInterface)
 }

@@ -254,9 +254,15 @@ abstract class DanaModule(implicit p: Parameters) extends XFilesModule()(p)
 abstract class DanaBundle(implicit p: Parameters) extends XFilesBundle()(p)
     with DanaParameters with DanaEnums
 
+class DanaBackendInterface(implicit p: Parameters)
+    extends XFilesBackendInterface()(p) {
+  override lazy val probes_backend = Output(new DanaProbes)
+}
+
 class Dana(implicit p: Parameters) extends XFilesBackend()(p)
     with DanaParameters with XFilesSupervisorRequests with AsicFlowSafety
     with UserSafety {
+  override lazy val io = IO(new DanaBackendInterface)
   override val printfSigil = "dana.Dana: "
 
   // Module instantiation
@@ -276,6 +282,9 @@ class Dana(implicit p: Parameters) extends XFilesBackend()(p)
   io.rocc.busy := false.B
 
   List(cache, peTable, regFile, antw, tTable).map(_.io.status := io.status)
+  io.probes_backend.interrupt := antw.io.probes.interrupt
+  io.probes_backend.cause := antw.io.probes.cause
+  io.probes_backend.cache := cache.io.probes.cache
 
   // Wire everything up. Ordering shouldn't matter here.
   cache.io.control <> control.io.cache
@@ -346,7 +355,8 @@ class NnConfigNeuron(implicit p: Parameters) extends DanaBundle()(p) {
 }
 
 class DanaStatusIO(implicit p: Parameters) extends DanaBundle()(p) {
-  val status = Flipped(new DanaStatus)
+  val status = Input(new DanaStatus)
+  val probes = Output(new DanaProbes)
 }
 
 trait UsrCmdRs1 {

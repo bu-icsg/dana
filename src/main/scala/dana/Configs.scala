@@ -57,7 +57,8 @@ class DefaultDanaConfig extends Config ( {
     case BuildXFilesBackend        => XFilesBackendParameters(
       generator = (p: Parameters)  => Module(new Dana()(p)),
       csrFile_gen = (p: Parameters) => Module(new dana.CSRFile()(p)),
-      csrData_gen = (p: Parameters) => new DanaStatus()(p),
+      csrStatus_gen = (p: Parameters) => new DanaStatus()(p),
+      csrProbes_gen = (p: Parameters) => new DanaProbes()(p),
       info = packInfo(site(ElementsPerBlock), site(PeTableNumEntries),
         site(CacheNumEntries)))
     case _ => throw new CDEMatchError

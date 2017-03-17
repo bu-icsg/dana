@@ -21,14 +21,16 @@ object Causes {
 }
 
 object CSRs {
+  // User read/write
+  val fence       = 0x080 // saved
+
+  // Supervisor read/write
   val pe_size     = 0x180
   val cache_size  = 0x181
   val pe_cooldown = 0x182
   val antp        = 0x183
   val num_asids   = 0x184
   val pe_governor = 0x185
-
-  val fence       = 0x000 // saved
 
   class FenceCSR(implicit p: Parameters) extends DanaBundle()(p) {
     val valid = Bool()
@@ -53,19 +55,21 @@ class DanaStatus(implicit p: Parameters) extends xfiles.XFStatus()(p)
   val fence = UInt((nnidWidth + 2).W)
 }
 
-class DanaProbes(implicit p: Parameters) extends xfiles.XFStatus()(p)
+class DanaProbes(implicit p: Parameters) extends xfiles.BackendProbes()(p)
     with DanaParameters {
-  val fence_done = Bool()
-  val fence_asid = UInt(asidWidth.W)
+  val cache = new Bundle {
+    val fence_done = Bool()
+    val fence_asid = UInt(asidWidth.W)
+  }
 }
 
 class CSRFileIO(implicit p: Parameters) extends xfiles.CSRFileIO()(p) {
   override val status = Output(new DanaStatus)
-  override val probes = Input(new DanaProbes)
+  override val probes_backend = Input(new DanaProbes)
 }
 
 class CSRFile(implicit p: Parameters) extends xfiles.CSRFile()(p) with DanaParameters {
-  override lazy val io = IO(new dana.CSRFileIO)
+  override lazy val io = new dana.CSRFileIO
 
   lazy val reg_pe_size = Reg(init = p(PeTableNumEntries).U(log2Up(p(PeTableNumEntries)+1).W))
   lazy val reg_cache_size = Reg(init = p(CacheNumEntries).U(log2Up(p(CacheNumEntries)+1).W))
@@ -107,9 +111,10 @@ class CSRFile(implicit p: Parameters) extends xfiles.CSRFile()(p) with DanaParam
   io.status.pe_governor   := reg_pe_governor
   io.status.fence         := reg_fence
 
-  when (io.status.fence_done) {
-    val s = io.status
-    when (s.fence_asid === reg_asid) { reg_fence := 0.U                    }
-      .otherwise                     { reg_cause := Causes.fence_context.U }
+  when (io.probes_backend.cache.fence_done) {
+    val p = io.probes_backend
+    when (p.cache.fence_asid === reg_asid) { reg_fence := 0.U                    }
+      .otherwise                           { reg_mip := reg_mip | 1.U
+                                             reg_cause := Causes.fence_context.U }
   }
 }

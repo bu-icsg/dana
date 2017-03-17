@@ -59,10 +59,8 @@ class XFilesArbiter()(implicit p: Parameters)
   csrFile.io.prv := cmd.bits.status.prv
   when (readCsr | writeCsr) { io.core.resp.bits.data := csrFile.io.rdata }
   tTable.status := csrFile.io.status
-
-  // Alternatively, the request
-  val newRequest = cmd.fire() & asidValid & funct === t_USR_NEW_REQUEST.U
-  csrFile.io.action.newRequest := newRequest
+  csrFile.io.probes := tTable.probes
+  csrFile.io.probes_backend := tTable.probes_backend
 
   io.core.resp.valid := badRequest | readCsr | writeCsr |
     debugUnit.resp.valid | tTable.xfiles.resp.valid
@@ -96,6 +94,8 @@ class XFilesArbiter()(implicit p: Parameters)
   coreQueue.enq.bits := cmd.bits
   val asid = csrFile.io.status.asid
   val newTid = csrFile.io.status.tid
+  val newRequest = cmd.fire() & asidValid & funct === t_USR_NEW_REQUEST.U
+  csrFile.io.probes.newRequest := newRequest
   when (newRequest) {
     // Grab the LSBs of rs1, but get the ASID/TID from the ASID Unit
     val rs1Data = cmd.bits.rs1(xLen-asidWidth-tidWidth-1, 0)
@@ -212,6 +212,7 @@ class XFilesArbiter()(implicit p: Parameters)
   tTable.backend.xfResp <> io.backend.xfResp
   tTable.backend.xfQueue <> io.backend.xfQueue
   io.backend.status := tTable.backend.status
+  tTable.backend.probes_backend := io.backend.probes_backend
 
   when (io.core.resp.valid) {
     printfInfo("Responding to core rd 0d%d with data 0x%x\n",

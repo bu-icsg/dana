@@ -297,8 +297,8 @@ class AsidNnidTableWalker(implicit p: Parameters) extends DanaModule()(p)
   when (state === s_PUT_NN_CONFIG) {
   }
 
-  io.status.interrupt := state === s_INTERRUPT
-  io.status.cause := interruptCode
+  io.probes.interrupt := state === s_INTERRUPT
+  io.probes.cause := interruptCode
   when (state === s_INTERRUPT) {
     // Add interrupt/exception support (#4)
 
