@@ -6,7 +6,7 @@
 #include "src/xfiles.S"
 
 #define XFILES_DANA_ID                          \
-  li a0, csr_XFID_CURRENT;                      \
+  li a0, CSRs_xfid_current;                     \
   jal ra, xf_read_csr;
 
 #define NEW_WRITE_REQUEST(nnid, learning_type, num_train_outputs)       \

@@ -30,11 +30,11 @@
 #define XF_WRITE_CSR(csr, val) XF_WRITE_CSR_I(csr, val);
 
 #define SET_ASID(asid)                          \
-  XF_WRITE_CSR_I(csr_ASID, asid);               \
-  XF_WRITE_CSR_I(csr_TID, 0);
+  XF_WRITE_CSR_I(CSRs_asid, asid);               \
+  XF_WRITE_CSR_I(CSRs_tid, 0);
 #define SET_ANTP(antp, size)                    \
-  XF_WRITE_CSR_A(csr_ANTP, antp);               \
-  XF_WRITE_CSR_R(csr_NUM_ASIDS, size);
+  XF_WRITE_CSR_A(CSRs_antp, antp);               \
+  XF_WRITE_CSR_R(CSRs_num_asids, size);
 
 // #define XF_READ_CSR(csr)
 

@@ -11,24 +11,24 @@
 #define t_USR_XFILES_DEBUG 9
 
 // User CSRs
-#define csr_FENCE        0x080 // Dana
+#define CSRs_fence        0x080 // Dana
 
 // Supervisor CSRs read/write
-#define csr_CAUSE        0x100 // X-Files
-#define csr_TTABLE_SIZE  0x101
-#define csr_ASID         0x102
-#define csr_TID          0x103
+#define CSRs_cause        0x100 // X-Files
+#define CSRs_ttable_size  0x101
+#define CSRs_asid         0x102
+#define CSRs_tid          0x103
 
-#define csr_PE_SIZE      0x180 // Dana
-#define csr_CACHE_SIZE   0x181
-#define csr_PE_COOLDOWN  0x182
-#define csr_ANTP         0x183
-#define csr_NUM_ASIDS    0x184
-#define csr_PE_GOVERNOR  0x185
+#define CSRs_pe_size      0x180 // Dana
+#define CSRs_cache_size   0x181
+#define CSRs_pe_cooldown  0x182
+#define CSRs_antp         0x183
+#define CSRs_num_asids    0x184
+#define CSRs_pe_governor  0x185
 
-// Supervisor CSRs read-only
-#define csr_XFID         0xD00 // X-Files
-#define csr_XFID_CURRENT 0xD01
+// Supervisor CSRS read-only
+#define CSRs_xfid         0xD00 // X-Files
+#define CSRs_xfid_current 0xD01
 
 #define RESP_CODE_WIDTH 3
 

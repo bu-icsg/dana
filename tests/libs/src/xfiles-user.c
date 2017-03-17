@@ -16,7 +16,7 @@
 // with that convention below.
 
 xlen_t xfiles_dana_id() {
-  return xf_read_csr(csr_XFID_CURRENT);
+  return xf_read_csr(CSRs_xfid_current);
 }
 
 tid_type new_write_request(nnid_type nnid, learning_type_t learning_type,
@@ -183,7 +183,7 @@ xlen_t xfiles_fann_run_smp_compare(nnid_type nnid,
   // Read the info block to figure out how many simultaneous
   // transactions we can support
   int failures = 0;
-  xlen_t id = xf_read_csr(csr_XFID_CURRENT);
+  xlen_t id = xf_read_csr(CSRs_xfid_current);
   int entries = id >> (64 - 16);
   element_type * last = addr_i + num_inputs * num_data;
   element_type * first = addr_i;
