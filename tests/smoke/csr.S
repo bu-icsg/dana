@@ -59,6 +59,7 @@ start:
 
 RVTEST_CODE_BEGIN
   TEST_CASE( 20, a0, 0x0,              XF_READ_CSR(CSRs_fence));
+  TEST_CASE( 21, a0, 0x0,              DANA_FENCE(0xdead));
 
   TEST_PASSFAIL
 

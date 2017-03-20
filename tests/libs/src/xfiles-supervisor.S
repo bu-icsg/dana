@@ -29,6 +29,9 @@
 
 #define XF_WRITE_CSR(csr, val) XF_WRITE_CSR_I(csr, val);
 
+#define DANA_FENCE(nnid) XF_WRITE_CSR(CSRs_fence, (1<<16) | (nnid & ~(~0<<16)));
+#define DANA_SYNC(nnid) XF_WRITE_CSR(CSRs_fence, (0 << 16) | (nnid & ~(~0<<16)));
+
 #define SET_ASID(asid)                          \
   XF_WRITE_CSR_I(CSRs_asid, asid);               \
   XF_WRITE_CSR_I(CSRs_tid, 0);
