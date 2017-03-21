@@ -34,7 +34,7 @@ start:
 
 RVTEST_CODE_BEGIN
 
-  FANN_TEST_LEARN(0, NUM_INPUTS, NUM_OUTPUTS, NUM_DATAPOINTS, data_in, data_expected);
+  FANN_TEST_LEARN(0, NUM_INPUTS, NUM_OUTPUTS, NUM_DATAPOINTS, data_in, data_expected, data_out);
   DANA_FENCE(0)
   ;; FANN_TEST_NO_COMPARE_CC(0, NUM_INPUTS, NUM_OUTPUTS, NUM_DATAPOINTS, data_in, data_out, data_expected);
 

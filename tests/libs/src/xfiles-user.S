@@ -87,18 +87,15 @@ fann_test_top:                     \
   add x25, x25, x23;               \
   blt TESTNUM, x24, fann_test_top;
 
-#define FANN_TEST_LEARN(nnid, num_input, num_output, num_data, addr_i, addr_e) \
-  li TESTNUM, 0;                \
+#define FANN_TEST_LEARN(nnid, num_input, num_output, num_data, addr_i, addr_e, addr_o) \
   li a0, nnid;                  \
   la a1, addr_i;                \
   la a2, addr_e;                \
-  li a3, num_input;             \
-  li a4, num_output;            \
-  li a5, num_data;              \
-  jal xfiles_fann_learn;        \
-  beq a0, x0, pass;             \
-  srli TESTNUM, a0, 32;         \
-  j fail;
+  la a3, addr_o;                \
+  li a4, num_input;             \
+  li a5, num_output;            \
+  li a6, num_data;              \
+  jal xfiles_fann_learn;
 
 #define FANN_TEST_NO_COMPARE_CC(nnid, num_input, num_output, num_data, addr_i, addr_o, addr_e) \
   li TESTNUM, 0;               \
