@@ -46,6 +46,7 @@ class XFStatus(implicit p: Parameters) extends XFilesBundle()(p) {
   val asid = UInt(asidWidth.W)
   val tid = UInt(tidWidth.W)
   val asidValid = Bool()
+  val stall_response = Bool()
 }
 
 class XFProbes(implicit p: Parameters) extends XFilesBundle()(p) {
@@ -62,7 +63,7 @@ class BackendProbes(implicit p: Parameters) extends XFilesBundle()(p) {
 
 class CSRFileIO(implicit p: Parameters) extends XFilesBundle()(p) {
   val addr = Input(UInt(12.W))
-  val cmd = Input(UInt(CSRs.cmdSize))
+  val cmd = Input(UInt(CSRs.cmdSize.W))
   val prv = Input(UInt(rocket.PRV.SZ.W))
   val rdata = Output(UInt(xLen.W))
   val wdata = Input(UInt(xLen.W))
@@ -76,7 +77,7 @@ abstract class CSRFile(implicit p: Parameters) extends XFilesModule()(p)
   with HasXFilesBackend {
   def backendId: UInt
   require(backendId.getWidth == 48, "XF backendId must be 48-bit")
-  def backend_csrs: collection.immutable.ListMap[Int, Bits]
+  def backend_csrs: collection.immutable.ListMap[Int, Data]
   def backend_writes: Unit
 
   lazy val io = new CSRFileIO
@@ -91,7 +92,7 @@ abstract class CSRFile(implicit p: Parameters) extends XFilesModule()(p)
   val reg_tx_ip = Reg(init = Vec(transactionTableNumEntries, Bool()).fromBits(0.U))
   require(transactionTableNumEntries <= xLen, "TTable entries must be less than XLen")
 
-  lazy val read_mapping = collection.mutable.LinkedHashMap[Int, Bits] (
+  lazy val read_mapping = collection.mutable.LinkedHashMap[Int, Data] (
     CSRs.cause        -> reg_cause,
     CSRs.ttable_size  -> reg_ttable_size,
     CSRs.xfid         -> transactionTableNumEntries.U ##
@@ -126,8 +127,8 @@ abstract class CSRFile(implicit p: Parameters) extends XFilesModule()(p)
   val cause = Mux(io.probes.interrupt, Causes.xfiles_generic.U,
     Mux(io.probes_backend.interrupt, Causes.backend_generic.U,
       Causes.illegal_instruction.U))
-  val exception = ((wen && read_only) || (ren && (!addr_valid || !prv_ok)) ||
-    io.probes.interrupt || io.probes_backend.interrupt)
+  val exception = (wen && read_only) || (ren && (!addr_valid || !prv_ok)) ||
+    io.probes.interrupt || io.probes_backend.interrupt
 
   when (exception) {
     reg_cause := reg_cause | cause
@@ -143,4 +144,5 @@ abstract class CSRFile(implicit p: Parameters) extends XFilesModule()(p)
   io.status.asid           := reg_asid
   io.status.tid            := reg_tid
   io.status.asidValid      := reg_asid =/= ~(0.U(asidWidth.W))
+  io.status.stall_response := false.B
 }

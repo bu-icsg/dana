@@ -296,6 +296,7 @@ class AsidNnidTableWalker(implicit p: Parameters) extends DanaModule()(p)
 
   when (state === s_PUT_NN_CONFIG) {
   }
+  assert(state =/= s_PUT_NN_CONFIG, "ANTW hit s_PUT_NN_CONFIG\n")
 
   io.probes.interrupt := state === s_INTERRUPT
   io.probes.cause := interruptCode

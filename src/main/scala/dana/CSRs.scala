@@ -52,7 +52,7 @@ class DanaStatus(implicit p: Parameters) extends xfiles.XFStatus()(p)
   val antp = UInt(xLen.W)
   val num_asids = UInt(p(xfiles.AsidWidth).W)
   val pe_governor = UInt(1.W)
-  val fence = UInt((nnidWidth + 2).W)
+  val fence = new CSRs.FenceCSR
 }
 
 class DanaProbes(implicit p: Parameters) extends xfiles.BackendProbes()(p)
@@ -77,12 +77,12 @@ class CSRFile(implicit p: Parameters) extends xfiles.CSRFile()(p) with DanaParam
   lazy val reg_antp = Reg(init = ~(0.U(xLen.W)))
   lazy val reg_num_asids = Reg(init = 0.U(p(xfiles.AsidWidth).W))
   lazy val reg_pe_governor = Reg(init = 0.U(1.W))
-  lazy val reg_fence = Reg(init = 0.U((nnidWidth + 2).W))
+  lazy val reg_fence = Reg(new CSRs.FenceCSR)
 
   def backendId = ( p(ElementsPerBlock).U ## reg_pe_size.pad(6) ##
     reg_cache_size.pad(4) ).pad(48)
 
-  def backend_csrs = collection.immutable.ListMap(
+  def backend_csrs = collection.immutable.ListMap[Int, Data](
     CSRs.pe_size     -> reg_pe_size,
     CSRs.cache_size  -> reg_cache_size,
     CSRs.pe_cooldown -> reg_pe_cooldown,
@@ -94,27 +94,41 @@ class CSRFile(implicit p: Parameters) extends xfiles.CSRFile()(p) with DanaParam
 
   def backend_writes = {
     val d = io.wdata
-    when (addrIs(CSRs.pe_size))     { reg_pe_size     := d }
-    when (addrIs(CSRs.cache_size))  { reg_cache_size  := d }
-    when (addrIs(CSRs.pe_cooldown)) { reg_pe_cooldown := d }
-    when (addrIs(CSRs.antp))        { reg_antp        := d }
-    when (addrIs(CSRs.num_asids))   { reg_num_asids   := d }
-    when (addrIs(CSRs.pe_governor)) { reg_pe_governor := d }
-    when (addrIs(CSRs.fence))       { reg_fence       := 1.U ## d(nnidWidth + 1, 0) }
+    when (addrIs(CSRs.pe_size))     { reg_pe_size          := d }
+    when (addrIs(CSRs.cache_size))  { reg_cache_size       := d }
+    when (addrIs(CSRs.pe_cooldown)) { reg_pe_cooldown      := d }
+    when (addrIs(CSRs.antp))        { reg_antp             := d }
+    when (addrIs(CSRs.num_asids))   { reg_num_asids        := d }
+    when (addrIs(CSRs.pe_governor)) { reg_pe_governor      := d }
+    when (addrIs(CSRs.fence)) {
+      when (!reg_fence.valid) {
+        reg_fence.valid      := true.B
+        reg_fence.fence_type := d(p(NnidWidth))
+        reg_fence.nnid       := d(p(NnidWidth) - 1, 0)
+        io.rdata := 0.U
+      } .otherwise {
+        io.rdata := 1.U }}
   }
 
-  io.status.pes_active    := reg_pe_size
-  io.status.caches_active := reg_cache_size
-  io.status.pe_cooldown   := reg_pe_cooldown
-  io.status.antp          := reg_antp
-  io.status.num_asids     := reg_num_asids
-  io.status.pe_governor   := reg_pe_governor
-  io.status.fence         := reg_fence
+  io.status.pes_active     := reg_pe_size
+  io.status.caches_active  := reg_cache_size
+  io.status.pe_cooldown    := reg_pe_cooldown
+  io.status.antp           := reg_antp
+  io.status.num_asids      := reg_num_asids
+  io.status.pe_governor    := reg_pe_governor
+  io.status.fence          := reg_fence
+  io.status.stall_response := ( (reg_fence.valid && reg_fence.fence_type) ||
+    (addrIs(CSRs.fence) && io.wdata(p(NnidWidth))) )
 
   when (io.probes_backend.cache.fence_done) {
     val p = io.probes_backend
-    when (p.cache.fence_asid === reg_asid) { reg_fence := 0.U                    }
-      .otherwise                           { reg_mip := reg_mip | 1.U
-                                             reg_cause := Causes.fence_context.U }
+    when (p.cache.fence_asid === reg_asid) {
+      reg_fence.valid := false.B
+      // [TODO] Generate response to core
+    } .otherwise {
+      reg_mip := reg_mip | 1.U
+      reg_cause := Causes.fence_context.U }
   }
+
+  when (reset) { reg_fence.valid := false.B }
 }

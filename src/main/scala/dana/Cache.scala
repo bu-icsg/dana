@@ -21,6 +21,7 @@ object CacheTypes {
 class CacheState(implicit p: Parameters) extends DanaBundle()(p) {
   val valid       = Bool()
   val dirty       = Bool()
+  val wbPending   = Bool()
   val notifyFlag  = Bool()
   val fetch       = Bool()
   val notifyIndex = UInt(log2Up(transactionTableNumEntries).W)
@@ -86,7 +87,7 @@ abstract class CacheBase[SramIfType <: SRAMVariantInterface,
     extends DanaModule()(p) {
   val mem = genSram
 
-  override val printfSigil = "dana.Cache"
+  override val printfSigil = "dana.Cache: "
 
   lazy val io = IO(new CacheInterface)
 
@@ -120,7 +121,8 @@ abstract class CacheBase[SramIfType <: SRAMVariantInterface,
   // Helper functions for examing the cache entries
   def fIsFree(x: CacheState): Bool = {!x.valid}
   def fIsUnused(x: CacheState): Bool = {x.inUseCount === 0.U}
-  def fDerefNnid(x: CacheState, y: UInt): Bool = {x.valid && x.nnid === y}
+  def fDerefNnid(x: CacheState, y: UInt, z: UInt): Bool = {
+    x.valid && x.nnid === y && x.asid === z}
 
   // The check on whether or not an entry is done fetching depends, in
   // the absolute worst case, on the number of cycles it takes for
@@ -137,9 +139,9 @@ abstract class CacheBase[SramIfType <: SRAMVariantInterface,
   val hasFree = table.exists(fIsFree(_)) && nextFree < io.status.caches_active
   val nextUnused = table.indexWhere(fIsUnused(_))
   val foundNnid = table.exists(fDerefNnid(_: CacheState,
-    tTableReqQueue.deq.bits.nnid))
+    tTableReqQueue.deq.bits.nnid, tTableReqQueue.deq.bits.asid))
   val derefNnid = table.indexWhere(fDerefNnid(_: CacheState,
-    tTableReqQueue.deq.bits.nnid))
+   tTableReqQueue.deq.bits.nnid, tTableReqQueue.deq.bits.asid))
   val hasNotify = table.exists(fIsDoneFetching(_))
   val idxNotify = table.indexWhere(fIsDoneFetching(_))
 
@@ -147,6 +149,7 @@ abstract class CacheBase[SramIfType <: SRAMVariantInterface,
   def tableInit(index: UInt) {
     table(index).valid := true.B
     table(index).dirty := false.B
+    table(index).wbPending := false.B
     table(index).asid := tTableReqQueue.deq.bits.asid
     table(index).nnid := tTableReqQueue.deq.bits.nnid
     table(index).fetch := true.B
@@ -359,6 +362,40 @@ abstract class CacheBase[SramIfType <: SRAMVariantInterface,
       printfInfo("SRAM_%x received DONE response\n",
         io.antw.resp.bits.cacheIndex)
       table(io.antw.resp.bits.cacheIndex).notifyFlag := true.B
+    }
+  }
+
+  // Status/Probe handling (fence/sync)
+  val fencePending = Reg(init = false.B)
+  val doFence = io.status.fence.valid && io.status.fence.fence_type
+  val doSync = io.status.fence.valid && !io.status.fence.fence_type
+  io.probes.cache.fence_done := false.B
+  when ((doFence || doSync) && !fencePending) {
+    fencePending := true.B
+
+    val foundNnid = table.exists(fDerefNnid(_: CacheState,
+      io.status.fence.nnid, io.status.asid))
+    val nnidIdx = table.indexWhere(fDerefNnid(_: CacheState,
+      io.status.fence.nnid, io.status.asid))
+
+    val noWriteback = !foundNnid || (foundNnid && !table(nnidIdx).dirty)
+    val writeback = foundNnid && table(nnidIdx).dirty
+    when (noWriteback) {
+      io.probes.cache.fence_done := true.B
+      io.probes.cache.fence_asid := io.status.asid
+      fencePending := false.B
+      printfInfo("No writeback for fence/sync (%x/%x) for asid/nnid (0x%x/0x%x)\n",
+        doFence, doSync, io.status.fence.nnid, io.status.asid)
+    }
+
+    when (writeback) {
+      io.antw.req.valid := true.B
+      io.antw.req.bits.cacheIndex := nnidIdx
+      io.antw.req.bits.asid := io.status.asid
+      io.antw.req.bits.nnid := io.status.fence.nnid
+      io.antw.req.bits.action := CacheTypes.Mem.write.U
+      printfInfo("Writeback needed for fence/sync (%x/%x) for asid/nnid (0x%x/0x%x)\n",
+        doFence, doSync, io.status.fence.nnid, io.status.asid)
     }
   }
 

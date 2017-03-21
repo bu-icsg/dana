@@ -58,8 +58,10 @@ RVTEST_WITH_ROCC
 start:
 
 RVTEST_CODE_BEGIN
-  TEST_CASE( 20, a0, 0x0,              XF_READ_CSR(CSRs_fence));
-  TEST_CASE( 21, a0, 0x0,              DANA_FENCE(0xdead));
+  TEST_CASE( 20, a0, 0x0,              XF_READ_CSR(CSRs_fence); \
+                                       srli a0, a0, 17);
+  TEST_CASE( 21, a0, 0x0,              DANA_SYNC(0xdead));
+  TEST_CASE( 22, a0, 0x0,              DANA_FENCE(0xdead));
 
   TEST_PASSFAIL
 

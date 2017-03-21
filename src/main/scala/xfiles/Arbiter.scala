@@ -5,7 +5,7 @@ package xfiles
 
 import chisel3._
 import chisel3.util._
-import rocket.{RoCCInterface, RoccNMemChannels, RoCCCommand, HellaCacheResp}
+import rocket._
 import config._
 
 class XFilesArbiterInterface(implicit p: Parameters) extends Bundle {
@@ -62,10 +62,20 @@ class XFilesArbiter()(implicit p: Parameters)
   csrFile.io.probes := tTable.probes
   csrFile.io.probes_backend := tTable.probes_backend
 
-  io.core.resp.valid := badRequest | readCsr | writeCsr |
-    debugUnit.resp.valid | tTable.xfiles.resp.valid
+  val stall = csrFile.io.status.stall_response
+  io.core.resp.valid := !csrFile.io.status.stall_response && (
+    badRequest | readCsr | writeCsr | debugUnit.resp.valid |
+      tTable.xfiles.resp.valid | (!stall && RegNext(stall)) )
 
   io.core.resp.bits.rd := cmd.bits.inst.rd
+
+  // Handle stall conditions where the response is delayed until some
+  // condition determined by the CSR File
+  val saved_resp = Reg(new RoCCResponse)
+  when (stall && !RegNext(stall)) { saved_resp := io.core.resp.bits }
+  when (RegNext(stall))           { io.core.resp.bits := saved_resp }
+
+  when (stall && !RegNext(stall)) { printfInfo("starting stall\n"); }
 
   // See if the ASID Unit is forwarding a supervisor request to the
   // backend
