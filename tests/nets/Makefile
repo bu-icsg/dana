@@ -10,7 +10,11 @@ ID_STRING ?= 0x$(shell echo "obase=16; $(ID_CACHE) + ($(PES) * (2 ^ 4)) + ($(EPB
 default: all
 src_dir = .
 
-tests = $(patsubst %-fixed.ant.h,%,$(notdir $(wildcard $(src_dir)/*-fixed.ant.h)))
+_tests = $(notdir $(wildcard $(src_dir)/*-fixed.ant.h))
+tests = \
+	$(patsubst %-fixed.ant.h,%, $(_tests)) \
+	$(patsubst %-fixed.ant.h,%-smp, $(_tests)) \
+	$(patsubst %-fixed.ant.h,%-learn, $(_tests))
 
 tests_p = $(addprefix $(PREFIX)-p-, $(tests))
 
@@ -55,8 +59,11 @@ vpath %.h $(src_dir)
 $(PREFIX)-p-%: genericNetTest.S %-fixed.ant.h $(HEADERS_P) $(abs_top_srcdir)/libs/build/libxfiles-user.a $(abs_top_srcdir)/libs/build/libxfiles-supervisor.a
 	$(RISCV_GCC) $(RISCV_GCC_OPTS) -I$(abs_top_srcdir)/env/p -include $*-fixed.ant.h $< $(RISCV_LD_OPTS) -T$(abs_top_srcdir)/env/p/link.ld -o $@
 
-$(PREFIX)-p-%-smp: %.S $(HEADERS_P) $(abs_top_srcdir)/libs/build/libxfiles-user.a $(abs_top_srcdir)/libs/build/libxfiles-supervisor.a
-	$(RISCV_GCC) $(RISCV_GCC_OPTS) -DSMP -I$(abs_top_srcdir)/env/p $< $(RISCV_LD_OPTS) -T$(abs_top_srcdir)/env/p/link.ld -o $@
+$(PREFIX)-p-%-smp: genericNetTest.S %-fixed.ant.h $(HEADERS_P) $(abs_top_srcdir)/libs/build/libxfiles-user.a $(abs_top_srcdir)/libs/build/libxfiles-supervisor.a
+	$(RISCV_GCC) $(RISCV_GCC_OPTS) -DSMP -I$(abs_top_srcdir)/env/p -include $*-fixed.ant.h $< $(RISCV_LD_OPTS) -T$(abs_top_srcdir)/env/p/link.ld -o $@
+
+$(PREFIX)-p-%-learn: genericLearnTest.S %-fixed.ant.h $(HEADERS_P) $(abs_top_srcdir)/libs/build/libxfiles-user.a $(abs_top_srcdir)/libs/build/libxfiles-supervisor.a
+	$(RISCV_GCC) $(RISCV_GCC_OPTS) -I$(abs_top_srcdir)/env/p -include $*-fixed.ant.h $< $(RISCV_LD_OPTS) -T$(abs_top_srcdir)/env/p/link.ld -o $@
 
 $(PREFIX)-v-%: %.S $(HEADERS_V) $(asb_top_srcdir)/libs/build/libxfiles-user.a $(abs_top_srcdir)/libs/build/libxfiles-supervisor.a
 	$(RISCV_GCC) $(RISCV_GCC_OPTS) -I$(abs_top_srcdir)/env/v $(RISCV_LD_OPTS) -T$(abs_top_srcdir)/env/v/link.ld $< -o $@

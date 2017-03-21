@@ -25,5 +25,5 @@ nets:
 	$(MAKE) -C $@ -f $(test_nets_dir)/Makefile $(vars)
 
 clean:
-	$(MAKE) -C smoke -f $(test_smoke_dir)/Makefile abs_top_srcdir=$(abs_top_srcdir) PREFIX=$(ROCC)-smoke clean
-	$(MAKE) -C nets -f $(test_nets_dir)/Makefile abs_top_srcdir=$(abs_top_srcdir) PREFIX=$(ROCC)-nets clean
+	$(MAKE) -C smoke -f $(test_smoke_dir)/Makefile abs_top_srcdir=$(abs_top_srcdir) PREFIX=$(ROCC)-smoke src_dir=$(abs_top_srcdir)/smoke clean
+	$(MAKE) -C nets -f $(test_nets_dir)/Makefile abs_top_srcdir=$(abs_top_srcdir) PREFIX=$(ROCC)-nets src_dir=$(abs_top_srcdir)/nets clean
