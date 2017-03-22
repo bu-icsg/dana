@@ -77,15 +77,18 @@ class CompressedNeuron(implicit p: Parameters) extends DanaBundle()(p) {
   }
 }
 
-abstract class CacheBase[SramIfType <: SRAMVariantInterface,
-  ControlCacheIfReqType <: ControlCacheInterfaceReq,
-  ControlCacheIfRespType <: ControlCacheInterfaceResp,
-  PECacheIfRespType <: PECacheInterfaceResp](
-  genSram: => Vec[SramIfType], genControlReq: => ControlCacheIfReqType,
-    genControlResp: => ControlCacheIfRespType,
-    genPEResp: => PECacheIfRespType)(implicit p: Parameters)
+abstract class CacheBase[
+  A <: SRAMVariant, B <: SRAMVariantInterface, C <: ControlCacheInterfaceReq,
+  D <: ControlCacheInterfaceResp](implicit p: Parameters)
     extends DanaModule()(p) {
-  val mem = genSram
+  def mem: Seq[A]
+  def memIo: Vec[B]
+  def genControlReq: C
+  def genControlResp: D
+  mem zip memIo map {case(m, io) => m.io <> io}
+  // lazy val mem = genSram
+  // lazy val memIo = Wire(Vec(mem map (m => m.io)))
+  // memIo zip mem map { case(io, x) => io <> x }
 
   override val printfSigil = "dana.Cache: "
 
@@ -110,7 +113,7 @@ abstract class CacheBase[SramIfType <: SRAMVariantInterface,
   // of the individual cache SRAMs so we construct a pipeline that
   // builds up the responses.
   val controlRespPipe = Reg(Vec(2, Valid(genControlResp)))
-  val peRespPipe = Reg(Vec(2, Valid(genPEResp)))
+  val peRespPipe = Reg(Vec(2, Valid(new PECacheInterfaceResp)))
   val cacheRead = Reg(Vec(cacheNumEntries, UInt(log2Up(cacheNumBlocks).W)))
   // We also need to store the cache index of an inbound request by a
   // PE so that we can dereference it one cycle later when the cache
@@ -182,9 +185,9 @@ abstract class CacheBase[SramIfType <: SRAMVariantInterface,
 
   // Default values for the memory input wires
   for (i <- 0 until cacheNumEntries) {
-    mem(i).din(0) := 0.U
-    mem(i).addr(0) := 0.U
-    mem(i).we(0) := false.B
+    memIo(i).din(0) := 0.U
+    memIo(i).addr(0) := 0.U
+    memIo(i).we(0) := false.B
   }
 
   // The cache can see requests from three locations:
@@ -262,7 +265,7 @@ abstract class CacheBase[SramIfType <: SRAMVariantInterface,
         // Read the layer information from the correct block. A layer
         // occupies one block, so we need to pull the block address
         // out of the layer number.
-        mem(derefNnid).addr(0) := 1.U + // Offset from info region
+        memIo(derefNnid).addr(0) := 1.U + // Offset from info region
           layer(layer.getWidth-1, log2Up(elementsPerBlock))
       }
       is (e_CACHE_DECREMENT_IN_USE_COUNT) {
@@ -281,7 +284,7 @@ abstract class CacheBase[SramIfType <: SRAMVariantInterface,
   // Pipeline second stage (SRAM read)
   switch (controlRespPipe(0).bits.field) {
     is (e_CACHE_INFO) {
-      val thisCache = mem(controlRespPipe(0).bits.cacheIndex).dout(0)
+      val thisCache = memIo(controlRespPipe(0).bits.cacheIndex).dout(0)
       val dataDecode = (new NnConfigHeader).fromBits(thisCache)
 
       controlRespPipe(1).bits.decimalPoint := dataDecode.decimalPoint
@@ -295,7 +298,7 @@ abstract class CacheBase[SramIfType <: SRAMVariantInterface,
       controlRespPipe(1).bits.data(5) := dataDecode.totalWeightBlocks
     }
     is (e_CACHE_LAYER_INFO) {
-      val thisCache = mem(controlRespPipe(0).bits.cacheIndex).dout(0)
+      val thisCache = memIo(controlRespPipe(0).bits.cacheIndex).dout(0)
       // [TODO] fragile
       val dataDecode = Vec(bitsPerBlock/32, new NnConfigNeuron).fromBits(thisCache)
       val neuronIdx = controlRespPipe(0).bits.data(0)
@@ -316,7 +319,7 @@ abstract class CacheBase[SramIfType <: SRAMVariantInterface,
     // generate a block address from the input cache byte address.
     // [TODO] This shift may be a source of bugs. Check to make sure
     // that it's being passed correctly.
-    mem(io.pe.req.bits.cacheIndex).addr(0) :=
+    memIo(io.pe.req.bits.cacheIndex).addr(0) :=
       io.pe.req.bits.cacheAddr >> ((2 + log2Up(elementsPerBlock)).U)
     printfInfo("block address from byte address 0x%x/0x%x\n",
       io.pe.req.bits.cacheAddr,
@@ -337,7 +340,7 @@ abstract class CacheBase[SramIfType <: SRAMVariantInterface,
   // The actual data that comes out of the memory is not interpreted
   // here, i.e., we just pass the full bitsPerBlock-sized data packet
   // to the PE Table and it deals with the internal indices.
-  peRespPipe(1).bits.data := mem(peCacheIndex_d0).dout(0)
+  peRespPipe(1).bits.data := memIo(peCacheIndex_d0).dout(0)
 
   // Set the response to the Control module
   io.control.resp.valid := controlRespPipe(1).valid
@@ -352,9 +355,9 @@ abstract class CacheBase[SramIfType <: SRAMVariantInterface,
       io.antw.resp.bits.cacheIndex,
       io.antw.resp.bits.addr,
       io.antw.resp.bits.data)
-    mem(io.antw.resp.bits.cacheIndex).we(0) := true.B
-    mem(io.antw.resp.bits.cacheIndex).addr(0) := io.antw.resp.bits.addr
-    mem(io.antw.resp.bits.cacheIndex).din(0) := io.antw.resp.bits.data
+    memIo(io.antw.resp.bits.cacheIndex).we(0) := true.B
+    memIo(io.antw.resp.bits.cacheIndex).addr(0) := io.antw.resp.bits.addr
+    memIo(io.antw.resp.bits.cacheIndex).din(0) := io.antw.resp.bits.data
     // If this is done, then set the notify flag which will cause the
     // when block above to generate a response when the cache isn't
     // dealing with other requests
@@ -436,29 +439,38 @@ abstract class CacheBase[SramIfType <: SRAMVariantInterface,
     "Cache missed on ASID/NNID req, but has no free/unused entries")
 }
 
-class Cache(implicit p: Parameters)
-    extends CacheBase(Vec.fill(p(CacheNumEntries))(
+class Cache(implicit p: Parameters) extends CacheBase[
+  SRAMVariant, SRAMVariantInterface, ControlCacheInterfaceReq,
+  ControlCacheInterfaceResp]()(p) {
+    lazy val mem = Seq.fill(p(CacheNumEntries))(
       Module(new SRAMVariant(
         dataWidth = p(BitsPerBlock),
         sramDepth = p(CacheNumBlocks),
-        numPorts = 1)).io),
-      new ControlCacheInterfaceReq, new ControlCacheInterfaceResp,
-      new PECacheInterfaceResp)(p) {
+        numPorts = 1)))
+    lazy val memIo = Wire(Vec(cacheNumEntries, mem(0).io.cloneType))
 
-  // SRAMVariant writes back in one cycle and no waiting is necessary.
-  override def fIsDoneFetching(x: CacheState): Bool = {x.notifyFlag}
+    def genControlReq = new ControlCacheInterfaceReq
+    def genControlResp = new ControlCacheInterfaceResp
+
+    // SRAMVariant writes back in one cycle and no waiting is necessary.
+    override def fIsDoneFetching(x: CacheState): Bool = {x.notifyFlag}
 }
 
-class CacheLearn(implicit p: Parameters)
-    extends CacheBase(Vec.fill(p(CacheNumEntries))(
-      Module(new SRAMBlockIncrement(
-        dataWidth = p(BitsPerBlock),
-        sramDepth = p(CacheNumBlocks),
-        numPorts = 1,
-        elementWidth = p(ElementWidth))).io),
-      new ControlCacheInterfaceReqLearn, new ControlCacheInterfaceRespLearn,
-      new PECacheInterfaceResp)(p) {
+class CacheLearn(implicit p: Parameters) extends CacheBase[SRAMBlockIncrement,
+  SRAMBlockIncrementInterface, ControlCacheInterfaceReqLearn,
+  ControlCacheInterfaceRespLearn]()(p) {
   override lazy val io = IO(new CacheInterfaceLearn)
+
+  lazy val mem = Seq.fill(p(CacheNumEntries))(
+    Module(new SRAMBlockIncrement(
+      dataWidth = p(BitsPerBlock),
+      sramDepth = p(CacheNumBlocks),
+      numPorts = 1,
+      elementWidth = p(ElementWidth))))
+  lazy val memIo = Wire(Vec(p(CacheNumEntries), mem(0).io.cloneType))
+
+  def genControlReq = new ControlCacheInterfaceReqLearn
+  def genControlResp = new ControlCacheInterfaceRespLearn
 
   // SRAMBlockIncrement takes two cycles to writeback, so we're done
   // fetching one cycle after notifyFlag asserts.
@@ -467,15 +479,15 @@ class CacheLearn(implicit p: Parameters)
     x.notifyFlag & notifyFlagOld }
 
   for (i <- 0 until cacheNumEntries) {
-    mem(i).inc(0) := false.B
+    memIo(i).inc(0) := false.B
   }
 
   controlRespPipe(0).bits.totalWritesMul := 0.U
   controlRespPipe(0).bits.totalWritesMul :=
-    tTableReqQueue.deq.bits.totalWritesMul
+  tTableReqQueue.deq.bits.totalWritesMul
 
   // [TODO] Why is this always assigned?
-  val thisCache = mem(controlRespPipe(0).bits.cacheIndex).dout(0)
+  val thisCache = memIo(controlRespPipe(0).bits.cacheIndex).dout(0)
   val dataDecode = (new NnConfigHeader).fromBits(thisCache)
   controlRespPipe(1).bits.globalWtptr := dataDecode.weightsPointer
 
@@ -491,11 +503,15 @@ class CacheLearn(implicit p: Parameters)
         printfInfo("PE 0x%x req to inc weight @addr 0x%x\n",
           io.pe.req.bits.peIndex, io.pe.req.bits.cacheAddr)
         printfInfo("       block: 0x%x\n", io.pe.req.bits.data)
-        mem(cacheIdx).we(0) := true.B
-        mem(cacheIdx).inc(0) := true.B
-        mem(cacheIdx).din(0) := io.pe.req.bits.data.asUInt
+        memIo(cacheIdx).we(0) := true.B
+        memIo(cacheIdx).inc(0) := true.B
+        memIo(cacheIdx).din(0) := io.pe.req.bits.data.asUInt
         table(cacheIdx).dirty := true.B
       }
     }
   }
+
+  // when (io.antw.resp.valid && io.antw.resp.bits.done) {
+  //   printfInfo("Dumping all memory contents...\n")
+  //   mem map (m => m.dump) }
 }

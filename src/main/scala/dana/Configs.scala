@@ -61,6 +61,7 @@ class DefaultDanaConfig extends Config ( {
       csrProbes_gen = (p: Parameters) => new DanaProbes()(p),
       info = packInfo(site(ElementsPerBlock), site(PeTableNumEntries),
         site(CacheNumEntries)))
+    case EnableCacheDump           => false
     case _ => throw new CDEMatchError
   }}
 )

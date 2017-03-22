@@ -40,6 +40,8 @@ class SRAMVariant(
     numWritePorts = numPorts,
     numReadWritePorts = 0))
 
+  def dump() = sram.dump()
+
   // Set the name of the verilog backend
   // [TODO] issue-37, these aren't supported in Chisel 3
   // if (numPorts == 1)

@@ -50,7 +50,11 @@ class SRAM (
     numReadWritePorts = numReadWritePorts,
     dataWidth = dataWidth,
     sramDepth = sramDepth))
+
   val mem = Mem(sramDepth, UInt(dataWidth.W))
+
+  def dump() = { mem.zipWithIndex.map { case(m, i) =>
+    printf("SRAM[0x%x]: 0x%x\n", i.U, m) }}
 
   if (numReadWritePorts > 0) {
     val buf = Reg(Vec(numReadWritePorts, UInt(dataWidth.W)))
@@ -78,7 +82,6 @@ class SRAM (
       }
     }
   }
-
 }
 
 class SRAMSinglePortInterface(
