@@ -51,9 +51,11 @@ class WritePendingBlockIncrementBundle (
 // operation, each write port needs an associated read port.
 // Consequently, this only has RW ports.
 class SRAMBlockIncrement (
+  override val id: Int = 0,
   override val dataWidth: Int = 32,
   override val sramDepth: Int = 64,
   override val numPorts: Int = 1,
+  override val enableDump: Boolean = false,
   val elementWidth: Int = 8
 ) extends SRAMVariant {
   override lazy val io = IO(new SRAMBlockIncrementInterface(

@@ -24,6 +24,7 @@ case object RegFileNumBlocks extends Field[Int]
 case object CacheNumBlocks extends Field[Int]
 case object NNConfigNeuronWidth extends Field[Int]
 case object AntwRobEntries extends Field[Int]
+case object EnableCacheDump extends Field[Boolean]
 // NN Config Global Info
 case object DecimalPointOffset extends Field[Int]
 case object DecimalPointWidth extends Field[Int]

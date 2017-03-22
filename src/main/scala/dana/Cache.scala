@@ -144,7 +144,7 @@ abstract class CacheBase[
   val foundNnid = table.exists(fDerefNnid(_: CacheState,
     tTableReqQueue.deq.bits.nnid, tTableReqQueue.deq.bits.asid))
   val derefNnid = table.indexWhere(fDerefNnid(_: CacheState,
-   tTableReqQueue.deq.bits.nnid, tTableReqQueue.deq.bits.asid))
+    tTableReqQueue.deq.bits.nnid, tTableReqQueue.deq.bits.asid))
   val hasNotify = table.exists(fIsDoneFetching(_))
   val idxNotify = table.indexWhere(fIsDoneFetching(_))
 
@@ -248,7 +248,7 @@ abstract class CacheBase[
           // the same data shows up while this guy is being fetched.
           table(derefNnid).inUseCount := table(derefNnid).inUseCount + 1.U
           table(derefNnid).notifyMask := table(derefNnid).notifyMask |
-            UIntToOH(tableIndex)
+          UIntToOH(tableIndex)
         } .otherwise {
           // The NNID was found and the data has already been loaded
           table(derefNnid).inUseCount := table(derefNnid).inUseCount + 1.U
@@ -266,10 +266,10 @@ abstract class CacheBase[
         // occupies one block, so we need to pull the block address
         // out of the layer number.
         memIo(derefNnid).addr(0) := 1.U + // Offset from info region
-          layer(layer.getWidth-1, log2Up(elementsPerBlock))
+        layer(layer.getWidth-1, log2Up(elementsPerBlock))
       }
       is (e_CACHE_DECREMENT_IN_USE_COUNT) {
-          table(derefNnid).inUseCount := table(derefNnid).inUseCount - 1.U
+        table(derefNnid).inUseCount := table(derefNnid).inUseCount - 1.U
       }
     }
   } .elsewhen (hasNotify) {
@@ -290,9 +290,9 @@ abstract class CacheBase[
       controlRespPipe(1).bits.decimalPoint := dataDecode.decimalPoint
       controlRespPipe(1).bits.data(0) := dataDecode.totalLayers
       controlRespPipe(1).bits.data(1) := dataDecode.totalNeurons
-     // Pass back the error function in LSBs of data(2)
+      // Pass back the error function in LSBs of data(2)
       controlRespPipe(1).bits.data(2) :=
-        0.U((16-errorFunctionWidth).W) ## dataDecode.errorFunction
+      0.U((16-errorFunctionWidth).W) ## dataDecode.errorFunction
       controlRespPipe(1).bits.data(3) := dataDecode.learningRate
       controlRespPipe(1).bits.data(4) := dataDecode.lambda
       controlRespPipe(1).bits.data(5) := dataDecode.totalWeightBlocks
@@ -313,14 +313,14 @@ abstract class CacheBase[
   peRespPipe(0).bits.field := io.pe.req.bits.field
   peRespPipe(0).bits.peIndex := io.pe.req.bits.peIndex
   peRespPipe(0).bits.neuronIndex :=
-    io.pe.req.bits.cacheAddr(2 + log2Up(elementsPerBlock) - 1, 3)
+  io.pe.req.bits.cacheAddr(2 + log2Up(elementsPerBlock) - 1, 3)
   when (io.pe.req.valid) {
     // Generate a request to the cache-specific SRAM. We need to
     // generate a block address from the input cache byte address.
     // [TODO] This shift may be a source of bugs. Check to make sure
     // that it's being passed correctly.
     memIo(io.pe.req.bits.cacheIndex).addr(0) :=
-      io.pe.req.bits.cacheAddr >> ((2 + log2Up(elementsPerBlock)).U)
+    io.pe.req.bits.cacheAddr >> ((2 + log2Up(elementsPerBlock)).U)
     printfInfo("block address from byte address 0x%x/0x%x\n",
       io.pe.req.bits.cacheAddr,
       io.pe.req.bits.cacheAddr >> ((2 + log2Up(elementsPerBlock)).U) )
@@ -442,18 +442,19 @@ abstract class CacheBase[
 class Cache(implicit p: Parameters) extends CacheBase[
   SRAMVariant, SRAMVariantInterface, ControlCacheInterfaceReq,
   ControlCacheInterfaceResp]()(p) {
-    lazy val mem = Seq.fill(p(CacheNumEntries))(
-      Module(new SRAMVariant(
-        dataWidth = p(BitsPerBlock),
-        sramDepth = p(CacheNumBlocks),
-        numPorts = 1)))
-    lazy val memIo = Wire(Vec(cacheNumEntries, mem(0).io.cloneType))
+  lazy val mem = Seq.fill(p(CacheNumEntries))(
+    Module(new SRAMVariant(
+      dataWidth = p(BitsPerBlock),
+      sramDepth = p(CacheNumBlocks),
+      numPorts = 1,
+      enableDump = p(EnableCacheDump))))
+  lazy val memIo = Wire(Vec(cacheNumEntries, mem(0).io.cloneType))
 
-    def genControlReq = new ControlCacheInterfaceReq
-    def genControlResp = new ControlCacheInterfaceResp
+  def genControlReq = new ControlCacheInterfaceReq
+  def genControlResp = new ControlCacheInterfaceResp
 
-    // SRAMVariant writes back in one cycle and no waiting is necessary.
-    override def fIsDoneFetching(x: CacheState): Bool = {x.notifyFlag}
+  // SRAMVariant writes back in one cycle and no waiting is necessary.
+  override def fIsDoneFetching(x: CacheState): Bool = {x.notifyFlag}
 }
 
 class CacheLearn(implicit p: Parameters) extends CacheBase[SRAMBlockIncrement,
@@ -461,12 +462,14 @@ class CacheLearn(implicit p: Parameters) extends CacheBase[SRAMBlockIncrement,
   ControlCacheInterfaceRespLearn]()(p) {
   override lazy val io = IO(new CacheInterfaceLearn)
 
-  lazy val mem = Seq.fill(p(CacheNumEntries))(
+  lazy val mem = Seq.tabulate(p(CacheNumEntries))(id =>
     Module(new SRAMBlockIncrement(
+      id,
       dataWidth = p(BitsPerBlock),
       sramDepth = p(CacheNumBlocks),
       numPorts = 1,
-      elementWidth = p(ElementWidth))))
+      enableDump = p(EnableCacheDump),
+      elementWidth = p(ElementWidth) )))
   lazy val memIo = Wire(Vec(p(CacheNumEntries), mem(0).io.cloneType))
 
   def genControlReq = new ControlCacheInterfaceReqLearn
@@ -511,7 +514,6 @@ class CacheLearn(implicit p: Parameters) extends CacheBase[SRAMBlockIncrement,
     }
   }
 
-  // when (io.antw.resp.valid && io.antw.resp.bits.done) {
-  //   printfInfo("Dumping all memory contents...\n")
-  //   mem map (m => m.dump) }
+  memIo(io.antw.resp.bits.cacheIndex).dump := (io.antw.resp.valid &&
+    io.antw.resp.bits.done)
 }
