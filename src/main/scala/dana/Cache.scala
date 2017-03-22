@@ -514,6 +514,11 @@ class CacheLearn(implicit p: Parameters) extends CacheBase[SRAMBlockIncrement,
     }
   }
 
-  memIo(io.antw.resp.bits.cacheIndex).dump := (io.antw.resp.valid &&
-    io.antw.resp.bits.done)
+  if (p(EnableCacheDump)) {
+    val dumpLoad = io.antw.resp.valid && io.antw.resp.bits.done
+    val dumpCond = tTableReqQueue.deq.valid && !io.pe.req.valid && (
+      request === e_CACHE_DECREMENT_IN_USE_COUNT)
+    memIo.zipWithIndex.map{ case(m, i) => m.dump := (
+      dumpLoad && io.antw.resp.bits.cacheIndex === i.U) || (
+      dumpCond && (derefNnid === i.U) && table(i.U).dirty) }}
 }
