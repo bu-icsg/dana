@@ -21,6 +21,23 @@ The CSV output can be formatted with `column`::
         required=True, help='FANN neural network file to use for topology')
     return parser.parse_args()
 
+def get_layers(args):
+    with open(args.nnConfig, 'r') as f:
+        reLayerSizes = re.compile('layer_sizes=([\d ]+)')
+        for line in f:
+            layerSearch = reLayerSizes.match(line)
+            if layerSearch:
+                layers = re.split(' ',layerSearch.group(1))
+                break
+
+    # Remove the trailing whitespace on the layer_sizes FANN line
+    del(layers[len(layers) - 1])
+
+    for i in range(len(layers)):
+        layers[i] = int(layers[i])
+
+    return layers
+
 class Memory:
 
     def __init__(self, layerArray, epb, learning):
@@ -113,19 +130,7 @@ class Memory:
 def main():
     args = parse_arguments()
 
-    with open(args.nnConfig, 'r') as f:
-        reLayerSizes = re.compile('layer_sizes=([\d ]+)')
-        for line in f:
-            layerSearch = reLayerSizes.match(line)
-            if layerSearch:
-                layers = re.split(' ',layerSearch.group(1))
-                break
-
-    # Remove the trailing whitespace on the layer_sizes FANN line
-    del(layers[len(layers) - 1])
-
-    for i in range(len(layers)):
-        layers[i] = int(layers[i])
+    layers = get_layers(args)
 
     memory = Memory(layers, args.elementsPerBlock, args.learning_f)
     memory.printMemory()

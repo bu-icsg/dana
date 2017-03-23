@@ -54,6 +54,10 @@ xlen_t write_data_train_incremental(tid_type tid,
                                     size_t count_input,
                                     size_t count_output);
 
+xlen_t transaction_learn(nnid_type nnid, element_type * addr_i, element_type * addr_o,
+                                    element_type * addr_e, size_t num_inputs,
+                                    size_t num_outputs);
+
 // Read all the output data for a specific transaction. This throws
 // the CPU into a spinlock repeatedly checking the validity of the
 // X-Files response.

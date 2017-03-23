@@ -127,18 +127,39 @@ xlen_t transaction_feedforward(nnid_type nnid, element_type * addr_i,
   return read_data_spinlock(tid, addr_o, num_outputs);
 }
 
+xlen_t write_data_train_incremental(tid_type tid, element_type * input,
+                                    element_type * output, size_t count_input,
+                                    size_t count_output) {
+  // Simply write the exepcted outputs followed by the inputs.
+  xlen_t out = 0;
+  if ((out = write_data(tid, output, count_output))) return out;
+  if ((out = write_data(tid, input, count_input))) return out;
+  return 0;
+}
+
+xlen_t transaction_learn(nnid_type nnid, element_type * addr_i, element_type * addr_o,
+                                    element_type * addr_e, size_t num_inputs,
+                                    size_t num_outputs) {
+  tid_type tid = new_write_request(nnid, 1, 0);
+  xlen_t out = 0;
+  write_data(tid, addr_e, num_outputs);
+  write_data(tid, addr_i, num_inputs);
+  if ((out = read_data_spinlock(tid, addr_o, num_outputs))) return out;
+  return 0;
+}
+
 xlen_t xfiles_fann_learn(nnid_type nnid,
                         element_type * addr_i,
+                        element_type * addr_o,
                         element_type * addr_e,
                         int num_inputs, 
                         int num_outputs,
                         int num_data) {
-    tid_type tid = new_write_request(nnid, 1, 0);
      
     element_type * last = addr_i + num_inputs * num_data;
     for(; addr_i < last;
-            addr_i += num_inputs, addr_e += num_outputs) {
-        if (write_data_train_incremental(tid, addr_i, addr_e, num_inputs, num_outputs))
+            addr_i += num_inputs, addr_o += num_outputs, addr_e += num_outputs) {
+        if (transaction_learn(nnid, addr_i, addr_o, addr_e, num_inputs, num_outputs))
             return -1;
     }
     return 0;
@@ -219,16 +240,6 @@ xlen_t xfiles_fann_run_smp_compare(nnid_type nnid,
         return ((addr_i - first) / num_inputs + 1) << 32 | failures;
     }
   }
-  return 0;
-}
-
-xlen_t write_data_train_incremental(tid_type tid, element_type * input,
-                                    element_type * output, size_t count_input,
-                                    size_t count_output) {
-  // Simply write the exepcted outputs followed by the inputs.
-  xlen_t out = 0;
-  if ((out = write_data(tid, output, count_output))) return out;
-  if ((out = write_data(tid, input, count_input))) return out;
   return 0;
 }
 
