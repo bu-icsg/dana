@@ -23,6 +23,7 @@ object Causes {
 object CSRs {
   // User read/write
   val fence       = 0x080 // saved
+  val learn_rate  = 0x081
 
   // Supervisor read/write
   val pe_size     = 0x180
@@ -53,6 +54,7 @@ class DanaStatus(implicit p: Parameters) extends xfiles.XFStatus()(p)
   val num_asids = UInt(p(xfiles.AsidWidth).W)
   val pe_governor = UInt(1.W)
   val fence = new CSRs.FenceCSR
+  val learn_rate = UInt(elementWidth.W)
 }
 
 class DanaProbes(implicit p: Parameters) extends xfiles.BackendProbes()(p)
@@ -78,6 +80,7 @@ class CSRFile(implicit p: Parameters) extends xfiles.CSRFile()(p) with DanaParam
   lazy val reg_num_asids = Reg(init = 0.U(p(xfiles.AsidWidth).W))
   lazy val reg_pe_governor = Reg(init = 0.U(1.W))
   lazy val reg_fence = Reg(new CSRs.FenceCSR)
+  lazy val reg_learn_rate = Reg(init = "b00000000000000000010011001100110".U) // 0.7
 
   def backendId = ( p(ElementsPerBlock).U ## reg_pe_size.pad(6) ##
     reg_cache_size.pad(4) ).pad(48)
@@ -89,7 +92,8 @@ class CSRFile(implicit p: Parameters) extends xfiles.CSRFile()(p) with DanaParam
     CSRs.antp        -> reg_antp,
     CSRs.num_asids   -> reg_num_asids,
     CSRs.pe_governor -> reg_pe_governor,
-    CSRs.fence       -> reg_fence
+    CSRs.fence       -> reg_fence,
+    CSRs.learn_rate  -> reg_learn_rate
   )
 
   def backend_writes = {
@@ -108,6 +112,7 @@ class CSRFile(implicit p: Parameters) extends xfiles.CSRFile()(p) with DanaParam
         io.rdata := 0.U
       } .otherwise {
         io.rdata := 1.U }}
+    when (addrIs(CSRs.learn_rate))  { reg_learn_rate       := d }
   }
 
   io.status.pes_active     := reg_pe_size
@@ -119,6 +124,7 @@ class CSRFile(implicit p: Parameters) extends xfiles.CSRFile()(p) with DanaParam
   io.status.fence          := reg_fence
   io.status.stall_response := ( (reg_fence.valid && reg_fence.fence_type) ||
     (addrIs(CSRs.fence) && io.wdata(p(NnidWidth))) )
+  io.status.learn_rate     := reg_learn_rate
 
   when (io.probes_backend.cache.fence_done) {
     val p = io.probes_backend

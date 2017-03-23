@@ -905,13 +905,15 @@ class DanaTransactionTableLearn(implicit p: Parameters)
           when (table(tIdx).transactionType === e_TTYPE_BATCH) {
             table(tIdx).numNodes := io.control.resp.bits.data(1) * 2.U
           }
+          val learningRate = io.status.learn_rate >> (
+            decimalPointOffset.U - io.control.resp.bits.decimalPoint)
+          table(tIdx).learningRate := learningRate
           table(tIdx).errorFunction := io.control.resp.bits.data(2)(
             errorFunctionWidth - 1, 0)
           table(tIdx).numWeightBlocks := io.control.resp.bits.data(5)
           printfInfo("  error function:          0x%x\n",
             io.control.resp.bits.data(2)(errorFunctionWidth - 1, 0))
-          printfInfo("  learning rate:           0x%x (NOT SET)\n",
-            io.control.resp.bits.data(3))
+          printfInfo("  learning rate:           0x%x \n", learningRate)
           printfInfo("  lambda:                  0x%x (NOT SET)\n",
             io.control.resp.bits.data(4))
           printfInfo("  Totalweightblocks :      0x%x\n",

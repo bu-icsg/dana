@@ -12,6 +12,7 @@
 
 // User CSRs
 #define CSRs_fence        0x080 // Dana
+#define CSRs_learn_rate   0x081
 
 // Supervisor CSRs read/write
 #define CSRs_cause        0x100 // X-Files
