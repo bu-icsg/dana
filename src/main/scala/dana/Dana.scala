@@ -20,6 +20,7 @@ case object CacheDataSize extends Field[Int]
 case object RegisterFileNumElements extends Field[Int]
 case object LearningEnabled extends Field[Boolean]
 case object BitsPerBlock extends Field[Int]
+case object BytesPerBlock extends Field[Int]
 case object RegFileNumBlocks extends Field[Int]
 case object CacheNumBlocks extends Field[Int]
 case object NNConfigNeuronWidth extends Field[Int]
@@ -97,6 +98,7 @@ trait DanaParameters {
   // [TODO] This ioIdxWidth looks wrong?
   val ioIdxWidth = log2Up(p(RegisterFileNumElements) * p(ElementWidth))
   val bitsPerBlock = p(BitsPerBlock)
+  val bytesPerBlock = p(BytesPerBlock)
   val learningEnabled = p(LearningEnabled)
 
   // Related to the neural network configuration format

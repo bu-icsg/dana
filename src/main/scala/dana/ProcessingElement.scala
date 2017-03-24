@@ -20,8 +20,8 @@ class ProcessingElementReq(implicit p: Parameters) extends DanaBundle()(p) {
 class ProcessingElementReqLearn(implicit p: Parameters)
     extends ProcessingElementReq()(p) {
   val errorFunction      = UInt(log2Up(2).W) // [TODO] fragile
-  val learningRate       = UInt(16.W)        // [TODO] fragile
-  val lambda             = SInt(16.W)        // [TODO] fragile
+  val learningRate       = UInt(elementWidth.W)
+  val weightDecay        = SInt(elementWidth.W)
   val learnReg           = SInt(elementWidth.W)
   val stateLearn         = UInt(log2Up(8).W) // [TODO] fragile
   val inLast             = Bool()
@@ -469,11 +469,11 @@ class ProcessingElementLearn(id: Int = 0)(implicit p: Parameters)
         eleIndex === (elementsPerBlock - 1).U) {
         state := PE_states('e_PE_WEIGHT_UPDATE_WRITE_BACK)
       }
-      val weightDecay = (-io.req.bits.wBlock(eleIndex) * io.req.bits.lambda) >>
+      val weightDecay = (-io.req.bits.wBlock(eleIndex) * io.req.bits.weightDecay) >>
         decimal
       printfInfo("weight decay %d: -1 * 0x%x * 0x%x = 0x%x\n",
         eleIndex,
-        io.req.bits.wBlock(eleIndex), io.req.bits.lambda, weightDecay)
+        io.req.bits.wBlock(eleIndex), io.req.bits.weightDecay, weightDecay)
 
       when (io.req.bits.tType === e_TTYPE_BATCH) {
         DSP(io.req.bits.iBlock(eleIndex), io.req.bits.learningRate.asSInt,

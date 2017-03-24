@@ -121,8 +121,8 @@ class ProcessingElementStateLearn(implicit p: Parameters)
   val learnReg           = SInt(elementWidth.W)
   val dw_in              = SInt(elementWidth.W)
   val errorFunction      = UInt(log2Up(2).W) // [TODO] fragile
-  val learningRate       = UInt(16.W)        // [TODO] fragile
-  val lambda             = SInt(16.W)        // [TODO] fragile
+  val learningRate       = UInt(elementWidth.W)
+  val weightDecay        = SInt(elementWidth.W)
   val globalWtptr        = UInt(16.W)        // [TODO] fragile
   val numWeightBlocks    = UInt(16.W)
   val stateLearn         = UInt(log2Up(7).W) // [TODO] fragile
@@ -449,7 +449,7 @@ class ProcessingElementTableLearn(implicit p: Parameters)
   for (i <- 0 until peTableNumEntries) {
     pe(i).req.bits.errorFunction := table(i).errorFunction
     pe(i).req.bits.learningRate := table(i).learningRate
-    pe(i).req.bits.lambda := table(i).lambda
+    pe(i).req.bits.weightDecay := table(i).weightDecay
     pe(i).req.bits.stateLearn := table(i).stateLearn
     pe(i).req.bits.tType := table(i).tType
     pe(i).req.bits.inLast := table(i).inLast
@@ -461,7 +461,7 @@ class ProcessingElementTableLearn(implicit p: Parameters)
   when (io.control.req.valid) {
     table(nextFree).errorFunction := io.control.req.bits.errorFunction
     table(nextFree).learningRate := io.control.req.bits.learningRate
-    table(nextFree).lambda := io.control.req.bits.lambda.asSInt
+    table(nextFree).weightDecay := io.control.req.bits.weightDecay.asSInt
     table(nextFree).globalWtptr := io.control.req.bits.globalWtptr
     table(nextFree).numWeightBlocks := io.control.req.bits.numWeightBlocks
     table(nextFree).stateLearn := io.control.req.bits.stateLearn
@@ -480,7 +480,7 @@ class ProcessingElementTableLearn(implicit p: Parameters)
     table(nextFree).inAddrSaved := io.control.req.bits.inAddr
     printfInfo("  error func:     0x%x\n", io.control.req.bits.errorFunction)
     printfInfo("  learn rate:     0x%x\n", io.control.req.bits.learningRate)
-    printfInfo("  lambda:         0x%x\n", io.control.req.bits.lambda)
+    printfInfo("  weightDecay:    0x%x\n", io.control.req.bits.weightDecay)
     printfInfo("  Global wtptr:   0x%x\n", io.control.req.bits.globalWtptr)
     printfInfo("  learn addr:     0x%x\n", io.control.req.bits.learnAddr)
     printfInfo("  DW addr:        0x%x\n", io.control.req.bits.dwAddr)

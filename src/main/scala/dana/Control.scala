@@ -73,8 +73,8 @@ class ControlPETableInterfaceReqLearn(implicit p: Parameters)
   val resetWB         = Bool()
   val inFirst         = Bool()
   val batchFirst      = Bool()
-  val learningRate    = UInt(16.W) // [TODO] fragile
-  val lambda          = UInt(16.W) // [TODO] fragile
+  val learningRate    = UInt(elementWidth.W)
+  val weightDecay     = UInt(elementWidth.W)
   val numWeightBlocks = UInt(16.W) // [TODO] fragile
   val tType           = UInt(log2Up(3).W) // [TODO] fragile
   val globalWtptr     = UInt(16.W) // [TODO] fragile
@@ -231,7 +231,7 @@ class ControlLearn(implicit p: Parameters)
   io.peTable.req.bits.errorFunction := io.tTable.req.bits.errorFunction
   io.peTable.req.bits.stateLearn := io.tTable.req.bits.stateLearn
   io.peTable.req.bits.learningRate := io.tTable.req.bits.learningRate
-  io.peTable.req.bits.lambda := io.tTable.req.bits.lambda
+  io.peTable.req.bits.weightDecay := io.tTable.req.bits.weightDecay
   io.peTable.req.bits.numWeightBlocks := io.tTable.req.bits.numWeightBlocks
   io.peTable.req.bits.tType := io.tTable.req.bits.transactionType
   io.peTable.req.bits.globalWtptr := io.tTable.req.bits.globalWtptr

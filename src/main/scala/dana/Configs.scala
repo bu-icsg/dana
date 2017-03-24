@@ -49,6 +49,7 @@ class DefaultDanaConfig extends Config ( {
     // Enables support for in-hardware learning
     case LearningEnabled           => true
     case BitsPerBlock              => site(ElementsPerBlock) * site(ElementWidth)
+    case BytesPerBlock             => site(BitsPerBlock) / 8
     case RegFileNumBlocks          => divUp(site(RegisterFileNumElements),
       site(ElementsPerBlock))
     case CacheNumBlocks            => divUp(divUp((site(CacheDataSize) * 8),

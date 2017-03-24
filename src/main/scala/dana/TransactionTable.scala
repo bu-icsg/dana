@@ -184,8 +184,8 @@ class TransactionStateLearn(implicit p: Parameters)
   val numTrainOutputs      = UInt(16.W)           // [TODO] fragile
   val stateLearn           = UInt(log2Up(8).W)    // [TODO] fragile
   val errorFunction        = UInt(log2Up(2).W)    // [TODO] fragile
-  val learningRate         = UInt(16.W)           // [TODO] fragile
-  val lambda               = UInt(16.W)           // [TODO] fragile
+  val learningRate         = UInt(elementWidth.W)
+  val weightDecay          = UInt(elementWidth.W)
   val numWeightBlocks      = UInt(16.W)           // [TODO] fragile
   val mse                  = UInt(elementWidth.W) // unused
   // Batch training information
@@ -213,7 +213,7 @@ class TransactionStateLearn(implicit p: Parameters)
     "stateLearn"           -> "state",
     "errorFunction"        -> "ef",
     "learningRate"         -> "lr",
-    "lambda"               -> "Y",
+    "weightDecay"          -> "Y",
     "numWeightBlocks"      -> "#WB",
     "numBatchItems"        -> "#BI",
     "curBatchItem"         -> "cB",
@@ -283,8 +283,8 @@ class ControlReqLearn(implicit p: Parameters) extends ControlReq()(p) {
   val transactionType     = UInt(log2Up(3).W) // [TODO] fragile
   val stateLearn          = UInt(log2Up(8).W) // [TODO] fragile
   val errorFunction       = UInt(log2Up(2).W) // [TODO] fragile
-  val learningRate        = UInt(16.W) // [TODO] fragile
-  val lambda              = UInt(16.W) // [TODO] fragile
+  val learningRate        = UInt(elementWidth.W)
+  val weightDecay         = UInt(elementWidth.W)
   val numWeightBlocks     = UInt(16.W) // [TODO] fragile
   // val regFileAddrDelta = UInt(log2Up(regFileNumElements).W)
   val regFileAddrDW       = UInt(log2Up(regFileNumElements).W)
@@ -784,14 +784,12 @@ class DanaTransactionTableLearn(implicit p: Parameters)
       cmd.asid, cmd.tid))
     val e = table(derefTidIndex)
     switch(cmd.regId) {
-      is (e_TTABLE_WRITE_REG_BATCH_ITEMS) {  e.numBatchItems := cmd.regValue }
-      is (e_TTABLE_WRITE_REG_LEARNING_RATE) { e.learningRate := cmd.regValue }
-      is (e_TTABLE_WRITE_REG_WEIGHT_DECAY_LAMBDA) { e.lambda := cmd.regValue }
+      is (e_TTABLE_WRITE_REG_BATCH_ITEMS) { e.numBatchItems := cmd.regValue }
     }
+    assert(!(regWrite && cmd.regId =/= e_TTABLE_WRITE_REG_BATCH_ITEMS),
+      "Deprecated regWrite register\n")
     printfInfo("saw reg write TID/Reg/Value 0x%x/0x%x/0x%x\n",
       cmd.tid, cmd.regId, cmd.regValue)
-    assert(!(cmd.regId > e_TTABLE_WRITE_REG_WEIGHT_DECAY_LAMBDA),
-      "DANA TTable: saw unexpected regWrite regId")
   }
 
   // IO Arbiter
@@ -907,15 +905,17 @@ class DanaTransactionTableLearn(implicit p: Parameters)
           }
           val learningRate = io.status.learn_rate >> (
             decimalPointOffset.U - io.control.resp.bits.decimalPoint)
+          val weightDecay = io.status.weight_decay >> (
+            decimalPointOffset.U - io.control.resp.bits.decimalPoint)
           table(tIdx).learningRate := learningRate
+          table(tIdx).weightDecay := weightDecay
           table(tIdx).errorFunction := io.control.resp.bits.data(2)(
             errorFunctionWidth - 1, 0)
           table(tIdx).numWeightBlocks := io.control.resp.bits.data(5)
           printfInfo("  error function:          0x%x\n",
             io.control.resp.bits.data(2)(errorFunctionWidth - 1, 0))
           printfInfo("  learning rate:           0x%x \n", learningRate)
-          printfInfo("  lambda:                  0x%x (NOT SET)\n",
-            io.control.resp.bits.data(4))
+          printfInfo("  weight decay:            0x%x \n", weightDecay)
           printfInfo("  Totalweightblocks :      0x%x\n",
             io.control.resp.bits.data(5))
           printfInfo("  Global Weight Pointer :  0x%x\n",
@@ -1131,7 +1131,7 @@ class DanaTransactionTableLearn(implicit p: Parameters)
     entryArbiter.io.in(i).bits.stateLearn := table(i).stateLearn
     entryArbiter.io.in(i).bits.errorFunction := table(i).errorFunction
     entryArbiter.io.in(i).bits.learningRate := table(i).learningRate
-    entryArbiter.io.in(i).bits.lambda := table(i).lambda
+    entryArbiter.io.in(i).bits.weightDecay := table(i).weightDecay
     entryArbiter.io.in(i).bits.numWeightBlocks := table(i).numWeightBlocks
     entryArbiter.io.in(i).bits.regFileAddrDW := table(i).regFileAddrDW
     entryArbiter.io.in(i).bits.regFileAddrSlope := table(i).regFileAddrSlope
