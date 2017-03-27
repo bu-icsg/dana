@@ -150,15 +150,20 @@ class ControlBase(implicit p: Parameters) extends DanaModule()(p) {
   io.regFile.req.bits.location := io.cache.resp.bits.regFileLocationBit
 
   // Handling of Cache responses
-  when (io.cache.resp.valid) {
-    switch (io.cache.resp.bits.field) {
-      is (e_CACHE_INFO) {
-        io.tTable.resp.bits.field := e_TTABLE_CACHE_VALID
-        io.tTable.resp.bits.data(2) := io.cache.resp.bits.cacheIndex ##
-          io.cache.resp.bits.data(2)(errorFunctionWidth - 1,0) }
-      is (e_CACHE_LAYER) {
-        io.tTable.resp.bits.field := e_TTABLE_LAYER
-        io.regFile.req.valid := true.B }}}
+  val cacheInfoResp = (io.cache.resp.valid &&
+    io.cache.resp.bits.field === e_CACHE_INFO)
+  val cacheLayerResp = (io.cache.resp.valid &&
+    io.cache.resp.bits.field === e_CACHE_LAYER)
+  when (cacheInfoResp) {
+    io.tTable.resp.bits.field := e_TTABLE_CACHE_VALID
+    io.tTable.resp.bits.data(2) := io.cache.resp.bits.cacheIndex ##
+    io.cache.resp.bits.data(2)(errorFunctionWidth - 1,0)
+  }
+  when (cacheLayerResp) {
+    io.tTable.resp.bits.field := e_TTABLE_LAYER
+    io.tTable.resp.bits.field := e_TTABLE_LAYER
+    io.regFile.req.valid := true.B
+  }
 
   // Cache connections
   io.cache.req.bits.request := 0.U
@@ -237,8 +242,21 @@ class ControlLearn(implicit p: Parameters)
   io.peTable.req.bits.tType := io.tTable.req.bits.transactionType
   io.peTable.req.bits.globalWtptr := io.tTable.req.bits.globalWtptr
 
-  io.cache.req.bits.totalWritesMul := Mux(io.tTable.req.bits.inLastEarly &&
-    (io.tTable.req.bits.stateLearn === e_TTABLE_STATE_LEARN_FEEDFORWARD),
-    2.U, 1.U)
+  // The number of expected writes is a multiple of the number of
+  // neurons in that layer with some modifications:
+  //   * A learning transaction in the last layer will write back
+  //     twice (its outputs and backpropagated weights)
+  //   * An SGD transaction in the first layer will write back no data
+  //   * All others write back the expected amount
+  // This multiplier will be applied and sent to the register file
+  // when the cache response comes back with the number of neurons in
+  // that layer
+  val feedforwardAndLast = ( io.tTable.req.bits.inLastEarly &&
+    io.tTable.req.bits.stateLearn === e_TTABLE_STATE_LEARN_FEEDFORWARD )
+  val backpropFirstAndSGD = ( io.tTable.req.bits.inFirst &&
+    io.tTable.req.bits.stateLearn === e_TTABLE_STATE_LEARN_ERROR_BACKPROP &&
+    io.tTable.req.bits.transactionType === e_TTYPE_INCREMENTAL )
+  io.cache.req.bits.totalWritesMul := Mux(feedforwardAndLast, 2.U,
+    Mux(backpropFirstAndSGD, 0.U, 1.U))
   io.cache.req.bits.notDirty := io.tTable.req.bits.stateLearn =/= 0.U
 }

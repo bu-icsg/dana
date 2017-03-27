@@ -153,12 +153,12 @@ abstract class DanaModule(implicit p: Parameters) extends XFilesModule()(p)
     with DanaParameters with DanaEnums {
   // Transaction Table State Entries. nnsim-hdl equivalent:
   //   controL_types::field_enum
-  val (e_TTABLE_VALID ::       // 0
-    e_TTABLE_RESERVED ::       // 1
+  val (e_TTABLE_VALID ::       // 0 [TODO] unused
+    e_TTABLE_RESERVED ::       // 1 [TODO] unused
     e_TTABLE_CACHE_VALID ::    // 2
     e_TTABLE_LAYER ::          // 3
-    e_TTABLE_OUTPUT_LAYER ::   // 4
-    e_TTABLE_REGISTER_INFO ::  // 5
+    e_TTABLE_OUTPUT_LAYER ::   // 4 [TODO] unused
+    e_TTABLE_REGISTER_INFO ::  // 5 [TODO] unused
     e_TTABLE_REGISTER_NEXT ::  // 6
     Nil) = Enum(UInt(), 7)
   // Used to set "transactionType" in the Transaction Table state

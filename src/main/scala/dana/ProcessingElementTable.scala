@@ -604,7 +604,7 @@ class ProcessingElementTableLearn(implicit p: Parameters)
   (0 until elementsPerBlock).map(i => biasUpdateVecSlope(i) := 0.S)
   biasUpdateVecSlope(biasAddrLSBs) := peArbiter.io.out.bits.data.asSInt
 
-  when (peArbiter.io.out.valid) {
+  when (peArbiter.io.out.fire()) {
     val peIdx = peArbiter.io.out.bits.index
     // Reset the weight pointer if the PE is telling us to do so
     when (peArbiter.io.out.bits.resetWeightPtr) {
