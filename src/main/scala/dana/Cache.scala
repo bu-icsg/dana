@@ -98,9 +98,6 @@ abstract class CacheBase[
   def genControlReq: C
   def genControlResp: D
   mem zip memIo map {case(m, io) => m.io <> io}
-  // lazy val mem = genSram
-  // lazy val memIo = Wire(Vec(mem map (m => m.io)))
-  // memIo zip mem map { case(io, x) => io <> x }
 
   override val printfSigil = "dana.Cache: "
 
@@ -134,10 +131,10 @@ abstract class CacheBase[
   val peCacheIndex_d0 = Reg(UInt(), next = io.pe.req.bits.cacheIndex)
 
   // Helper functions for examing the cache entries
-  def fIsFree(x: CacheState): Bool = {!x.valid}
-  def fIsUnused(x: CacheState): Bool = {x.inUseCount === 0.U}
+  def fIsFree(x: CacheState): Bool = { !x.valid }
+  def fIsUnused(x: CacheState): Bool = { (x.inUseCount ## x.notifyMask) === 0.U }
   def fDerefNnid(x: CacheState, y: UInt, z: UInt): Bool = {
-    x.valid && x.nnid === y && x.asid === z}
+    x.valid && x.nnid === y && x.asid === z }
 
   // The check on whether or not an entry is done fetching depends, in
   // the absolute worst case, on the number of cycles it takes for
@@ -171,7 +168,6 @@ abstract class CacheBase[
     table(index).notifyFlag := false.B
     table(index).notifyIndex := tTableReqQueue.deq.bits.tableIndex
     table(index).notifyMask := UIntToOH(tTableReqQueue.deq.bits.tableIndex)
-    table(index).inUseCount := 1.U
   }
 
   // Default values
@@ -240,31 +236,28 @@ abstract class CacheBase[
   io.antw.cmd.bits.cacheIndex := cacheIdx
   when (tTableReqQueue.deq.valid && !io.pe.req.valid) {
     tTableReqQueue.deq.ready := true.B
+    // The entry isn't ready if it's being fetched or if a writeback
+    // is in progress and the transaction wants non-dirty data (e.g.,
+    // the default case for learning transactions)
+    val notReady = table(derefNnid).fetch || (
+      table(derefNnid).wbPending && tTableReqQueue.deq.bits.notDirty)
     switch (request) {
       is (e_CACHE_LOAD) {
         when (!foundNnid) {
-          // The NNID was not found, so we need to initialize the
-          // cache line and ask memory (ANTW or similar) to start
-          // loading this specific configuration. However, this can
-          // only happen if there is a free entry or an unused entry
-          // in the cache. However, if the cache is always sized
-          // larger than the Transcation Table, the case where there
-          // isn't a free cache entry should never occur.
+          // Free/unused entry found. Fetch via ANTW.
           when (hasFree | hasUnused) {
             tableInit(cacheIdx)
             io.antw.cmd.valid := true.B
           }
-        } .elsewhen (table(derefNnid).fetch) {
-          // The nnid was found, but the data is currently being
-          // loaded from memory. This happens if a second request for
-          // the same data shows up while this guy is being fetched.
-          table(derefNnid).inUseCount := table(derefNnid).inUseCount + 1.U
-          table(derefNnid).notifyMask := table(derefNnid).notifyMask |
-          UIntToOH(tableIndex)
+          // [TODO] Handle the situation where there isn't a free
+          // entry
+        } .elsewhen (notReady) {
+          // ASID/NNID exists, but isn't ready. Update notify mask.
+          table(derefNnid).notifyMask := (table(derefNnid).notifyMask |
+            UIntToOH(tableIndex) )
         } .otherwise {
-          // The NNID was found and the data has already been loaded
+          // ASID/NNID found and ready
           table(derefNnid).inUseCount := table(derefNnid).inUseCount + 1.U
-          // Start a response to the control unit
           controlRespPipe(0).valid := true.B
           controlRespPipe(0).bits.field := e_CACHE_INFO
         }
@@ -288,9 +281,12 @@ abstract class CacheBase[
     // Start a response to the control unit
     controlRespPipe(0).valid := true.B
     controlRespPipe(0).bits.field := e_CACHE_INFO
-    // Now that this is away, we can deassert some table bits
+    // Now that this is away, we can deassert some table bits, and
+    // properly set the inUse count
     table(idxNotify).fetch := false.B
     table(idxNotify).notifyFlag := false.B
+    table(idxNotify).inUseCount := ( table(derefNnid).inUseCount +
+      PopCount(table(idxNotify).notifyMask) )
   }
 
   // Pipeline second stage (SRAM read)
@@ -493,24 +489,24 @@ class CacheLearn(implicit p: Parameters) extends CacheBase[SRAMBlockIncrement,
   }
 
   // Status/Probe handling (fence/sync)
-  val fencePending = Reg(init = false.B)
   val doFence = io.status.fence.valid && io.status.fence.fence_type
   val doSync = io.status.fence.valid && !io.status.fence.fence_type
   io.probes.cache.fence_done := false.B
-  when ((doFence || doSync) && !fencePending) {
-    fencePending := true.B
-
+  // [TODO] Handle the situation where the configuration is still in
+  // use
+  when ((doFence || doSync)) {
     val foundNnid = table.exists(fDerefNnid(_: CacheState,
       io.status.fence.nnid, io.status.asid))
     val nnidIdx = table.indexWhere(fDerefNnid(_: CacheState,
       io.status.fence.nnid, io.status.asid))
 
-    val noWriteback = !foundNnid || (foundNnid && !table(nnidIdx).dirty)
-    val writeback = foundNnid && table(nnidIdx).dirty
+    val pending = table(nnidIdx).wbPending
+    val noWriteback = !pending && (
+      !foundNnid || (foundNnid && !table(nnidIdx).dirty))
+    val writeback = !pending && foundNnid && table(nnidIdx).dirty
     when (noWriteback) {
       io.probes.cache.fence_done := true.B
       io.probes.cache.fence_asid := io.status.asid
-      fencePending := false.B
       printfInfo("No writeback for fence/sync (%x/%x) for asid/nnid (0x%x/0x%x)\n",
         doFence, doSync, io.status.fence.nnid, io.status.asid)
     }
@@ -523,23 +519,30 @@ class CacheLearn(implicit p: Parameters) extends CacheBase[SRAMBlockIncrement,
       io.antw.cmd.bits.action := CacheTypes.Mem.write.U
       printfInfo("Writeback needed for fence/sync (%x/%x) for asid/nnid (0x%x/0x%x)\n",
         doFence, doSync, io.status.fence.nnid, io.status.asid)
+
+      table(nnidIdx).wbPending := true.B
     }
   }
 
   io.antw.store.req.ready := true.B
+  io.antw.store.resp.bits := memIo(RegNext(io.antw.store.req.bits.index)).dout(0)
   when (io.antw.store.req.fire()) {
-    val req = io.antw.store.req
-    val m = memIo(req.bits.index)
-    m.we(0) := false.B
-    m.addr(0) := req.bits.addr
-    io.antw.store.resp.valid := RegNext(req.fire())
-    io.antw.store.resp.bits := m.dout(0)
+    val (req, resp) = (io.antw.store.req, io.antw.store.resp)
+    val (m, t)      = (memIo(req.bits.index), table(req.bits.index))
+    val p           = io.probes.cache
 
     when (req.bits.done) {
-      table(req.bits.index).dirty := false.B
+      t.dirty := false.B
+      t.wbPending := false.B
+      p.fence_done := true.B
+      p.fence_asid := t.asid
+      printfInfo("Writeback done for asid/nnid (0x%x/0x%x)\n", t.asid, t.nnid)
+    } .otherwise {
+      m.we(0) := false.B
+      m.addr(0) := req.bits.addr
+      resp.valid := RegNext(req.fire())
     }
   }
-  assert(!(io.antw.store.req.fire() && io.antw.store.req.bits.done), "Breakpoint")
 
   if (p(EnableCacheDump)) {
     val dumpLoad = io.antw.load.valid && io.antw.load.bits.done

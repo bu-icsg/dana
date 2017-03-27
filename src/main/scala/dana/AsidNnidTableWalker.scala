@@ -73,12 +73,13 @@ class AsidNnidTableWalker(implicit p: Parameters) extends DanaModule()(p)
   val cacheReqQueue = Module(new Queue(new CacheAntwReq, cacheNumEntries))
   cacheReqQueue.io.enq <> io.cache.cmd
   val cacheReqCurrent = Reg(new CacheAntwReq)
+  val cacheIdx = cacheReqCurrent.cacheIndex
 
   val cacheAddr = Reg(UInt(log2Up(cacheNumBlocks).W))
   io.cache.load.valid := false.B
   io.cache.load.bits.done := false.B
   io.cache.load.bits.data := 0.U
-  io.cache.load.bits.cacheIndex := 0.U
+  io.cache.load.bits.cacheIndex := cacheIdx
   io.cache.load.bits.addr := cacheAddr
 
   io.cache.store.req.valid := false.B
@@ -274,7 +275,6 @@ class AsidNnidTableWalker(implicit p: Parameters) extends DanaModule()(p)
   // semantics. A write to the loadRob and a write back can occur on
   // the same cycle!
   val done = cacheAddr >= (configSize >> log2Up(configBufSize).U) - 1.U
-  val cacheIdx = cacheReqCurrent.cacheIndex
   when (loadRob.valid.asUInt.andR) {
     io.cache.load.valid := true.B
     io.cache.load.bits.done := done
@@ -306,10 +306,8 @@ class AsidNnidTableWalker(implicit p: Parameters) extends DanaModule()(p)
     }
   }
 
-  val (beat_idx,  block_done) =
-    Counter(acq.fire() && state === s_PUT_NN_CONFIG, tlDataBeats)
-  val (rob_index, rob_empty) =
-    Counter(acq.fire() && state === s_PUT_NN_CONFIG, bitsPerBlock / tlDataBits)
+  val (rob_index, _) = Counter(acq.fire() && state === s_PUT_NN_CONFIG,
+    storeRob.data.size)
   putData := Mux(autlFinished, 0.U, storeRob.data(rob_index))
   io.cache.store.req.bits.addr := cacheAddr
   io.cache.store.req.bits.index := cacheIdx
@@ -347,12 +345,9 @@ class AsidNnidTableWalker(implicit p: Parameters) extends DanaModule()(p)
     }
 
     when (gnt.fire()) {configPointer := configPointer + (1.U<<autlBlockOffset)}
-    when (gnt.fire() && autlFinished) { state := s_ERROR }
-
-    when (block_done) {
-      printfInfo("block_done: configPointer 0x%x + 0x%x\n",
-      configPointer, (1.U<<autlBlockOffset))
-    }
+    when (gnt.fire() && autlFinished) {
+      io.cache.store.req.valid := true.B // Indicate fence/sync completion
+      state := s_IDLE }
   }
 
   io.probes.interrupt := state === s_INTERRUPT

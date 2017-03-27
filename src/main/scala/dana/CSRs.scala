@@ -128,7 +128,7 @@ class CSRFile(implicit p: Parameters) extends xfiles.CSRFile()(p) with DanaParam
   io.status.pe_governor    := reg_pe_governor
   io.status.fence          := reg_fence
   io.status.stall_response := ( (reg_fence.valid && reg_fence.fence_type) ||
-    (addrIs(CSRs.fence) && io.wdata(p(NnidWidth))) )
+    (wen && addrIs(CSRs.fence) && io.wdata(p(NnidWidth))) )
   io.status.learn_rate     := reg_learn_rate
   io.status.weight_decay   := reg_weight_decay
 
@@ -136,10 +136,10 @@ class CSRFile(implicit p: Parameters) extends xfiles.CSRFile()(p) with DanaParam
     val p = io.probes_backend
     when (p.cache.fence_asid === reg_asid) {
       reg_fence.valid := false.B
-      // [TODO] Generate response to core
     } .otherwise {
       reg_mip := reg_mip | 1.U
       reg_cause := Causes.fence_context.U }
+    printfInfo("Saw fence done for 0x%x\n", p.cache.fence_asid)
   }
 
   when (reset) { reg_fence.valid := false.B }

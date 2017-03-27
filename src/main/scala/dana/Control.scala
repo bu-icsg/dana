@@ -31,6 +31,7 @@ class ControlCacheInterfaceReq(implicit p: Parameters) extends DanaBundle()(p) {
   val tableIndex         = UInt(log2Up(transactionTableNumEntries).W)
   val currentLayer       = UInt(16.W) // [TODO] fragile
   val regFileLocationBit = UInt(1.W) // [TODO] fragile
+  val notDirty           = Bool()
 }
 
 class ControlCacheInterfaceReqLearn(implicit p: Parameters)
@@ -169,6 +170,7 @@ class ControlBase(implicit p: Parameters) extends DanaModule()(p) {
   io.cache.req.bits.tableIndex := io.tTable.req.bits.tableIndex
   io.cache.req.bits.currentLayer := io.tTable.req.bits.currentLayer
   io.cache.req.bits.regFileLocationBit := io.tTable.req.bits.regFileLocationBit
+  io.cache.req.bits.notDirty := false.B
 
   // PE Table connections
   io.peTable.req.valid := false.B
@@ -200,8 +202,7 @@ class ControlBase(implicit p: Parameters) extends DanaModule()(p) {
     io.peTable.req.valid := peAllocate }
 }
 
-class Control(implicit p: Parameters)
-    extends ControlBase()(p)
+class Control(implicit p: Parameters) extends ControlBase()(p)
 
 class ControlLearn(implicit p: Parameters)
     extends ControlBase()(p) {
@@ -239,4 +240,5 @@ class ControlLearn(implicit p: Parameters)
   io.cache.req.bits.totalWritesMul := Mux(io.tTable.req.bits.inLastEarly &&
     (io.tTable.req.bits.stateLearn === e_TTABLE_STATE_LEARN_FEEDFORWARD),
     2.U, 1.U)
+  io.cache.req.bits.notDirty := io.tTable.req.bits.stateLearn =/= 0.U
 }
