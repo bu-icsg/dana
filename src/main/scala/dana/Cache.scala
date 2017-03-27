@@ -285,8 +285,10 @@ abstract class CacheBase[
     // properly set the inUse count
     table(idxNotify).fetch := false.B
     table(idxNotify).notifyFlag := false.B
-    table(idxNotify).inUseCount := ( table(derefNnid).inUseCount +
-      PopCount(table(idxNotify).notifyMask) )
+    table(idxNotify).inUseCount := PopCount(table(idxNotify).notifyMask)
+    table(idxNotify).notifyMask := 0.U
+    printfInfo("Entry 0x%x gets inUseCount of 0x%x\n", idxNotify,
+      PopCount(table(idxNotify).notifyMask))
   }
 
   // Pipeline second stage (SRAM read)

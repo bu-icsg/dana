@@ -29,6 +29,9 @@ object CSRs {
   // [TODO] Base address of per-transaction information read-only CSR
   val tx_info      = 0xd20
 
+  // User read-only
+  val u_xfid       = 0xC00
+
   // N = no action, R = read, W = write
   val cmdSize = 2
   val N = 0.U(cmdSize.W)
@@ -39,6 +42,7 @@ object CSRs {
 class XFMIP extends Bundle {
   val backend = Bool()
   val xf = Bool()
+  val illegal_instruction = Bool()
 }
 
 class XFStatus(implicit p: Parameters) extends XFilesBundle()(p) {
@@ -84,7 +88,7 @@ abstract class CSRFile(implicit p: Parameters) extends XFilesModule()(p)
   override val printfSigil = "xfiles.CSRFile: "
 
   val reg_mip = Reg(init = 0.U(new XFMIP().getWidth.W))
-  val reg_cause = Reg(UInt(xLen.W))
+  val reg_cause = Reg(init = 0.U(xLen.W))
   val reg_ttable_size = Reg(init = transactionTableNumEntries.U(log2Up(transactionTableNumEntries + 1).W))
   val reg_asid = Reg(UInt(asidWidth.W), init = ~(0.U(asidWidth.W)))
   val reg_tid = Reg(UInt(tidWidth.W))
@@ -92,17 +96,20 @@ abstract class CSRFile(implicit p: Parameters) extends XFilesModule()(p)
   val reg_tx_ip = Reg(init = Vec(transactionTableNumEntries, Bool()).fromBits(0.U))
   require(transactionTableNumEntries <= xLen, "TTable entries must be less than XLen")
 
+  val xfid = transactionTableNumEntries.U ## buildBackend.info.U((xLen - 16).W)
+  val xfid_current = reg_ttable_size.pad(16)(15, 0) ## backendId
+
   lazy val read_mapping = collection.mutable.LinkedHashMap[Int, Data] (
     CSRs.cause        -> reg_cause,
     CSRs.ttable_size  -> reg_ttable_size,
-    CSRs.xfid         -> transactionTableNumEntries.U ##
-                         buildBackend.info.U((xLen - 16).W),
-    CSRs.xfid_current -> reg_ttable_size.pad(16)(15, 0) ## backendId,
+    CSRs.xfid         -> xfid,
+    CSRs.xfid_current -> xfid_current,
     CSRs.asid         -> reg_asid,
     CSRs.tid          -> reg_tid,
     CSRs.tx_ip        -> reg_tx_ip.asUInt,
     // [TODO] Properly read from any of the transaction status fields
-    CSRs.tx_info      -> reg_tx_ip(0)
+    CSRs.tx_info      -> reg_tx_ip(0),
+    CSRs.u_xfid       -> xfid_current
   )
   read_mapping ++= backend_csrs
 
@@ -127,12 +134,15 @@ abstract class CSRFile(implicit p: Parameters) extends XFilesModule()(p)
   val cause = Mux(io.probes.interrupt, Causes.xfiles_generic.U,
     Mux(io.probes_backend.interrupt, Causes.backend_generic.U,
       Causes.illegal_instruction.U))
-  val exception = (wen && read_only) || (ren && (!addr_valid || !prv_ok)) ||
-    io.probes.interrupt || io.probes_backend.interrupt
+  val illegal_instruction = (ren && (!addr_valid || !prv_ok))
+  val exception = (wen && read_only) || illegal_instruction || (
+    io.probes.interrupt || io.probes_backend.interrupt )
 
   when (exception) {
     reg_cause := reg_cause | cause
-    reg_mip := reg_mip | (io.probes_backend.interrupt ## io.probes.interrupt)
+    reg_mip := reg_mip | (io.probes_backend.interrupt ## io.probes.interrupt ##
+      illegal_instruction)
+
     printfInfo("Exception with cause 0x%x, reg_cause <- 0x%x\n", cause,
       reg_cause | cause)
   }

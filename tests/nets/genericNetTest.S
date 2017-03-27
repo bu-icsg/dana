@@ -35,9 +35,9 @@ start:
 RVTEST_CODE_BEGIN
 
 #ifndef SMP
-  FANN_TEST_NO_COMPARE_CC(0, NUM_INPUTS, NUM_OUTPUTS, NUM_DATAPOINTS, data_in, data_out, data_expected);
+  FANN_TEST_NO_COMPARE_CC(0, NUM_INPUTS, NUM_OUTPUTS, NUM_DATAPOINTS, data_in, data_out);
 #else
-  FANN_TEST_SMP_CC(0, NUM_INPUTS, NUM_OUTPUTS, NUM_DATAPOINTS, data_in, data_out, data_expected);
+  FANN_TEST_SMP_NO_COMPARE_CC(0, NUM_INPUTS, NUM_OUTPUTS, NUM_DATAPOINTS, data_in, data_out);
 #endif  // SMP
 
   TEST_PASSFAIL

@@ -97,15 +97,14 @@ fann_test_top:                     \
   li a6, num_data;              \
   jal xfiles_fann_learn;
 
-#define FANN_TEST_NO_COMPARE_CC(nnid, num_input, num_output, num_data, addr_i, addr_o, addr_e) \
+#define FANN_TEST_NO_COMPARE_CC(nnid, num_input, num_output, num_data, addr_i, addr_o) \
   li TESTNUM, 0;               \
   li a0, nnid;                 \
   la a1, addr_i;               \
   la a2, addr_o;               \
-  la a3, addr_e;               \
-  li a4, num_input;            \
-  li a5, num_output;           \
-  li a6, num_data;             \
+  li a3, num_input;            \
+  li a4, num_output;           \
+  li a5, num_data;             \
   jal xfiles_fann_run_no_compare; \
   beq a0, x0, pass;            \
   srli TESTNUM, a0, 32;        \
@@ -121,6 +120,19 @@ fann_test_top:                     \
   li a5, num_output;           \
   li a6, num_data;             \
   jal xfiles_fann_run_compare; \
+  beq a0, x0, pass;            \
+  srli TESTNUM, a0, 32;        \
+  j fail;
+
+#define FANN_TEST_SMP_NO_COMPARE_CC(nnid, num_input, num_output, num_data, addr_i, addr_o) \
+  li TESTNUM, 0;               \
+  li a0, nnid;                 \
+  la a1, addr_i;               \
+  la a2, addr_o;               \
+  li a3, num_input;            \
+  li a4, num_output;           \
+  li a5, num_data;             \
+  jal xfiles_fann_run_smp_no_compare; \
   beq a0, x0, pass;            \
   srli TESTNUM, a0, 32;        \
   j fail;

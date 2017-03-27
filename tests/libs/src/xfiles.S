@@ -10,10 +10,13 @@
 #define t_USR_WRITE_REGISTER 8
 #define t_USR_XFILES_DEBUG 9
 
-// User CSRs
+// User CSRs read/write
 #define CSRs_fence        0x080 // Dana
 #define CSRs_learn_rate   0x081
 #define CSRs_weight_decay 0x081
+
+// User CSRs read-only
+#define CSRs_u_xfid       0xC00
 
 // Supervisor CSRs read/write
 #define CSRs_cause        0x100 // X-Files
