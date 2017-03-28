@@ -34,6 +34,8 @@ start:
 
 RVTEST_CODE_BEGIN
 
+  // Decrease the learning rate to 0.125
+  XF_WRITE_CSR(CSRs_learn_rate,  0b00000000000000000000100000000000);
   FANN_TEST_LEARN(0, NUM_INPUTS, NUM_OUTPUTS, NUM_DATAPOINTS, data_in, data_expected, data_out);
   DANA_FENCE(0)
   FANN_TEST_NO_COMPARE_CC(0, NUM_INPUTS, NUM_OUTPUTS, NUM_DATAPOINTS, data_in, data_out);

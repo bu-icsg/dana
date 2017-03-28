@@ -126,8 +126,7 @@ xlen_t xfiles_fann_learn(nnid_type nnid,
                          int num_outputs,
                          int num_data) {
   element_type * last = addr_i + num_inputs * num_data;
-  for(; addr_i < last;
-      addr_i += num_inputs, addr_e += num_outputs) {
+  for(; addr_i < last; addr_i += num_inputs, addr_e += num_outputs) {
     tid_type tid = new_write_request(nnid, 1, 0);
     write_data_train_incremental(tid, addr_i, addr_e, num_inputs, num_outputs);
     int exit_code = read_data_spinlock(tid, addr_o, num_outputs);

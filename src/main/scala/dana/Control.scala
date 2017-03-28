@@ -246,17 +246,12 @@ class ControlLearn(implicit p: Parameters)
   // neurons in that layer with some modifications:
   //   * A learning transaction in the last layer will write back
   //     twice (its outputs and backpropagated weights)
-  //   * An SGD transaction in the first layer will write back no data
   //   * All others write back the expected amount
   // This multiplier will be applied and sent to the register file
   // when the cache response comes back with the number of neurons in
   // that layer
   val feedforwardAndLast = ( io.tTable.req.bits.inLastEarly &&
     io.tTable.req.bits.stateLearn === e_TTABLE_STATE_LEARN_FEEDFORWARD )
-  val backpropFirstAndSGD = ( io.tTable.req.bits.inFirst &&
-    io.tTable.req.bits.stateLearn === e_TTABLE_STATE_LEARN_ERROR_BACKPROP &&
-    io.tTable.req.bits.transactionType === e_TTYPE_INCREMENTAL )
-  io.cache.req.bits.totalWritesMul := Mux(feedforwardAndLast, 2.U,
-    Mux(backpropFirstAndSGD, 0.U, 1.U))
+  io.cache.req.bits.totalWritesMul := Mux(feedforwardAndLast, 2.U, 1.U)
   io.cache.req.bits.notDirty := io.tTable.req.bits.stateLearn =/= 0.U
 }

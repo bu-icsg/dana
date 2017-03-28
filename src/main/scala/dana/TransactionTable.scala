@@ -726,14 +726,16 @@ class DanaTransactionTable(implicit p: Parameters)
       val tIdx = io.control.resp.bits.layerValidIndex
       val inLastOld = table(tIdx).inLast
       val inLastNew = table(tIdx).currentLayer === (table(tIdx).numLayers - 1.U)
+      val inFirstNew = table(tIdx).currentLayer === 0.U
+      table(tIdx).inFirst := inFirstNew
       when (!inLastOld) {
         table(tIdx).waiting := false.B
       } .otherwise {
         table(tIdx).decInUse := true.B
         table(tIdx).waiting := false.B
       }
-      printfInfo("  inFirst/inLast: 0x%x/0x%x->0x%x\n",
-        table(tIdx).inFirst, inLastOld, inLastNew)
+      printfInfo("  inFirst/inLast: %x->%x/%x->%x\n", table(tIdx).inFirst,
+        inFirstNew, inLastOld, inLastNew)
     }
   }
 
@@ -751,7 +753,6 @@ class DanaTransactionTable(implicit p: Parameters)
       table(tIdx).needsLayerInfo := false.B
       table(tIdx).currentLayer := table(tIdx).currentLayer
     }
-    table(tIdx).inFirst := table(tIdx).currentLayer === 0.U
   }
 
 }
@@ -894,8 +895,8 @@ class DanaTransactionTableLearn(implicit p: Parameters)
   }
 
   // Update the table when we get a request from DANA
-  val cacheValid = io.control.resp.valid && io.control.resp.cacheValid
-  val layerValid = io.control.resp.valid && io.control.resp.layerValid
+  val cacheValid = io.control.resp.valid && io.control.resp.bits.cacheValid
+  val layerValid = io.control.resp.valid && io.control.resp.bits.layerValid
 
   when (cacheValid) {
     val tIdx = io.control.resp.bits.tableIndex
@@ -1089,17 +1090,18 @@ class DanaTransactionTableLearn(implicit p: Parameters)
     val t = table(tIdx)
     val inLastOld = t.inLast
     val inLastNew = t.currentLayer === (t.numLayers - 1.U)
-    val inFirst = t.currentLayer === 0.U
+    val inFirstNew = t.currentLayer === 0.U
 
     val isFeedforward = t.transactionType === e_TTYPE_FEEDFORWARD
     val isIncremental = t.transactionType === e_TTYPE_INCREMENTAL
     val isBatch       = t.transactionType === e_TTYPE_BATCH
+    t.inFirst := inFirstNew
     when (isFeedforward) {
       t.waiting := false.B
       t.decInUse := inLastOld }
     when (isIncremental) {
       t.waiting := false.B
-      t.decInUse := ( inFirst &&
+      t.decInUse := ( t.inFirst &&
         t.stateLearn === e_TTABLE_STATE_LEARN_ERROR_BACKPROP )}
     when (isBatch) {
       when (inLastOld &&
@@ -1114,9 +1116,8 @@ class DanaTransactionTableLearn(implicit p: Parameters)
       } .otherwise {
         t.waiting := false.B
       } }
-    printfInfo("  inFirst/inLast/inLastEarly/state: 0x%x/0x%x->0x%x/0x%x/0x%x\n",
-      t.inFirst, inLastOld, inLastNew, t.inLastEarly,
-      t.stateLearn)
+    printfInfo("  inFirst/inLast/inLastEarly/state: %x->%x/%x->%x/%x/0x%x\n",
+      t.inFirst, inFirstNew, inLastOld, inLastNew, t.inLastEarly, t.stateLearn)
   }
 
   entryArbiter.io.in zip table map { case(e, t) =>
@@ -1154,21 +1155,18 @@ class DanaTransactionTableLearn(implicit p: Parameters)
           table(tIdx).needsLayerInfo := false.B
           table(tIdx).currentLayer := table(tIdx).currentLayer
         }
-        table(tIdx).inFirst := table(tIdx).currentLayer === 0.U
       }
       is(e_TTABLE_STATE_LEARN_FEEDFORWARD){
         when(table(tIdx).inLast && inLastNode){
           table(tIdx).needsLayerInfo := true.B
           table(tIdx).currentLayer := table(tIdx).currentLayer - 1.U
           table(tIdx).regFileLocationBit := !table(tIdx).regFileLocationBit
-          table(tIdx).inFirst := table(tIdx).currentLayer === 1.U
           table(tIdx).inLastEarly := true.B
           table(tIdx).stateLearn := e_TTABLE_STATE_LEARN_ERROR_BACKPROP
         } .elsewhen (inLastNode && notInLastLayer) {
           table(tIdx).needsLayerInfo := true.B
           table(tIdx).currentLayer := table(tIdx).currentLayer + 1.U
           table(tIdx).regFileLocationBit := !table(tIdx).regFileLocationBit
-          table(tIdx).inFirst := false.B
 
           // inLastEarly will assert as soon as the last PE Request goes
           // out. This is useful if you need something that goes high at
@@ -1180,7 +1178,6 @@ class DanaTransactionTableLearn(implicit p: Parameters)
         } .otherwise {
           table(tIdx).needsLayerInfo := false.B
           table(tIdx).currentLayer := table(tIdx).currentLayer
-          table(tIdx).inFirst := table(tIdx).currentLayer === 0.U
         }
       }
       is(e_TTABLE_STATE_LEARN_ERROR_BACKPROP){
@@ -1193,7 +1190,6 @@ class DanaTransactionTableLearn(implicit p: Parameters)
           table(tIdx).inLastEarly :=
             table(tIdx).currentLayer === (table(tIdx).numLayers - 2.U)
           when(table(tIdx).transactionType === e_TTYPE_BATCH){
-            table(tIdx).inFirst := false.B
             when (table(tIdx).curBatchItem === (table(tIdx).numBatchItems - 1.U)) {
               table(tIdx).needsLayerInfo := true.B
               table(tIdx).stateLearn := e_TTABLE_STATE_LEARN_WEIGHT_UPDATE
@@ -1212,7 +1208,6 @@ class DanaTransactionTableLearn(implicit p: Parameters)
           table(tIdx).needsLayerInfo := true.B
           table(tIdx).currentLayer := table(tIdx).currentLayer - 1.U
           table(tIdx).regFileLocationBit := !table(tIdx).regFileLocationBit
-          table(tIdx).inFirst := table(tIdx).currentLayer === 1.U
         } .otherwise {
           table(tIdx).needsLayerInfo := false.B
           table(tIdx).currentLayer := table(tIdx).currentLayer
@@ -1229,8 +1224,8 @@ class DanaTransactionTableLearn(implicit p: Parameters)
         } .otherwise {
           table(tIdx).needsLayerInfo := false.B
           table(tIdx).currentLayer := table(tIdx).currentLayer
-          table(tIdx).inLastEarly :=
-          table(tIdx).currentLayer === (table(tIdx).numLayers - 2.U)
+          table(tIdx).inLastEarly := (
+            table(tIdx).currentLayer === (table(tIdx).numLayers - 2.U) )
         }
       }
     }

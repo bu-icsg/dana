@@ -83,7 +83,7 @@ int main (int argc, char * argv[]) {
       {"ignore-limits",        no_argument,       &flag_ignore_limits, 1}
     };
     int option_index = 0;
-    c = getopt_long (argc, argv, "b:d:e:f:g:hi:m::n:q::r:t:x:",
+    c = getopt_long (argc, argv, "b:d:e:f:g:hi:m::n:q::r:t:x::",
                      long_options, &option_index);
     if (c == -1)
       break;

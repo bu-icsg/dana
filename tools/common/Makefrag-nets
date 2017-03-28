@@ -78,7 +78,10 @@ vpath %.test $(DIR_TOP)/fann/datasets
 	$(DIR_BUILD)/nets/parity-%-float.train \
 	$(DIR_BUILD)/nets/sin-%-float.train \
 	$(DIR_BUILD)/nets/sin-scale-%-float.train \
-	$(DIR_BUILD)/fann/host/libfann.so
+	$(DIR_BUILD)/fann/host/libfann.so \
+	$(DIR_BUILD)/nets/%Sigmoid-float.train \
+	$(DIR_BUILD)/nets/%SigmoidSymmetricThreeLayer-float.train \
+	$(DIR_BUILD)/nets/%SigmoidSymmetric-float.train
 
 TEST:
 	echo $(FANN_RANDOM)
