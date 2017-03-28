@@ -299,4 +299,4 @@ The following people, while not mentioned in the commit log, have contributed di
 * [Han Dong](http://cs-people.bu.edu/handong/)
 * [Leila Delshad Tehrani](http:/www.bu.edu/icsg)
 
-This work was funded by a NASA Space Technology Research Fellowship and is sponsored by the Defense Advanced Research Projects Agency, Microsystems Technology Office (MTO), under contract no. HR0011-13-C-0022.
+This work was funded by a NASA Space Technology Research Fellowship.
