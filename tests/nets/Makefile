@@ -26,10 +26,7 @@ RISCV_GCC_OPTS ?= \
 	-fvisibility=hidden \
 	-nostdlib \
 	-nostartfiles \
-	-I$(abs_top_srcdir)/include \
-	-I$(abs_top_srcdir) \
-	-I$(src_dir) \
-	-I$(abs_top_srcdir)/libs \
+	-I$(abs_top_srcdir)/../ \
 	-DID_STRING=$(ID_STRING)
 RISCV_LD_OPTS ?= \
 	-lxfiles-user \
@@ -57,13 +54,13 @@ vpath %.S $(src_dir)
 vpath %.h $(src_dir)
 
 $(PREFIX)-p-%: genericNetTest.S %-fixed.ant.h $(HEADERS_P) $(abs_top_srcdir)/libs/build/libxfiles-user.a $(abs_top_srcdir)/libs/build/libxfiles-supervisor.a
-	$(RISCV_GCC) $(RISCV_GCC_OPTS) -I$(abs_top_srcdir)/env/p -include $*-fixed.ant.h $< $(RISCV_LD_OPTS) -T$(abs_top_srcdir)/env/p/link.ld -o $@
+	$(RISCV_GCC) $(RISCV_GCC_OPTS) -I$(abs_top_srcdir)/env/p -include $(src_dir)/$*-fixed.ant.h $< $(RISCV_LD_OPTS) -T$(abs_top_srcdir)/env/p/link.ld -o $@
 
 $(PREFIX)-p-%-smp: genericNetTest.S %-fixed.ant.h $(HEADERS_P) $(abs_top_srcdir)/libs/build/libxfiles-user.a $(abs_top_srcdir)/libs/build/libxfiles-supervisor.a
-	$(RISCV_GCC) $(RISCV_GCC_OPTS) -DSMP -I$(abs_top_srcdir)/env/p -include $*-fixed.ant.h $< $(RISCV_LD_OPTS) -T$(abs_top_srcdir)/env/p/link.ld -o $@
+	$(RISCV_GCC) $(RISCV_GCC_OPTS) -DSMP -I$(abs_top_srcdir)/env/p -include $(src_dir)/$*-fixed.ant.h $< $(RISCV_LD_OPTS) -T$(abs_top_srcdir)/env/p/link.ld -o $@
 
 $(PREFIX)-p-%-learn: genericLearnTest.S %-fixed.ant.h $(HEADERS_P) $(abs_top_srcdir)/libs/build/libxfiles-user.a $(abs_top_srcdir)/libs/build/libxfiles-supervisor.a
-	$(RISCV_GCC) $(RISCV_GCC_OPTS) -I$(abs_top_srcdir)/env/p -include $*-fixed.ant.h $< $(RISCV_LD_OPTS) -T$(abs_top_srcdir)/env/p/link.ld -o $@
+	$(RISCV_GCC) $(RISCV_GCC_OPTS) -I$(abs_top_srcdir)/env/p -include $(src_dir)/$*-fixed.ant.h $< $(RISCV_LD_OPTS) -T$(abs_top_srcdir)/env/p/link.ld -o $@
 
 $(PREFIX)-v-%: %.S $(HEADERS_V) $(asb_top_srcdir)/libs/build/libxfiles-user.a $(abs_top_srcdir)/libs/build/libxfiles-supervisor.a
 	$(RISCV_GCC) $(RISCV_GCC_OPTS) -I$(abs_top_srcdir)/env/v $(RISCV_LD_OPTS) -T$(abs_top_srcdir)/env/v/link.ld $< -o $@

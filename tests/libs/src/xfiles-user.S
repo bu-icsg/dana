@@ -3,7 +3,7 @@
 #ifndef XFILES_DANA_LIBS_SRC_XFILES_USER_S_
 #define XFILES_DANA_LIBS_SRC_XFILES_USER_S_
 
-#include "src/xfiles.S"
+#include "tests/libs/src/xfiles.S"
 
 #define XFILES_DANA_ID                          \
   li a0, CSRs_xfid_current;                     \

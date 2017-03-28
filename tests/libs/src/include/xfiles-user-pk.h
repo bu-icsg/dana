@@ -3,9 +3,9 @@
 #ifndef XFILES_DANA_LIBS_SRC_XFILES_USER_PK_H_
 #define XFILES_DANA_LIBS_SRC_XFILES_USER_PK_H_
 
-#include "src/include/xfiles.h"
-#include "src/include/xfiles-supervisor.h"
-#include "src/include/xfiles-user.h"
+#include "tests/libs/src/include/xfiles.h"
+#include "tests/libs/src/include/xfiles-supervisor.h"
+#include "tests/libs/src/include/xfiles-user.h"
 
 // Set the ASID to a new value
 xlen_t pk_syscall_set_asid(asid_type asid);

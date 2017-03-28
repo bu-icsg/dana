@@ -3,8 +3,8 @@
 #ifndef XFILES_DANA_LIBS_SRC_MAIN_C_XFILES_DEBUG_H_
 #define XFILES_DANA_LIBS_SRC_MAIN_C_XFILES_DEBUG_H_
 
-#include "src/include/xfiles.h"
-#include "src/xfiles-debug.S"
+#include "tests/libs/src/include/xfiles.h"
+#include "tests/libs/src/xfiles-debug.S"
 
 //-------------------------------------- Interactions with the Debug Unit
 

@@ -1,17 +1,17 @@
 // See LICENSE.IBM for license details.
 
-#include "src/include/xfiles-supervisor.h"
+#include "tests/libs/src/include/xfiles-supervisor.h"
 
-xlen_t set_asid(asid_type asid) {
-  int old_asid;
-  XFILES_INSTRUCTION_R_R_I(old_asid, asid, 0, t_SUP_UPDATE_ASID);
-  return old_asid;
+asid_type set_asid(asid_type * asid, tid_type * tid) {
+  *asid = xf_write_csr(CSRs_asid, *asid);
+  *tid = xf_write_csr(CSRs_tid, *tid);
+  return *asid;
 }
 
-xlen_t set_antp(ant_entry * antp, size_t size) {
-  int old_antp;
-  XFILES_INSTRUCTION(old_antp, antp, size, t_SUP_WRITE_REG);
-  return old_antp;
+ant_entry * set_antp(ant_entry * antp, size_t * size) {
+  antp = (ant_entry *) xf_write_csr(CSRs_antp, (xlen_t) antp);
+  size = (size_t *) xf_write_csr(CSRs_num_asids, *size);
+  return antp;
 }
 
 xlen_t xf_read_csr(xlen_t csr) {

@@ -3,9 +3,9 @@
 #ifndef XFILES_DANA_LIBS_SRC_XFILES_ASID_NNID_TABLE_H_
 #define XFILES_DANA_LIBS_SRC_XFILES_ASID_NNID_TABLE_H_
 
-#include "src/include/xfiles-supervisor-types.h"
+#include "tests/libs/src/include/xfiles-supervisor-types.h"
 #ifndef NO_VM
-#include "src/include/xfiles-debug.h"
+#include "tests/libs/src/include/xfiles-debug.h"
 #endif
 
 // Print a visual organization of a specific ASID--NNIT Table

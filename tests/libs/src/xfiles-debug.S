@@ -3,7 +3,7 @@
 #ifndef XFILES_DANA_LIBS_SRC_XFILES_DEBUG_S_
 #define XFILES_DANA_LIBS_SRC_XFILES_DEBUG_S_
 
-#include "src/xfiles.S"
+#include "tests/libs/src/xfiles.S"
 
 // Enumerated type that defines the action taken by the Debug Unit
 #define a_REG 0          // Return a value written using the cmd interface

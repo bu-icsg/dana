@@ -1,6 +1,6 @@
 // See LICENSE.IBM for license details.
 
-#include "src/include/xfiles-user-pk.h"
+#include "tests/libs/src/include/xfiles-user-pk.h"
 
 xlen_t pk_syscall_set_asid(asid_type asid) {
   // This currently depends on a backing OS system call supported by

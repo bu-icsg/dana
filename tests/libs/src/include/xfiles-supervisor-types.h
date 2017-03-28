@@ -4,7 +4,7 @@
 #define XFILES_DANA_LIBS_SRC_XFILES_SUPERVISOR_TYPES_H_
 
 #include <stdint.h>
-#include "src/include/xfiles.h"
+#include "tests/libs/src/include/xfiles.h"
 
 #define SYSCALL_SET_ASID 512
 #define SYSCALL_SET_ANTP 513

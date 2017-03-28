@@ -4,7 +4,7 @@
 #define XFILES_DANA_LIBS_SRC_XFILES_USER_H_
 
 #include <stdio.h>
-#include "src/include/xfiles.h"
+#include "tests/libs/src/include/xfiles.h"
 
 //-------------------------------------- Userland
 

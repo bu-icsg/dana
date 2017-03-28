@@ -72,11 +72,18 @@ def write_ant_file(net_name):
     for line in fann_eval_fixed_output.splitlines():
         expected_out_list.extend(line.split(b'->')[-1].split())
 
-    ant_file.write("#include \"riscv_test.h\"\n#include \"include/test_macros.h\"\n")
-    ant_file.write("#define NUM_DATAPOINTS {}\n".format(num_datapoints))
-    ant_file.write("#define NUM_INPUTS {}\n".format(num_inputs))
-    ant_file.write("#define NUM_OUTPUTS {}\n".format(num_outputs))
-    ant_file.write("\n  .data\nRVTEST_DATA_BEGIN\n\n  TEST_DATA\n\n")
+    ant_file.write('''#include "riscv_test.h" // Full path defined by build flow
+#include "tests/include/test_macros.h"
+#define NUM_DATAPOINTS {}
+#define NUM_INPUTS {}
+#define NUM_OUTPUTS {}
+
+  .data
+RVTEST_DATA_BEGIN
+
+  TEST_DATA
+
+'''.format(num_datapoints, num_inputs, num_outputs))
 
     # Append data_in
     ant_file.write('data_in:\n')

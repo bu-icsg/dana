@@ -25,9 +25,7 @@ RISCV_GCC_OPTS ?= \
 	-fvisibility=hidden \
 	-nostdlib \
 	-nostartfiles \
-	-I$(abs_top_srcdir)/include \
-	-I$(abs_top_srcdir) \
-	-I$(abs_top_srcdir)/libs \
+	-I$(abs_top_srcdir)/../ \
 	-DID_STRING=$(ID_STRING)
 RISCV_LD_OPTS ?= \
 	-lxfiles-user \

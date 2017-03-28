@@ -4,7 +4,7 @@
 #include <stdlib.h>
 #include <assert.h>
 #include <string.h>
-#include "src/include/xfiles-asid-nnid-table.h"
+#include "tests/libs/src/include/xfiles-asid-nnid-table.h"
 
 void asid_nnid_table_info(ant * table) {
   int i = 0;

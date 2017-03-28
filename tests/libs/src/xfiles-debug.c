@@ -1,6 +1,6 @@
 // See LICENSE.IBM for license details.
 
-#include "src/include/xfiles-debug.h"
+#include "tests/libs/src/include/xfiles-debug.h"
 #include <stdio.h>
 
 xlen_t debug_test(unsigned action, uint32_t data, void * addr) {

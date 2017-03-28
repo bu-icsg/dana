@@ -1,8 +1,8 @@
 // See LICENSE.IBM for license details.
 
-#include "src/include/xfiles-user.h"
-#include "src/include/xfiles-debug.h"
-#include "src/include/xfiles-supervisor.h"
+#include "tests/libs/src/include/xfiles-user.h"
+#include "tests/libs/src/include/xfiles-debug.h"
+#include "tests/libs/src/include/xfiles-supervisor.h"
 
 // All RoCC communication occurs using the "custom0" RISC-V
 // instruction of the following format:

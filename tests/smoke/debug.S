@@ -8,11 +8,11 @@
 #
 
 #include "riscv_test.h"
-#include "include/test_macros.h"
-#include "include/xfiles-dana.h"
-#include "rocc-software/src/xcustom.h"
-#include "rocc-software/src/riscv_test_rocc.h"
-#include "libs/src/xfiles-debug.S"
+#include "tests/include/test_macros.h"
+#include "tests/include/xfiles-dana.h"
+#include "tests/rocc-software/src/xcustom.h"
+#include "tests/rocc-software/src/riscv_test_rocc.h"
+#include "tests/libs/src/xfiles-debug.S"
 
 #define CUSTOM_X 0
 

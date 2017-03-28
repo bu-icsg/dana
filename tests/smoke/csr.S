@@ -8,12 +8,12 @@
 #
 
 #include "riscv_test.h"
-#include "include/test_macros.h"
-#include "include/xfiles-dana.h"
-#include "rocc-software/src/xcustom.h"
-#include "rocc-software/src/riscv_test_rocc.h"
-#include "libs/src/xfiles-supervisor.S"
-#include "libs/src/xfiles-user.S"
+#include "tests/include/test_macros.h"
+#include "tests/include/xfiles-dana.h"
+#include "tests/rocc-software/src/xcustom.h"
+#include "tests/rocc-software/src/riscv_test_rocc.h"
+#include "tests/libs/src/xfiles-supervisor.S"
+#include "tests/libs/src/xfiles-user.S"
 
 #define CUSTOM_X 0
 #define STACK_TOP (_end + 4096)
