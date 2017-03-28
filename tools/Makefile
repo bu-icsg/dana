@@ -19,16 +19,11 @@ TOOLS = \
 	generate-ant \
 	fann-eval \
 	fann-eval-fixed
-BINARIES = $(TOOLS)
-BINS     = $(addprefix $(DIR_BIN)/, $(BINARIES))
-SOURCES  = fann-float-to-fixed.c
-OBJECTS  = $(SOURCES:%.c=%.o)
+BINS     = $(addprefix $(DIR_BIN)/, $(TOOLS))
 
 vpath %.c src
 
-.PHONY: all default clean
-
-default: all
+.PHONY: all clean
 
 all: $(BINS)
 
@@ -41,33 +36,48 @@ LIB_PATHS = \
 	$(DIR_BUILD)/$(TARGET) \
 	$(DIR_BUILD)/fann/$(TARGET) \
 	$(DIR_TOP)/tests/libs/build/$(TARGET)
-LIBS      = fann m
-LIBS_F    = fixedfann m
-LFLAGS    = $(addprefix -Wl$(COMMA)-R, $(shell echo $(LIB_PATHS) | xargs -n1 readlink -f)) \
-            $(addprefix -L, $(LIB_PATHS)) \
-            $(addprefix -l, $(LIBS))
-LFLAGS_F    = $(addprefix -Wl$(COMMA)-R, $(shell echo $(LIB_PATHS) | xargs -n1 readlink -f)) \
-            $(addprefix -L, $(LIB_PATHS)) \
-            $(addprefix -l, $(LIBS_F))
+LDIRS = \
+	$(addprefix -Wl$(COMMA)-R, $(shell echo $(LIB_PATHS) | xargs -n1 readlink -f)) \
+	$(addprefix -L, $(LIB_PATHS))
+
+.INTERMEDIATE: $(DIR_BIN)/fann-train-to-c-header.o \
+	$(DIR_BIN)/fann-eval-fixed.o \
+	$(DIR_BIN)/write-fann-config-for-accelerator.o \
+	$(DIR_BIN)/fann-train-to-c-header.o \
+	$(DIR_BIN)/fann-eval.o \
+	$(DIR_BIN)/fann-train.o \
+	$(DIR_BIN)/fann-random.o \
+	$(DIR_BIN)/fann-float-to-fixed.o \
+	$(DIR_BIN)/generate-ant.o
 
 $(DIR_BIN)/generate-ant: $(DIR_BIN)/generate-ant.o $(DIR_TOP)/tests/libs/build/$(TARGET)/libxfiles-ant.a $(libfann_dep)
-	$(CC) $(CFLAGS) $< $(LFLAGS) -lxfiles-ant -o $@
+	$(CC) $(CFLAGS) $< $(LDIRS) -lxfiles-ant -o $@
 
+# No pattern rules as I need to be explicit about what is linking
+# against FANN since it's LGPLv2
+
+# Fixed FANN
+$(DIR_BIN)/fann-train-to-c-header-fixed: $(DIR_BIN)/fann-train-to-c-header.o $(libfann_dep)
+	$(CC) $(CFLAGS) $< $(LDIRS) -lm -lfixedfann -fopenmp -o $@
+$(DIR_BIN)/fann-eval-fixed: $(DIR_BIN)/fann-eval-fixed.o $(libfann_dep)
+	$(CC) $(CFLAGS) $< $(LDIRS) -lm -lfixedfann -fopenmp -o $@
 $(DIR_BIN)/write-fann-config-for-accelerator: $(DIR_BIN)/write-fann-config-for-accelerator.o $(libfann_dep)
-	$(CC) $(CFLAGS) $< $(LFLAGS_F) -fopenmp -o $@
+	$(CC) $(CFLAGS) $< $(LDIRS) -lm -lfixedfann -fopenmp -o $@
 
-$(DIR_BIN)/%-fixed: $(DIR_BIN)/%-fixed.o $(libfann_dep)
-	$(CC) $(CFLAGS) $< $(LFLAGS_F) -o $@
-
+# FANN
+$(DIR_BIN)/fann-train-to-c-header: $(DIR_BIN)/fann-train-to-c-header.o $(libfann_dep)
+	$(CC) $(CFLAGS) $< $(LDIRS) -lm -lfann -fopenmp -o $@
+$(DIR_BIN)/fann-eval: $(DIR_BIN)/fann-eval.o $(libfann_dep)
+	$(CC) $(CFLAGS) $< $(LDIRS) -lm -lfann -fopenmp -o $@
+$(DIR_BIN)/fann-train: $(DIR_BIN)/fann-train.o $(libfann_dep)
+	$(CC) $(CFLAGS) $< $(LDIRS) -lm -lfann -fopenmp -o $@
+$(DIR_BIN)/fann-random: $(DIR_BIN)/fann-random.o $(libfann_dep)
+	$(CC) $(CFLAGS) $< $(LDIRS) -lm -lfann -fopenmp -o $@
 $(DIR_BIN)/fann-float-to-fixed: $(DIR_BIN)/fann-float-to-fixed.o $(libfann_dep)
-	$(CC) $(CFLAGS) $< $(LFLAGS) -o $@
-
-$(DIR_BIN)/%: $(DIR_BIN)/%.o $(libfann_dep)
-	$(CC) $(CFLAGS) $< $(LFLAGS) -fopenmp -o $@
+	$(CC) $(CFLAGS) $< $(LDIRS) -lfann -o $@
 
 $(DIR_BIN)/fann-eval-fixed.o: fann-eval.c | $(DIR_BIN)
 	$(CC) $(CFLAGS) -DFIXEDFANN $< -c -o $@
-
 $(DIR_BIN)/%.o: %.c | $(DIR_BIN)
 	$(CC) $(CFLAGS) $< -c -o $@
 

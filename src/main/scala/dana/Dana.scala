@@ -20,10 +20,12 @@ case object CacheDataSize extends Field[Int]
 case object RegisterFileNumElements extends Field[Int]
 case object LearningEnabled extends Field[Boolean]
 case object BitsPerBlock extends Field[Int]
+case object BytesPerBlock extends Field[Int]
 case object RegFileNumBlocks extends Field[Int]
 case object CacheNumBlocks extends Field[Int]
 case object NNConfigNeuronWidth extends Field[Int]
 case object AntwRobEntries extends Field[Int]
+case object EnableCacheDump extends Field[Boolean]
 // NN Config Global Info
 case object DecimalPointOffset extends Field[Int]
 case object DecimalPointWidth extends Field[Int]
@@ -96,6 +98,7 @@ trait DanaParameters {
   // [TODO] This ioIdxWidth looks wrong?
   val ioIdxWidth = log2Up(p(RegisterFileNumElements) * p(ElementWidth))
   val bitsPerBlock = p(BitsPerBlock)
+  val bytesPerBlock = p(BytesPerBlock)
   val learningEnabled = p(LearningEnabled)
 
   // Related to the neural network configuration format
@@ -150,12 +153,12 @@ abstract class DanaModule(implicit p: Parameters) extends XFilesModule()(p)
     with DanaParameters with DanaEnums {
   // Transaction Table State Entries. nnsim-hdl equivalent:
   //   controL_types::field_enum
-  val (e_TTABLE_VALID ::       // 0
-    e_TTABLE_RESERVED ::       // 1
+  val (e_TTABLE_VALID ::       // 0 [TODO] unused
+    e_TTABLE_RESERVED ::       // 1 [TODO] unused
     e_TTABLE_CACHE_VALID ::    // 2
     e_TTABLE_LAYER ::          // 3
-    e_TTABLE_OUTPUT_LAYER ::   // 4
-    e_TTABLE_REGISTER_INFO ::  // 5
+    e_TTABLE_OUTPUT_LAYER ::   // 4 [TODO] unused
+    e_TTABLE_REGISTER_INFO ::  // 5 [TODO] unused
     e_TTABLE_REGISTER_NEXT ::  // 6
     Nil) = Enum(UInt(), 7)
   // Used to set "transactionType" in the Transaction Table state
@@ -254,9 +257,15 @@ abstract class DanaModule(implicit p: Parameters) extends XFilesModule()(p)
 abstract class DanaBundle(implicit p: Parameters) extends XFilesBundle()(p)
     with DanaParameters with DanaEnums
 
+class DanaBackendInterface(implicit p: Parameters)
+    extends XFilesBackendInterface()(p) {
+  override lazy val probes_backend = Output(new DanaProbes)
+}
+
 class Dana(implicit p: Parameters) extends XFilesBackend()(p)
     with DanaParameters with XFilesSupervisorRequests with AsicFlowSafety
     with UserSafety {
+  override lazy val io = IO(new DanaBackendInterface)
   override val printfSigil = "dana.Dana: "
 
   // Module instantiation
@@ -268,7 +277,7 @@ class Dana(implicit p: Parameters) extends XFilesBackend()(p)
     Module(new ProcessingElementTable)
   val regFile = if (learningEnabled) Module(new RegisterFileLearn) else
     Module(new RegisterFile)
-  val antw = Module(new AsidNnidTableWalker)
+  val antw = Module(AsidNnidTableWalker()(p))
 
   val tTable = if (learningEnabled) Module(new DanaTransactionTableLearn) else
     Module(new DanaTransactionTable)
@@ -276,6 +285,9 @@ class Dana(implicit p: Parameters) extends XFilesBackend()(p)
   io.rocc.busy := false.B
 
   List(cache, peTable, regFile, antw, tTable).map(_.io.status := io.status)
+  io.probes_backend.interrupt := antw.io.probes.interrupt
+  io.probes_backend.cause := antw.io.probes.cause
+  io.probes_backend.cache := cache.io.probes.cache
 
   // Wire everything up. Ordering shouldn't matter here.
   cache.io.control <> control.io.cache
@@ -284,7 +296,7 @@ class Dana(implicit p: Parameters) extends XFilesBackend()(p)
   cache.io.pe <> peTable.io.cache
   regFile.io.pe <> peTable.io.regFile
 
-  antw.io.cache <> cache.io.mem
+  antw.io.cache <> cache.io.antw
   io.rocc.autl <> antw.io.xfiles.autl
 
   // Arbitration between TTable and ANTW
@@ -305,11 +317,6 @@ class Dana(implicit p: Parameters) extends XFilesBackend()(p)
   tTable.io.arbiter.xfReq <> io.xfReq
   io.xfResp <> tTable.io.arbiter.xfResp
   io.xfQueue <> tTable.io.arbiter.xfQueue
-
-  // There is a difference between the RoCC interrupt (which is tied
-  // off) and the interruptBundle which includes more information
-  io.rocc.interrupt := false.B
-  io.interrupt <> antw.io.xfiles.interrupt
 
   when (io.rocc.cmd.valid) { printfInfo("io.tTable.rocc.cmd.valid asserted\n") }
 }
@@ -352,6 +359,7 @@ class NnConfigNeuron(implicit p: Parameters) extends DanaBundle()(p) {
 
 class DanaStatusIO(implicit p: Parameters) extends DanaBundle()(p) {
   val status = Input(new DanaStatus)
+  val probes = Output(new DanaProbes)
 }
 
 trait UsrCmdRs1 {

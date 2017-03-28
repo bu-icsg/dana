@@ -44,11 +44,6 @@ $(DIR_TOP)/tests/libs/build/$(TARGET)/lib%.a:
 	make -C $(DIR_TOP)/tests/libs/ TARGET=$(TARGET)
 
 #------------------- RISC-V Tests
-$(dir_build)/fann-soft.rv: fann-soft.c $(XFILES_LIBRARIES) $(libfann_dep) | $(dir_build)
-	echo $(XFILES_LIBRARIES)
-	$(CC) $(CFLAGS_RV) $< -o $@ $(LFLAGS) -lfann -lm
-$(dir_build)/fann-xfiles.rv: fann-xfiles.c $(XFILES_LIBRARIES) $(libfann_dep) | $(dir_build)
-	$(CC) $(CFLAGS_RV) $< -o $@ $(LFLAGS) -lxfiles-user-pk -lfixedfann -lm
 $(dir_build)/trap-%.rv: trap-%.c $(XFILES_LIBRARIES) | $(dir_build)
 	$(CC) $(CFLAGS_RV) $< -o $@ $(LFLAGS) -lxfiles-user-pk
 $(dir_build)/dana-benchmark.rv: dana-benchmark.c $(XFILES_LIBRARIES) | $(dir_build)

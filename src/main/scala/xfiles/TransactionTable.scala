@@ -84,7 +84,9 @@ class XFilesTransactionTable(implicit p: Parameters) extends XFilesModule()(p)
   val io = IO( new Bundle {
     val xfiles = new RoCCInterface
     val backend = Flipped(new XFilesBackendInterface)
-    val status = Input(p(BuildXFilesBackend).csrData_gen(p))
+    val status = Input(p(BuildXFilesBackend).csrStatus_gen(p))
+    val probes = Output(new XFProbes)
+    val probes_backend = Output(p(BuildXFilesBackend).csrProbes_gen(p))
   })
 
   override val printfSigil = "xfiles.TTable: "
@@ -144,6 +146,10 @@ class XFilesTransactionTable(implicit p: Parameters) extends XFilesModule()(p)
   io.backend.rocc.cmd.bits := io.xfiles.cmd.bits
   io.xfiles.cmd.ready := io.backend.rocc.cmd.ready
   io.backend.status := io.status
+  io.probes_backend := io.backend.probes_backend
+
+  // [TODO] What interrupts can be generated here?
+  io.probes.interrupt := false.B
 
   io.xfiles.busy := io.backend.rocc.busy
 

@@ -2,7 +2,8 @@
 
 #include <getopt.h>
 
-#include "submodules/fann/src/include/fann.h"
+#include "fann/src/include/fann.h"
+#include "tools/src/copyright.h"
 
 void usage() {
   printf("usage: fann-float-to-fixed [OPTIONS] <floating point net> <fixed point net>\n"
@@ -15,6 +16,7 @@ void usage() {
 
 int main(int argc, char *argv[])
 {
+  PRINT_NOTICES(COPYRIGHT_FANN);
   struct fann * ann = NULL;
   char * fixed_file_name = NULL;
   unsigned int decimal_point = -1;

@@ -184,8 +184,8 @@ class TransactionStateLearn(implicit p: Parameters)
   val numTrainOutputs      = UInt(16.W)           // [TODO] fragile
   val stateLearn           = UInt(log2Up(8).W)    // [TODO] fragile
   val errorFunction        = UInt(log2Up(2).W)    // [TODO] fragile
-  val learningRate         = UInt(16.W)           // [TODO] fragile
-  val lambda               = UInt(16.W)           // [TODO] fragile
+  val learningRate         = UInt(elementWidth.W)
+  val weightDecay          = UInt(elementWidth.W)
   val numWeightBlocks      = UInt(16.W)           // [TODO] fragile
   val mse                  = UInt(elementWidth.W) // unused
   // Batch training information
@@ -213,7 +213,7 @@ class TransactionStateLearn(implicit p: Parameters)
     "stateLearn"           -> "state",
     "errorFunction"        -> "ef",
     "learningRate"         -> "lr",
-    "lambda"               -> "Y",
+    "weightDecay"          -> "Y",
     "numWeightBlocks"      -> "#WB",
     "numBatchItems"        -> "#BI",
     "curBatchItem"         -> "cB",
@@ -283,8 +283,8 @@ class ControlReqLearn(implicit p: Parameters) extends ControlReq()(p) {
   val transactionType     = UInt(log2Up(3).W) // [TODO] fragile
   val stateLearn          = UInt(log2Up(8).W) // [TODO] fragile
   val errorFunction       = UInt(log2Up(2).W) // [TODO] fragile
-  val learningRate        = UInt(16.W) // [TODO] fragile
-  val lambda              = UInt(16.W) // [TODO] fragile
+  val learningRate        = UInt(elementWidth.W)
+  val weightDecay         = UInt(elementWidth.W)
   val numWeightBlocks     = UInt(16.W) // [TODO] fragile
   // val regFileAddrDelta = UInt(log2Up(regFileNumElements).W)
   val regFileAddrDW       = UInt(log2Up(regFileNumElements).W)
@@ -368,23 +368,6 @@ class DanaTransactionTableBase[StateType <: TransactionState,
     with XFilesResponseCodes {
   lazy val io = IO(new DanaTransactionTableInterface)
   override val printfSigil = "dana.TTable: "
-
-  // IO aliases
-  // val cmd = new DanaBundle {
-  //   val asid = io.arbiter.rocc.cmd.bits.rs1(asidWidth + tidWidth - 1, tidWidth)
-  //   val tid = io.arbiter.rocc.cmd.bits.rs1(tidWidth - 1, 0)
-  //   val countFeedback =
-  //     io.arbiter.rocc.cmd.bits.rs1(feedbackWidth + asidWidth + tidWidth - 1,
-  //       asidWidth + tidWidth)
-  //   val nnid = io.arbiter.rocc.cmd.bits.rs2(nnidWidth - 1, 0)
-  //   val data = io.arbiter.rocc.cmd.bits.rs2
-  //   val rd = io.arbiter.rocc.cmd.bits.inst.rd
-  //   val regId = io.arbiter.rocc.cmd.bits.rs2(63,32)
-  //   val regValue = io.arbiter.rocc.cmd.bits.rs2(31,0)
-  //   // Only used with learning, but maintained for assertion checking
-  //   val transactionType = io.arbiter.rocc.cmd.bits.rs2(49,48)
-  //   val numTrainOutputs = io.arbiter.rocc.cmd.bits.rs2(47,32)
-  //   val raw = io.arbiter.rocc.cmd }
 
   // Create the actual Transaction Table
   val table = Reg(genStateVec)
@@ -743,14 +726,16 @@ class DanaTransactionTable(implicit p: Parameters)
       val tIdx = io.control.resp.bits.layerValidIndex
       val inLastOld = table(tIdx).inLast
       val inLastNew = table(tIdx).currentLayer === (table(tIdx).numLayers - 1.U)
+      val inFirstNew = table(tIdx).currentLayer === 0.U
+      table(tIdx).inFirst := inFirstNew
       when (!inLastOld) {
         table(tIdx).waiting := false.B
       } .otherwise {
         table(tIdx).decInUse := true.B
         table(tIdx).waiting := false.B
       }
-      printfInfo("  inFirst/inLast: 0x%x/0x%x->0x%x\n",
-        table(tIdx).inFirst, inLastOld, inLastNew)
+      printfInfo("  inFirst/inLast: %x->%x/%x->%x\n", table(tIdx).inFirst,
+        inFirstNew, inLastOld, inLastNew)
     }
   }
 
@@ -768,7 +753,6 @@ class DanaTransactionTable(implicit p: Parameters)
       table(tIdx).needsLayerInfo := false.B
       table(tIdx).currentLayer := table(tIdx).currentLayer
     }
-    table(tIdx).inFirst := table(tIdx).currentLayer === 0.U
   }
 
 }
@@ -801,14 +785,12 @@ class DanaTransactionTableLearn(implicit p: Parameters)
       cmd.asid, cmd.tid))
     val e = table(derefTidIndex)
     switch(cmd.regId) {
-      is (e_TTABLE_WRITE_REG_BATCH_ITEMS) {  e.numBatchItems := cmd.regValue }
-      is (e_TTABLE_WRITE_REG_LEARNING_RATE) { e.learningRate := cmd.regValue }
-      is (e_TTABLE_WRITE_REG_WEIGHT_DECAY_LAMBDA) { e.lambda := cmd.regValue }
+      is (e_TTABLE_WRITE_REG_BATCH_ITEMS) { e.numBatchItems := cmd.regValue }
     }
+    assert(!(regWrite && cmd.regId =/= e_TTABLE_WRITE_REG_BATCH_ITEMS),
+      "Deprecated regWrite register\n")
     printfInfo("saw reg write TID/Reg/Value 0x%x/0x%x/0x%x\n",
       cmd.tid, cmd.regId, cmd.regValue)
-    assert(!(cmd.regId > e_TTABLE_WRITE_REG_WEIGHT_DECAY_LAMBDA),
-      "DANA TTable: saw unexpected regWrite regId")
   }
 
   // IO Arbiter
@@ -913,247 +895,245 @@ class DanaTransactionTableLearn(implicit p: Parameters)
   }
 
   // Update the table when we get a request from DANA
-  when (io.control.resp.valid) {
+  val cacheValid = io.control.resp.valid && io.control.resp.bits.cacheValid
+  val layerValid = io.control.resp.valid && io.control.resp.bits.layerValid
+
+  when (cacheValid) {
     val tIdx = io.control.resp.bits.tableIndex
-    when (io.control.resp.bits.cacheValid) {
-      switch(io.control.resp.bits.field) {
-        is(e_TTABLE_CACHE_VALID) {
-          table(tIdx).globalWtptr := io.control.resp.bits.globalWtptr
-          when (table(tIdx).transactionType === e_TTYPE_BATCH) {
-            table(tIdx).numNodes := io.control.resp.bits.data(1) * 2.U
-          }
-          table(tIdx).errorFunction := io.control.resp.bits.data(2)(
-            errorFunctionWidth - 1, 0)
-          table(tIdx).numWeightBlocks := io.control.resp.bits.data(5)
-          printfInfo("  error function:          0x%x\n",
-            io.control.resp.bits.data(2)(errorFunctionWidth - 1, 0))
-          printfInfo("  learning rate:           0x%x (NOT SET)\n",
-            io.control.resp.bits.data(3))
-          printfInfo("  lambda:                  0x%x (NOT SET)\n",
-            io.control.resp.bits.data(4))
-          printfInfo("  Totalweightblocks :      0x%x\n",
-            io.control.resp.bits.data(5))
-          printfInfo("  Global Weight Pointer :  0x%x\n",
-            io.control.resp.bits.globalWtptr)
+    val t = table(tIdx)
+    switch(io.control.resp.bits.field) {
+      is(e_TTABLE_CACHE_VALID) {
+        t.globalWtptr := io.control.resp.bits.globalWtptr
+        when (t.transactionType === e_TTYPE_BATCH) {
+          t.numNodes := io.control.resp.bits.data(1) * 2.U
         }
-        is(e_TTABLE_LAYER) {
-          val nicl = io.control.resp.bits.data(0)
-          val niclMSBs = // Nodes in previous layer MSBs [TODO] fragile
-            nicl(15, log2Up(elementsPerBlock)) ##
-              0.U(log2Up(elementsPerBlock).W)
-          val niclLSBs = // Nodes in previous layer LSBs
-            nicl(log2Up(elementsPerBlock)-1, 0)
-          val round = Mux(niclLSBs =/= 0.U, elementsPerBlock.U, 0.U)
-          val niclOffset = niclMSBs + round
+        val learningRate = io.status.learn_rate >> (
+          decimalPointOffset.U - io.control.resp.bits.decimalPoint)
+        val weightDecay = io.status.weight_decay >> (
+          decimalPointOffset.U - io.control.resp.bits.decimalPoint)
+        t.learningRate := learningRate
+        t.weightDecay := weightDecay
+        t.errorFunction := io.control.resp.bits.data(2)(
+          errorFunctionWidth - 1, 0)
+        t.numWeightBlocks := io.control.resp.bits.data(5)
+        printfInfo("  error function:          0x%x\n",
+          io.control.resp.bits.data(2)(errorFunctionWidth - 1, 0))
+        printfInfo("  learning rate:           0x%x \n", learningRate)
+        printfInfo("  weight decay:            0x%x \n", weightDecay)
+        printfInfo("  Totalweightblocks :      0x%x\n",
+          io.control.resp.bits.data(5))
+        printfInfo("  Global Weight Pointer :  0x%x\n",
+          io.control.resp.bits.globalWtptr)
+      }
+      is(e_TTABLE_LAYER) {
+        val nicl = io.control.resp.bits.data(0)
+        val niclMSBs = // Nodes in previous layer MSBs [TODO] fragile
+          nicl(15, log2Up(elementsPerBlock)) ##
+        0.U(log2Up(elementsPerBlock).W)
+        val niclLSBs = // Nodes in previous layer LSBs
+          nicl(log2Up(elementsPerBlock)-1, 0)
+        val round = Mux(niclLSBs =/= 0.U, elementsPerBlock.U, 0.U)
+        val niclOffset = niclMSBs + round
 
-          val nipl = io.control.resp.bits.data(1)
-          val niplMSBs = nipl(15, log2Up(elementsPerBlock)) ##
-              0.U(log2Up(elementsPerBlock).W)
-          val niplLSBs = nipl(log2Up(elementsPerBlock)-1,0)
-          val niplOffset = niplMSBs + Mux(niplLSBs =/= 0.U,
-            elementsPerBlock.U, 0.U)
+        val nipl = io.control.resp.bits.data(1)
+        val niplMSBs = nipl(15, log2Up(elementsPerBlock)) ##
+        0.U(log2Up(elementsPerBlock).W)
+        val niplLSBs = nipl(log2Up(elementsPerBlock)-1,0)
+        val niplOffset = niplMSBs + Mux(niplLSBs =/= 0.U,
+          elementsPerBlock.U, 0.U)
 
-          printfInfo("  nicl:             0x%x\n", nicl)
-          printfInfo("  niclOffset:       0x%x\n", niclOffset)
-          printfInfo("  nipl:             0x%x\n", nipl)
-          printfInfo("  niplOffset:       0x%x\n", niplOffset)
-          when ((table(tIdx).currentLayer === 0.U) &&
-            (table(tIdx).stateLearn === e_TTABLE_STATE_LEARN_FEEDFORWARD ||
-              table(tIdx).stateLearn === e_TTABLE_STATE_FEEDFORWARD)) {
-            table(tIdx).waiting := false.B
+        printfInfo("  nicl:             0x%x\n", nicl)
+        printfInfo("  niclOffset:       0x%x\n", niclOffset)
+        printfInfo("  nipl:             0x%x\n", nipl)
+        printfInfo("  niplOffset:       0x%x\n", niplOffset)
+        when ((t.currentLayer === 0.U) &&
+          (t.stateLearn === e_TTABLE_STATE_LEARN_FEEDFORWARD ||
+            t.stateLearn === e_TTABLE_STATE_FEEDFORWARD)) {
+          t.waiting := false.B
+        }
+        switch(t.stateLearn) {
+          is(e_TTABLE_STATE_FEEDFORWARD){
+            t.regFileAddrIn := t.regFileAddrOut
+            t.regFileAddrOut := t.regFileAddrOut +
+            niplOffset
+            t.regFileAddrOutFixed :=
+            t.regFileAddrOut + niplOffset
+            // nodesInLast can be blindly set during non-learning
+            // feedforward mode
+            t.nodesInLast := nicl
           }
-          switch(table(tIdx).stateLearn) {
-            is(e_TTABLE_STATE_FEEDFORWARD){
-              table(tIdx).regFileAddrIn := table(tIdx).regFileAddrOut
-              table(tIdx).regFileAddrOut := table(tIdx).regFileAddrOut +
-                niplOffset
-              table(tIdx).regFileAddrOutFixed :=
-                table(tIdx).regFileAddrOut + niplOffset
-              // nodesInLast can be blindly set during non-learning
-              // feedforward mode
-              table(tIdx).nodesInLast := nicl
+          is(e_TTABLE_STATE_LEARN_FEEDFORWARD){
+            val regFileAddrOut = t.regFileAddrOut + niplOffset
+            t.regFileAddrIn := t.regFileAddrOut
+            t.regFileAddrOut := regFileAddrOut
+            t.regFileAddrOutFixed := regFileAddrOut
+            t.regFileAddrDW := regFileAddrOut + niclOffset
+
+            // Update the number of total nodes in the network
+            when (t.currentLayer === 0.U) { // In first layer
+              t.numNodes := t.numNodes + nicl
+            } .elsewhen (t.inLastEarly) {        // in the last layer
+              t.numNodes := t.numNodes + nicl
+            } .otherwise {                                // not first or last
+              t.numNodes := t.numNodes + nicl * 2.U
             }
-            is(e_TTABLE_STATE_LEARN_FEEDFORWARD){
-              val regFileAddrOut = table(tIdx).regFileAddrOut + niplOffset
-              table(tIdx).regFileAddrIn := table(tIdx).regFileAddrOut
-              table(tIdx).regFileAddrOut := regFileAddrOut
-              table(tIdx).regFileAddrOutFixed := regFileAddrOut
-              table(tIdx).regFileAddrDW := regFileAddrOut + niclOffset
 
-              // Update the number of total nodes in the network
-              when (table(tIdx).currentLayer === 0.U) { // In first layer
-                table(tIdx).numNodes := table(tIdx).numNodes + nicl
-              } .elsewhen (table(tIdx).inLastEarly) {        // in the last layer
-                table(tIdx).numNodes := table(tIdx).numNodes + nicl
-              } .otherwise {                                // not first or last
-                table(tIdx).numNodes := table(tIdx).numNodes + nicl * 2.U
-              }
-
-              // The bias offset is the size of the bias region
-              val offsetBias = table(tIdx).offsetBias + niclOffset
-              table(tIdx).offsetBias := offsetBias
-              val biasAddr = regFileAddrOut + table(tIdx).offsetBias +
-                table(tIdx).offsetDW + niclOffset
-              table(tIdx).biasAddr := biasAddr
-              table(tIdx).regFileAddrSlope := biasAddr + niclOffset
-              printfInfo("  offsetBias:       0x%x\n",
-                table(tIdx).offsetBias + niclOffset)
-              // The DW offset is the size of the DW region
-              when (!table(tIdx).inLastEarly) {
-                table(tIdx).offsetDW := table(tIdx).offsetDW + niclOffset
-                printfInfo("  offsetDW:         0x%x\n",
-                  table(tIdx).offsetDW + niclOffset)
-              }
-
-              // Store the number of nodes in the output layer for future use
-              when (table(tIdx).inLastEarly) {
-                table(tIdx).nodesInLast := nicl
-              }
-
-              printfInfo("  offsetDW:         0x%x\n", table(tIdx).offsetDW)
-              printfInfo("  regFileAddrDw:    0x%x -> 0x%x\n",
-                table(tIdx).regFileAddrDW, regFileAddrOut + niclOffset)
-              printfInfo("  regFileAddrSlope: 0x%x\n", biasAddr + niclOffset)
-              printfInfo("  biasAddr:         0x%x\n", biasAddr)
+            // The bias offset is the size of the bias region
+            val offsetBias = t.offsetBias + niclOffset
+            t.offsetBias := offsetBias
+            val biasAddr = regFileAddrOut + t.offsetBias +
+            t.offsetDW + niclOffset
+            t.biasAddr := biasAddr
+            t.regFileAddrSlope := biasAddr + niclOffset
+            printfInfo("  offsetBias:       0x%x\n",
+              t.offsetBias + niclOffset)
+            // The DW offset is the size of the DW region
+            when (!t.inLastEarly) {
+              t.offsetDW := t.offsetDW + niclOffset
+              printfInfo("  offsetDW:         0x%x\n",
+                t.offsetDW + niclOffset)
             }
-            is(e_TTABLE_STATE_LEARN_ERROR_BACKPROP){
-              table(tIdx).regFileAddrOut := table(tIdx).regFileAddrDW
-              table(tIdx).regFileAddrDW := table(tIdx).regFileAddrDW +
+
+            // Store the number of nodes in the output layer for future use
+            when (t.inLastEarly) {
+              t.nodesInLast := nicl
+            }
+
+            printfInfo("  offsetDW:         0x%x\n", t.offsetDW)
+            printfInfo("  regFileAddrDw:    0x%x -> 0x%x\n",
+              t.regFileAddrDW, regFileAddrOut + niclOffset)
+            printfInfo("  regFileAddrSlope: 0x%x\n", biasAddr + niclOffset)
+            printfInfo("  biasAddr:         0x%x\n", biasAddr)
+          }
+          is(e_TTABLE_STATE_LEARN_ERROR_BACKPROP){
+            t.regFileAddrOut := t.regFileAddrDW
+            t.regFileAddrDW := t.regFileAddrDW +
+            niclOffset
+
+            // Handle special case of being in the last hidden
+            // layer. Also, setup the Auxiliary address which, in
+            // this state, is used to store the address of the
+            // previous layer's inputs
+            when (t.currentLayer === t.numLayers - 2.U) {
+              val regFileAddrIn = t.regFileAddrIn
+              val regFileAddrAux = regFileAddrIn - niplOffset
+              //address to read outputs to compute derivative
+              t.regFileAddrIn := regFileAddrIn
+              t.regFileAddrAux := regFileAddrAux
+              printfInfo("  regFileAddrIn:    0x%x\n", regFileAddrIn)
+              printfInfo("  regFileAddrAux:   0x%x\n", regFileAddrAux)
+            } .otherwise {
+              val regFileAddrIn = t.regFileAddrIn - niclOffset
+              val regFileAddrAux = regFileAddrIn - niplOffset
+              t.regFileAddrIn := regFileAddrIn
+              t.regFileAddrAux := regFileAddrAux
+              printfInfo("  regFileAddrIn:    0x%x\n", regFileAddrIn)
+              printfInfo("  regFileAddrAux:   0x%x\n", regFileAddrAux)
+            }
+
+            // [TODO] Check that this is working
+            t.biasAddr := t.biasAddr - niclOffset
+            printfInfo("  offsetBias:       0x%x\n", t.offsetBias)
+            printfInfo("  offsetDW:         0x%x\n", t.offsetDW)
+            printfInfo("  regFileAddrDw:    0x%x -> 0x%x\n",
+              t.regFileAddrDW, t.regFileAddrDW + niclOffset)
+            printfInfo("  regFileAddrSlope: 0x%x\n",
+              t.regFileAddrSlope)
+            printfInfo("  biasAddr:         0x%x\n",
+              t.regFileAddrDW - niclOffset)
+
+          }
+          is(e_TTABLE_STATE_LEARN_WEIGHT_UPDATE){
+            when(t.transactionType === e_TTYPE_BATCH){
+              printfInfo("Layer Update, state == LEARN_WEIGHT_UPDATE\n")
+              when (t.currentLayer === 0.U){
+                t.regFileAddrDW := t.regFileAddrInFixed
+                t.regFileAddrIn := t.regFileAddrInFixed +
                 niclOffset
 
-              // Handle special case of being in the last hidden
-              // layer. Also, setup the Auxiliary address which, in
-              // this state, is used to store the address of the
-              // previous layer's inputs
-              when (table(tIdx).currentLayer === table(tIdx).numLayers - 2.U) {
-                val regFileAddrIn = table(tIdx).regFileAddrIn
-                val regFileAddrAux = regFileAddrIn - niplOffset
-                //address to read outputs to compute derivative
-                table(tIdx).regFileAddrIn := regFileAddrIn
-                table(tIdx).regFileAddrAux := regFileAddrAux
-                printfInfo("  regFileAddrIn:    0x%x\n", regFileAddrIn)
-                printfInfo("  regFileAddrAux:   0x%x\n", regFileAddrAux)
-              } .otherwise {
-                val regFileAddrIn = table(tIdx).regFileAddrIn - niclOffset
-                val regFileAddrAux = regFileAddrIn - niplOffset
-                table(tIdx).regFileAddrIn := regFileAddrIn
-                table(tIdx).regFileAddrAux := regFileAddrAux
-                printfInfo("  regFileAddrIn:    0x%x\n", regFileAddrIn)
-                printfInfo("  regFileAddrAux:   0x%x\n", regFileAddrAux)
-              }
-
-              // [TODO] Check that this is working
-              table(tIdx).biasAddr := table(tIdx).biasAddr - niclOffset
-              printfInfo("  offsetBias:       0x%x\n", table(tIdx).offsetBias)
-              printfInfo("  offsetDW:         0x%x\n", table(tIdx).offsetDW)
-              printfInfo("  regFileAddrDw:    0x%x -> 0x%x\n",
-                table(tIdx).regFileAddrDW, table(tIdx).regFileAddrDW + niclOffset)
-              printfInfo("  regFileAddrSlope: 0x%x\n",
-                table(tIdx).regFileAddrSlope)
-              printfInfo("  biasAddr:         0x%x\n",
-                table(tIdx).regFileAddrDW - niclOffset)
-
-            }
-            is(e_TTABLE_STATE_LEARN_WEIGHT_UPDATE){
-              when(table(tIdx).transactionType === e_TTYPE_BATCH){
-                printfInfo("Layer Update, state == LEARN_WEIGHT_UPDATE\n")
-                when (table(tIdx).currentLayer === 0.U){
-                  table(tIdx).regFileAddrDW := table(tIdx).regFileAddrInFixed
-                  table(tIdx).regFileAddrIn := table(tIdx).regFileAddrInFixed +
-                    niclOffset
-
-                  // If we're in the first layer, then we need to go
-                  // ahead and update the slope address. We can
-                  // compute this because we know both the slope
-                  // offset (which is the offset from the bias region
-                  // to the start of the weight update region).
-                  table(tIdx).biasAddr := table(tIdx).regFileAddrSlope -
-                    table(tIdx).offsetBias
-                  printfInfo("  regFileAddrDw:   0x%x\n",
-                    table(tIdx).regFileAddrInFixed)
-                  printfInfo("  regFileAddrIn:   0x%x\n",
-                    table(tIdx).regFileAddrInFixed + niclOffset)
-                }.otherwise{
-                  table(tIdx).regFileAddrDW := table(tIdx).regFileAddrIn
-                  table(tIdx).regFileAddrIn := table(tIdx).regFileAddrIn + niclOffset
-                  table(tIdx).biasAddr := table(tIdx).biasAddr + niplOffset
-                  printfInfo("  regFileAddrDw:   0x%x\n",
-                    table(tIdx).regFileAddrIn)
-                  printfInfo("  regFileAddrIn:   0x%x\n",
-                    table(tIdx).regFileAddrInFixed + niclOffset)
-                  printfInfo("  biasAddr:        0x%x\n",
-                    table(tIdx).biasAddr + niplOffset)
-                }
+                // If we're in the first layer, then we need to go
+                // ahead and update the slope address. We can
+                // compute this because we know both the slope
+                // offset (which is the offset from the bias region
+                // to the start of the weight update region).
+                t.biasAddr := t.regFileAddrSlope -
+                t.offsetBias
+                printfInfo("  regFileAddrDw:   0x%x\n",
+                  t.regFileAddrInFixed)
+                printfInfo("  regFileAddrIn:   0x%x\n",
+                  t.regFileAddrInFixed + niclOffset)
               }.otherwise{
-                table(tIdx).regFileAddrDW := table(tIdx).regFileAddrIn
-                table(tIdx).regFileAddrIn := table(tIdx).regFileAddrIn + niplOffset
+                t.regFileAddrDW := t.regFileAddrIn
+                t.regFileAddrIn := t.regFileAddrIn + niclOffset
+                t.biasAddr := t.biasAddr + niplOffset
+                printfInfo("  regFileAddrDw:   0x%x\n",
+                  t.regFileAddrIn)
+                printfInfo("  regFileAddrIn:   0x%x\n",
+                  t.regFileAddrInFixed + niclOffset)
+                printfInfo("  biasAddr:        0x%x\n",
+                  t.biasAddr + niplOffset)
               }
+            }.otherwise{
+              t.regFileAddrDW := t.regFileAddrIn
+              t.regFileAddrIn := t.regFileAddrIn + niplOffset
             }
           }
-          printfInfo("  inFirst/inLast/inLastEarly: 0x%x/0x%x/0x%x\n",
-            table(tIdx).inFirst, table(tIdx).inLast, table(tIdx).inLastEarly)
         }
+        printfInfo("  inFirst/inLast/inLastEarly: 0x%x/0x%x/0x%x\n",
+          t.inFirst, t.inLast, t.inLastEarly)
       }
-    }
-    when (io.control.resp.bits.layerValid) {
-      val tIdx = io.control.resp.bits.layerValidIndex
-      val inLastOld = table(tIdx).inLast
-      val inLastNew = table(tIdx).currentLayer === (table(tIdx).numLayers - 1.U)
-      val inFirst = table(tIdx).currentLayer === 0.U
-      switch (table(tIdx).transactionType) {
-        is (e_TTYPE_FEEDFORWARD) {
-          when (!inLastOld) {
-            table(tIdx).waiting := false.B
-          } .otherwise {
-            table(tIdx).decInUse := true.B
-            table(tIdx).waiting := false.B
-          }
-        }
-        is (e_TTYPE_INCREMENTAL) {
-          when (inFirst &&
-            table(tIdx).stateLearn === e_TTABLE_STATE_LEARN_WEIGHT_UPDATE) {
-            table(tIdx).decInUse := true.B
-            table(tIdx).waiting := false.B
-          } .otherwise {
-            table(tIdx).waiting := false.B
-          }
-        }
-        is (e_TTYPE_BATCH) {
-          when (inLastOld &&
-            table(tIdx).currentLayer === (table(tIdx).numLayers - 1.U) &&
-            table(tIdx).stateLearn === e_TTABLE_STATE_LEARN_WEIGHT_UPDATE) {
-            table(tIdx).waiting := false.B
-            table(tIdx).decInUse := true.B
-          } .elsewhen (table(tIdx).stateLearn === e_TTABLE_STATE_LOAD_OUTPUTS) {
-            table(tIdx).indexElement := 0.U
-            table(tIdx).flags.done := true.B
-            table(tIdx).flags.valid := false.B
-          } .otherwise {
-            table(tIdx).waiting := false.B
-          }
-        }
-      }
-      printfInfo("  inFirst/inLast/inLastEarly/state: 0x%x/0x%x->0x%x/0x%x/0x%x\n",
-        table(tIdx).inFirst, inLastOld, inLastNew, table(tIdx).inLastEarly,
-        table(tIdx).stateLearn)
     }
   }
 
-  for (i <- 0 until transactionTableNumEntries) {
-    entryArbiter.io.in(i).bits.globalWtptr := table(i).globalWtptr
-    entryArbiter.io.in(i).bits.inLastEarly := table(i).inLastEarly
-    entryArbiter.io.in(i).bits.transactionType := table(i).transactionType
-    entryArbiter.io.in(i).bits.stateLearn := table(i).stateLearn
-    entryArbiter.io.in(i).bits.errorFunction := table(i).errorFunction
-    entryArbiter.io.in(i).bits.learningRate := table(i).learningRate
-    entryArbiter.io.in(i).bits.lambda := table(i).lambda
-    entryArbiter.io.in(i).bits.numWeightBlocks := table(i).numWeightBlocks
-    entryArbiter.io.in(i).bits.regFileAddrDW := table(i).regFileAddrDW
-    entryArbiter.io.in(i).bits.regFileAddrSlope := table(i).regFileAddrSlope
-    entryArbiter.io.in(i).bits.regFileAddrBias := table(i).biasAddr
-    entryArbiter.io.in(i).bits.regFileAddrAux := table(i).regFileAddrAux
-    entryArbiter.io.in(i).bits.batchFirst := table(i).curBatchItem === 0.U
+  when (layerValid) {
+    val tIdx = io.control.resp.bits.layerValidIndex
+    val t = table(tIdx)
+    val inLastOld = t.inLast
+    val inLastNew = t.currentLayer === (t.numLayers - 1.U)
+    val inFirstNew = t.currentLayer === 0.U
+
+    val isFeedforward = t.transactionType === e_TTYPE_FEEDFORWARD
+    val isIncremental = t.transactionType === e_TTYPE_INCREMENTAL
+    val isBatch       = t.transactionType === e_TTYPE_BATCH
+    t.inFirst := inFirstNew
+    when (isFeedforward) {
+      t.waiting := false.B
+      t.decInUse := inLastOld }
+    when (isIncremental) {
+      t.waiting := false.B
+      t.decInUse := ( t.inFirst &&
+        t.stateLearn === e_TTABLE_STATE_LEARN_ERROR_BACKPROP )}
+    when (isBatch) {
+      when (inLastOld &&
+        t.currentLayer === (t.numLayers - 1.U) &&
+        t.stateLearn === e_TTABLE_STATE_LEARN_WEIGHT_UPDATE) {
+        t.waiting := false.B
+        t.decInUse := true.B
+      } .elsewhen (t.stateLearn === e_TTABLE_STATE_LOAD_OUTPUTS) {
+        t.indexElement := 0.U
+        t.flags.done := true.B
+        t.flags.valid := false.B
+      } .otherwise {
+        t.waiting := false.B
+      } }
+    printfInfo("  inFirst/inLast/inLastEarly/state: %x->%x/%x->%x/%x/0x%x\n",
+      t.inFirst, inFirstNew, inLastOld, inLastNew, t.inLastEarly, t.stateLearn)
   }
+
+  entryArbiter.io.in zip table map { case(e, t) =>
+    e.bits.globalWtptr      := t.globalWtptr
+    e.bits.inLastEarly      := t.inLastEarly
+    e.bits.transactionType  := t.transactionType
+    e.bits.stateLearn       := t.stateLearn
+    e.bits.errorFunction    := t.errorFunction
+    e.bits.learningRate     := t.learningRate
+    e.bits.weightDecay      := t.weightDecay
+    e.bits.numWeightBlocks  := t.numWeightBlocks
+    e.bits.regFileAddrDW    := t.regFileAddrDW
+    e.bits.regFileAddrSlope := t.regFileAddrSlope
+    e.bits.regFileAddrBias  := t.biasAddr
+    e.bits.regFileAddrAux   := t.regFileAddrAux
+    e.bits.batchFirst       := t.curBatchItem === 0.U}
 
   when (isPeReq) {
     val tIdx = entryArbiter.io.out.bits.tableIndex
@@ -1175,21 +1155,18 @@ class DanaTransactionTableLearn(implicit p: Parameters)
           table(tIdx).needsLayerInfo := false.B
           table(tIdx).currentLayer := table(tIdx).currentLayer
         }
-        table(tIdx).inFirst := table(tIdx).currentLayer === 0.U
       }
       is(e_TTABLE_STATE_LEARN_FEEDFORWARD){
         when(table(tIdx).inLast && inLastNode){
           table(tIdx).needsLayerInfo := true.B
           table(tIdx).currentLayer := table(tIdx).currentLayer - 1.U
           table(tIdx).regFileLocationBit := !table(tIdx).regFileLocationBit
-          table(tIdx).inFirst := table(tIdx).currentLayer === 1.U
           table(tIdx).inLastEarly := true.B
           table(tIdx).stateLearn := e_TTABLE_STATE_LEARN_ERROR_BACKPROP
         } .elsewhen (inLastNode && notInLastLayer) {
           table(tIdx).needsLayerInfo := true.B
           table(tIdx).currentLayer := table(tIdx).currentLayer + 1.U
           table(tIdx).regFileLocationBit := !table(tIdx).regFileLocationBit
-          table(tIdx).inFirst := table(tIdx).currentLayer === 0.U
 
           // inLastEarly will assert as soon as the last PE Request goes
           // out. This is useful if you need something that goes high at
@@ -1201,7 +1178,6 @@ class DanaTransactionTableLearn(implicit p: Parameters)
         } .otherwise {
           table(tIdx).needsLayerInfo := false.B
           table(tIdx).currentLayer := table(tIdx).currentLayer
-          table(tIdx).inFirst := table(tIdx).currentLayer === 0.U
         }
       }
       is(e_TTABLE_STATE_LEARN_ERROR_BACKPROP){
@@ -1211,6 +1187,8 @@ class DanaTransactionTableLearn(implicit p: Parameters)
           // table(tIdx).currentLayer := table(tIdx).currentLayer + 1.U
           table(tIdx).currentLayer := 0.U
           table(tIdx).regFileLocationBit := !table(tIdx).regFileLocationBit
+          table(tIdx).inLastEarly :=
+            table(tIdx).currentLayer === (table(tIdx).numLayers - 2.U)
           when(table(tIdx).transactionType === e_TTYPE_BATCH){
             when (table(tIdx).curBatchItem === (table(tIdx).numBatchItems - 1.U)) {
               table(tIdx).needsLayerInfo := true.B
@@ -1219,25 +1197,23 @@ class DanaTransactionTableLearn(implicit p: Parameters)
               table(tIdx).stateLearn := e_TTABLE_STATE_LOAD_OUTPUTS
               table(tIdx).curBatchItem := table(tIdx).curBatchItem + 1.U
             }
-          }.otherwise{
-            // [TODO] Related to a fix for #54
-            table(tIdx).stateLearn := e_TTABLE_STATE_LEARN_WEIGHT_UPDATE
           }
-          table(tIdx).inFirst := false.B
-          table(tIdx).inLastEarly :=
-            table(tIdx).currentLayer === (table(tIdx).numLayers - 2.U)
+          when (table(tIdx).transactionType === e_TTYPE_INCREMENTAL) {
+            // [TODO] What should happen here? The transaction is done
+            // as the cache was updated during the error
+            // backpropagation pass.
+            table(tIdx).waiting := true.B
+          }
         } .elsewhen(inLastNode && (table(tIdx).currentLayer > 0.U)) {
           table(tIdx).needsLayerInfo := true.B
           table(tIdx).currentLayer := table(tIdx).currentLayer - 1.U
           table(tIdx).regFileLocationBit := !table(tIdx).regFileLocationBit
-          table(tIdx).inFirst := table(tIdx).currentLayer === 1.U
         } .otherwise {
           table(tIdx).needsLayerInfo := false.B
           table(tIdx).currentLayer := table(tIdx).currentLayer
         }
       }
       is (e_TTABLE_STATE_LEARN_WEIGHT_UPDATE) {
-        // when(table(tIdx).transactionType === e_TTYPE_INCREMENTAL){
         when(table(tIdx).inLast && inLastNode){
             table(tIdx).waiting := true.B
           table(tIdx).currentLayer := table(tIdx).currentLayer
@@ -1248,8 +1224,8 @@ class DanaTransactionTableLearn(implicit p: Parameters)
         } .otherwise {
           table(tIdx).needsLayerInfo := false.B
           table(tIdx).currentLayer := table(tIdx).currentLayer
-          table(tIdx).inLastEarly :=
-          table(tIdx).currentLayer === (table(tIdx).numLayers - 2.U)
+          table(tIdx).inLastEarly := (
+            table(tIdx).currentLayer === (table(tIdx).numLayers - 2.U) )
         }
       }
     }

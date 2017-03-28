@@ -49,6 +49,7 @@ class DefaultDanaConfig extends Config ( {
     // Enables support for in-hardware learning
     case LearningEnabled           => true
     case BitsPerBlock              => site(ElementsPerBlock) * site(ElementWidth)
+    case BytesPerBlock             => site(BitsPerBlock) / 8
     case RegFileNumBlocks          => divUp(site(RegisterFileNumElements),
       site(ElementsPerBlock))
     case CacheNumBlocks            => divUp(divUp((site(CacheDataSize) * 8),
@@ -57,9 +58,11 @@ class DefaultDanaConfig extends Config ( {
     case BuildXFilesBackend        => XFilesBackendParameters(
       generator = (p: Parameters)  => Module(new Dana()(p)),
       csrFile_gen = (p: Parameters) => Module(new dana.CSRFile()(p)),
-      csrData_gen = (p: Parameters) => new DanaStatus()(p),
+      csrStatus_gen = (p: Parameters) => new DanaStatus()(p),
+      csrProbes_gen = (p: Parameters) => new DanaProbes()(p),
       info = packInfo(site(ElementsPerBlock), site(PeTableNumEntries),
         site(CacheNumEntries)))
+    case EnableCacheDump           => false
     case _ => throw new CDEMatchError
   }}
 )

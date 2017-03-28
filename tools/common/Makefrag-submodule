@@ -1,14 +1,17 @@
 #-*- mode: makefile-*-
 
-SUBMODULE_FANN=$(DIR_TOP)/submodules/fann/.git
-SUBMODULE_VERILOG=$(DIR_TOP)/submodules/verilog/.git
-SUBMODULE_HDL_SCRIPTS=$(DIR_TOP)/submodules/hdl-scripts/.git
+SUBMODULE_FANN=$(DIR_TOP)/fann/.git
+SUBMODULE_HDL_SCRIPTS=$(DIR_TOP)/util/hdl-scripts/.git
 
-.PRECIOUS: $(SUBMODULE_FANN) $(SUBMODULE_VERILOG) $(SUBMODULES_HDL_SCRIPTS)
+.PRECIOUS: \
+	$(SUBMODULE_FANN) \
+	$(SUBMODULES_HDL_SCRIPTS)
 
 # Grab submodules
-$(DIR_TOP)/submodules/%/.git:
-	git submodule update --init $(DIR_TOP)/submodules/$*
+$(DIR_TOP)/fann/.git:
+	git submodule update --init $(DIR_TOP)/fann
+$(DIR_TOP)/util/hdl-scripts/.git:
+	git submodule update --init $(DIR_TOP)/util/hdl-scripts
 
 # Makefile for building host and RISC-V targets of FANN
 dir_host = $(DIR_BUILD)/fann/host
@@ -18,7 +21,7 @@ cmake_flags_host = -DCMAKE_LIBRARY_OUTPUT_DIRECTORY=$(dir_host) \
 	-DCMAKE_CXX_FLAGS="-DFANN_NO_SEED"
 $(dir_host)/lib%: | $(dir_host) $(SUBMODULE_FANN)
 	cd $(dir_host) && \
-	cmake $(cmake_flags_host) $(DIR_TOP)/submodules/fann &&\
+	cmake $(cmake_flags_host) $(DIR_TOP)/fann &&\
 	$(MAKE)
 
 # Newer versions of FANN includes additional tests which newlib cannot
@@ -39,7 +42,7 @@ cmake_flags_newlib = -DCMAKE_ARCHIVE_OUTPUT_DIRECTORY=$(dir_newlib) \
 	-DBUILD_SHARED_LIBS=OFF
 $(dir_newlib)/libfann.a $(dir_newlib)/libfixedfann.a $(dir_newlib)/libdoublefann.a $(dir_newlib)/libfloatfann.a: | $(dir_newlib) $(SUBMODULE_FANN)
 	cd $(dir_newlib) && \
-	cmake $(cmake_flags_newlib) $(DIR_TOP)/submodules/fann &&\
+	cmake $(cmake_flags_newlib) $(DIR_TOP)/fann &&\
 	$(MAKE) -k || true
 
 dir_linux = $(DIR_BUILD)/fann/riscv64-unknown-linux-gnu
@@ -55,7 +58,7 @@ cmake_flags_linux = -DCMAKE_ARCHIVE_OUTPUT_DIRECTORY=$(dir_linux) \
 	-DDISABLE_PARALLEL_FANN=1
 $(dir_linux)/libfann.a $(dir_linux)/libfixedfann.a $(dir_linux)/libdoublefann.a $(dir_linux)/libfloatfann.a: | $(dir_linux) $(SUBMODULE_FANN)
 	cd $(dir_linux) && \
-	cmake $(cmake_flags_linux) $(DIR_TOP)/submodules/fann && \
+	cmake $(cmake_flags_linux) $(DIR_TOP)/fann && \
 	$(MAKE)
 
 $(dir_host) $(dir_newlib) $(dir_linux):

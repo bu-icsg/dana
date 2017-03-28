@@ -9,7 +9,8 @@
 #include <math.h>
 #include <getopt.h>
 
-#include "submodules/fann/src/include/fixedfann.h"
+#include "fann/src/include/fixedfann.h"
+#include "tools/src/copyright.h"
 
 void usage()
 {
@@ -23,6 +24,7 @@ void usage()
 
 int main(int argc, char *argv[])
 {
+  PRINT_NOTICES(COPYRIGHT_FANN);
   int i;
   char * null = NULL;
   struct fann * ann = NULL;

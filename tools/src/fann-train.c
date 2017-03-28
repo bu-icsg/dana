@@ -5,7 +5,8 @@
 #include <getopt.h>
 #include <string.h>
 
-#include "submodules/fann/src/include/fann.h"
+#include "fann/src/include/fann.h"
+#include "tools/src/copyright.h"
 
 #define OPTARG_STAT_BIT_FAIL 1024
 
@@ -41,6 +42,7 @@ void usage () {
 }
 
 int main (int argc, char * argv[]) {
+  PRINT_NOTICES(COPYRIGHT_FANN);
   int i, epoch, k, num_bits_failing, num_correct;
   int max_epochs = 10000, exit_code = 0, batch_items = -1;
   static int flag_cups, flag_last, flag_verbose, flag_ignore_limits;
@@ -81,7 +83,7 @@ int main (int argc, char * argv[]) {
       {"ignore-limits",        no_argument,       &flag_ignore_limits, 1}
     };
     int option_index = 0;
-    c = getopt_long (argc, argv, "b:d:e:f:g:hi:m::n:q::r:t:x:",
+    c = getopt_long (argc, argv, "b:d:e:f:g:hi:m::n:q::r:t:x::",
                      long_options, &option_index);
     if (c == -1)
       break;

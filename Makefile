@@ -11,7 +11,6 @@ DIR_SRC_SCALA	= $(DIR_TOP)/src/main/scala
 DIR_SRC_V	= $(DIR_TOP)/src/main/verilog
 DIR_SRC_C       = $(DIR_TOP)/src/main/c
 DIR_SRC_CPP	= $(DIR_TOP)/src/main/cpp
-DIR_TEST_V	= $(DIR_TOP)/src/test/verilog
 DIR_TEST_CPP	= $(DIR_TOP)/src/test/cpp
 DIR_TEST_RV     = $(DIR_TOP)/src/test/rv
 DIR_MAIN_RES    = $(DIR_TOP)/src/main/resources
@@ -23,8 +22,6 @@ COMMA    = ,
 
 # RISCV Tests Targets
 RV_TESTS             = hello.c \
-	fann-xfiles.c \
-	fann-soft.c \
 	read-xfiles-dana-id.c \
 	trap-00-new-request-no-asid.c \
 	trap-00-write-register-no-asid.c \
@@ -124,18 +121,26 @@ TAGS_SCALA = \
 	$(DIR_TOP)/../src/main/scala $(DIR_TOP)/../chisel3 \
 	$(DIR_TOP)/src/main/scala
 TAGS_C = \
-	$(DIR_TOP)/src/main/c \
 	$(DIR_TOP)/src/test/rv \
 	$(DIR_TOP)/tests/smoke \
 	$(DIR_TOP)/tests/nets \
 	$(DIR_TOP)/tests/rocc-software/src \
 	$(DIR_TOP)/tests/env/ \
-	$(DIR_TOP)/tests/libs/src
+	$(DIR_TOP)/tests/libs/src \
+	$(DIR_TOP)/../riscv-tools/riscv-fesvr/fesvr \
+	$(DIR_TOP)/../riscv-tools/riscv-pk/pk \
+	$(DIR_TOP)/../riscv-tools/riscv-pk/machine \
+	$(DIR_TOP)/../riscv-tools/riscv-pk/bbl \
+	$(DIR_TOP)/../csrc
+TAGS_V = \
+	$(DIR_TOP)/../vsrc
 tags:
 	find $(TAGS_SCALA) -name *.scala -exec ctags --output-format=etags {} +
 	find $(TAGS_C) -exec ctags --append=yes --output-format=etags {} +
+	find $(TAGS_V) -exec ctags --append=yes --output-format=etags {} +
 	find $(TAGS_SCALA) -name *.scala -exec ctags {} +
 	find $(TAGS_C) -exec ctags --append=yes {} +
+	find $(TAGS_V) -exec ctags --append=yes {} +
 
 #------------------- Utility Targets
 clean:

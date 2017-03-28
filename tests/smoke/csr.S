@@ -1,4 +1,4 @@
-# See LICENSE.ibm for license details.
+# See LICENSE.IBM for license details.
 
 #*****************************************************************************
 # csr.S
@@ -31,16 +31,26 @@
 // the ASID and ANTP for a single transaction test.
 #undef EXTRA_INIT
 #define EXTRA_INIT                              \
-  XF_WRITE_CSR(csr_TTABLE_SIZE,  0x1);          \
-  XF_WRITE_CSR(csr_ASID,         0x14);         \
-  XF_WRITE_CSR(csr_TID,          0x15);         \
-  XF_WRITE_CSR(csr_DEBUG,        0x1);          \
-  XF_WRITE_CSR(csr_PE_SIZE,      0x0);          \
-  XF_WRITE_CSR(csr_CACHE_SIZE,   0x1);          \
-  XF_WRITE_CSR(csr_PE_COOLDOWN,  0x7);          \
-  XF_WRITE_CSR(csr_ANTP,         0x103);        \
-  XF_WRITE_CSR(csr_NUM_ASIDS,    0x104);        \
-  XF_WRITE_CSR(csr_PE_GOVERNOR,  0x1);          \
+  XF_WRITE_CSR(CSRs_ttable_size,  0x1);         \
+  XF_WRITE_CSR(CSRs_asid,         0x14);        \
+  XF_WRITE_CSR(CSRs_tid,          0x15);        \
+  XF_WRITE_CSR(CSRs_pe_size,      0x0);         \
+  XF_WRITE_CSR(CSRs_cache_size,   0x1);         \
+  XF_WRITE_CSR(CSRs_pe_cooldown,  0x7);         \
+  XF_WRITE_CSR(CSRs_antp,         0x103);       \
+  XF_WRITE_CSR(CSRs_num_asids,    0x104);       \
+  XF_WRITE_CSR(CSRs_pe_governor,  0x1);         \
+  TEST_CASE(  1, a0, 0x1,               XF_READ_CSR(CSRs_ttable_size)  ); \
+  TEST_CASE(  2, a0, ID_STRING,         XF_READ_CSR(CSRs_xfid)         ); \
+  TEST_CASE(  3, a0, ID_STRING_CURRENT, XF_READ_CSR(CSRs_xfid_current) ); \
+  TEST_CASE(  4, a0, 0x14,              XF_READ_CSR(CSRs_asid)         ); \
+  TEST_CASE(  5, a0, 0x15,              XF_READ_CSR(CSRs_tid)          ); \
+  TEST_CASE( 10, a0, 0x0,               XF_READ_CSR(CSRs_pe_size)      ); \
+  TEST_CASE( 11, a0, 0x1,               XF_READ_CSR(CSRs_cache_size)   ); \
+  TEST_CASE( 12, a0, 0x7,               XF_READ_CSR(CSRs_pe_cooldown)  ); \
+  TEST_CASE( 13, a0, 0x103,             XF_READ_CSR(CSRs_antp)         ); \
+  TEST_CASE( 14, a0, 0x104,             XF_READ_CSR(CSRs_num_asids)    ); \
+  TEST_CASE( 15, a0, 0x1,               XF_READ_CSR(CSRs_pe_governor)  ); \
   la sp, _end + 1024;
 
 RVTEST_WITH_ROCC
@@ -48,22 +58,10 @@ RVTEST_WITH_ROCC
 start:
 
 RVTEST_CODE_BEGIN
-  TEST_CASE(  1, a0, 0x1,               XF_READ_CSR(csr_TTABLE_SIZE)  );
-  TEST_CASE(  2, a0, ID_STRING,         XF_READ_CSR(csr_XFID)         );
-  TEST_CASE(  3, a0, ID_STRING_CURRENT, XF_READ_CSR(csr_XFID_CURRENT) );
-  TEST_CASE(  4, a0, 0x14,              XF_READ_CSR(csr_ASID)         );
-  TEST_CASE(  5, a0, 0x15,              XF_READ_CSR(csr_TID)          );
-  TEST_CASE(  6, a0, 0x1,               XF_READ_CSR(csr_DEBUG)        );
-
-  TEST_CASE( 10, a0, 0x0,               XF_READ_CSR(csr_PE_SIZE)      );
-  TEST_CASE( 11, a0, 0x1,               XF_READ_CSR(csr_CACHE_SIZE)   );
-  TEST_CASE( 12, a0, 0x7,               XF_READ_CSR(csr_PE_COOLDOWN)  );
-  TEST_CASE( 13, a0, 0x103,             XF_READ_CSR(csr_ANTP)         );
-  TEST_CASE( 14, a0, 0x104,             XF_READ_CSR(csr_NUM_ASIDS)    );
-  TEST_CASE( 15, a0, 0x1,               XF_READ_CSR(csr_PE_GOVERNOR)  );
-
-  XF_WRITE_CSR(csr_TID, 0x20);
-  TEST_CASE( 20, a0, 0x20,              XF_READ_CSR(csr_TID));
+  TEST_CASE( 20, a0, 0x0,              XF_READ_CSR(CSRs_fence); \
+                                       srli a0, a0, 17);
+  TEST_CASE( 21, a0, 0x0,              DANA_SYNC(0xdead));
+  TEST_CASE( 22, a0, 0x0,              DANA_FENCE(0xdead));
 
   TEST_PASSFAIL
 

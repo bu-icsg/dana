@@ -33,39 +33,28 @@ class SRAMInterface(
   // Write enable
   val we    = Vec(numReadWritePorts, Bool()).asInput
   val weW   = Vec(numWritePorts,     Bool()).asInput
+  // Dump signal
+  val dump  = Bool().asInput
 }
 
 class SRAM (
+  val id: Int                = 0,
   val dataWidth: Int         = 8,
   val sramDepth: Int         = 64,
   val numReadPorts: Int      = 0,
   val numWritePorts: Int     = 0,
   val numReadWritePorts: Int = 2,
   val initSwitch: Int        = -1,
-  val elementsPerBlock: Int  = -1
+  val elementsPerBlock: Int  = -1,
+  val enableDump: Boolean    = false
 ) extends Module {
-  // [TODO] issue-37, chisel3 does not have support for setVerilogParameters
-  // if (initSwitch >= 0) {
-  //   setVerilogParameters(
-  //     "#(.WIDTH(" + dataWidth + ")," +
-  //       ".DEPTH(" + sramDepth + ")," +
-  //       ".LG_DEPTH(" + log2Up(sramDepth) + ")," +
-  //       ".INIT_SWITCH(" + initSwitch + ")," +
-  //       ".ELEMENTS_PER_BLOCK(" + elementsPerBlock + "))\n")
-  //   setName("sram_infer_preloaded_cache")}
-  // else {
-  //   setVerilogParameters(
-  //     "#(.WIDTH(" + dataWidth + ")," +
-  //       ".DEPTH(" + sramDepth + ")," +
-  //       ".LG_DEPTH(" + log2Up(sramDepth) + "))\n ")
-  //   setName("sram")}
-
   val io = IO(new SRAMInterface(
     numReadPorts = numReadPorts,
     numWritePorts = numWritePorts,
     numReadWritePorts = numReadWritePorts,
     dataWidth = dataWidth,
     sramDepth = sramDepth))
+
   val mem = Mem(sramDepth, UInt(dataWidth.W))
 
   if (numReadWritePorts > 0) {
@@ -95,6 +84,8 @@ class SRAM (
     }
   }
 
+  if (enableDump) { when(io.dump) { mem.zipWithIndex.map { case(m, i) =>
+    printf("SRAM[0x%x]: 0x%x -> 0x%x\n", id.U, i.U, m) }} }
 }
 
 class SRAMSinglePortInterface(

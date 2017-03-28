@@ -14,14 +14,9 @@
 // The input registers are referred to as rs1 and rs2 in the
 // rocket-chip repo and by available RoCC documentation so we stick
 // with that convention below.
-//
-// The bits of "funct" are as follows:
-//
-//   |       [6:3]|       2|      1|            0|
-//   | **unused** | isLast | isNew | readOrWrite |
 
 xlen_t xfiles_dana_id() {
-  return xf_read_csr(csr_XFID_CURRENT);
+  return xf_read_csr(CSRs_u_xfid);
 }
 
 tid_type new_write_request(nnid_type nnid, learning_type_t learning_type,
@@ -32,10 +27,6 @@ tid_type new_write_request(nnid_type nnid, learning_type_t learning_type,
     ((uint64_t) num_train_outputs << 32) |
     ((uint64_t) learning_type << 48);
 
-  // Initiate a new transaction by setting the "readOrWrite" (bit 0,
-  // read == 0 / write == 1) and "isNew" (bit 1) flags of "funct",
-  // i.e., funct == 3. The nnid goes in rs2. The output will show up
-  // in the varaible "out".
   XFILES_INSTRUCTION(out, 0, rs2, t_USR_NEW_REQUEST);
 
   // The TID is in bits [47:32] of what we get back. Pull out this
@@ -149,32 +140,31 @@ xlen_t transaction_learn(nnid_type nnid, element_type * addr_i, element_type * a
 }
 
 xlen_t xfiles_fann_learn(nnid_type nnid,
-                        element_type * addr_i,
-                        element_type * addr_o,
-                        element_type * addr_e,
-                        int num_inputs, 
-                        int num_outputs,
-                        int num_data) {
-     
-    element_type * last = addr_i + num_inputs * num_data;
-    for(; addr_i < last;
-            addr_i += num_inputs, addr_o += num_outputs, addr_e += num_outputs) {
-        if (transaction_learn(nnid, addr_i, addr_o, addr_e, num_inputs, num_outputs))
-            return -1;
-    }
-    return 0;
+                         element_type * addr_i,
+                         element_type * addr_e,
+                         element_type * addr_o,
+                         int num_inputs,
+                         int num_outputs,
+                         int num_data) {
+  element_type * last = addr_i + num_inputs * num_data;
+  for(; addr_i < last; addr_i += num_inputs, addr_e += num_outputs) {
+    tid_type tid = new_write_request(nnid, 1, 0);
+    write_data_train_incremental(tid, addr_i, addr_e, num_inputs, num_outputs);
+    int exit_code = read_data_spinlock(tid, addr_o, num_outputs);
+    if (exit_code) return exit_code;
+  }
+  return 0;
 }
 
 xlen_t xfiles_fann_run_no_compare(nnid_type nnid,
                                element_type * addr_i,
                                element_type * addr_o,
-                               element_type * addr_e,
                                int num_inputs,
                                int num_outputs,
                                int num_data) {
   element_type * last = addr_i + num_inputs * num_data;
   for (; addr_i < last;
-       addr_i += num_inputs, addr_o += num_outputs, addr_e += num_outputs) {
+       addr_i += num_inputs, addr_o += num_outputs) {
     if (transaction_feedforward(nnid, addr_i, addr_o, num_inputs, num_outputs))
       return -1;
   }
@@ -203,6 +193,35 @@ xlen_t xfiles_fann_run_compare(nnid_type nnid,
   return 0;
 }
 
+xlen_t xfiles_fann_run_smp_no_compare(nnid_type nnid,
+                                   element_type * addr_i,
+                                   element_type * addr_o,
+                                   int num_inputs,
+                                   int num_outputs,
+                                   int num_data) {
+  // Read the info block to figure out how many simultaneous
+  // transactions we can support
+  xlen_t id = xf_read_csr(CSRs_u_xfid);
+  int entries = id >> (64 - 16);
+  element_type * last = addr_i + num_inputs * num_data;
+  for (; addr_i < last; addr_i += num_inputs, addr_o += num_outputs) {
+    tid_type tid = -1;
+    // Prime all transactions
+    for (int i = 0; i < entries; i++) {
+      tid = new_write_request(nnid, 0, 0);
+      write_data_except_last(tid, addr_i, num_inputs);
+    }
+    // Start all transactions
+    for (int i = 0; i < entries; i++)
+      write_data_last(tid - (entries - 1) + i, addr_i, num_inputs);
+    // Reap transactions
+    for (int i = 0; i < entries; i++) {
+      read_data_spinlock(tid - (entries - 1) + i, addr_o, num_outputs);
+    }
+  }
+  return 0;
+}
+
 xlen_t xfiles_fann_run_smp_compare(nnid_type nnid,
                                    element_type * addr_i,
                                    element_type * addr_o,
@@ -213,7 +232,7 @@ xlen_t xfiles_fann_run_smp_compare(nnid_type nnid,
   // Read the info block to figure out how many simultaneous
   // transactions we can support
   int failures = 0;
-  xlen_t id = xf_read_csr(csr_XFID_CURRENT);
+  xlen_t id = xf_read_csr(CSRs_u_xfid);
   int entries = id >> (64 - 16);
   element_type * last = addr_i + num_inputs * num_data;
   element_type * first = addr_i;

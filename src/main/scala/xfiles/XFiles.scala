@@ -15,6 +15,8 @@ case object TidWidth extends Field[Int]
 case object AsidWidth extends Field[Int]
 case object TableDebug extends Field[Boolean]
 case object TransactionTableNumEntries extends Field[Int]
+case object EnablePrintfs extends Field[Boolean]
+case object EnableAsserts extends Field[Boolean]
 
 trait XFilesErrorCodes {
   val err_XFILES_UNKNOWN = 0
@@ -41,7 +43,6 @@ trait XFilesUserRequests {
   val t_USR_WRITE_DATA_LAST = 7
   val t_USR_WRITE_REGISTER = 8
   val t_USR_XFILES_DEBUG = 9
-  val t_USR_XFILES_ID = 10
 }
 
 trait XFilesParameters {

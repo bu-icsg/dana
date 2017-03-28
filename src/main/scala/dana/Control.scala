@@ -31,6 +31,7 @@ class ControlCacheInterfaceReq(implicit p: Parameters) extends DanaBundle()(p) {
   val tableIndex         = UInt(log2Up(transactionTableNumEntries).W)
   val currentLayer       = UInt(16.W) // [TODO] fragile
   val regFileLocationBit = UInt(1.W) // [TODO] fragile
+  val notDirty           = Bool()
 }
 
 class ControlCacheInterfaceReqLearn(implicit p: Parameters)
@@ -73,8 +74,8 @@ class ControlPETableInterfaceReqLearn(implicit p: Parameters)
   val resetWB         = Bool()
   val inFirst         = Bool()
   val batchFirst      = Bool()
-  val learningRate    = UInt(16.W) // [TODO] fragile
-  val lambda          = UInt(16.W) // [TODO] fragile
+  val learningRate    = UInt(elementWidth.W)
+  val weightDecay     = UInt(elementWidth.W)
   val numWeightBlocks = UInt(16.W) // [TODO] fragile
   val tType           = UInt(log2Up(3).W) // [TODO] fragile
   val globalWtptr     = UInt(16.W) // [TODO] fragile
@@ -149,15 +150,20 @@ class ControlBase(implicit p: Parameters) extends DanaModule()(p) {
   io.regFile.req.bits.location := io.cache.resp.bits.regFileLocationBit
 
   // Handling of Cache responses
-  when (io.cache.resp.valid) {
-    switch (io.cache.resp.bits.field) {
-      is (e_CACHE_INFO) {
-        io.tTable.resp.bits.field := e_TTABLE_CACHE_VALID
-        io.tTable.resp.bits.data(2) := io.cache.resp.bits.cacheIndex ##
-          io.cache.resp.bits.data(2)(errorFunctionWidth - 1,0) }
-      is (e_CACHE_LAYER) {
-        io.tTable.resp.bits.field := e_TTABLE_LAYER
-        io.regFile.req.valid := true.B }}}
+  val cacheInfoResp = (io.cache.resp.valid &&
+    io.cache.resp.bits.field === e_CACHE_INFO)
+  val cacheLayerResp = (io.cache.resp.valid &&
+    io.cache.resp.bits.field === e_CACHE_LAYER)
+  when (cacheInfoResp) {
+    io.tTable.resp.bits.field := e_TTABLE_CACHE_VALID
+    io.tTable.resp.bits.data(2) := io.cache.resp.bits.cacheIndex ##
+    io.cache.resp.bits.data(2)(errorFunctionWidth - 1,0)
+  }
+  when (cacheLayerResp) {
+    io.tTable.resp.bits.field := e_TTABLE_LAYER
+    io.tTable.resp.bits.field := e_TTABLE_LAYER
+    io.regFile.req.valid := true.B
+  }
 
   // Cache connections
   io.cache.req.bits.request := 0.U
@@ -169,6 +175,7 @@ class ControlBase(implicit p: Parameters) extends DanaModule()(p) {
   io.cache.req.bits.tableIndex := io.tTable.req.bits.tableIndex
   io.cache.req.bits.currentLayer := io.tTable.req.bits.currentLayer
   io.cache.req.bits.regFileLocationBit := io.tTable.req.bits.regFileLocationBit
+  io.cache.req.bits.notDirty := false.B
 
   // PE Table connections
   io.peTable.req.valid := false.B
@@ -200,8 +207,7 @@ class ControlBase(implicit p: Parameters) extends DanaModule()(p) {
     io.peTable.req.valid := peAllocate }
 }
 
-class Control(implicit p: Parameters)
-    extends ControlBase()(p)
+class Control(implicit p: Parameters) extends ControlBase()(p)
 
 class ControlLearn(implicit p: Parameters)
     extends ControlBase()(p) {
@@ -231,12 +237,21 @@ class ControlLearn(implicit p: Parameters)
   io.peTable.req.bits.errorFunction := io.tTable.req.bits.errorFunction
   io.peTable.req.bits.stateLearn := io.tTable.req.bits.stateLearn
   io.peTable.req.bits.learningRate := io.tTable.req.bits.learningRate
-  io.peTable.req.bits.lambda := io.tTable.req.bits.lambda
+  io.peTable.req.bits.weightDecay := io.tTable.req.bits.weightDecay
   io.peTable.req.bits.numWeightBlocks := io.tTable.req.bits.numWeightBlocks
   io.peTable.req.bits.tType := io.tTable.req.bits.transactionType
   io.peTable.req.bits.globalWtptr := io.tTable.req.bits.globalWtptr
 
-  io.cache.req.bits.totalWritesMul := Mux(io.tTable.req.bits.inLastEarly &&
-    (io.tTable.req.bits.stateLearn === e_TTABLE_STATE_LEARN_FEEDFORWARD),
-    2.U, 1.U)
+  // The number of expected writes is a multiple of the number of
+  // neurons in that layer with some modifications:
+  //   * A learning transaction in the last layer will write back
+  //     twice (its outputs and backpropagated weights)
+  //   * All others write back the expected amount
+  // This multiplier will be applied and sent to the register file
+  // when the cache response comes back with the number of neurons in
+  // that layer
+  val feedforwardAndLast = ( io.tTable.req.bits.inLastEarly &&
+    io.tTable.req.bits.stateLearn === e_TTABLE_STATE_LEARN_FEEDFORWARD )
+  io.cache.req.bits.totalWritesMul := Mux(feedforwardAndLast, 2.U, 1.U)
+  io.cache.req.bits.notDirty := io.tTable.req.bits.stateLearn =/= 0.U
 }
