@@ -8,8 +8,7 @@
 #
 
 #include "riscv_test.h"
-#include "tests/include/test_macros.h"
-#include "tests/include/xfiles-dana.h"
+#include "../riscv-tools/riscv-tests/isa/macros/scalar/test_macros.h"
 #include "tests/rocc-software/src/xcustom.h"
 #include "tests/rocc-software/src/riscv_test_rocc.h"
 #include "tests/libs/src/xfiles-user.S"

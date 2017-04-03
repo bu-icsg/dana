@@ -5,11 +5,12 @@ package dana
 
 import chisel3._
 import chisel3.util._
-import rocket.{HellaCacheReq, HellaCacheIO, MStatus, MT_D}
+import rocket.{HellaCacheReq, MT_D}
 import uncore.tilelink.{HasTileLinkParameters, ClientUncachedTileLinkIO, Get,
   GetBlock, PutBlock}
-import uncore.util.{CacheName, CacheBlockBytes}
-import config._
+import uncore.util._
+import uncore.agents.{CacheBlockBytes}
+import cde._
 import xfiles._
 
 // TileLink Parameters:
@@ -31,7 +32,7 @@ trait AntParameters {
 }
 
 class ANTWXFilesInterface(implicit p: Parameters) extends DanaBundle()(p) {
-  val autl      = new ClientUncachedTileLinkIO
+  val autl      = new ClientUncachedTileLinkIO()(p)
 }
 
 class AsidNnidTableWalkerInterface(implicit p: Parameters) extends DanaStatusIO()(p) {
@@ -57,7 +58,7 @@ class AsidNnidTableWalker(implicit p: Parameters) extends DanaModule()(p)
   val (s_IDLE :: s_CHECK_ASID :: s_GET_VALID_NNIDS :: s_GET_NN_POINTER ::
     s_GET_NN_SIZE :: s_GET_NN_EPB :: s_GET_CONFIG_POINTER :: s_GET_NN_CONFIG ::
     s_GET_NN_CONFIG_CLEANUP :: s_PUT_NN_CONFIG :: s_INTERRUPT :: s_ERROR ::
-    Nil) = Enum(UInt(), 12)
+    Nil) = Enum(12)
 
   val state = Reg(UInt(), init = s_IDLE)
 
@@ -308,10 +309,13 @@ class AsidNnidTableWalker(implicit p: Parameters) extends DanaModule()(p)
 
   val (rob_index, _) = Counter(acq.fire() && state === s_PUT_NN_CONFIG,
     storeRob.data.size)
+  val (put_count, put_sent) = Counter(acq.fire() && state === s_PUT_NN_CONFIG,
+    tlDataBeats)
   putData := Mux(autlFinished, 0.U, storeRob.data(rob_index))
   io.cache.store.req.bits.addr := cacheAddr
   io.cache.store.req.bits.index := cacheIdx
   io.cache.store.req.bits.done := autlFinished
+  val gntWait = Reg(init = false.B)
   when (state === s_PUT_NN_CONFIG) {
     autlAddr := configPointer
     val dataReady = storeRob.valid.asUInt.orR
@@ -333,7 +337,10 @@ class AsidNnidTableWalker(implicit p: Parameters) extends DanaModule()(p)
     val blocksToPut = ( (configSizeBytes >> autlBlockOffset) +
       configSizeBytes(autlBlockOffset - 1, 0).orR )
 
-    acq.valid := dataReady || autlFinished
+    when (put_sent) { gntWait := true.B }
+    .elsewhen (gnt.fire()) { gntWait := false.B }
+
+    acq.valid := (dataReady || autlFinished) && !gntWait
 
     // When we don't have data, fetch it from cache
     when (!autlFinished && !dataReady) { cacheReqBlock() }
@@ -342,6 +349,7 @@ class AsidNnidTableWalker(implicit p: Parameters) extends DanaModule()(p)
     // until nothing is left
     when (acq.fire()) { storeRob.valid(rob_index) := false.B
       configReqCount := configReqCount + (tlDataBits / xLen).U
+      configPointer := configPointer + (1.U << tlByteAddrBits)
     }
 
     when (gnt.fire()) {configPointer := configPointer + (1.U<<autlBlockOffset)}

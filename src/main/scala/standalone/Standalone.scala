@@ -5,7 +5,7 @@ package xfiles.standalone
 import chisel3._
 import chisel3.util._
 import chisel3.testers.BasicTester
-import config._
+import cde._
 import rocket.{RoCCCommand, RoCCResponse, RoCC, RoccNPTWPorts}
 import xfiles._
 import dana._

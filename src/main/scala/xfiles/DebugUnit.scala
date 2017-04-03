@@ -8,7 +8,7 @@ import chisel3.util._
 import uncore.constants.MemoryOpConstants.{M_XRD, M_XWR}
 import uncore.tilelink.{HasTileLinkParameters, Get, Put, GetBlock}
 import rocket.{RoCCInterface, PTE, MT_D}
-import config._
+import cde._
 
 class DebugUnitInterface(implicit p: Parameters) extends RoCCInterface
 
@@ -27,10 +27,11 @@ class DebugUnit(id: Int = 0)(implicit p: Parameters) extends XFilesModule()(p)
 
   override val printfSigil = "xfiles.DebugUnit[" + id + "]: "
 
-  val a_ = Enum(UInt(), List('REG, 'MEM_READ, 'MEM_WRITE, 'VIRT_TO_PHYS,
+  val a_ = Chisel.Enum(UInt(), List('REG, 'MEM_READ, 'MEM_WRITE, 'VIRT_TO_PHYS,
     'UTL_READ, 'UTL_WRITE))
-  val s_ = Enum(UInt(), List('IDLE, 'REG, 'MEM_REQ, 'MEM_WAIT, 'TRANSLATE_REQ,
-    'TRANSLATE_WAIT, 'TRANSLATE_RESP, 'UTL_ACQ, 'UTL_GRANT, 'UTL_RESP))
+  val s_ = Chisel.Enum(UInt(), List('IDLE, 'REG, 'MEM_REQ, 'MEM_WAIT,
+    'TRANSLATE_REQ, 'TRANSLATE_WAIT, 'TRANSLATE_RESP, 'UTL_ACQ, 'UTL_GRANT,
+    'UTL_RESP))
 
   val cmd = io.cmd
   val inst = cmd.bits.inst

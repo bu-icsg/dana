@@ -6,7 +6,7 @@ package xfiles
 import chisel3._
 import chisel3.util._
 import rocket.{RoCCCommand, RoCCResponse, RoCCInterface}
-import config._
+import cde._
 
 case object TransactionTableQueueSize extends Field[Int]
 

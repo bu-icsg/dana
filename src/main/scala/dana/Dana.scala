@@ -7,7 +7,7 @@ import chisel3._
 import chisel3.util._
 import rocket.XLen
 import xfiles._
-import config._
+import cde._
 
 case object ElementWidth extends Field[Int]
 case object ElementsPerBlock extends Field[Int]
@@ -119,7 +119,7 @@ trait DanaParameters {
 
 trait DanaEnums {
   // PE State
-  val PE_states = Enum(UInt(),
+  val PE_states = Chisel.Enum(UInt(),
     List('e_PE_UNALLOCATED,                               // 0
       'e_PE_GET_INFO,                                     // 1
       'e_PE_REQUEST_INPUTS_AND_WEIGHTS,                   // 2
@@ -160,12 +160,12 @@ abstract class DanaModule(implicit p: Parameters) extends XFilesModule()(p)
     e_TTABLE_OUTPUT_LAYER ::   // 4 [TODO] unused
     e_TTABLE_REGISTER_INFO ::  // 5 [TODO] unused
     e_TTABLE_REGISTER_NEXT ::  // 6
-    Nil) = Enum(UInt(), 7)
+    Nil) = Enum(7)
   // Used to set "transactionType" in the Transaction Table state
   val (e_TTYPE_FEEDFORWARD :: // 0
     e_TTYPE_INCREMENTAL ::    // 1
     e_TTYPE_BATCH ::          // 2
-    Nil) = Enum(UInt(), 3)
+    Nil) = Enum(3)
   // Used to define the state of the transaction
   val (e_TTABLE_STATE_READ_INFO ::         // 0
     e_TTABLE_STATE_LOAD_OUTPUTS ::         // 1
@@ -175,19 +175,19 @@ abstract class DanaModule(implicit p: Parameters) extends XFilesModule()(p)
     e_TTABLE_STATE_LEARN_ERROR_BACKPROP :: // 5
     e_TTABLE_STATE_LEARN_WEIGHT_UPDATE ::  // 6
     e_TTABLE_STATE_ERROR ::                // 7
-    Nil) = Enum(UInt(), 8)
+    Nil) = Enum(8)
   // Transaction register IDs used for write register request. This
   // must match "typedef enum xfiles_reg" in "xfiles.h".
   val (e_TTABLE_WRITE_REG_BATCH_ITEMS ::      // 0
     e_TTABLE_WRITE_REG_LEARNING_RATE ::       // 1
     e_TTABLE_WRITE_REG_WEIGHT_DECAY_LAMBDA :: // 2
-    Nil) = Enum(UInt(), 3)
+    Nil) = Enum(3)
 
   // Cache Request Type
   val (e_CACHE_LOAD ::                // 0
     e_CACHE_LAYER_INFO ::             // 1
     e_CACHE_DECREMENT_IN_USE_COUNT :: // 2
-    Nil) = Enum(UInt(), 3)
+    Nil) = Enum(3)
   // Cache to control field enum. nnsim-hdl equivalent:
   //   cache_types::field_enum
   val (e_CACHE_INFO ::     // 0
@@ -196,12 +196,12 @@ abstract class DanaModule(implicit p: Parameters) extends XFilesModule()(p)
     e_CACHE_WEIGHT ::      // 3
     e_CACHE_WEIGHT_ONLY :: // 4
     e_CACHE_WEIGHT_WB ::   // 5
-    Nil) = Enum(UInt(), 6)
+    Nil) = Enum(6)
   // Cache / PE access type enum. nnsim-hdl equivalent:
   //   pe_types::pe2storage_enum
   val (e_PE_NEURON :: // 0
     e_PE_WEIGHT ::    // 1
-    Nil) = Enum(UInt(), 2)
+    Nil) = Enum(2)
   val (e_PE_REQ_INPUT ::             // 0
     e_PE_REQ_EXPECTED_OUTPUT ::      // 1
     e_PE_REQ_OUTPUT ::               // 2
@@ -211,12 +211,12 @@ abstract class DanaModule(implicit p: Parameters) extends XFilesModule()(p)
     e_PE_WRITE_BLOCK_NEW ::          // 7
     e_PE_WRITE_BLOCK_ACC ::          // 8
     e_PE_INCREMENT_WRITE_COUNT ::    // 9
-    Nil) = Enum(UInt(), 9)
+    Nil) = Enum(9)
   // Location of inputs and outputs
   val (e_LOCATION_REG_0 :: // 0
     e_LOCATION_REG_1 ::    // 1
     e_LOCATION_IO ::       // 2
-    Nil) = Enum(UInt(), 3)
+    Nil) = Enum(3)
   // FANN Activation Function enums. These should match FANN!
   val (e_FANN_LINEAR ::                  // 0
     e_FANN_THRESHOLD ::                  // 1
@@ -236,19 +236,19 @@ abstract class DanaModule(implicit p: Parameters) extends XFilesModule()(p)
     e_FANN_COS_SYMMETRIC ::              // 15
     e_FANN_SIN ::                        // 16
     e_FANN_CO ::                         // 17
-    Nil) = Enum(UInt(), 18)
+    Nil) = Enum(18)
   // FANN error functions
   val (e_FANN_ERRORFUNC_LINEAR :: // 0
     e_FANN_ERRORFUNC_TANH ::      // 1
-    Nil) = Enum(UInt(), 2)
+    Nil) = Enum(2)
   // Determin what the actiavtion function unit is doing
   val (e_AF_DO_ACTIVATION_FUNCTION :: // 0
     e_AF_DO_ERROR_FUNCTION ::         // 1
-    Nil) = Enum(UInt(), 2)
+    Nil) = Enum(2)
   // Transaction Table to Register File Types
   val (e_TTABLE_REGFILE_WRITE :: // 0
     e_TTABLE_REGFILE_READ ::     // 1
-    Nil) = Enum(UInt(), 2)       // 2 Total
+    Nil) = Enum(2)       // 2 Total
 }
 
 // Base class for all Bundle classes used in DANA. This sets all the

@@ -73,7 +73,7 @@ def write_ant_file(net_name):
         expected_out_list.extend(line.split(b'->')[-1].split())
 
     ant_file.write('''#include "riscv_test.h" // Full path defined by build flow
-#include "tests/include/test_macros.h"
+#include "../riscv-tools/riscv-tests/isa/macros/scalar/test_macros.h"
 #define NUM_DATAPOINTS {}
 #define NUM_INPUTS {}
 #define NUM_OUTPUTS {}

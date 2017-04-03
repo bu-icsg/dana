@@ -7,7 +7,7 @@ import chisel3._
 import chisel3.util._
 import scala.math.pow
 import xfiles.{TransactionTableNumEntries}
-import config._
+import cde._
 
 class RegisterFileInterface(implicit p: Parameters) extends DanaStatusIO()(p) {
   lazy val pe = (new PERegisterFileInterface).flip

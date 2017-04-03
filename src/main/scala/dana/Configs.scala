@@ -3,11 +3,11 @@
 package dana
 
 import chisel3._
-import config._
+import cde._
 import xfiles.{BuildXFilesBackend, XFilesBackendParameters}
 import dana.util._
 
-class DefaultDanaConfig extends Config ( {
+class DefaultDanaConfig extends Config ( topDefinitions = {
   (pname,site,here) =>
   pname match {
     // NN Config Global Info
@@ -67,12 +67,12 @@ class DefaultDanaConfig extends Config ( {
   }}
 )
 
-class DanaNoLearningConfig extends Config (
+class DanaNoLearningConfig extends Config ( topDefinitions = {
   (pname,site,here) =>
   pname match {
     case LearningEnabled => false
     case _ => throw new CDEMatchError
-  }
+  }}
 )
 
 class DanaConfig
@@ -81,7 +81,7 @@ class DanaConfig
     cache:      Int     = 2,
     scratchpad: Int     = 10240,
     learning:   Boolean = true)
-    extends Config(
+    extends Config( topDefinitions = {
   (pname,site,here) => pname match {
     case LearningEnabled         => learning
     case PeTableNumEntries       => numPes
@@ -89,4 +89,4 @@ class DanaConfig
     case CacheNumEntries         => cache
     case RegisterFileNumElements => scratchpad
     case _ => throw new CDEMatchError
-  })
+  }})

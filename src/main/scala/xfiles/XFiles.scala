@@ -6,7 +6,7 @@ package xfiles
 import chisel3._
 import chisel3.util._
 import rocket.{RoCC, HasCoreParameters, CoreModule, CoreBundle}
-import config._
+import cde._
 import math.pow
 import _root_.util.ParameterizedBundle
 import perfect.util.UniformPrintfs
@@ -62,7 +62,7 @@ trait XFilesResponseCodes extends HasCoreParameters with XFilesParameters
   val respCodeWidth = 3
 
   val (resp_OK :: resp_TID :: resp_READ :: resp_NOT_DONE :: resp_QUEUE_ERR ::
-    resp_XFILES :: Nil) =  Enum(UInt(), 6)
+    resp_XFILES :: Nil) =  Enum(6)
 
   def genResp[T <: Bits](resp: T, respCode: T, tid: T, data: T = 0.U(xLen.W)) {
     val tmp = Wire(new Bundle {

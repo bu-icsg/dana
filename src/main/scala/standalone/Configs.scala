@@ -2,13 +2,13 @@
 
 package xfiles.standalone
 
-import config._
+import cde._
 import rocket._
 import rocketchip._
 import uncore.tilelink._
 
-class AsStandalone extends Config (
+class AsStandalone extends Config ( topDefinitions = {
   (pname, site, here) => {
     pname match {
       case TileLinkRAMSize => 1024 * 1024}
-  })
+  }})

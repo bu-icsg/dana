@@ -5,7 +5,7 @@ package dana
 
 import chisel3._
 import chisel3.util._
-import config._
+import cde._
 
 class MemoryInterface(implicit p: Parameters) extends DanaBundle()(p) {
   val cache = (new CacheAntwInterface).flip

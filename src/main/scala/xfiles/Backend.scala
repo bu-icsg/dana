@@ -6,7 +6,7 @@ package xfiles
 import chisel3._
 import chisel3.util._
 import rocket.{RoCCInterface, HasCoreParameters, HellaCacheReq}
-import config._
+import cde._
 import _root_.util.ParameterizedBundle
 
 case object BuildXFilesBackend extends Field[XFilesBackendParameters]

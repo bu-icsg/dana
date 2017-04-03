@@ -5,7 +5,7 @@ package dana
 
 import chisel3._
 import chisel3.util._
-import config._
+import cde._
 
 class PECacheInterfaceResp(implicit p: Parameters) extends DanaBundle()(p) {
   val field         = UInt(log2Up(6).W) // [TODO] fragile on Dana enum

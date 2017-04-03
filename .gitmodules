@@ -7,9 +7,6 @@
 [submodule "src/main/scala/perfect"]
 	path = src/main/scala/perfect
 	url = ../perfect-chisel
-[submodule "env"]
-	path = tests/env
-	url = https://github.com/ucb-bar/riscv-test-env.git
 [submodule "rocc-software"]
 	path = tests/rocc-software
 	url = ../rocc-software

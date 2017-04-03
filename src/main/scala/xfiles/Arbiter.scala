@@ -6,7 +6,7 @@ package xfiles
 import chisel3._
 import chisel3.util._
 import rocket._
-import config._
+import cde._
 
 class XFilesArbiterInterface(implicit p: Parameters) extends Bundle {
   val core = new RoCCInterface

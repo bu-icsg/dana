@@ -4,7 +4,7 @@ package dana
 
 import chisel3._
 import chisel3.util._
-import config._
+import cde._
 
 object Causes {
   val unknown       = 0x80

@@ -3,10 +3,10 @@
 package xfiles
 
 import chisel3._
-import config._
+import cde._
 import dana.DefaultDanaConfig
 
-class DefaultXFilesConfig extends Config (
+class DefaultXFilesConfig extends Config ( topDefinitions = {
   (pname,site,here) =>
   pname match {
     case TidWidth                   => 16
@@ -17,5 +17,5 @@ class DefaultXFilesConfig extends Config (
     case EnablePrintfs              => true
     case EnableAsserts              => true
     case _ => throw new CDEMatchError
-  }
+  }}
 )
