@@ -314,13 +314,13 @@ class ControlRespLearn(implicit p: Parameters) extends ControlResp()(p) {
 class TTableControlInterface(implicit val p: Parameters)
     extends ParameterizedBundle()(p) {
   lazy val req = Decoupled(new ControlReq)
-  lazy val resp = Decoupled(new ControlResp).flip
+  lazy val resp = Flipped(Decoupled(new ControlResp))
 }
 
 class TTableControlInterfaceLearn(implicit p: Parameters)
     extends TTableControlInterface()(p) {
   override lazy val req = Decoupled(new ControlReqLearn)
-  override lazy val resp = Decoupled(new ControlRespLearn).flip
+  override lazy val resp = Flipped(Decoupled(new ControlRespLearn))
 }
 
 class TTableRegisterFileReq(implicit p: Parameters) extends DanaBundle()(p) {
@@ -336,16 +336,16 @@ class TTableRegisterFileResp(implicit p: Parameters) extends DanaBundle()(p) {
 
 class TTableRegisterFileInterface(implicit p: Parameters) extends DanaBundle()(p) {
   val req = Valid(new TTableRegisterFileReq)
-  val resp = Valid(new TTableRegisterFileResp).flip
+  val resp = Flipped(Valid(new TTableRegisterFileResp))
 }
 
 class TTableArbiter(implicit p: Parameters) extends DanaBundle()(p) {
   val rocc = new Bundle {
-    val cmd = Decoupled(new RoCCCommand).flip
+    val cmd = Flipped(Decoupled(new RoCCCommand))
     val resp = Decoupled(new RoCCResponse)
-    val status = new MStatus().asInput
+    val status = Input(new MStatus())
   }
-  val xfReq = (new XFilesBackendReq).flip
+  val xfReq = Flipped(new XFilesBackendReq)
   val xfResp = new XFilesBackendResp
   val xfQueue = new XFilesQueueInterface
 }

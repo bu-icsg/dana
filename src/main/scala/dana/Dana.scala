@@ -394,5 +394,5 @@ class XFilesArbiterResp(implicit p: Parameters) extends DanaBundle()(p) {
 
 class XFilesArbiterInterface(implicit p: Parameters) extends DanaBundle()(p) {
   val req         = Decoupled(new XFilesArbiterReq)
-  val resp        = Decoupled(new XFilesArbiterResp).flip
+  val resp        = Flipped(Decoupled(new XFilesArbiterResp))
 }

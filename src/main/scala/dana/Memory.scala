@@ -8,7 +8,7 @@ import chisel3.util._
 import cde._
 
 class MemoryInterface(implicit p: Parameters) extends DanaBundle()(p) {
-  val cache = (new CacheAntwInterface).flip
+  val cache = Flipped(new CacheAntwInterface)
 }
 
 class Memory(implicit p: Parameters) extends DanaModule()(p) {

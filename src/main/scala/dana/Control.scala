@@ -41,13 +41,13 @@ class ControlCacheInterfaceReqLearn(implicit p: Parameters)
 
 class ControlCacheInterface(implicit p: Parameters) extends DanaBundle()(p) {
   lazy val req = Decoupled(new ControlCacheInterfaceReq)
-  lazy val resp = Decoupled(new ControlCacheInterfaceResp).flip
+  lazy val resp = Flipped(Decoupled(new ControlCacheInterfaceResp))
 }
 
 class ControlCacheInterfaceLearn(implicit p: Parameters)
     extends ControlCacheInterface()(p) {
   override lazy val req = Decoupled(new ControlCacheInterfaceReqLearn)
-  override lazy val resp = Decoupled(new ControlCacheInterfaceRespLearn).flip
+  override lazy val resp = Flipped(Decoupled(new ControlCacheInterfaceRespLearn))
 }
 
 class ControlPETableInterfaceReq(implicit p: Parameters) extends DanaBundle()(p) {
@@ -105,11 +105,11 @@ class ControlRegisterFileInterfaceResp(implicit p: Parameters) extends DanaBundl
 
 class ControlRegisterFileInterface(implicit p: Parameters) extends DanaBundle()(p) {
   val req = Decoupled(new ControlRegisterFileInterfaceReq)
-  val resp = Decoupled(new ControlRegisterFileInterfaceResp).flip
+  val resp = Flipped(Decoupled(new ControlRegisterFileInterfaceResp))
 }
 
 class ControlInterface(implicit p: Parameters) extends DanaBundle()(p) {
-  lazy val tTable = (new TTableControlInterface).flip
+  lazy val tTable = Flipped(new TTableControlInterface)
   lazy val cache = new ControlCacheInterface
   lazy val peTable = new ControlPETableInterface
   val regFile = new ControlRegisterFileInterface
@@ -117,7 +117,7 @@ class ControlInterface(implicit p: Parameters) extends DanaBundle()(p) {
 
 class ControlInterfaceLearn(implicit p: Parameters)
     extends ControlInterface()(p) {
-  override lazy val tTable = (new TTableControlInterfaceLearn).flip
+  override lazy val tTable = Flipped((new TTableControlInterfaceLearn))
   override lazy val cache = new ControlCacheInterfaceLearn
   override lazy val peTable = new ControlPETableInterfaceLearn
 }

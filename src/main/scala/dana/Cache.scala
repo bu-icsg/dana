@@ -70,8 +70,8 @@ class CacheInterface(implicit p: Parameters) extends DanaStatusIO()(p) {
 
 class CacheInterfaceLearn(implicit p: Parameters)
     extends CacheInterface()(p) {
-  override lazy val control = (new ControlCacheInterfaceLearn).flip
-  override lazy val pe      = (new PECacheInterfaceLearn).flip
+  override lazy val control = Flipped(new ControlCacheInterfaceLearn)
+  override lazy val pe      = Flipped(new PECacheInterfaceLearn)
 }
 
 class CompressedNeuron(implicit p: Parameters) extends DanaBundle()(p) {

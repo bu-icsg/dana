@@ -70,7 +70,7 @@ trait HasTable {
 
 class XFilesTransactionTableCmdResp(implicit p: Parameters) extends
     XFilesBundle()(p) {
-  val cmd = Decoupled(new RoCCCommand).flip
+  val cmd = Flipped(Decoupled(new RoCCCommand))
   val resp = Decoupled(new RoCCResponse)
   val busy = Output(Bool())
 }

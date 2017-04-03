@@ -21,20 +21,20 @@ class SRAMInterface(
     sramDepth = sramDepth
   ).asInstanceOf[this.type]
   // Data Input
-  val din   = Vec(numReadWritePorts, UInt(dataWidth.W)).asInput
-  val dinW  = Vec(numWritePorts,     UInt(dataWidth.W)).asInput
+  val din   = Input(Vec(numReadWritePorts, UInt(dataWidth.W)))
+  val dinW  = Input(Vec(numWritePorts,     UInt(dataWidth.W)))
   // Data Output
-  val dout  = Vec(numReadWritePorts, UInt(dataWidth.W)).asOutput
-  val doutR = Vec(numReadPorts,      UInt(dataWidth.W)).asOutput
+  val dout  = Output(Vec(numReadWritePorts, UInt(dataWidth.W)))
+  val doutR = Output(Vec(numReadPorts,      UInt(dataWidth.W)))
   // Addresses
-  val addr  = Vec(numReadWritePorts, UInt(log2Up(sramDepth).W)).asInput
-  val addrR = Vec(numReadPorts,      UInt(log2Up(sramDepth).W)).asInput
-  val addrW = Vec(numWritePorts,     UInt(log2Up(sramDepth).W)).asInput
+  val addr  = Input(Vec(numReadWritePorts, UInt(log2Up(sramDepth).W)))
+  val addrR = Input(Vec(numReadPorts,      UInt(log2Up(sramDepth).W)))
+  val addrW = Input(Vec(numWritePorts,     UInt(log2Up(sramDepth).W)))
   // Write enable
-  val we    = Vec(numReadWritePorts, Bool()).asInput
-  val weW   = Vec(numWritePorts,     Bool()).asInput
+  val we    = Input(Vec(numReadWritePorts, Bool()))
+  val weW   = Input(Vec(numWritePorts,     Bool()))
   // Dump signal
-  val dump  = Bool().asInput
+  val dump  = Input(Bool())
 }
 
 class SRAM (
@@ -108,19 +108,19 @@ class SRAMDualPortInterface(
   override def cloneType = new SRAMDualPortInterface(
     dataWidth = dataWidth,
     sramDepth = sramDepth).asInstanceOf[this.type]
-  val we = Vec(2, Bool()).asOutput
-  val din = Vec(2, UInt(dataWidth.W)).asOutput
-  val addr = Vec(2, UInt(log2Up(sramDepth).W)).asOutput
-  val dout = Vec(2, UInt(dataWidth.W)).asInput
+  val we = Output(Vec(2, Bool()))
+  val din = Output(Vec(2, UInt(dataWidth.W)))
+  val addr = Output(Vec(2, UInt(log2Up(sramDepth).W)))
+  val dout = Input(Vec(2, UInt(dataWidth.W)))
 }
 
 class SRAMDualPort(
   val dataWidth: Int,
   val sramDepth: Int
 ) extends Module {
-  val io = new SRAMDualPortInterface(
+  val io = Flipped(new SRAMDualPortInterface(
     dataWidth = dataWidth,
-    sramDepth = sramDepth).flip
+    sramDepth = sramDepth))
   val sram = Module(new SRAM(
     dataWidth = dataWidth,
     numReadPorts = 0,

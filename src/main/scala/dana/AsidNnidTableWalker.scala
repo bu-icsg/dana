@@ -36,7 +36,7 @@ class ANTWXFilesInterface(implicit p: Parameters) extends DanaBundle()(p) {
 }
 
 class AsidNnidTableWalkerInterface(implicit p: Parameters) extends DanaStatusIO()(p) {
-  val cache     = (new CacheAntwInterface).flip
+  val cache     = Flipped(new CacheAntwInterface)
   val xfiles    = new ANTWXFilesInterface
 }
 

@@ -10,14 +10,14 @@ import xfiles.{TransactionTableNumEntries}
 import cde._
 
 class RegisterFileInterface(implicit p: Parameters) extends DanaStatusIO()(p) {
-  lazy val pe = (new PERegisterFileInterface).flip
-  val control = (new ControlRegisterFileInterface).flip
-  val tTable  = (new TTableRegisterFileInterface).flip
+  lazy val pe = Flipped(new PERegisterFileInterface)
+  val control = Flipped(new ControlRegisterFileInterface)
+  val tTable  = Flipped(new TTableRegisterFileInterface)
 }
 
 class RegisterFileInterfaceLearn(implicit p: Parameters)
     extends RegisterFileInterface()(p) {
-  override lazy val pe = (new PERegisterFileInterfaceLearn).flip
+  override lazy val pe = Flipped(new PERegisterFileInterfaceLearn)
 }
 
 class RegisterFileState(implicit p: Parameters) extends DanaBundle()(p) {

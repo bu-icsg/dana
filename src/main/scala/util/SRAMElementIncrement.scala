@@ -27,7 +27,7 @@ class SRAMElementIncrementInterface (
     sramDepth = sramDepth,
     numPorts = numPorts,
     elementWidth = elementWidth).asInstanceOf[this.type]
-  val wType = Vec(numPorts, UInt(log2Up(3).W)).asInput
+  val wType = Input(Vec(numPorts, UInt(log2Up(3).W)))
 }
 
 class WritePendingIncrementBundle (

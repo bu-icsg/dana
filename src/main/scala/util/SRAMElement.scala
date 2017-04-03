@@ -22,9 +22,9 @@ class SRAMElementInterface (
     sramDepth = sramDepth,
     numPorts = numPorts,
     elementWidth = elementWidth).asInstanceOf[this.type]
-  val dinElement = Vec(numPorts, UInt(elementWidth.W)).asInput
-  override val addr = Vec(numPorts,
-    UInt((log2Up(sramDepth) + log2Up(dataWidth / elementWidth)).W)).asInput
+  val dinElement = Input(Vec(numPorts, UInt(elementWidth.W)))
+  override val addr = Input(Vec(numPorts,
+    UInt((log2Up(sramDepth) + log2Up(dataWidth / elementWidth)).W)))
 }
 
 class WritePendingBundle (

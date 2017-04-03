@@ -24,7 +24,7 @@ class PECacheInterfaceReq(implicit p: Parameters) extends DanaBundle()(p) {
 
 class PECacheInterface(implicit p: Parameters) extends DanaBundle()(p) {
   val req           = Decoupled(new PECacheInterfaceReq)
-  val resp          = Decoupled(new PECacheInterfaceResp).flip
+  val resp          = Flipped(Decoupled(new PECacheInterfaceResp))
 }
 
 class PECacheInterfaceLearn(implicit p: Parameters)
@@ -59,13 +59,13 @@ class PERegisterFileRespLearn(implicit p: Parameters)
 
 class PERegisterFileInterface(implicit p: Parameters) extends DanaBundle()(p) {
   lazy val req              = Decoupled(new PERegisterFileReq)
-  lazy val resp             = Decoupled(new PERegisterFileResp).flip
+  lazy val resp             = Flipped(Decoupled(new PERegisterFileResp))
 }
 
 class PERegisterFileInterfaceLearn(implicit p: Parameters)
     extends PERegisterFileInterface()(p) {
   override lazy val req     = Decoupled(new PERegisterFileReqLearn)
-  override lazy val resp    = Decoupled(new PERegisterFileRespLearn).flip
+  override lazy val resp    = Flipped(Decoupled(new PERegisterFileRespLearn))
 }
 
 class PETransactionTableInterfaceResp(implicit p: Parameters) extends DanaBundle()(p) {
@@ -74,7 +74,7 @@ class PETransactionTableInterfaceResp(implicit p: Parameters) extends DanaBundle
 }
 
 class PETableInterface(implicit p: Parameters) extends DanaStatusIO()(p) {
-  val control               = (new ControlPETableInterface).flip
+  val control               = Flipped(new ControlPETableInterface)
   lazy val cache            = new PECacheInterface
   lazy val regFile          = new PERegisterFileInterface
 }

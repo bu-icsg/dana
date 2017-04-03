@@ -16,7 +16,7 @@ case object TileLinkRAMSize extends Field[Int]
 
 class HoneyPot[T <: Bundle](name: String = "", fatal: Boolean = true) extends Module {
   val io = IO(new Bundle {
-    val req = Decoupled(new Bundle{}).flip
+    val req = Flipped(Decoupled(new Bundle{}))
     val resp = Valid(new Bundle{})
   })
 
@@ -32,7 +32,7 @@ class HoneyPot[T <: Bundle](name: String = "", fatal: Boolean = true) extends Mo
 class RoccTester[T <: RoCC](gen: => T)(implicit val p: Parameters)
     extends Module with HasTileLinkParameters {
   val io = IO(new Bundle {
-    val cmd = Decoupled(new RoCCCommand).flip
+    val cmd = Flipped(Decoupled(new RoCCCommand))
     val resp = Decoupled(new RoCCResponse)
     val busy = Output(Bool())
     val interrupt = Output(Bool())

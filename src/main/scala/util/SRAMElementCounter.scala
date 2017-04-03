@@ -33,14 +33,14 @@ class SRAMElementCounterInterface (
     sramDepth = sramDepth,
     numPorts = numPorts,
     elementWidth = elementWidth).asInstanceOf[this.type]
-  val we = Vec(numPorts, Bool()).asOutput
-  val din = Vec(numPorts, UInt(elementWidth.W)).asOutput
-  val addr = Vec(numPorts, UInt(log2Up(sramDepth * dataWidth / elementWidth).W)).asOutput
-  val dout = Vec(numPorts, UInt(dataWidth.W)).asInput
+  val we = Output(Vec(numPorts, Bool()))
+  val din = Output(Vec(numPorts, UInt(elementWidth.W)))
+  val addr = Output(Vec(numPorts, UInt(log2Up(sramDepth * dataWidth / elementWidth).W)))
+  val dout = Input(Vec(numPorts, UInt(dataWidth.W)))
   // lastBlock sets which is the last block in the SRAM
-  val lastBlock = Vec(numPorts, UInt(log2Up(sramDepth).W) ).asInput
+  val lastBlock = Input(Vec(numPorts, UInt(log2Up(sramDepth).W)))
   // lastCount sets the number of elements in the last block
-  val lastCount = Vec(numPorts, UInt((log2Up(dataWidth / elementWidth) + 1).W)).asInput
+  val lastCount = Input(Vec(numPorts, UInt((log2Up(dataWidth / elementWidth) + 1).W)))
   val resp = Vec(numPorts, Decoupled(new SRAMElementCounterResp (
     sramDepth = sramDepth)) )
 }
@@ -56,12 +56,12 @@ class SRAMElementCounter (
   val elementWidth: Int = 8,
   val numPorts: Int = 1
 ) extends Module {
-  val io = IO(new SRAMElementCounterInterface(
+  val io = IO(Flipped(new SRAMElementCounterInterface(
     dataWidth = dataWidth,
     sramDepth = sramDepth,
     numPorts = numPorts,
     elementWidth = elementWidth
-  )).flip
+  )))
   val sram = Module(new SRAM(
     dataWidth = dataWidth + log2Up(dataWidth / elementWidth) + 1,
     sramDepth = sramDepth,
