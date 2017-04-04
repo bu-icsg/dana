@@ -7,6 +7,7 @@ import subprocess
 import os
 import mmap
 import ipdb
+import struct
 from collections import defaultdict
 
 re_in_out_mapping = re.compile(r'RegFile: (?:Saw TTable write|PE write element).+(?P<tidx>0x[0-9a-fA-F]+)\/(?P<addr>0x[0-9a-fA-F]+)\/(?P<data>0x[0-9a-fA-F]+)')
@@ -14,6 +15,7 @@ re_sram_blo_inc = re.compile(r'SramBloInc[\D\s]+0x[01]\/0x1.+\n[\D\s]+(?P<addr>0
 re_in_val = re.compile(r'queueIn\[0\]\sdeq\s\[data:(0x[\da-f]+)')
 re_out_val = re.compile(r'queueOut\[0\]\sdeq\s\[data:(0x[\da-f]+)')
 re_in_out_val = re.compile(r"(?P<inputs>(?:[a-f0-9]+\s)+)->(?P<outputs>(?:\s[a-f0-9]+)+)")
+re_store_data = re.compile(r"Received store data 0x([\da-f]+)")
 path_fann_eval_fixed = 'tools/bin/fann-eval-fixed'
 #path_emulator_bin = 'emulator/emulator-rocketchip-XFilesDanaCppPe1Epb4Config'
 path_emulator_bin = 'emulator/emulator-rocketchip-XFilesDanaCppPe4Epb4Config'
@@ -112,6 +114,24 @@ def parse_fann_eval_fixed_trace(trace_file_path, write_file=False):
                 fann_fixed_outputs_file.write(item + '\n')
     return fann_fixed_outputs
 
+
+def parse_learn_trace_new(learn_trace_file_path):
+    with open(learn_trace_file_path) as learn_trace_file:
+        with open('a.out', 'wb') as out_file:
+            for line in learn_trace_file:
+                res = re_store_data.search(line)
+                if res:
+                    foo = res.groups()[0]
+                    print(foo)
+                    bar = []
+                    for i in range(0, len(foo), 4):
+                        baz = foo[i+2:i+4] + foo[i:i+2]
+                        bar.append(baz)
+                    bar.reverse()
+                    baz = ''.join(bar)
+                    print(baz)
+                    print()
+                    out_file.write(bytes.fromhex(baz))
 
 @click.command()
 @click.option('--net_file_path', '-n', type=click.Path(exists=True), required=False)
@@ -214,6 +234,8 @@ def cli(net_file_path, train_file_path, fann_trace_file_path, baremetal_bin_file
                 print(item['data'])
         ipdb.set_trace()
     else:
+        parse_learn_trace_new(baremetal_trace_file_path)
+        sys.exit(0)
         print("Generating baremetal trace")
         baremetal_trace_file_path = baremetal_trace_file_path or generate_baremetal_trace(path_emulator_bin, baremetal_bin_file_path)
         print("Parsing baremetal trace")
