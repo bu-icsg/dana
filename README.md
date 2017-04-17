@@ -4,7 +4,7 @@ Dynamically Allocated Neural Network (DANA) Accelerator
 A [Chisel3](https://github.com/ucb-bar/chisel3) implementation of a neural network accelerator, DANA, capable of supporting simultaneous inferences or learning _transactions_ originating from the same or different contexts [[1]](#cite-pact2015).
 DANA integrates with the [RISC-V Rocket microprocessor](https://github.com/ucb-bar/rocket-chip) as a Rocket Custom Coprocessor (RoCC).
 
-This is currently compatibile with [rocket-chip:3e08d615](https://github.com/ucb-bar/rocket-chip/commit/f3299ae91d3f01d0349eb4746886e303e8fb1b41) -- an older rocket-chip version used by fpga-zynq.
+This is currently compatibile with [rocket-chip:f3299ae9](https://github.com/ucb-bar/rocket-chip/commit/f3299ae91d3f01d0349eb4746886e303e8fb1b41) -- an older rocket-chip version used by fpga-zynq.
 
 ### <a name="toc"></a> Table of Contents
 - [Setup](#setup)
