@@ -1,0 +1,43 @@
+#!/usr/bin/env perl
+use strict;
+use warnings;
+use Getopt::Long;
+
+sub usage() {
+    print << "END"
+Usage: instrument-dpi -m [module] [file]
+Make all the IO of a Verilog file public via Verilator pragmas
+END
+}
+
+my ($opt_module,
+    $opt_help,
+    $opt_file);
+GetOptions("m|module=s" => \$opt_module,
+           "h|?|help"   => \$opt_help)
+    or usage() and die "[ERROR] Bad option";
+
+usage() and exit if $opt_help;
+usage() and die "[ERROR] Mising required option" if not $opt_module;
+usage() and die "[ERROR] File not specified" if $#ARGV != 0;
+
+$opt_file = $ARGV[0];
+open (my $fh, "<", $opt_file) or die "[ERROR] Unable to open $opt_file";
+
+my $found_it;
+while (<$fh>) {
+    if ($_ =~ m/^module $opt_module\(/) { print $_ and $found_it++; }
+    print $_ and next if not $found_it;
+
+    if ($_ =~ m/^(\s*(input|output).*?\w+)(,?)$/) {
+        chomp($_);
+        print "$1 /*verilator public*/$3\n";
+        next;
+    }
+    if ($_ =~ m/;/) {
+        print $_;
+        $found_it = 0;
+    }
+}
+
+close $fh;

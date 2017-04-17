@@ -1,1 +1,0 @@
-../../tools/scripts/debug-table.awk

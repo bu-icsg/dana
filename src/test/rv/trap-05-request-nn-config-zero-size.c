@@ -1,9 +1,12 @@
-#include "src/main/c/xfiles-user.h"
+// See LICENSE.BU for license details.
+
+#include "src/include/xfiles-user-pk.h"
+#include "src/include/xfiles-asid-nnid-table.h"
 
 int main() {
   pk_syscall_set_asid(1);
 
-  asid_nnid_table * ant;
+  ant * ant;
   asid_nnid_table_create(&ant, 2, 4);
   attach_garbage(&ant, 1);
   attach_garbage(&ant, 1);

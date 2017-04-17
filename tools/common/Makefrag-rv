@@ -1,71 +1,60 @@
 #-*- mode: makefile-*-
 
 # RISC-V related options
-RV_NEWLIB        = riscv64-unknown-elf
-RV_LINUX         = riscv64-unknown-linux-gnu
-RV_CC            = $(RV_NEWLIB)-gcc
-RV_CXX           = $(RV_NEWLIB)-g++
-RV_AR            = $(RV_NEWLIB)-ar
-RV_OBJDUMP       = $(RV_NEWLIB)-objdump
-RV_CC_LINUX      = $(RV_LINUX)-gcc
-RV_CXX_LINUX     = $(RV_LINUX)-g++
-RV_AR_LINUX      = $(RV_LINUX)-ar
-RV_OBJDUMP_LINUX = $(RV_LINUX)-objdump
-
-XFILES_LIBRARIES_OBJECTS_NEWLIB = $(DIR_BUILD)/newlib/xfiles-user.o \
-	$(DIR_BUILD)/newlib/xfiles-supervisor.o
-XFILES_LIBRARIES_OBJECTS_LINUX = $(DIR_BUILD)/linux/xfiles-user.o \
-	$(DIR_BUILD)/linux/xfiles-supervisor.o
+ifeq "$(TARGET)" "host"
+CFLAGS = -DNO_VM=1
+else
+TARGET_DASH = $(TARGET)-
+endif
+CC            = $(TARGET_DASH)gcc
+CXX           = $(TARGET_DASH)g++
+AR            = $(TARGET_DASH)ar
+OBJDUMP       = $(TARGET_DASH)objdump
+dir_build = $(DIR_BUILD)/$(TARGET)
 
 vpath %.c $(DIR_TOP)/src/main/c
 vpath %.c $(DIR_TOP)/src/test/rv
 
+HEADERS = $(wildcard $(DIR_TOP)/src/main/c/*.h)
+
+CFLAGS += \
+	-Wall \
+	-Werror \
+	--std=gnu11 \
+	-I$(DIR_TOP) \
+	-I$(DIR_TOP)/tests/libs \
+	-I$(DIR_BUILD)/nets
+CFLAGS_RV += \
+	$(CFLAGS) \
+	-static
+LFLAGS = \
+	-L$(DIR_TOP)/tests/libs/build/$(TARGET) \
+	-L$(DIR_BUILD)/fann/$(TARGET)
+
+# Common FANN library dependency to prevent multiple simultaneous FANN
+# builds from being inadvertently kicked off (use this as a
+# dependency, but don't compile it in)
+libfann_dep = $(DIR_BUILD)/fann/$(TARGET)/libfann.a
+
+$(dir_build)/%.o: %.c $(HEADERS) | $(dir_build)
+	$(CC) $(CFLAGS) -c $< -o $@
+
 #------------------- Library Targets
-$(DIR_BUILD)/newlib/%.o: %.c | $(DIR_BUILD)/newlib
-	$(RV_CC) -Wall -Werror -march=RV64IMAFDXcustom -I$(DIR_TOP) -c $< -o $@
-
-$(DIR_BUILD)/newlib/libxfiles-%.a: $(DIR_BUILD)/newlib/xfiles-%.o
-	$(RV_AR) rcs $@ $<
-
-$(DIR_BUILD)/linux/%.o: %.c | $(DIR_BUILD)/linux
-	$(RV_CC_LINUX) -Wall -Werror -march=RV64IMAFDXcustom -I$(DIR_TOP) -c $< -o $@
-
-$(DIR_BUILD)/linux/libxfiles-%.a: $(DIR_BUILD)/linux/xfiles-%.o
-	$(RV_AR_LINUX) rcs $@ $<
+$(DIR_TOP)/tests/libs/build/$(TARGET)/lib%.a:
+	make -C $(DIR_TOP)/tests/libs/ TARGET=$(TARGET)
 
 #------------------- RISC-V Tests
-
-RV_CFLAGS=-Wall -Werror -static -march=RV64IMAFDXcustom -I$(DIR_TOP) -I$(DIR_BUILD)/nets
-RV_NEWLIB_LFLAGS=-L$(DIR_TOP)/usr/lib-rv-newlib -lxfiles-user -lxfiles-supervisor
-RV_LINUX_LFLAGS=-L$(DIR_TOP)/usr/lib-rv-linux -lxfiles-user -lxfiles-supervisor
-
-$(DIR_BUILD)/newlib/fann-soft.rv: fann-soft.c $(XFILES_LIBRARIES_NEWLIB) $(DIR_BUILD)/fann-rv-newlib/libfann.a
-	$(RV_CC) $(RV_CFLAGS) $< -o $@ $(RV_NEWLIB_LFLAGS) -lfann -lm
-
-$(DIR_BUILD)/linux/fann-soft.rv: fann-soft.c $(DIR_BUILD_NETS) $(XFILES_LIBRARIES_LINUX) $(DIR_BUILD)/linux $(DIR_BUILD)/fann-rv-linux/libfann.a
-	$(RV_CC_LINUX) $(RV_CFLAGS) $< -o $@ $(RV_LINUX_LFLAGS) -lfann -lm
-
-$(DIR_BUILD)/newlib/fann-xfiles.rv: fann-xfiles.c $(XFILES_LIBRARIES_NEWLIB) $(DIR_BUILD)/fann-rv-newlib/libfann.a
-	$(RV_CC) $(RV_CFLAGS) $< -o $@ $(RV_NEWLIB_LFLAGS) -lfixedfann -lm
-
-$(DIR_BUILD)/linux/fann-xfiles.rv: fann-xfiles.c $(XFILES_LIBRARIES_LINUX) $(DIR_BUILD)/fann-rv-linux/libfann.a
-	$(RV_CC_LINUX) $(RV_CFLAGS) $< -o $@ $(RV_LINUX_LFLAGS) -lfixedfann -lm
-
-$(DIR_BUILD)/newlib/%.rv: %.c $(XFILES_LIBRARIES_NEWLIB) $(DIR_BUILD)/fann-rv-newlib/libfann.a | $(DIR_BUILD)/newlib
-	$(RV_CC) $(RV_CFLAGS) $< -o $@ $(RV_NEWLIB_LFLAGS)
-
-$(DIR_BUILD)/linux/%.rv: %.c $(XFILES_LIBRARIES_LINUX) $(DIR_BUILD)/fann-rv-linux/libfann.a | $(DIR_BUILD)/linux
-	$(RV_CC_LINUX) $(RV_CFLAGS) $< -o $@ $(RV_LINUX_LFLAGS)
-
-$(DIR_BUILD)/newlib/%.rvS: $(DIR_BUILD)/newlib/%.rv
-	$(RV_OBJDUMP) -S $< > $@
-
-$(DIR_BUILD)/linux/%.rvS: $(DIR_BUILD)/linux/%.rv
-	$(RV_OBJDUMP) -S $< > $@
+$(dir_build)/trap-%.rv: trap-%.c $(XFILES_LIBRARIES) | $(dir_build)
+	$(CC) $(CFLAGS_RV) $< -o $@ $(LFLAGS) -lxfiles-user-pk
+$(dir_build)/dana-benchmark.rv: dana-benchmark.c $(XFILES_LIBRARIES) | $(dir_build)
+	$(CC) $(CFLAGS_RV) $< -o $@ $(LFLAGS) -lxfiles-user-pk
+$(dir_build)/read-xfiles-dana-id.rv: dana-benchmark.c $(XFILES_LIBRARIES) | $(dir_build)
+	$(CC) $(CFLAGS_RV) $< -o $@ $(LFLAGS) -lxfiles-user-pk -lxfiles-supervisor
+$(dir_build)/%.rv: %.c $(XFILES_LIBRARIES) $(libfann_dep) | $(dir_build)
+	$(CC) $(CFLAGS_RV) $< -o $@ $(LFLAGS) -lxfiles-user
+$(dir_build)/%.rvS: $(dir_build)/%.rv | $(dir_build)
+	$(OBJDUMP) -S $< > $@
 
 #--------------------------------------- Directories
-$(DIR_BUILD)/linux:
-	mkdir -p $@
-
-$(DIR_BUILD)/newlib:
+$(dir_build):
 	mkdir -p $@

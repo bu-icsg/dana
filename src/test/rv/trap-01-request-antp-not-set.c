@@ -1,4 +1,6 @@
-#include "src/main/c/xfiles-user.h"
+// See LICENSE.BU for license details.
+
+#include "src/include/xfiles-user-pk.h"
 
 int main() {
   pk_syscall_set_asid(1);

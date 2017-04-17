@@ -1,8 +1,6 @@
-run.log
-*.emulator
-*.rv
-*.net
-*.train
-*bin
-/install
-/stamps
+*~
+*#
+*.#*
+build
+autom4te.cache
+configure

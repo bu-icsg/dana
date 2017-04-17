@@ -1,3 +1,5 @@
+// See LICENSE.BU for license details.
+
 /**********
  * Author: Craig Einstein
  *
@@ -45,7 +47,7 @@ typedef struct Transaction{
   Takes an asid_nnid table, an asid, and a transaction as input
 */
 tid_type create_transaction(
-    asid_nnid_table * table,
+    ant * table,
     asid_type asid,
     Transaction * transaction);
 

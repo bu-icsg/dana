@@ -1,18 +1,18 @@
 # Timing Documentation
 
-# inFirst, inLast, etc.
-These govern the state of the transaction as it relates to being in the first or last layer. This is counterintuitive (and potentially dangerous or wrong), but an understanding of when these are actually set is helpful:
-* `inFirst` -- Asserts when a new transaction is received, deasserts when the first PE assignment of the next layer goes out
-* `inLastEarly` -- Asserts as soon as the last PE assignment in the second to last layer goes out
-* `inLast` -- Asserts as soon as all PEs in the second to last layer are finished
+## dana.TransactionTable inFirst, inLast, etc.
 
-For a two-layer network, the following timing is possible (and likely):
-```
- Transaction shows up, inFirst asserts
-    | Last PE assigned in first layer, inLastEarly asserts
-    |    | All PEs write data, inLast asserts
-    |    |    | First PE in last layer assigned, inFirst deasserts
-    |    |    |    |
-    v    v    v    v
-----*----*----*----*
-```
+These signals serve different purposes, but are grouped by their sensitivity:
+
+### "Early Signals" -- PE Request Sensitive
+
+This signal changes state as soon as the last processing element in a layer is allocated. This signal is used by the state machines responsible for getting the next layer information into the Transaction Table. These actions can occur as soon as the last PE is allocated, hence, the need for this signal.
+
+* `inLastEarly`
+
+### "Late Signals" -- Layer Response/Done Sensitive
+
+These signals change state only when the Register File (Scratchpad Memory) responds that it has all the information needed for a specific neural network layer. These signals cannot be used by any of the Cache sate machines that can operate in the interim. These signals can be used by any PE logic.
+
+* `inFirst`
+* `inLast`

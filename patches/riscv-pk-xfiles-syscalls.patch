@@ -1,17 +1,8 @@
 diff --git a/Makefile.in b/Makefile.in
-index 8babada..9cec4ed 100644
+index b2aca28..323e4a2 100644
 --- a/Makefile.in
 +++ b/Makefile.in
-@@ -37,6 +37,8 @@ src_dir      := @srcdir@
- scripts_dir  := $(src_dir)/scripts
- bbl_payload  := @BBL_PAYLOAD@
- 
-+ARCH ?= RV64IMAFDXcustom
-+
- # If the version information is not in the configure script, then we
- # assume that we are in a working directory. We use the vcs-version.sh
- # script in the scripts directory to generate an appropriate version
-@@ -72,11 +74,12 @@ install_exes_dir := $(INSTALLDIR)/bin
+@@ -72,11 +72,12 @@ install_exes_dir := $(INSTALLDIR)/bin
  sprojs         := @subprojects@
  sprojs_enabled := @subprojects_enabled@
  
@@ -26,16 +17,16 @@ index 8babada..9cec4ed 100644
  #-------------------------------------------------------------------------
  
  # C++ compiler
-@@ -84,7 +87,7 @@ VPATH := $(addprefix $(src_dir)/, $(sprojs_enabled))
+@@ -84,7 +85,7 @@ VPATH := $(addprefix $(src_dir)/, $(sprojs_enabled))
  #  - CXXFLAGS : flags for C++ compiler (eg. -Wall,-g,-O3)
  
  CC            := @CC@
 -CFLAGS        := @CFLAGS@ $(CFLAGS) -DBBL_PAYLOAD=\"$(bbl_payload)\"
-+CFLAGS        := @CFLAGS@ $(CFLAGS) -DBBL_PAYLOAD=\"$(bbl_payload)\" -march=$(ARCH)
++CFLAGS        := @CFLAGS@ $(CFLAGS) -DBBL_PAYLOAD=\"$(bbl_payload)\" -march=RV64IMAFDXcustom
  COMPILE       := $(CC) -MMD -MP $(CFLAGS) \
                   $(sprojs_include)
  # Linker
-@@ -130,7 +133,7 @@ dist_junk += $(sprojs_mk)
+@@ -130,7 +131,7 @@ dist_junk += $(sprojs_mk)
  #-------------------------------------------------------------------------
  # This function is used by the subproject template to reverse the list
  # of dependencies. It uses recursion to perform the reversal.
@@ -44,7 +35,7 @@ index 8babada..9cec4ed 100644
  # Arguments:
  #  $(1)   : space separated input list
  #  retval : input list in reverse order
-@@ -152,7 +155,7 @@ endef
+@@ -152,7 +153,7 @@ endef
  # subprojects defining a certain set of make variables which are all
  # prefixed with the subproject name. Since subproject names can have
  # dashes in them (and the make variables are assumed to only use
@@ -53,7 +44,7 @@ index 8babada..9cec4ed 100644
  # subproject name and one with dashes replaced with underscores.
  #
  # Arguments:
-@@ -282,7 +285,7 @@ clean-$(1) :
+@@ -282,7 +283,7 @@ clean-$(1) :
  
  libs += lib$(1).a
  objs += $$($(2)_c_objs)
@@ -62,7 +53,7 @@ index 8babada..9cec4ed 100644
  hdrs += $$(addprefix $(src_dir)/$(1)/, $$($(2)_hdrs))
  junk += $$($(2)_junk)
  deps += $$($(2)_c_deps)
-@@ -373,7 +376,7 @@ dist_junk += config.status config.h Makefile config.log
+@@ -373,7 +374,7 @@ dist_junk += config.status config.h Makefile config.log
  # Distribution
  #-------------------------------------------------------------------------
  # The distribution tarball is named project-ver.tar.gz and it includes
@@ -71,20 +62,11 @@ index 8babada..9cec4ed 100644
  
  dist_files = \
    $(sprojs) \
-diff --git a/configure b/configure
-index 6386de0..2d6e6df 100755
---- a/configure
-+++ b/configure
-@@ -5627,4 +5627,3 @@ if test -n "$ac_unrecognized_opts" && test "$enable_option_checking" != no; then
-   { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: unrecognized options: $ac_unrecognized_opts" >&5
- $as_echo "$as_me: WARNING: unrecognized options: $ac_unrecognized_opts" >&2;}
- fi
--
 diff --git a/machine/encoding.h b/machine/encoding.h
-index 6139bb0..c923cb7 100644
+index 35e0f9f..819b64a 100644
 --- a/machine/encoding.h
 +++ b/machine/encoding.h
-@@ -716,6 +716,7 @@
+@@ -872,6 +872,7 @@
  #define CAUSE_SUPERVISOR_ECALL 0x9
  #define CAUSE_HYPERVISOR_ECALL 0xa
  #define CAUSE_MACHINE_ECALL 0xb
@@ -93,10 +75,10 @@ index 6139bb0..c923cb7 100644
  #ifdef DECLARE_INSN
  DECLARE_INSN(beq, MATCH_BEQ, MASK_BEQ)
 diff --git a/machine/machine.mk.in b/machine/machine.mk.in
-index 4628954..c045d64 100644
+index 6568dc5..1f2ba55 100644
 --- a/machine/machine.mk.in
 +++ b/machine/machine.mk.in
-@@ -13,6 +13,7 @@ machine_hdrs = \
+@@ -14,6 +14,7 @@ machine_hdrs = \
    sbi.h \
    unprivileged_memory.h \
    vm.h \
@@ -104,7 +86,7 @@ index 4628954..c045d64 100644
  
  machine_c_srcs = \
    mtrap.c \
-@@ -24,6 +25,7 @@ machine_c_srcs = \
+@@ -25,6 +26,7 @@ machine_c_srcs = \
    misaligned_ldst.c \
    sbi_impl.c \
    configstring.c \
@@ -113,26 +95,24 @@ index 4628954..c045d64 100644
  machine_asm_srcs = \
    mentry.S \
 diff --git a/machine/mentry.S b/machine/mentry.S
-index 50ce9ca..3c77dbb 100644
+index 64c60c3..d4bd330 100644
 --- a/machine/mentry.S
 +++ b/machine/mentry.S
-@@ -72,6 +72,11 @@ trap_vector:
-   j .Lhandle_trap_in_machine_mode
+@@ -48,6 +48,9 @@ trap_vector:
+   # This is an interrupt.  Discard the mcause MSB and decode the rest.
+   sll a1, a1, 1
  
- 1:
-+  # Kludge to catch RoCC generated traps (mcause 12)
 +  li a0, CAUSE_ROCC * 2
 +  beq a0, a1, rocc_trap
 +
-+1:
-   # By process of elimination, it must be an HTIF interrupt.
-   li a0, IRQ_HOST * 2
-   bne a0, a1, .Lunhandleable_trap
+   # Is it a machine timer interrupt?
+   li a0, IRQ_M_TIMER * 2
+   bne a0, a1, 1f
 diff --git a/machine/minit.c b/machine/minit.c
-index 055fdb3..aa03338 100644
+index 33a1e3b..355881b 100644
 --- a/machine/minit.c
 +++ b/machine/minit.c
-@@ -15,6 +15,7 @@ static void mstatus_init()
+@@ -19,6 +19,7 @@ static void mstatus_init()
    uintptr_t ms = 0;
    ms = INSERT_FIELD(ms, MSTATUS_VM, VM_CHOICE);
    ms = INSERT_FIELD(ms, MSTATUS_FS, 1);
@@ -141,7 +121,7 @@ index 055fdb3..aa03338 100644
  
    // Make sure the hart actually supports the VM mode we want
 diff --git a/machine/mtrap.c b/machine/mtrap.c
-index 1c310f9..5dbd9d0 100644
+index a68c0d9..e9ad7e5 100644
 --- a/machine/mtrap.c
 +++ b/machine/mtrap.c
 @@ -7,6 +7,8 @@
@@ -150,21 +130,21 @@ index 1c310f9..5dbd9d0 100644
  
 +#include "xfiles-supervisor.h"
 +
- void __attribute__((noreturn)) bad_trap()
- {
+ volatile uint64_t tohost __attribute__((aligned(64))) __attribute__((section("htif")));
+ volatile uint64_t fromhost __attribute__((aligned(64))) __attribute__((section("htif")));
+ 
+@@ -15,6 +17,10 @@ void __attribute__((noreturn)) bad_trap()
    die("machine mode: unhandlable trap %d @ %p", read_csr(mcause), read_csr(mepc));
-@@ -275,6 +277,10 @@ static void machine_page_fault(uintptr_t* regs, uintptr_t mepc)
-   bad_trap();
  }
  
 +void __attribute__((noreturn)) rocc_trap() {
 +  die("XFiles trap %d @ %p", xf_read_csr(csr_CAUSE), read_csr(mepc));
 +}
 +
- void trap_from_machine_mode(uintptr_t* regs, uintptr_t dummy, uintptr_t mepc)
+ static uintptr_t mcall_hart_id()
  {
-   uintptr_t mcause = read_csr(mcause);
-@@ -284,6 +290,8 @@ void trap_from_machine_mode(uintptr_t* regs, uintptr_t dummy, uintptr_t mepc)
+   return read_const_csr(mhartid);
+@@ -296,6 +302,8 @@ void trap_from_machine_mode(uintptr_t* regs, uintptr_t dummy, uintptr_t mepc)
      case CAUSE_FAULT_LOAD:
      case CAUSE_FAULT_STORE:
        return machine_page_fault(regs, mepc);
@@ -190,7 +170,7 @@ index 0000000..1fd714e
 +../../../xfiles-dana/src/main/c/xfiles-supervisor.h
 \ No newline at end of file
 diff --git a/pk/syscall.c b/pk/syscall.c
-index de11a0a..f5c9e75 100644
+index 85139e4..4176474 100644
 --- a/pk/syscall.c
 +++ b/pk/syscall.c
 @@ -9,6 +9,8 @@
@@ -202,7 +182,7 @@ index de11a0a..f5c9e75 100644
  typedef long (*syscall_t)(long, long, long, long, long, long, long);
  
  #define CLOCK_FREQ 1000000000
-@@ -380,7 +382,7 @@ int sys_times(long* loc)
+@@ -363,7 +365,7 @@ int sys_times(long* loc)
    loc[1] = 0;
    loc[2] = 0;
    loc[3] = 0;
@@ -211,7 +191,7 @@ index de11a0a..f5c9e75 100644
    return 0;
  }
  
-@@ -389,7 +391,7 @@ int sys_gettimeofday(long* loc)
+@@ -372,7 +374,7 @@ int sys_gettimeofday(long* loc)
    uintptr_t t = rdcycle();
    loc[0] = t / CLOCK_FREQ;
    loc[1] = (t % CLOCK_FREQ) / (CLOCK_FREQ / 1000000);
@@ -220,7 +200,7 @@ index de11a0a..f5c9e75 100644
    return 0;
  }
  
-@@ -421,6 +423,25 @@ static int sys_stub_nosys()
+@@ -409,6 +411,24 @@ static int sys_stub_nosys()
    return -ENOSYS;
  }
  
@@ -229,7 +209,7 @@ index de11a0a..f5c9e75 100644
 +  return set_asid(asid);
 +}
 +
-+int sys_xfiles_dana_set_antp(asid_nnid_table_entry * antp, size_t size)
++int sys_xfiles_dana_set_antp(ant_entry * antp, size_t size)
 +{
 +  return set_antp(antp, size);
 +}
@@ -242,20 +222,19 @@ index de11a0a..f5c9e75 100644
 +  return out;
 +}
 +
-+
  long do_syscall(long a0, long a1, long a2, long a3, long a4, long a5, unsigned long n)
  {
    const static void* syscall_table[] = {
-@@ -466,6 +487,9 @@ long do_syscall(long a0, long a1, long a2, long a3, long a4, long a5, unsigned l
+@@ -454,6 +474,9 @@ long do_syscall(long a0, long a1, long a2, long a3, long a4, long a5, unsigned l
      [SYS_getrusage] = sys_stub_nosys,
      [SYS_getrlimit] = sys_stub_nosys,
      [SYS_setrlimit] = sys_stub_nosys,
 +    [SYS_xfiles_dana_set_asid] = sys_xfiles_dana_set_asid,
 +    [SYS_xfiles_dana_set_antp] = sys_xfiles_dana_set_antp,
 +    [SYS_xfiles_dana_debug_echo] = sys_xfiles_dana_debug_echo,
+     [SYS_chdir] = sys_chdir,
    };
  
-   const static void* old_syscall_table[] = {
 diff --git a/pk/syscall.h b/pk/syscall.h
 index c1f3d8a..38ca3b5 100644
 --- a/pk/syscall.h

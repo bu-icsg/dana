@@ -1,3 +1,5 @@
+// See LICENSE.BU for license details.
+
 #ifndef __MT19937AR_H__
 #define __MT19937AR_H__
 /*

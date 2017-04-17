@@ -1,5 +1,27 @@
-# Regression Tests
-A set of canonical tests to make sure that we're not horribly breaking things.
+## Software Testing Environment for Dana
+This contains a Rocket-attached suite of tests for verifying the functionality of [Dana](https://github.ibm.com/perfect/dana) based off of [`riscv-tests`](https://github.com/riscv/riscv-tests).
 
-## Structure and Organization
-Each encapsulated test which goes in its own directory in "tests". The directory name for the test can technically be named whatever you want, but the top-level Makefile will only run tests of format "t-*". While test directories can be named "t-*", it's better to name them something else and then add symbolic links so that they can be turned on and off easily. Each test is expected to have a Makefile that will respond to a `make`. The Makefile should error out on any failures in subsequent tests.
+### Organization
+Tests are organized into the following categories:
+
+* [Smoke Tests](smoke) -- Low-level verification of all instructions. These are not intended to be comprehensive.
+* Benchmarks -- TBD
+
+Like with `riscv-tests`, the tests are intended to be built in varieties that use physical (`-p`) or virtual memory (`-v`). Currently, only the `-p` variants are built.
+
+### Usage
+
+```
+mkdir build
+cd build
+../configure
+make
+```
+
+You can then run one of these tests if you have the emulator:
+
+```
+$ROCKET_CHIP/emulator/emulator-rocketchip-XFilesDanaCppPe1Epb4Config smoke/<test>-p
+```
+
+You can run these through `spike`, but these will naturally fail as `spike` does not have an attached accelerator.
