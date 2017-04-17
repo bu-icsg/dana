@@ -1,27 +1,8 @@
-Overview
+Dynamically Allocated Neural Network (DANA) Accelerator
 ========================================
-A set of user and supervisor extensions (X-FILES software), hardware management of "transactions" (X-FILES Hardware Arbiter), and a backend, multi-transaction/context neural network accelerator (DANA) [[1]](#cite-pact2015).
-X-FILES/DANA provide hardware acceleration for a subset of neural networks supported by the Fast Artificial Neural Network (FANN) library.
-DANA attempts to dynamically interleave the execution of neural network transactions to improve throughput.
 
-This system is intended to be used as an accelerator for a RISC-V microprocessor like [Rocket Chip](https://www.github.com/ucb-bar/rocket-chip).
-
-The name choices aren't arbitrary, but are heavily cherry-picked:
-* **X-FILES** -- software/hardware e**X**tensions **F**or the **I**ntegration of machine **L**earning in **E**verday **S**ystems
-* **DANA** -- **D**ynamically **A**llocated **N**eural network **A**ccelerator
-
-### Build Status [![Build Status](https://travis-ci.org/bu-icsg/rocket-chip.svg?branch=xfiles-dana)](https://travis-ci.org/bu-icsg/rocket-chip)
-Builds are currently tested against the following configurations:
-```
-|-------------------------------+--------------------|
-| Number of Processing Elements | Elements Per Block |
-|-------------------------------+--------------------|
-|                             4 |                  4 |
-|                             8 |                  8 |
-|                            16 |                 16 |
-|                            32 |                 32 |
-|-------------------------------+--------------------|
-```
+A [Chisel3](https://github.com/ucb-bar/chisel3) implementation of a neural network accelerator, DANA, capable of supporting simultaneous inferences or learning _transactions_ originating from the same or different contexts [[1]](#cite-pact2015).
+DANA integrates with the [RISC-V Rocket microprocessor](https://github.com/ucb-bar/rocket-chip) as a Rocket Custom Coprocessor (RoCC).
 
 ### <a name="toc"></a> Table of Contents
 - [Setup](#setup)
@@ -29,7 +10,7 @@ Builds are currently tested against the following configurations:
     - [2 - Build a RISC-V Toolchain](#riscv-toolchain)
 - [Software Emulation](#emulation)
     - [Standalone Emulation](#emulation-standalone)
-    - [Rocket + X-FILES/DANA Emulation](#emulation-rocket-chip)
+    - [Rocket + DANA Emulation](#emulation-rocket-chip)
     - [Debugging](#emulation-debugging)
     - [Regression Testing](#regression-testing)
 - [Hardware Evaluation](#hardware)
@@ -43,7 +24,6 @@ Builds are currently tested against the following configurations:
     - [Configuration Size](#configuration-size)
     - [Linux Support](#linux-support)
     - [IO Queues](#io-queues)
-    - [Generality of X-FILES Software and Hardware](#generality-of-xfiles)
     - [Ability to Offload Configurations](#configuration-offload)
 - [Additional Documentation](#documentation)
     - [Doc Directory](#doc-directory)
@@ -61,10 +41,10 @@ Requirements:
 
 1) <a name="clone-the-rocket-chip-repo"></a> Clone the Rocket Chip Repository
 ----------------------------------------
-This is not, at present, a standalone repository due to dependencies on classes and parameters defined in [rocket](https://www.github.com/ucb-bar/rocket), [uncore](https://www.github.com/ucb-bar/uncore), [rocket-chip](https://www.github.com/ucb-bar/rocket-chip), and possibly others. Consequently, X-FILES/DANA cannot be tested outside of a rocket-chip environment.
+This is not, at present, a standalone repository due to dependencies on classes and parameters defined in [rocket](https://www.github.com/ucb-bar/rocket), [uncore](https://www.github.com/ucb-bar/uncore), [rocket-chip](https://www.github.com/ucb-bar/rocket-chip), and possibly others. Consequently, DANA cannot be tested outside of a rocket-chip environment.
 
 First, you need to grab a copy of rocket-chip.
-While you can use a bleeding edge rocket-chip from [Berkeley](https://github.com/ucb-bar/rocket-chip), we provide a stable version guaranteed to work with X-FILES/DANA in [our own rocket-chip repo](https://gitlab.com/the-lone-gunmen/rocket-chip).
+While you can use a bleeding edge rocket-chip from [Berkeley](https://github.com/ucb-bar/rocket-chip), we provide a stable version guaranteed to work with DANA in [our own rocket-chip repo](https://gitlab.com/the-lone-gunmen/rocket-chip).
 Here, the variable `$ROCKETCHIP` is directory where you've cloned rocket-chip:
 ```bash
 git clone https://gitlab.com/the-lone-gunmen/rocket-chip --branch=xfiles-dana $ROCKETCHIP
@@ -76,7 +56,7 @@ git submodule update --init
 ----------------------------------------
 You then need to build a copy of the RISC-V toolchain (if you don't already have one available). We currently track whatever version of the toolchain that the rocket-chip repo points to. You may experience difficulties if you track something else, e.g., HEAD.
 
-We deviate from a vanilla toolchain by defining new systemcalls inside the RISC-V [Proxy Kernel](https://www.github.com/riscv/riscv-pk) that allow user access to supervisor functions while we're in the process of finishing integration of X-FILES software with the Linux kernel. The `xfiles-dana` repo includes patches to enable these features in the Proxy Kernel.
+We deviate from a vanilla toolchain by defining new systemcalls inside the RISC-V [Proxy Kernel](https://www.github.com/riscv/riscv-pk) that allow user access to supervisor functions while we're in the process of finishing integration of software with the Linux kernel. The `dana` repo includes patches to enable these features in the Proxy Kernel.
 
 So, to build a complete copy of the toolchain with a patched Proxy Kernel, you need to:
 * Grab the RISC-V toolchain submodule and all its submodules
@@ -118,9 +98,9 @@ This project uses [Chisel3](https://github.com/ucb-bar/chisel3) and [FIRRTL](htt
 The Verilog emitted by FIRRTL can then be tested either as a standalone accelerator or integrated with Rocket Chip.
 
 #### <a name="emulation-standalone"></a> Standalone Emulation
-The standalone version of X-FILES/DANA uses the complete Rocket Chip environment, but treats [`XFilesTester`](src/main/scala/standalone/Standalone.scala#L64) as the top module.
+The standalone version of DANA uses the complete Rocket Chip environment, but treats [`XFilesTester`](src/main/scala/standalone/Standalone.scala#L64) as the top module.
 
-To build a standalone version of X-FILES/DANA:
+To build a standalone version of DANA:
 ```
 cd $ROCKETCHIP/xfiles-dana/emulator
 make
@@ -129,9 +109,9 @@ make
 You can optionally specify a test to build (e.g., `make TEST=t_myTest`) which will need to define a `main` function in `src/test/cpp/t_myTest.cpp`.
 
 #### <a name="emulation-rocket-chip"></a> Rocket Chip Emulation
-Alternatively, you can build a complete version of Rocket Chip that includes X-FILES/DANA in a RoCC socket.
+Alternatively, you can build a complete version of Rocket Chip that includes DANA in a RoCC socket.
 
-You can build an emulator of Rocket + X-FILES/DANA using the rocket-chip make target inside the rocket-chip/emulator directory. The Makefile just needs to know what configuration we're using and that we have additional Chisel code located in the `xfiles-dana` directory. Below we build a Rocket + X-FILES/DANA configuration with a DANA unit having 4 processing elements and using a block width of 4 32-bit elements:
+You can build an emulator of Rocket + DANA using the rocket-chip make target inside the rocket-chip/emulator directory. The Makefile just needs to know what configuration we're using and that we have additional Chisel code located in the `xfiles-dana` directory. Below we build a Rocket + DANA configuration with a DANA unit having 4 processing elements and using a block width of 4 32-bit elements:
 ```bash
 cd $ROCKETCHIP/emulator
 make CONFIG=XFilesDanaCppPe4Epb4Config ROCKETCHIP_ADDONS=xfiles-dana
@@ -158,7 +138,7 @@ The standalone build environment supports additional build targets that helps to
 * `make vcd` -- This will generate a VCD file in `generated-src/<emulator>/dump.vcd`.
 * `make gtkwave` -- This will generate a VCD file and open it using GTKWave. The first time that this is run, GTKWave will be built from `svn` sources.
 
-At present, we don't have a good way to do VCD debugging using the Full System emulator (i.e., dump every signal) due to the size of the combined Rocket + X-FILES/DANA system and the use of the Proxy Kernel (this takes some time to start up). As a result, the best way that we've found to do debugging of X-FILES/DANA is to use Chisel's builtin `printf` function. You can use this to get the value of a signal on some condition or write whole "info" functions which show you the state of a module at every clock cycle. There are some gotchas here, though.
+At present, we don't have a good way to do VCD debugging using the Full System emulator (i.e., dump every signal) due to the size of the combined Rocket + DANA system and the use of the Proxy Kernel (this takes some time to start up). As a result, the best way that we've found to do debugging of DANA is to use Chisel's builtin `printf` function. You can use this to get the value of a signal on some condition or write whole "info" functions which show you the state of a module at every clock cycle. There are some gotchas here, though.
 
 Chisel's `printf` writes to STDERR, all `printf` statements are disabled by default, and enabling your statements also causes rocket-chip to dump state information every cycle.
 To pare this down, pipe STDERR to STDOUT (`2>&1`), enable printfs (`+verbose`), and grep to remove all rocket-chip per-cycle information:
@@ -247,7 +227,7 @@ This assumes that you are using the default configuration that the Berkeley [fpg
 
 The ARM core running Linux has a default IP address of 192.168.1.5. Use `scp` to copy over whatever you need. You will likely need to update the front end server and the front end server shared library. Additionally, you'll need to replace to old proxy kernel with out patched version.
 
-From there, you can run your strict software or X-FILES/DANA accelerated neural network workloads, e.g., you can run the same C++ emulation example from above, just a whole lot faster:
+From there, you can run your strict software or DANA accelerated neural network workloads, e.g., you can run the same C++ emulation example from above, just a whole lot faster:
 ```
 $ ./fesvr-zynq [pk (optional)] [binary]
 ```
@@ -262,7 +242,7 @@ Currently, the neural network configuration must fit completely in one of DANA's
 We're working on a full integration of the X-FILES supervisor library with the Linux kernel. Supervisor features are currently supported via system calls added to the [RISC-V Proxy Kernel](https://www.github.com/riscv/riscv-pk) via an included [patch](patches/riscv-pk-xfiles-syscalls.patch).
 
 #### <a name="io-queues"></a> IO Queues
-While neural network configurations are loaded from the memory of the microprocessor, all input and output data is transferred from Rocket to X-FILES/DANA hardware through the Rocket Custom Coprocessor (RoCC) register interface. We have plans to enable asynchronous transfer through in-memory queues.
+While neural network configurations are loaded from the memory of the microprocessor, all input and output data is transferred from Rocket to DANA hardware through the Rocket Custom Coprocessor (RoCC) register interface. We have plans to enable asynchronous transfer through in-memory queues.
 
 #### <a name="configuration-offload"></a> Ability to Offload Configurations
 We don't currently support writeback of trained neural network configurations from DANA back to the memory of the microprocessor. Repeated user calls to use the same neural network configuration will, however, use the cached (and trained) neural network configuration on DANA.
@@ -276,7 +256,7 @@ Specific documentation includes:
 * [Binary Encodings and Data Structures](doc/binary-encodings-data-structures.md)
 * [Debugging](doc/debugging.md)
 * [FPGA Setup](doc/fpga-setup.md)
-* [X-FILES Timing](doc/timing.md)
+* [Timing](doc/timing.md)
 * [Toolflow](doc/toolflow.md)
 * [U-Boot](doc/u-boot.md)
 
@@ -292,6 +272,7 @@ Specific documentation includes:
 * [Poster](http://people.bu.edu/schuye/files/barc2016-eldridge-poster.pdf)
 
 ### <a name="contributors-acknowledgments"></a> Contributors and Acknowledgments
+* [Mateja Putic](https://github.com/matejaputic)
 The following people, while not mentioned in the commit log, have contributed directly or indirectly to the development of this work:
 * [Jonathan Appavoo](http://www.cs.bu.edu/~jappavoo/jappavoo.github.com/index.html)
 * [Amos Waterland](http://people.seas.harvard.edu/~apw/)
@@ -299,4 +280,4 @@ The following people, while not mentioned in the commit log, have contributed di
 * [Han Dong](http://cs-people.bu.edu/handong/)
 * [Leila Delshad Tehrani](http:/www.bu.edu/icsg)
 
-This work was funded by a NASA Space Technology Research Fellowship.
+IBM contributions were funded by DARPA. Original work was funded by a NASA Space Technology Research Fellowship.
