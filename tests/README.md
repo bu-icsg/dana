@@ -1,11 +1,11 @@
 ## Software Testing Environment for Dana
-This contains a Rocket-attached suite of tests for verifying the functionality of [Dana](https://github.ibm.com/perfect/dana) based off of [`riscv-tests`](https://github.com/riscv/riscv-tests).
+This contains a Rocket-attached suite of tests for verifying DANA's functionality based off of [`riscv-tests`](https://github.com/riscv/riscv-tests).
 
 ### Organization
 Tests are organized into the following categories:
 
 * [Smoke Tests](smoke) -- Low-level verification of all instructions. These are not intended to be comprehensive.
-* Benchmarks -- TBD
+* [Neural Network Tests](nets) -- Inferences, learning, and simultaneously multi-processed (SMP) inference tests
 
 Like with `riscv-tests`, the tests are intended to be built in varieties that use physical (`-p`) or virtual memory (`-v`). Currently, only the `-p` variants are built.
 
