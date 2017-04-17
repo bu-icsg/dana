@@ -298,7 +298,6 @@ Specific documentation includes:
 * [Poster](http://people.bu.edu/schuye/files/barc2016-eldridge-poster.pdf)
 
 ### <a name="contributors-acknowledgments"></a> Contributors and Acknowledgments
-* [Mateja Putic](https://github.com/matejaputic)
 The following people, while not mentioned in the commit log, have contributed directly or indirectly to the development of this work:
 * [Jonathan Appavoo](http://www.cs.bu.edu/~jappavoo/jappavoo.github.com/index.html)
 * [Amos Waterland](http://people.seas.harvard.edu/~apw/)
