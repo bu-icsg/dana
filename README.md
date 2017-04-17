@@ -26,6 +26,7 @@ DANA integrates with the [RISC-V Rocket microprocessor](https://github.com/ucb-b
     - [IO Queues](#io-queues)
     - [Ability to Offload Configurations](#configuration-offload)
 - [Additional Documentation](#documentation)
+    - [Attribution](#attribution)
     - [Doc Directory](#doc-directory)
     - [Publications](#publications)
     - [Workshop Presentations and Posters](#presentations-posters)
@@ -251,6 +252,28 @@ We don't currently support writeback of trained neural network configurations fr
 
 Additional documentation can be found in the `xfiles-dana/doc` directory or in some of our publications.
 
+#### <a name="attribution"></a> Attribution
+If you use this for research, please cite the original PACT paper:
+```
+@inproceedings{eldridge2015,
+  author    = {Schuyler Eldridge and
+               Amos Waterland and
+               Margo Seltzer and
+               Jonathan Appavoo and
+               Ajay Joshi},
+  title     = {Towards General-Purpose Neural Network Computing},
+  booktitle = {2015 International Conference on Parallel Architecture and Compilation,
+               {PACT} 2015, San Francisco, CA, USA, October 18-21, 2015},
+  pages     = {99--112},
+  year      = {2015},
+  url       = {http://dx.doi.org/10.1109/PACT.2015.21},
+  doi       = {10.1109/PACT.2015.21},
+  timestamp = {Wed, 04 May 2016 14:25:23 +0200},
+  biburl    = {http://dblp.uni-trier.de/rec/bib/conf/IEEEpact/EldridgeWSAJ15},
+  bibsource = {dblp computer science bibliography, http://dblp.org}
+}
+```
+
 #### <a name="doc-directory"></a> Doc Directory
 Specific documentation includes:
 * [Binary Encodings and Data Structures](doc/binary-encodings-data-structures.md)
@@ -265,8 +288,11 @@ Specific documentation includes:
 * [Paper](http://people.bu.edu/schuye/files/pact2015-eldridge-paper.pdf)
 * [Presentation](http://people.bu.edu/schuye/files/pact2015-eldridge-presentation.pdf)
 
+<a name="cite-thesis"></a> [2] S. Eldridge, "Neural Network Computing Using On-Chip Accelerators", Boston University. 2016.
+* [Thesis](http://people.bu.edu/joshi/files/thesis-eldridge.pdf)
+
 #### <a name="presentations-posters"></a> Workshop Presentations and Posters
-[2] S. Eldridge., T. Unger, M. Sahaya Louis, A. Waterland, M. Seltzer, J. Appavoo, and A. Joshi, "Neural Networks as Function Primitives: Software/Hardware Support with X-FILES/DANA", _Boston Area Architecture Workshop (BARC)_. 2016.
+[3] S. Eldridge., T. Unger, M. Sahaya Louis, A. Waterland, M. Seltzer, J. Appavoo, and A. Joshi, "Neural Networks as Function Primitives: Software/Hardware Support with X-FILES/DANA", _Boston Area Architecture Workshop (BARC)_. 2016.
 * [Paper](http://people.bu.edu/schuye/files/barc2016-eldridge-paper.pdf)
 * [Presentation](http://people.bu.edu/schuye/files/barc2016-eldridge-presentation.pdf)
 * [Poster](http://people.bu.edu/schuye/files/barc2016-eldridge-poster.pdf)
