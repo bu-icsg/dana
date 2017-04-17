@@ -118,20 +118,16 @@ $(DIR_BUILD)/doc:
 
 #------------------- Miscellaneous
 TAGS_SCALA = \
-	$(DIR_TOP)/../src/main/scala $(DIR_TOP)/../chisel3 \
+	$(rocketchip_dir)/src/main/scala \
+	$(rocketchip_dir)/chisel3 \
 	$(DIR_TOP)/src/main/scala
 TAGS_C = \
-	$(DIR_TOP)/src/test/rv \
-	$(DIR_TOP)/tests/smoke \
-	$(DIR_TOP)/tests/nets \
-	$(DIR_TOP)/tests/rocc-software/src \
-	$(DIR_TOP)/tests/env/ \
-	$(DIR_TOP)/tests/libs/src \
-	$(DIR_TOP)/../riscv-tools/riscv-fesvr/fesvr \
-	$(DIR_TOP)/../riscv-tools/riscv-pk/pk \
-	$(DIR_TOP)/../riscv-tools/riscv-pk/machine \
-	$(DIR_TOP)/../riscv-tools/riscv-pk/bbl \
-	$(DIR_TOP)/../csrc
+	$(rocketchip_dir)/csrc \
+	$(rocketchip_dir)/xfiles-dana/tests \
+	$(rocketchip_dir)/riscv-tools/riscv-fesvr/fesvr \
+	$(rocketchip_dir)/riscv-tools/riscv-pk/pk \
+	$(rocketchip_dir)/riscv-tools/riscv-pk/machine \
+	$(rocketchip_dir)/riscv-tools/riscv-pk/bbl
 TAGS_V = \
 	$(DIR_TOP)/../vsrc
 tags:
