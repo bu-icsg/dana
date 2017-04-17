@@ -3,10 +3,10 @@
 	url = https://github.com/libfann/fann.git
 [submodule "util/hdl-tools"]
 	path = util/hdl-tools
-	url = ../hdl-tools
+	url = https://github.com/ibm/hdl-tools.git
 [submodule "src/main/scala/perfect"]
 	path = src/main/scala/perfect
-	url = ../perfect-chisel
+	url = https://github.com/ibm/perfect-chisel.git
 [submodule "rocc-software"]
 	path = tests/rocc-software
-	url = ../rocc-software
+	url = https://github.com/ibm/rocc-software.git
