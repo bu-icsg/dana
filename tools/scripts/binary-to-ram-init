@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+#!/usr/bin/env perl
 
 use strict;
 use warnings;
@@ -9,26 +9,83 @@ sub usage {
 Usage: binary-to-ram-init [OPTIONS]
 Convert a FANN binary configuration to a Verilog init structure
 
-Required Options:
+Options:
+  -h, -?, --help             print this help and exit
   -i, --input                input FANN configuration
   -w, --block-width          the width of one block in bytes
+  --format                   output format (see below)
+
+Output formats:
+  verilog                    verilog for initializing a memory (default)
+  readmemh                   suitable for the Verilog \$readmemh command
 END
 }
 
-my ($config_input,
-    $block_width);
-GetOptions ( "i|input=s" => \$config_input,
-             "w|block-width=i" => \$block_width)
+sub header {
+    my $format = shift;
+    my $filename = shift;
+    if ($format =~ /^verilog$/) {
+        return << "END";
+// Initial RAM state for file:
+//   $filename
+initial begin
+END
+    }
+    if ($format =~ /^readmemh$/) {
+        return << "END";
+// Initial RAM state for file:
+//   $filename
+END
+    }
+    die "[ERROR] Unexpected format in header: $format\n";
+}
+
+sub line {
+    my $format = shift;
+    my $i = shift;
+    my $width_in_bits = shift;
+    my $little_endian = shift;
+    if ($format =~ /^verilog$/) {
+        return "  ram[$i] = $width_in_bits\'h$little_endian;\n";
+    }
+    if ($format =~ /^readmemh$/) {
+        return "$little_endian\n";
+    }
+    die "[ERROR] Unexpected format in header: $format\n";
+}
+
+sub footer {
+    my $format = shift;
+    if ($format =~ /^verilog$/) {
+        return "end\n";
+    }
+    if ($format =~ /^readmemh$/) {
+        return "";
+    }
+    die "[ERROR] Unexpected format in header: $format\n";
+}
+
+my ($opt_config_input,
+    $opt_block_width,
+    $opt_help);
+my $opt_format = "verilog";
+GetOptions ("format=s" => \$opt_format,
+            "h|?|help" => \$opt_help,
+            "i|input=s" => \$opt_config_input,
+            "w|block-width=i" => \$opt_block_width)
     or usage() and die "Bad options";
 
-usage() and die "Unspecified required options" if
-    not $config_input or not $block_width;
+usage() and die "[ERROR] Unspecified required options"
+    if not $opt_config_input or not $opt_block_width;
+usage() and exit if ($opt_help);
+usage() and die "[ERROR] Bad format \"$opt_format\""
+    if $opt_format !~ /verilog|readmemh/;
 
-my $width_in_bits = $block_width * 8;
+my $width_in_bits = $opt_block_width * 8;
 
 # Open the configuration file and read all of it into a buffer.
 my $buffer = "";
-open FILE, "<$config_input" or die "Unable to open <$config_input";
+open FILE, "<$opt_config_input" or die "Unable to open <$opt_config_input";
 read FILE, $buffer, -s FILE, 0;
 close FILE;
 
@@ -37,14 +94,12 @@ close FILE;
 my $count = 0;
 my $i = 0;
 my $little_endian = "";
-print "// Initial RAM state for file:\n";
-print "//   $config_input\n";
-print "initial begin\n";
+print header($opt_format, $opt_config_input);
 foreach (split(//, $buffer)) {
     $little_endian = sprintf("%02x%s", ord($_), $little_endian);
     # printf("%02x ", ord($_));
-    if ($count == $block_width - 1) {
-        print "  ram[$i] = $width_in_bits\'h$little_endian;\n";
+    if ($count == $opt_block_width - 1) {
+        print line($opt_format, $i, $width_in_bits, $little_endian);
         $little_endian = "";
         $count = 0;
         $i++;
@@ -52,4 +107,4 @@ foreach (split(//, $buffer)) {
     }
     $count++;
 }
-print "end\n";
+print footer($opt_format);

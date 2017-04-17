@@ -1,0 +1,60 @@
+#-*- mode: makefile-*-
+
+# RISC-V related options
+ifeq "$(TARGET)" "host"
+CFLAGS = -DNO_VM=1
+else
+TARGET_DASH = $(TARGET)-
+endif
+CC            = $(TARGET_DASH)gcc
+CXX           = $(TARGET_DASH)g++
+AR            = $(TARGET_DASH)ar
+OBJDUMP       = $(TARGET_DASH)objdump
+dir_build = $(DIR_BUILD)/$(TARGET)
+
+vpath %.c $(DIR_TOP)/src/main/c
+vpath %.c $(DIR_TOP)/src/test/rv
+
+HEADERS = $(wildcard $(DIR_TOP)/src/main/c/*.h)
+
+CFLAGS += \
+	-Wall \
+	-Werror \
+	--std=gnu11 \
+	-I$(DIR_TOP) \
+	-I$(DIR_TOP)/tests/libs \
+	-I$(DIR_BUILD)/nets
+CFLAGS_RV += \
+	$(CFLAGS) \
+	-static
+LFLAGS = \
+	-L$(DIR_TOP)/tests/libs/build/$(TARGET) \
+	-L$(DIR_BUILD)/fann/$(TARGET)
+
+# Common FANN library dependency to prevent multiple simultaneous FANN
+# builds from being inadvertently kicked off (use this as a
+# dependency, but don't compile it in)
+libfann_dep = $(DIR_BUILD)/fann/$(TARGET)/libfann.a
+
+$(dir_build)/%.o: %.c $(HEADERS) | $(dir_build)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+#------------------- Library Targets
+$(DIR_TOP)/tests/libs/build/$(TARGET)/lib%.a:
+	make -C $(DIR_TOP)/tests/libs/ TARGET=$(TARGET)
+
+#------------------- RISC-V Tests
+$(dir_build)/trap-%.rv: trap-%.c $(XFILES_LIBRARIES) | $(dir_build)
+	$(CC) $(CFLAGS_RV) $< -o $@ $(LFLAGS) -lxfiles-user-pk
+$(dir_build)/dana-benchmark.rv: dana-benchmark.c $(XFILES_LIBRARIES) | $(dir_build)
+	$(CC) $(CFLAGS_RV) $< -o $@ $(LFLAGS) -lxfiles-user-pk
+$(dir_build)/read-xfiles-dana-id.rv: dana-benchmark.c $(XFILES_LIBRARIES) | $(dir_build)
+	$(CC) $(CFLAGS_RV) $< -o $@ $(LFLAGS) -lxfiles-user-pk -lxfiles-supervisor
+$(dir_build)/%.rv: %.c $(XFILES_LIBRARIES) $(libfann_dep) | $(dir_build)
+	$(CC) $(CFLAGS_RV) $< -o $@ $(LFLAGS) -lxfiles-user
+$(dir_build)/%.rvS: $(dir_build)/%.rv | $(dir_build)
+	$(OBJDUMP) -S $< > $@
+
+#--------------------------------------- Directories
+$(dir_build):
+	mkdir -p $@

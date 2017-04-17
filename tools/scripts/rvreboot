@@ -18,10 +18,6 @@ Example usage:
 EOF
 }
 
-if [ -e $dir/fpga-motd ]; then
-    cat $dir/fpga-motd
-fi
-
 force=0
 OPTIND=1
 while getopts "hf" opt; do
@@ -47,7 +43,7 @@ fi
 fpga=$1
 
 # Lookup the FPGA settings in the info.txt file, barfing if we can't find it
-fpga_info=($(grep ^$fpga $dir/info.txt))
+fpga_info=($(grep ^$fpga, $dir/info.txt))
 if [ $? -eq 1 ]; then
     echo "[ERROR] Unable to find FPGA \"$fpga\" in $dir/info.txt"
     exit 1
@@ -60,6 +56,13 @@ tty=${tty%%,*}
 power_strip=${fpga_info#*,*,}
 power_strip=${power_strip%%,*}
 plug=${fpga_info##*,}
+
+if [ ! $plug ]; then
+    echo "[ERROR] No plug for \"$fpga\" in $dir/info.txt"
+    echo "        This is expected if this is a PCIe board..."
+    exit 1
+fi
+
 ip=$(grep ip $dir/info.txt | grep ,$power_strip, | awk -F',' '{print $3}')
 user=$(ps -A au | grep -i screen | grep $tty | tail -n1 | tail -n1 | \
     awk '{print $1}')
@@ -71,6 +74,10 @@ if [ $user ] && [ $user != $USER ] && [ $force -eq 0 ]; then
     exit 1
 fi
 
+if [ -e $dir/fpga-motd ]; then
+    cat $dir/fpga-motd
+fi
+
 # Get the credentials_apc from info.txt that we need to login to the
 # powerstrip
 credentials_apc=$(grep ^credentials-apc $dir/info.txt)
@@ -79,5 +86,5 @@ username_apc=${credentials_apc%,*}
 password_apc=${credentials_apc#*,}
 
 # Reboot the FPGA
-exec fence_apc --action=reboot --ip=$ip --plug=$plug \
+echo exec fence_apc --action=reboot --ip=$ip --plug=$plug \
     --username=$username_apc --password=$password_apc

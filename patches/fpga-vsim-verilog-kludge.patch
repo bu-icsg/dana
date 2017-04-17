@@ -1,8 +1,8 @@
 diff --git a/vsim/Makefrag-verilog b/vsim/Makefrag-verilog
-index 39ed547..a6c2a7a 100644
+index 66034bc..e2906a2 100644
 --- a/vsim/Makefrag-verilog
 +++ b/vsim/Makefrag-verilog
-@@ -6,7 +6,11 @@ $(generated_dir)/$(MODEL).$(CONFIG).v $(generated_dir)/$(MODEL).$(CONFIG).d : $(
+@@ -7,7 +7,11 @@ $(generated_dir)/$(MODEL).$(CONFIG).v $(generated_dir)/$(MODEL).$(CONFIG).d $(ge
  	cd $(base_dir) && mkdir -p $(generated_dir) && $(SBT) "run $(CHISEL_ARGS) --configDump --noInlineMem"
  	cd $(generated_dir) && \
  	if [ -a $(MODEL).$(CONFIG).conf ]; then \
@@ -14,4 +14,4 @@ index 39ed547..a6c2a7a 100644
 +	  fi; \
  	fi
  
- $(generated_dir)/consts.$(CONFIG).vh: $(generated_dir)/$(MODEL).$(CONFIG).v
+ $(generated_dir)/memdessertMemDessert.$(CONFIG).v $(generated_dir)/memdessertMemDessert.$(CONFIG).d: $(base_dir)/$(src_path)/*.scala $(base_dir)/uncore/$(src_path)/*.scala

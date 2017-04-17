@@ -1,7 +1,8 @@
 # Shared NN configurations used by fann-random to generate networks
+andSigmoidSymmetric,-l2 -l1 -a5 -o5 -r0.7
+orSigmoidSymmetric,-l2 -l1 -a5 -o5 -r0.7
 xorSigmoid,-r0.7 -l2 -l4 -l1 -a5 -o3
 xorSigmoidSymmetric,-l2 -l8 -l1 -a5 -o5 -r0.7
-xorSigmoidSymmetricPair,-l2 -l3 -l2 -a5 -o5 -r0.7
 xorSigmoidSymmetricThreeLayer,-l2 -l8 -l9 -l1 -a5 -o5 -r0.7
 # XOR variants
 xor-sigmoid-4i,-l4 -l4 -l1 -a5 -o3 -r0.7
@@ -75,3 +76,5 @@ sin-scale-3.25,-l1 -l8 -l1 -a3 -o5 -r0.7
 sin-scale-3.50,-l1 -l8 -l1 -a3 -o5 -r0.7
 sin-scale-3.75,-l1 -l8 -l1 -a3 -o5 -r0.7
 sin-scale-4.00,-l1 -l8 -l1 -a3 -o5 -r0.7
+sinc,-l1 -l8 -l1 -a3 -o5 -r0.7
+gaussian,-l1 -l8 -l1 -a3 -o5 -r0.7

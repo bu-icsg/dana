@@ -3,8 +3,71 @@
 # Makefile that defines neural network configurations and defines how
 # to build floating point and fixed point neural networks.
 
+# Network Configurations -- the convenction here is floating point
+# nets look like "foo.net" while the fixed point equivalent of this is
+# "foo-fixed.net". NETS and NETS_THRESHOLD have floating point
+# configurations which live in src/main/resources. NETS_GEN are
+# randomly initialized networks which have to be generated with
+# `fann-random` and will have their floating point versions put in
+# build/nets.
+
+vpath %bin $(DIR_BUILD_NETS)
+
+NETS_GEN=\
+	andSigmoidSymmetric \
+	orSigmoidSymmetric \
+	xorSigmoid \
+	xorSigmoidSymmetric \
+	xorSigmoidSymmetricThreeLayer
+NETS_FANN=census-house mushroom diabetes gene kin32fm soybean thyroid \
+	two-spiral abelone bank32fm bank32nh building census-house \
+	pumadyn-32fm robot soybean
+NETS_PARITY=parity-1 parity-2 parity-3 parity-4 parity-5 parity-6 parity-7 \
+	parity-8 parity-9
+NETS_PARITY_SAME=parity-same-1 parity-same-2 parity-same-3 parity-same-4 \
+	parity-same-5 parity-same-6 parity-same-7 parity-same-8 parity-same-9
+NETS_XOR=xor-sigmoid-4i xor-sigmoid-8i xor-sigmoid-16i xor-sigmoid-32i \
+	xor-sigmoid-64i xor-sigmoid-128i xor-sigmoid-256i xor-sigmoid-512i \
+	xor-sigmoid-1024i \
+	xor-sigmoid-4o xor-sigmoid-8o xor-sigmoid-16o xor-sigmoid-32o \
+	xor-sigmoid-64o xor-sigmoid-128o xor-sigmoid-256o xor-sigmoid-512o \
+	xor-sigmoid-1024o
+NETS_MATH=sin sinc gaussian
+NETS+=$(NETS_GEN) $(NETS_FANN) $(NETS_PARITY) $(NETS_PARITY_SAME) $(NETS_XOR) \
+	$(NETS_MATH)
+NETS_FLOAT=$(addsuffix -float, $(NETS))
+# Only certain networks have valid training files
+NETS_TRAIN=xorSigmoid xorSigmoidSymmetric xorSigmoidSymmetricPair \
+	xorSigmoidSymmetricThreeLayer
+NETS_TEST=$(addprefix $(DIR_BUILD)/nets/, $(addsuffix -float.test, $(NETS_FANN)))
+NETS_BIN=$(addprefix $(DIR_BUILD)/nets/, $(addsuffix -fixed.16bin, $(NETS)) \
+	$(addsuffix -fixed.32bin, $(NETS)) \
+	$(addsuffix -fixed.64bin, $(NETS)) \
+	$(addsuffix -fixed.128bin, $(NETS)))
+TRAIN_SIN=sin-scale-0.25 sin-scale-0.50 sin-scale-0.75 sin-scale-1.00 \
+	sin-scale-1.25 sin-scale-1.50 sin-scale-1.75 sin-scale-2.00 \
+	sin-scale-2.25 sin-scale-2.50 sin-scale-2.75 sin-scale-3.00 \
+	sin-scale-3.25 sin-scale-3.50 sin-scale-3.75 sin-scale-4.00
+TRAIN_MATH=gaussian sinc
+NETS_H +=$(addprefix $(DIR_BUILD)/nets/, $(addsuffix -fixed-16bin-32.h, $(NETS)) \
+	$(addsuffix -fixed-32bin-32.h, $(NETS)) \
+	$(addsuffix -fixed-64bin-32.h, $(NETS)) \
+	$(addsuffix -fixed-128bin-32.h, $(NETS)))
+NETS_H +=$(addprefix $(DIR_BUILD)/nets/, $(addsuffix -fixed-16bin-64.h, $(NETS)) \
+	$(addsuffix -fixed-32bin-64.h, $(NETS)) \
+	$(addsuffix -fixed-64bin-64.h, $(NETS)) \
+	$(addsuffix -fixed-128bin-64.h, $(NETS)))
+TRAIN_H=$(addprefix $(DIR_BUILD)/nets/, $(addsuffix _train.h, $(NETS_TRAIN)))
+TRAIN_FIXED=$(addprefix $(DIR_BUILD)/nets/, $(addsuffix -fixed.train, $(NETS_GEN)))
+TRAIN_FIXED+=$(addprefix $(DIR_BUILD)/nets/, $(addsuffix -fixed.train, $(NETS_FANN)))
+TRAIN_FIXED+=$(addprefix $(DIR_BUILD)/nets/, $(addsuffix -fixed.train, $(NETS_PARITY)))
+TRAIN_FIXED+=$(addprefix $(DIR_BUILD)/nets/, $(addsuffix -fixed.train, $(NETS_XOR)))
+TRAIN_FIXED+=$(addprefix $(DIR_BUILD)/nets/, $(addsuffix -fixed.train, $(TRAIN_SIN)))
+TRAIN_FIXED+=$(addprefix $(DIR_BUILD)/nets/, $(addsuffix -fixed.train, $(TRAIN_MATH)))
+
 vpath %.train $(DIR_TOP)/src/main/resources
-vpath %.train $(DIR_TOP)/submodules/fann/datasets
+vpath %.train $(DIR_TOP)/fann/datasets
+vpath %.test $(DIR_TOP)/fann/datasets
 
 .PRECIOUS: $(DIR_BUILD)/nets/%-fixed.net \
 	$(DIR_BUILD)/nets/%-fixed.net \
@@ -14,29 +77,61 @@ vpath %.train $(DIR_TOP)/submodules/fann/datasets
 	$(DIR_BUILD)/nets/xor-sigmoid-%o-float.train \
 	$(DIR_BUILD)/nets/parity-%-float.train \
 	$(DIR_BUILD)/nets/sin-%-float.train \
-	$(DIR_BUILD)/nets/sin-scale-%-float.train
+	$(DIR_BUILD)/nets/sin-scale-%-float.train \
+	$(DIR_BUILD)/fann/host/libfann.so \
+	$(DIR_BUILD)/nets/%Sigmoid-float.train \
+	$(DIR_BUILD)/nets/%SigmoidSymmetricThreeLayer-float.train \
+	$(DIR_BUILD)/nets/%SigmoidSymmetric-float.train
+
+TEST:
+	echo $(FANN_RANDOM)
 
 #--------------------------------------- Build floating point NNs
-$(DIR_BUILD)/nets/%-float.net: $(DIR_BUILD)/nets $(FANN_RANDOM)
+$(DIR_BUILD)/nets/%-float.net: $(FANN_RANDOM) $(DIR_BUILD)/fann/host/libfann.so $(DIR_TOP)/tools/common/nets.txt | $(DIR_BUILD)/nets
 	$(FANN_RANDOM) -s$(SEED) \
-	`$(DIR_USR_BIN)/find-net $* $(DIR_TOOLS)/common/nets.txt` $@
+	`$(DIR_TOP)/tools/scripts/find-net $* $(DIR_TOP)/tools/common/nets.txt` $@
 
 #--------------------------------------- Generate special training files
-$(DIR_BUILD)/nets/parity-%-float.train: $(DIR_BUILD)/nets
+$(DIR_BUILD)/nets/%-float.train: %.train | $(DIR_BUILD)/nets
+	ln -sf $< $@
+
+$(DIR_BUILD)/nets/%-float.test: %.test | $(DIR_BUILD)/nets
+	ln -sf $< $@
+
+$(DIR_BUILD)/nets/parity-%-float.train: | $(DIR_BUILD)/nets
 	$(GEN_BOOLEAN_DATA) -n $* -f xor -s > $@
 
-$(DIR_BUILD)/nets/xor-sigmoid-%i-float.train: $(DIR_BUILD)/nets
+$(DIR_BUILD)/nets/xor-sigmoid-%i-float.train: | $(DIR_BUILD)/nets
 	$(GEN_BOOLEAN_DATA) -n 2 -f xor --replicate-input `echo $* 2/p | dc` > $@
 
-$(DIR_BUILD)/nets/xor-sigmoid-%o-float.train: $(DIR_BUILD)/nets
+$(DIR_BUILD)/nets/xor-sigmoid-%o-float.train: | $(DIR_BUILD)/nets
 	$(GEN_BOOLEAN_DATA) -n 2 -f xor --replicate-output $* > $@
 
-$(DIR_BUILD)/nets/sin-scale-%-float.train: $(DIR_BUILD)/nets
-	$(GEN_MATH_DATA) -f sin -s0 -d -1 1 -n 128 --x-scaling=$**1*math.pi \
+$(DIR_BUILD)/nets/%Sigmoid-float.train: | $(DIR_BUILD)/nets
+	$(GEN_BOOLEAN_DATA) -n 2 -f $* > $@
+$(DIR_BUILD)/nets/%SigmoidSymmetricThreeLayer-float.train:  | $(DIR_BUILD)/nets
+	$(GEN_BOOLEAN_DATA) -n 2 -f $* -s > $@
+$(DIR_BUILD)/nets/%SigmoidSymmetric-float.train: | $(DIR_BUILD)/nets
+	$(GEN_BOOLEAN_DATA) -n 2 -f $* -s > $@
+
+$(DIR_BUILD)/nets/sin-scale-%-float.train: | $(DIR_BUILD)/nets
+	$(GEN_MATH_DATA) -f "(lambda x: math.sin(x))" -s0 -d -1 1 -n 128 \
+	--x-scaling=$**1*math.pi --file-train=$@ \
+	--file-plot=$(DIR_BUILD)/nets/sin-scale-$*.png
+
+$(DIR_BUILD)/nets/gaussian-float.train: | $(DIR_BUILD)/nets
+	$(GEN_MATH_DATA) -f "(lambda x: math.exp(-x**2/(0.25)**2))" -s0 -d -1 1 \
+	-n128 --file-train=$@ --file-plot=$(DIR_BUILD)/nets/sin-scale-$*.png
+
+$(DIR_BUILD)/nets/sinc-float.train: | $(DIR_BUILD)/nets
+	$(GEN_MATH_DATA) -f "(lambda x: math.sin(x*math.pi*4)/(x*math.pi*4))" \
+	 -s0 -d -1 1 -n128 \
 	--file-train=$@ --file-plot=$(DIR_BUILD)/nets/sin-scale-$*.png
 
+
+
 #--------------------------------------- Fixed point net generationg
-$(DIR_BUILD)/nets/%-fixed.net: $(DIR_BUILD)/nets/%-float.net $(NETS_TOOLS)
+$(DIR_BUILD)/nets/%-fixed.net: $(DIR_BUILD)/nets/%-float.net $(NETS_TOOLS) | $(DIR_BUILD)/nets
 	$(FLOAT_TO_FIXED) $< $@
 	@ if [ `grep decimal $@ | sed 's/.\+=//'` -gt $(MAX_DECIMAL_POINT) ]; then \
 	echo "[WARN] Fixed point precision unexpectedly high, attempting to fix..."; \
@@ -49,7 +144,7 @@ $(DIR_BUILD)/nets/%-fixed.net: $(DIR_BUILD)/nets/%-float.net $(NETS_TOOLS)
 	$(FANN_CHANGE_FIXED_POINT) $@.tooSmall $(DECIMAL_POINT_OFFSET) > $@; \
 	rm $@.tooSmall; fi
 
-$(DIR_BUILD)/nets/%-fixed.net: %-float.net $(NETS_TOOLS)
+$(DIR_BUILD)/nets/%-fixed.net: %-float.net $(NETS_TOOLS) | $(DIR_BUILD)/nets
 	$(FLOAT_TO_FIXED) $< $@
 	@ if [ `grep decimal $@ | sed 's/.\+=//'` -gt $(MAX_DECIMAL_POINT) ]; then \
 	echo "[WARN] Fixed point precision unexpectedly high, attempting to fix..."; \
@@ -63,27 +158,63 @@ $(DIR_BUILD)/nets/%-fixed.net: %-float.net $(NETS_TOOLS)
 	rm $@.tooSmall; fi
 
 #--------------------------------------- Binary configurations
-$(DIR_BUILD)/nets/%.16bin: $(DIR_BUILD)/nets/%.net $(WRITE_FANN_CONFIG)
+$(DIR_BUILD)/nets/%.16bin: $(DIR_BUILD)/nets/%.net $(WRITE_FANN_CONFIG) | $(DIR_BUILD)/nets
 	$(WRITE_FANN_CONFIG) 16 $< $@ $(DECIMAL_POINT_OFFSET)
 
-$(DIR_BUILD)/nets/%.32bin: $(DIR_BUILD)/nets/%.net $(WRITE_FANN_CONFIG)
+$(DIR_BUILD)/nets/%.32bin: $(DIR_BUILD)/nets/%.net $(WRITE_FANN_CONFIG) | $(DIR_BUILD)/nets
 	$(WRITE_FANN_CONFIG) 32 $< $@ $(DECIMAL_POINT_OFFSET)
 
-$(DIR_BUILD)/nets/%.64bin: $(DIR_BUILD)/nets/%.net $(WRITE_FANN_CONFIG)
+$(DIR_BUILD)/nets/%.64bin: $(DIR_BUILD)/nets/%.net $(WRITE_FANN_CONFIG) | $(DIR_BUILD)/nets
 	$(WRITE_FANN_CONFIG) 64 $< $@ $(DECIMAL_POINT_OFFSET)
 
-$(DIR_BUILD)/nets/%.128bin: $(DIR_BUILD)/nets/%.net $(WRITE_FANN_CONFIG)
+$(DIR_BUILD)/nets/%.128bin: $(DIR_BUILD)/nets/%.net $(WRITE_FANN_CONFIG) | $(DIR_BUILD)/nets
 	$(WRITE_FANN_CONFIG) 128 $< $@ $(DECIMAL_POINT_OFFSET)
 
 #--------------------------------------- Training Files
-$(DIR_BUILD)/nets/%-fixed.train: src/main/resources/%.train $(DIR_BUILD)/nets/%-fixed.net $(NETS_TOOLS)
+$(DIR_BUILD)/nets/%-fixed.train: $(DIR_BUILD)/nets/%-float.train $(DIR_BUILD)/nets/%-fixed.net $(NETS_TOOLS) | $(DIR_BUILD)/nets
 	$(FANN_TRAIN_TO_FIXED) $< $@ `grep decimal_point $(word 2,$^) | sed 's/^.\+=//'`
 
-$(DIR_BUILD)/nets/%-fixed.train: %.train $(DIR_BUILD)/nets/%-fixed.net $(NETS_TOOLS)
-	$(FANN_TRAIN_TO_FIXED) $< $@ `grep decimal_point $(word 2,$^) | sed 's/^.\+=//'`
+#--------------------------------------- C headers of binary files
+$(DIR_BUILD)/nets/%-16bin-32.h: $(DIR_BUILD)/nets/%.16bin $(NETS_TOOLS) | $(DIR_BUILD)/nets
+	$(BIN_TO_C_HEADER) $< \
+	$(subst -,_,init-$(basename $(notdir $<))-16bin-32) 32 > $@
 
-# $(DIR_BUILD)/nets/sin-%-fixed.train: $(DIR_BUILD)/nets/sin-%-float.train $(DIR_BUILD)/nets/sin-fixed.net $(NETS_TOOLS)
-# 	$(FANN_TRAIN_TO_FIXED) $< $@ `grep decimal_point $(word 2,$^) | sed 's/^.\+=//'`
+$(DIR_BUILD)/nets/%-16bin-64.h: $(DIR_BUILD)/nets/%.16bin $(NETS_TOOLS) | $(DIR_BUILD)/nets
+	$(BIN_TO_C_HEADER) $< \
+	$(subst -,_,init-$(basename $(notdir $<))-16bin-64) 64 > $@
 
-$(DIR_BUILD)/nets/%-fixed.train: $(DIR_BUILD)/nets/%-float.train $(DIR_BUILD)/nets/%-fixed.net $(NETS_TOOLS)
-	$(FANN_TRAIN_TO_FIXED) $< $@ `grep decimal_point $(word 2,$^) | sed 's/^.\+=//'`
+$(DIR_BUILD)/nets/%-32bin-32.h: $(DIR_BUILD)/nets/%.32bin $(NETS_TOOLS) | $(DIR_BUILD)/nets
+	$(BIN_TO_C_HEADER) $< \
+	$(subst -,_,init-$(basename $(notdir $<))-32bin-32) 32 > $@
+
+$(DIR_BUILD)/nets/%-32bin-64.h: $(DIR_BUILD)/nets/%.32bin $(NETS_TOOLS) | $(DIR_BUILD)/nets
+	$(BIN_TO_C_HEADER) $< \
+	$(subst -,_,init-$(basename $(notdir $<))-32bin-64) 64 > $@
+
+$(DIR_BUILD)/nets/%-64bin-32.h: $(DIR_BUILD)/nets/%.64bin $(NETS_TOOLS) | $(DIR_BUILD)/nets
+	$(BIN_TO_C_HEADER) $< \
+	$(subst -,_,init-$(basename $(notdir $<))-64bin-32) 32 > $@
+
+$(DIR_BUILD)/nets/%-64bin-64.h: $(DIR_BUILD)/nets/%.64bin $(NETS_TOOLS) | $(DIR_BUILD)/nets
+	$(BIN_TO_C_HEADER) $< \
+	$(subst -,_,init-$(basename $(notdir $<))-64bin-64) 64 > $@
+
+$(DIR_BUILD)/nets/%-128bin-32.h: $(DIR_BUILD)/nets/%.128bin $(NETS_TOOLS) | $(DIR_BUILD)/nets
+	$(BIN_TO_C_HEADER) $< \
+	$(subst -,_,init-$(basename $(notdir $<))-128bin-32) 32 > $@
+
+$(DIR_BUILD)/nets/%-128bin-64.h: $(DIR_BUILD)/nets/%.128bin $(NETS_TOOLS) | $(DIR_BUILD)/nets
+	$(BIN_TO_C_HEADER) $< \
+	$(subst -,_,init-$(basename $(notdir $<))-128bin-64) 64 > $@
+
+#--------- Fixed point training files
+$(DIR_BUILD)/nets/%_train.h: %.train $(NETS_TOOLS) | $(DIR_BUILD)/nets
+	@ if [[ -e $(DIR_MAIN_RES)/$(notdir $(basename $<)-float.net) ]]; \
+	then $(TRAIN_TO_C_HEADER) \
+	$(basename $<)-float.net $< $(basename $(notdir $<)) > $@;\
+	else $(TRAIN_TO_C_HEADER) $(DIR_BUILD_NETS)/$(notdir \
+	$(basename $<)-float.net) $< $(basename $(notdir $<)) > $@; \
+	fi
+
+$(DIR_BUILD)/nets:
+	mkdir -p $@

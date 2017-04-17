@@ -1,4 +1,4 @@
-// See LICENSE for license details.
+// See LICENSE.BU for license details.
 
 #ifndef __XFILES_DANA_H__
 #define __XFILES_DANA_H__

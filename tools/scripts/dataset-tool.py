@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
 """
 For manipulating fann data files.
 Assumes arg 1 is input data file.

@@ -13,6 +13,7 @@ On the FPGA side, certain files need to be configured inside of the ramdisk:
 * `/etc/hosts` -- setup the hostname mappings for the FPGAs and the HOST
 * `/etc/network/interfaces` -- give the FPGA a static IP and set the network/gateway
 * `/etc/hostname` -- give the FPGA a hostname
+* `/etc/fstab` -- setup this to auto-mount some NFS location for easier work on the FPGA
 
 Presently, all of these files need to be changed manually whenever you are pushing changes to the ramdisk.
 

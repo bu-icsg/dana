@@ -1,0 +1,8 @@
+#-*- mode: makefile-*-
+
+# Shared parameters (be careful messing with these)
+SHELL              = /bin/bash
+DIR_TOP           ?= $(abspath .)
+DIR_BUILD         ?= $(DIR_TOP)/build
+ROCKETCHIP_ADDONS ?= xfiles-dana
+TARGET            ?= riscv64-unknown-elf
