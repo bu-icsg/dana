@@ -11,7 +11,34 @@ Like with `riscv-tests`, the tests are intended to be built in varieties that us
 
 ### Usage
 
+This requires that certain submodules in the Rocket Chip hierarchy are provided:
 ```
+cd $ROCKETCHIP_DIR
+git submodule update --init --recursive
+```
+
+Build neural networks for DANA:
+```
+cd $DANA_DIR
+make
+```
+
+Build all supplementary tools:
+```
+cd $DANA_DIR/tools
+make
+```
+
+Generate header files for neural network tests:
+```
+cd $DANA_DIR/tools/scripts
+./generate_test_mem.py -nd ../../build/nets
+```
+
+Build all tests:
+```
+cd $DANA_DIR/tests
+autoconf
 mkdir build
 cd build
 ../configure
@@ -23,5 +50,7 @@ You can then run one of these tests if you have the emulator:
 ```
 $ROCKET_CHIP/emulator/emulator-rocketchip-XFilesDanaCppPe1Epb4Config smoke/<test>-p
 ```
+
+Due to the fact that these are bare-metal, the output is not terrifically interesting (it's either pass/fail). Running with Chisel `printf` commands enabled or to generate a waveform produces a more verbose output.
 
 You can run these through `spike`, but these will naturally fail as `spike` does not have an attached accelerator.
