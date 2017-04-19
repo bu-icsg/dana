@@ -115,25 +115,8 @@ def parse_fann_eval_fixed_trace(trace_file_path, write_file=False):
     return fann_fixed_outputs
 
 
-def parse_learn_trace_new(learn_trace_file_path):
-    with open(learn_trace_file_path) as learn_trace_file:
-        with open('a.out', 'wb') as out_file:
-            for line in learn_trace_file:
-                res = re_store_data.search(line)
-                if res:
-                    foo = res.groups()[0]
-                    print(foo)
-                    bar = []
-                    for i in range(0, len(foo), 4):
-                        baz = foo[i+2:i+4] + foo[i:i+2]
-                        bar.append(baz)
-                    bar.reverse()
-                    baz = ''.join(bar)
-                    print(baz)
-                    print()
-                    out_file.write(bytes.fromhex(baz))
 
-@click.command()
+@click.group()
 @click.option('--net_file_path', '-n', type=click.Path(exists=True), required=False)
 @click.option('--train_file_path', '-t', type=click.Path(exists=True), required=False)
 @click.option('--fann_trace_file_path', '-ft', type=click.Path(exists=True), required=False)
@@ -144,6 +127,8 @@ def parse_learn_trace_new(learn_trace_file_path):
 @click.option('--debug', is_flag=True, required=False)
 @click.option('--learn', is_flag=True, required=False)
 def cli(net_file_path, train_file_path, fann_trace_file_path, baremetal_bin_file_path, baremetal_trace_file_path, test_list_file_path, trace_list_file_path, debug, learn):
+    pass
+
     if test_list_file_path:
         with open(test_list_file_path, 'r') as test_list_file:
             test_list = test_list_file.read()
@@ -289,5 +274,25 @@ def cli(net_file_path, train_file_path, fann_trace_file_path, baremetal_bin_file
             j = int(j.decode("utf-8"), 16)
             print("{}, {}, {}".format(j, out_val, abs(j - out_val)))
     
+@cli.command()
+@click.option('--baremetal_trace_file_path', '-bt', type=click.Path(exists=True), required=False)
+def parse_learn_trace_new(baremetal_trace_file_path):
+    with open(baremetal_trace_file_path) as learn_trace_file:
+        with open('a.out', 'wb') as out_file:
+            for line in learn_trace_file:
+                res = re_store_data.search(line)
+                if res:
+                    foo = res.groups()[0]
+                    print(foo)
+                    bar = []
+                    for i in range(0, len(foo), 4):
+                        baz = foo[i+2:i+4] + foo[i:i+2]
+                        bar.append(baz)
+                    bar.reverse()
+                    baz = ''.join(bar)
+                    print(baz)
+                    print()
+                    out_file.write(bytes.fromhex(baz))
+
 if __name__ == '__main__':
     cli()

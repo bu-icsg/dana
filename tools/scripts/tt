@@ -1,0 +1,298 @@
+#!/usr/bin/env python3
+"""tt - the xfiles-dana test tool
+
+Provides functions for running emulator tests and inspecting memory
+
+Usage: tt --help
+"""
+
+import click
+from re import compile
+from os import path
+from subprocess import run, PIPE, DEVNULL, TimeoutExpired
+# from ipdb import set_trace
+from os import system
+
+
+@click.group()
+@click.option('--debug', is_flag=True)
+@click.option('--rocket_chip_project_path')
+@click.pass_context
+def tt(ctx, debug, rocket_chip_project_path):
+    ctx.obj['DEBUG'] = debug
+    rocket_chip_project_path = rocket_chip_project_path or os.environ.get(
+        'ROCKET_CHIP_PROJECT_PATH')
+    assert rocket_chip_project_path, "Must specify option rocket_chip_project_path or define ROCKET_CHIP_PROJECT_PATH environment variable"
+    ctx.obj['ROCKET_CHIP_PROJECT_PATH'] = rocket_chip_project_path
+    if debug:
+        click.echo("rocket_chip_path: {}".format(rocket_chip_project_path))
+    xfiles_dana_path = path.join(rocket_chip_project_path, 'xfiles-dana')
+    if debug:
+        click.echo("xfiles_dana_path: {}".format(xfiles_dana_path))
+    ctx.obj['XFILES_DANA_PATH'] = xfiles_dana_path
+
+
+@tt.command()
+@click.argument('test_names', nargs=-1)
+@click.pass_context
+def emu_test(ctx, test_names, timeout=300):
+    """Run a baremetal emulation test."""
+    debug = ctx.obj['DEBUG']
+    rocket_chip_path = ctx.obj['ROCKET_CHIP_PATH']
+    xfiles_dana_path = ctx.obj['XFILES_DANA_PATH']
+
+    # Build and assert paths
+    emulator_bin_path = path.join(
+        rocket_chip_path,
+        'emulator',
+        'emulator-rocketchip-VelvetConfig')
+    assert path.exists(emulator_bin_path), "emulator_bin_path does not exist!"
+    ctx.obj['EMULATOR_BIN_PATH'] = emulator_bin_path
+    parse_learn_bin_path = path.join(
+        xfiles_dana_path, 'tools', 'bin', 'parse-learn-trace')
+    assert path.exists(
+        parse_learn_bin_path), "parse_learn_bin_path does not exist!"
+    ctx.obj['PARSE_LEARN_BIN_PATH'] = parse_learn_bin_path
+    baremetal_bin_dir_path = path.join(
+        xfiles_dana_path, 'tests', 'build', 'nets')
+    assert path.exists(
+        baremetal_bin_dir_path), "baremetal_bin_dir_path does not exist!"
+    ctx.obj['BAREMETAL_BIN_DIR_PATH'] = baremetal_bin_dir_path
+    build_nets_dir_path = path.join(xfiles_dana_path, 'build', 'nets')
+    assert path.exists(
+        build_nets_dir_path), "build_nets_dir_path does not exist!"
+    ctx.obj['BUILD_NETS_DIR_PATH'] = build_nets_dir_path
+
+    # Run tests
+    for test_name in test_names:
+        if debug:
+            click.echo('Running emulation test {}'.format(test_name))
+        # Build and assert test path
+        baremetal_bin_file_name = test_name
+        baremetal_bin_file_path = path.join(
+            baremetal_bin_dir_path, baremetal_bin_file_name)
+        baremetal_trace_file_name = baremetal_bin_file_name + '.test.trace'
+        baremetal_trace_file_path = baremetal_trace_file_name
+        if debug:
+            click.echo('baremetal_bin_file_path: {}'.format(
+                baremetal_bin_file_path))
+        assert path.exists(baremetal_bin_file_path), "baremetal_bin_file_path {} does not exist!".format(
+            baremetal_bin_file_path)
+
+        # Run test with timeout. If timeout expires, proceed to next test.
+        # Write test debug output to file
+        try:
+            emulator = run([emulator_bin_path,
+                            '+verbose',
+                            baremetal_bin_file_path],
+                           stderr=PIPE,
+                           timeout=timeout)
+        except TimeoutExpired as e:
+            click.echo(e)
+            continue
+        with open(baremetal_trace_file_path, 'wb') as baremetal_trace_file:
+            for line in emulator.stderr.splitlines():
+                if chr(line[0]) == '[':
+                    baremetal_trace_file.write(line)
+                    baremetal_trace_file.write(b'\n')
+
+
+def _diff_cache_dump(
+        debug,
+        cache_dump_ascii_file_path_0,
+        cache_dump_ascii_file_path_1,
+        out_file_path=None):
+    """Helper function to run diff on two cache dumps processed by parse_learn_trace. Optionally write output to file"""
+    if out_file_path:
+        cmd = ' '.join(['diff', '-y', cache_dump_ascii_file_path_0,
+                        cache_dump_ascii_file_path_1, '>', out_file_path])
+    else:
+        cmd = ' '.join(['diff',
+                        '-y',
+                        cache_dump_ascii_file_path_0,
+                        cache_dump_ascii_file_path_1])
+    if debug:
+        click.echo(cmd)
+    system(cmd)
+
+
+def _parse_learn_trace(
+        ctx,
+        cache_dump_bin_file_path,
+        cache_dump_ascii_file_name):
+    """Helper function to convert binary cache dump to ascii cache dump"""
+    debug = ctx.obj['DEBUG']
+    parse_learn_bin_path = ctx.obj['PARSE_LEARN_BIN_PATH']
+    cmd = ' '.join([parse_learn_bin_path,
+                    cache_dump_bin_file_path,
+                    '>',
+                    cache_dump_ascii_file_name])
+    if debug:
+        click.echo(cmd)
+    system(cmd)
+
+
+@tt.command()
+@click.argument('emu_cache_dump_ascii_file_paths', nargs=-1)
+@click.pass_context
+def diff_cache_dumps(ctx, emu_cache_dump_ascii_file_paths):
+    """Run diff on a list of ascii-format emulator dumps. Expects xfiles-emu-nets filenames.
+
+    Emulator cache dump file names are assumed to be xfiles-emu-nets-p-<net name>.cache.ascii
+    FANN cache dump file names are assumed to be <net name>-fixed.16bin.cache.ascii
+
+    Usage: find . '*.cache.ascii' |xargs tt diff_cache_dumps
+
+    Outputs: <net name>.cache.ascii.diff"""
+
+    debug = ctx.obj['DEBUG']
+    xfiles_dana_path = ctx.obj['XFILES_DANA_PATH']
+    build_nets_dir_path = path.join(xfiles_dana_path, 'build', 'nets')
+    _build_parse_learn_bin_path(ctx)
+    for emu_cache_dump_ascii_file_path in emu_cache_dump_ascii_file_paths:
+        # Get the filename
+        foo = emu_cache_dump_ascii_file_path.split('/')[-1]
+        # Remove the filename extension
+        net_name = foo.split('.')[0][19:-6]
+        if debug:
+            click.echo(net_name)
+        baseline_cache_bin_file_path = path.join(
+            build_nets_dir_path, net_name + '-fixed.16bin')
+        if debug:
+            click.echo(baseline_cache_bin_file_path)
+        # parse_learn_trace of baseline cache
+        _parse_learn_trace(
+            ctx,
+            baseline_cache_bin_file_path,
+            net_name +
+            '-fixed.cache.ascii')
+        _diff_cache_dump(
+            ctx,
+            net_name +
+            '-fixed.cache.ascii',
+            emu_cache_dump_ascii_file_path,
+            net_name +
+            '.cache.ascii.diff')
+
+
+def _build_parse_learn_bin_path(ctx):
+    """Helper function that adds PARSE_LEARN_BIN_PATH to the context"""
+    # Get xfiles-dana path from context
+    xfiles_dana_path = ctx.obj['XFILES_DANA_PATH']
+    # Build path to parse-learn-trace, assert it exists
+    parse_learn_bin_path = path.join(
+        xfiles_dana_path, 'tools', 'bin', 'parse-learn-trace')
+    assert path.exists(
+        parse_learn_bin_path), "parse_learn_bin_path does not exist!"
+    ctx.obj['PARSE_LEARN_BIN_PATH'] = parse_learn_bin_path
+
+
+@tt.command()
+@click.argument('cache_dump_bin_file_paths', nargs=-1)
+@click.pass_context
+def dump_cache_ascii(ctx, cache_dump_bin_file_paths):
+    """Convert a list of binary cache dumps to ascii
+
+    Usage: find . '*.cache.bin' |xargs tt dump_cache_ascii
+
+    Outputs: <input_file_name>.cache.ascii"""
+    debug = ctx.obj['DEBUG']
+    _build_parse_learn_bin_path(ctx)
+    # Iterate over binary cache dump files
+    for cache_dump_bin_file_path in cache_dump_bin_file_paths:
+        # Get the filename
+        foo = cache_dump_bin_file_path.split('/')[-1]
+        # Remove the filename extension
+        cache_dump_bin_file_name = foo.split('.')[0]
+        if debug:
+            click.echo(cache_dump_bin_file_name)
+        # Run parse-learn-trace and dump ascii
+        _parse_learn_trace(
+            ctx,
+            cache_dump_bin_file_path,
+            cache_dump_bin_file_name +
+            '.cache.ascii')
+
+# @tt.command()
+# @click.argument('cache_dump_names', nargs=-1)
+# @click.pass_context
+# def compare_cache_dumps(ctx, cache_dump_names):
+    # xfiles_dana_path = ctx.obj['XFILES_DANA_PATH']
+    # build_nets_dir_path = path.join(xfiles_dana_path, 'build', 'nets')
+    # assert path.exists(build_nets_dir_path), "build_nets_dir_path does not exist!"
+    # parse_learn_bin_path = path.join(xfiles_dana_path, 'tools', 'bin', 'parse-learn-trace')
+    # assert path.exists(parse_learn_bin_path), "parse_learn_bin_path does not exist!"
+    # ctx.obj['PARSE_LEARN_BIN_PATH'] = parse_learn_bin_path
+    # for name in cache_dump_names:
+        # baseline_cache_file_name = name[19:-19] + '-fixed.16bin'
+        # baseline_cache_file_path = path.join(build_nets_dir_path, baseline_cache_file_name)
+        # click.echo(name)
+        # click.echo(baseline_cache_file_path)
+        # # Convert binary cache trace to ascii cache trace
+        # _parse_learn_trace(ctx, baseline_cache_file_path, baseline_cache_file_name + '.cache.ascii')
+        # click.echo()
+
+
+def _parse_store_data_from_line(debug, res):
+    """_cache_dump helper function that fixes endinaness"""
+    foo = res.groups()[0]
+    # if debug: click.echo(foo)
+    bar = []
+    for i in range(0, len(foo), 4):
+        baz = foo[i + 2:i + 4] + foo[i:i + 2]
+        bar.append(baz)
+    bar.reverse()
+    baz = ''.join(bar)
+    # if debug: click.echo(baz)
+    return baz
+
+
+def _cache_dump(debug, baremetal_trace_file_path, cache_dump_file_path):
+    """Given a baremetal trace file path, find the cache lines and dump them to a binary file
+
+    Returns: list of found cache lines"""
+    re_store_data = compile(r"Received store data 0x([\da-f]+)")
+    cache_dump_res = []
+    # Search the trace file line-by-line,
+    # store found cache lines in list `cache_dump_res`
+    with open(baremetal_trace_file_path) as trace_file:
+        for line in trace_file:
+            res = re_store_data.search(line)
+            if res:
+                foo = _parse_store_data_from_line(debug, res)
+                cache_dump_res.append(foo)
+    if debug:
+        click.echo(cache_dump_res)
+    if cache_dump_res:
+        with open(cache_dump_file_path, 'wb') as out_file:
+            for line in cache_dump_res:
+                out_file.write(bytes.fromhex(line))
+    return cache_dump_res
+
+
+@tt.command()
+@click.argument('baremetal_trace_file_paths', nargs=-1)
+@click.pass_context
+def dump_cache_bin(ctx, baremetal_trace_file_paths):
+    """Dump binary format cache lines from baremetal learn trace files.
+
+    Usage: find . -name '*learn.test.trace' |xargs tt cache_dump_bin
+
+    Outputs: <file name>.cache.bin"""
+    debug = ctx.obj['DEBUG']
+    for baremetal_trace_file_path in baremetal_trace_file_paths:
+        # Get the filename
+        foo = baremetal_trace_file_path.split('/')[-1]
+        # Remove the filename extension
+        cache_dump_bin_file_name = foo.split('.')[0]
+        if debug:
+            click.echo(cache_dump_bin_file_name)
+        _cache_dump(
+            debug,
+            baremetal_trace_file_path,
+            cache_dump_bin_file_name +
+            '.cache.bin')
+
+
+if __name__ == '__main__':
+    tt(obj={})
