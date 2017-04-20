@@ -196,4 +196,4 @@ The following people, while not mentioned in the commit log, have contributed di
 * [Han Dong](http://cs-people.bu.edu/handong/)
 * [Leila Delshad Tehrani](http:/www.bu.edu/icsg)
 
-IBM contributions were funded by DARPA. Original work was funded by a NASA Space Technology Research Fellowship.
+This work was funded by a NASA Space Technology Research Fellowship.
