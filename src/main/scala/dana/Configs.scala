@@ -79,6 +79,7 @@ class DanaConfig
   (numPes:      Int     = 1,
     epb:        Int     = 4,
     cache:      Int     = 2,
+    cacheSize:  Int     = 32 * 1024,
     scratchpad: Int     = 10240,
     learning:   Boolean = true)
     extends Config( topDefinitions = {
@@ -87,6 +88,7 @@ class DanaConfig
     case PeTableNumEntries       => numPes
     case ElementsPerBlock        => epb
     case CacheNumEntries         => cache
+    case CacheDataSize           => cacheSize
     case RegisterFileNumElements => scratchpad
     case _ => throw new CDEMatchError
   }})

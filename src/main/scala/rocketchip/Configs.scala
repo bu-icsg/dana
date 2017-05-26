@@ -38,10 +38,10 @@ class WithL2CapacityKb(kb: Int) extends Config( topDefinitions = {
 
 // VLSI Configs -- no L2
 class XFilesDanaVLSIConfig extends Config(new XFilesDanaConfig ++
-  new DefaultXFilesConfig ++ new DanaConfig(4, 4, 2, 10240, true) ++
+  new DefaultXFilesConfig ++ new DanaConfig(4, 4, 2, 32 * 1024, 10240, true) ++
   new DefaultDanaConfig ++ new DefaultConfig)
 class XFilesDanaNoLearningVLSIConfig extends Config(new XFilesDanaConfig ++
-  new DefaultXFilesConfig ++ new DanaConfig(4, 4, 2, 10240, false) ++
+  new DefaultXFilesConfig ++ new DanaConfig(4, 4, 2, 32 * 1024, 10240, false) ++
   new DefaultDanaConfig ++ new DefaultConfig)
 // VLSI Configs -- with L2
 class XFilesDanaL2VLSIConfig extends Config(new WithL2CapacityKb(1024) ++
@@ -52,7 +52,7 @@ class XFilesDanaNoLearningL2VLSIConfig extends Config(
 // VLSI Configs -- smaller scratchpad
 class XFilesDanaNoLearningSmallScratchpadVLSIConfig extends Config(
   new XFilesDanaConfig ++ new DefaultXFilesConfig ++
-    new DanaConfig(4, 4, 2, 1024, false) ++ new DefaultDanaConfig ++
+    new DanaConfig(4, 4, 2, 32 * 1024, 1024, false) ++ new DefaultDanaConfig ++
     new DefaultConfig)
 
 // CPP Configs (these are the same as VLSI Configs)
