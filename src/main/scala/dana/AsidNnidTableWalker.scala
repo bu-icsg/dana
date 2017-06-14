@@ -148,13 +148,12 @@ class AsidNnidTableWalker(implicit p: Parameters) extends DanaModule()(p)
     }
   }
 
-  val hasCacheRequests = cacheReqQueue.io.count > 0.U
   val (loadRob, storeRob) = (Reg(new ConfigRobEntry), Reg(new ConfigRobEntry))
-  cacheReqQueue.io.deq.ready := state === s_IDLE & hasCacheRequests
+  cacheReqQueue.io.deq.ready := state === s_IDLE
   val antp = io.status.antp
   val antpValid = antp =/= ~(0.U(xLen.W))
   val deq = cacheReqQueue.io.deq.bits
-  when (state === s_IDLE & hasCacheRequests) {
+  when (state === s_IDLE & cacheReqQueue.io.deq.fire()) {
     // Pull data out of the cache request queue and save it in the
     // "current" buffer
     cacheReqCurrent := deq
