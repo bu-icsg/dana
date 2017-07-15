@@ -196,6 +196,7 @@ abstract class CacheBase[
     memIo(i).din(0) := 0.U
     memIo(i).addr(0) := 0.U
     memIo(i).we(0) := false.B
+    memIo(i).re(0) := false.B
   }
 
   // The cache can see requests from three locations:
@@ -259,6 +260,7 @@ abstract class CacheBase[
           // ASID/NNID found and ready
           table(derefNnid).inUseCount := table(derefNnid).inUseCount + 1.U
           controlRespPipe(0).valid := true.B
+          memIo(idxNotify).re(0) := true.B
           controlRespPipe(0).bits.field := e_CACHE_INFO
         }
       }
@@ -270,8 +272,9 @@ abstract class CacheBase[
         // Read the layer information from the correct block. A layer
         // occupies one block, so we need to pull the block address
         // out of the layer number.
-        memIo(derefNnid).addr(0) := 1.U + // Offset from info region
-        layer(layer.getWidth-1, log2Up(elementsPerBlock))
+        memIo(derefNnid).addr(0) := (1.U + // Offset from info region
+          layer(layer.getWidth-1, log2Up(elementsPerBlock)) )
+        memIo(derefNnid).re(0) := true.B
       }
       is (e_CACHE_DECREMENT_IN_USE_COUNT) {
         table(derefNnid).inUseCount := table(derefNnid).inUseCount - 1.U
@@ -281,6 +284,7 @@ abstract class CacheBase[
     // Start a response to the control unit
     controlRespPipe(0).valid := true.B
     controlRespPipe(0).bits.field := e_CACHE_INFO
+    memIo(idxNotify).re(0) := true.B
     // Now that this is away, we can deassert some table bits, and
     // properly set the inUse count
     table(idxNotify).fetch := false.B
@@ -301,8 +305,8 @@ abstract class CacheBase[
       controlRespPipe(1).bits.data(0) := dataDecode.totalLayers
       controlRespPipe(1).bits.data(1) := dataDecode.totalNeurons
       // Pass back the error function in LSBs of data(2)
-      controlRespPipe(1).bits.data(2) :=
-      0.U((16-errorFunctionWidth).W) ## dataDecode.errorFunction
+      controlRespPipe(1).bits.data(2) := (0.U((16-errorFunctionWidth).W) ##
+        dataDecode.errorFunction)
       controlRespPipe(1).bits.data(3) := dataDecode.learningRate
       controlRespPipe(1).bits.data(4) := dataDecode.lambda
       controlRespPipe(1).bits.data(5) := dataDecode.totalWeightBlocks
@@ -330,7 +334,8 @@ abstract class CacheBase[
     // [TODO] This shift may be a source of bugs. Check to make sure
     // that it's being passed correctly.
     memIo(io.pe.req.bits.cacheIndex).addr(0) :=
-    io.pe.req.bits.cacheAddr >> ((2 + log2Up(elementsPerBlock)).U)
+      io.pe.req.bits.cacheAddr >> ((2 + log2Up(elementsPerBlock)).U)
+    memIo(io.pe.req.bits.cacheIndex).re(0) := true.B
     printfInfo("block address from byte address 0x%x/0x%x\n",
       io.pe.req.bits.cacheAddr,
       io.pe.req.bits.cacheAddr >> ((2 + log2Up(elementsPerBlock)).U) )
@@ -422,8 +427,7 @@ class Cache(implicit p: Parameters) extends CacheBase[
     Module(new SRAMVariant(
       dataWidth = p(BitsPerBlock),
       sramDepth = p(CacheNumBlocks),
-      numPorts = 1,
-      enableDump = p(EnableCacheDump))))
+      numPorts = 1)))
   lazy val memIo = Wire(Vec(cacheNumEntries, mem(0).io.cloneType))
 
   def genControlReq = new ControlCacheInterfaceReq
@@ -444,7 +448,6 @@ class CacheLearn(implicit p: Parameters) extends CacheBase[SRAMBlockIncrement,
       dataWidth = p(BitsPerBlock),
       sramDepth = p(CacheNumBlocks),
       numPorts = 1,
-      enableDump = p(EnableCacheDump),
       elementWidth = p(ElementWidth) )))
   lazy val memIo = Wire(Vec(p(CacheNumEntries), mem(0).io.cloneType))
 
@@ -540,17 +543,10 @@ class CacheLearn(implicit p: Parameters) extends CacheBase[SRAMBlockIncrement,
       p.fence_asid := t.asid
       printfInfo("Writeback done for asid/nnid (0x%x/0x%x)\n", t.asid, t.nnid)
     } .otherwise {
+      m.re(0) := true.B
       m.we(0) := false.B
       m.addr(0) := req.bits.addr
       resp.valid := RegNext(req.fire())
     }
   }
-
-  if (p(EnableCacheDump)) {
-    val dumpLoad = io.antw.load.valid && io.antw.load.bits.done
-    val dumpCond = tTableReqQueue.deq.valid && !io.pe.req.valid && (
-      request === e_CACHE_DECREMENT_IN_USE_COUNT)
-    memIo.zipWithIndex.map{ case(m, i) => m.dump := (
-      dumpLoad && io.antw.load.bits.cacheIndex === i.U) || (
-      dumpCond && (derefNnid === i.U) && table(i.U).dirty) }}
 }

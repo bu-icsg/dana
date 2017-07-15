@@ -106,8 +106,12 @@ class SRAMElementIncrement (
       log2Up(sramDepth * elementsPerBlock) - 1, log2Up(elementsPerBlock))
     addr(i).addrLo := io.addr(i)(log2Up(elementsPerBlock) - 1, 0)
 
+    val fwd = (io.we(i) && writePending(i).valid &&
+      addr(i).addrHi === writePending(i).addrHi)
+
     // Connections to the sram
     sram.io.weW(i) := writePending(i).valid
+    sram.io.reR(i) := io.re(i) || (io.we(i) && !fwd)
     sram.io.dinW(i) := tmp1(i).asUInt
     sram.io.addrW(i) := writePending(i).addrHi
     sram.io.addrR(i) := addr(i).addrHi
@@ -117,8 +121,7 @@ class SRAMElementIncrement (
     val doutRTupled = (((x: Int, y: Int) => sram.io.doutR(i)(x, y)) tupled)
     (0 until elementsPerBlock).map(j => tmp0(i)(j) := doutRTupled(index(j)))
     tmp1(i) := tmp0(i)
-    forwarding(i) := addr(i).addrHi === writePending(i).addrHi && io.we(i) &&
-      writePending(i).valid
+    forwarding(i) := fwd
 
     // Deal with a pending write if one exists
     when (writePending(i).valid) {

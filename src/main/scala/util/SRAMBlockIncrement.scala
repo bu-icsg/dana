@@ -55,7 +55,6 @@ class SRAMBlockIncrement (
   override val dataWidth: Int = 32,
   override val sramDepth: Int = 64,
   override val numPorts: Int = 1,
-  override val enableDump: Boolean = false,
   val elementWidth: Int = 8
 ) extends SRAMVariant {
   override lazy val io = IO(new SRAMBlockIncrementInterface(
@@ -87,19 +86,22 @@ class SRAMBlockIncrement (
 
   // Combinational Logic
   for (i <- 0 until numPorts) {
+    val fwd = (io.we(i) && writePending(i).valid &&
+      io.addr(i) === writePending(i).addr)
+
     // Connections to the sram
     sram.io.weW(i) := writePending(i).valid
     sram.io.dinW(i) := tmp1(i).asUInt
     sram.io.addrW(i) := writePending(i).addr
     sram.io.addrR(i) := io.addr(i)
+    sram.io.reR(i) := io.re(i) || (io.we(i) && !fwd)
     io.dout(i) := sram.io.doutR(i)
 
     // Defaults
     val doutRTupled = (((x: Int, y: Int) => sram.io.doutR(i)(x, y)) tupled)
     (0 until elementsPerBlock).map(j => tmp0(i)(j) := doutRTupled(index(j)))
     tmp1(i) := tmp0(i)
-    forwarding(i) := writePending(i).valid && io.we(i) &&
-      io.addr(i) === writePending(i).addr
+    forwarding(i) := fwd
 
     // Handle a pending write if one exists
     when (writePending(i).valid) {

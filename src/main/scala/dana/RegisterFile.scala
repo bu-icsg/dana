@@ -43,6 +43,7 @@ class RegisterFileBase[SramIf <: SRAMElementInterface](
   for (transaction <- 0 until transactionTableNumEntries) {
     for (port <- 0 until mem(transaction).numPorts) {
       mem(transaction).we(port) := false.B
+      mem(transaction).re(port) := false.B
       mem(transaction).din(port) := 0.U
       mem(transaction).dinElement(port) := 0.U
       mem(transaction).addr(port) := 0.U
@@ -79,7 +80,7 @@ class RegisterFileBase[SramIf <: SRAMElementInterface](
         }
       }
     } .otherwise {                  // This is a read
-      mem(tIdx).we(0) := false.B
+      mem(tIdx).re(0) := true.B
       mem(tIdx).addr(0) := io.pe.req.bits.addr
       printfInfo("PE read tIdx/Addr 0x%x/0x%x\n", tIdx,
         io.pe.req.bits.addr)
@@ -112,6 +113,7 @@ class RegisterFileBase[SramIf <: SRAMElementInterface](
       is (e_TTABLE_REGFILE_READ) {
         printfInfo("Saw TTable read Addr 0x%x\n",
           io.tTable.req.bits.addr)
+        mem(tIdx).re(0) := true.B
         mem(tIdx).dinElement(0) := io.tTable.req.bits.data
         mem(tIdx).addr(0) := io.tTable.req.bits.addr
       }

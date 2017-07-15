@@ -15,18 +15,17 @@ class SRAMVariantInterface(
     sramDepth = sramDepth,
     numPorts = numPorts).asInstanceOf[this.type]
   val we   = Input(Vec(numPorts, Bool()))
+  val re   = Input(Vec(numPorts, Bool()))
   val din  = Input(Vec(numPorts, UInt(dataWidth.W)))
   val addr = Input(Vec(numPorts, UInt(log2Up(sramDepth).W)))
   val dout = Output(Vec(numPorts, UInt(dataWidth.W)))
-  val dump = Input(Bool())
 }
 
 class SRAMVariant(
   val id: Int = 0,
   val dataWidth: Int = 32,
   val sramDepth: Int = 64,
-  val numPorts: Int = 1,
-  val enableDump: Boolean = false
+  val numPorts: Int = 1
 ) extends Module {
 
   def writeElement(a: Vec[UInt], index: UInt, b: UInt) { a(index) := b }
@@ -42,8 +41,7 @@ class SRAMVariant(
     sramDepth = sramDepth,
     numReadPorts = numPorts,
     numWritePorts = numPorts,
-    numReadWritePorts = 0,
-    enableDump = enableDump))
+    numReadWritePorts = 0))
 
   def divUp (dividend: Int, divisor: Int): Int = {
     (dividend + divisor - 1) / divisor}
@@ -51,9 +49,9 @@ class SRAMVariant(
   // Basic block read and block write
   (0 until numPorts).map(i => {
     sram.io.weW(i) := io.we(i)
+    sram.io.reR(i) := io.re(i)
     sram.io.dinW(i) := io.din(i)
     sram.io.addrR(i) := io.addr(i)
     sram.io.addrW(i) := io.addr(i)
     io.dout(i) := sram.io.doutR(i) })
-  sram.io.dump := io.dump
 }

@@ -33,8 +33,9 @@ class SRAMInterface(
   // Write enable
   val we    = Input(Vec(numReadWritePorts, Bool()))
   val weW   = Input(Vec(numWritePorts,     Bool()))
-  // Dump signal
-  val dump  = Input(Bool())
+  // Read enable
+  val re    = Input(Vec(numReadWritePorts, Bool()))
+  val reR   = Input(Vec(numReadPorts, Bool()))
 }
 
 class SRAM (
@@ -45,8 +46,7 @@ class SRAM (
   val numWritePorts: Int     = 0,
   val numReadWritePorts: Int = 2,
   val initSwitch: Int        = -1,
-  val elementsPerBlock: Int  = -1,
-  val enableDump: Boolean    = false
+  val elementsPerBlock: Int  = -1
 ) extends Module {
   val io = IO(new SRAMInterface(
     numReadPorts = numReadPorts,
@@ -63,7 +63,9 @@ class SRAM (
       when (io.we(i)) {
         mem(io.addr(i)) := io.din(i)
       }
-      buf(i) := mem(io.addr(i))
+      when (io.re(i)) {
+        buf(i) := mem(io.addr(i))
+      }
       io.dout(i) := buf(i)
     }
   }
@@ -71,7 +73,9 @@ class SRAM (
   if (numReadPorts > 0) {
     val bufR = Reg(Vec(numReadPorts, UInt(dataWidth.W)))
     for (i <- 0 until numReadPorts) {
-      bufR(i) := mem(io.addrR(i))
+      when (io.reR(i)) {
+        bufR(i) := mem(io.addrR(i))
+      }
       io.doutR(i) := bufR(i)
     }
   }
@@ -83,9 +87,6 @@ class SRAM (
       }
     }
   }
-
-  if (enableDump) { when(io.dump) { mem.zipWithIndex.map { case(m, i) =>
-    printf("SRAM[0x%x]: 0x%x -> 0x%x\n", id.U, i.U, m) }} }
 }
 
 class SRAMSinglePortInterface(

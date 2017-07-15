@@ -83,18 +83,21 @@ class SRAMElement (
       log2Up(sramDepth * elementsPerBlock) - 1, log2Up(elementsPerBlock))
     addr(i).addrLo := io.addr(i)(log2Up(elementsPerBlock) - 1, 0)
 
+    val fwd = (io.we(i) && writePending(i).valid &&
+      addr(i).addrHi === writePending(i).addrHi)
+
     // Connections to the sram
     sram.io.weW(i) := writePending(i).valid
     sram.io.dinW(i) := tmp(i)
     sram.io.addrW(i) := writePending(i).addrHi
     sram.io.addrR(i) := addr(i).addrHi
+    sram.io.reR(i) := io.re(i) || (io.we(i) && !fwd)
     io.dout(i) := sram.io.doutR(i)
 
     // Defaults
     val doutRTupled = (((x: Int, y: Int) => sram.io.doutR(i)(x, y)) tupled)
     (0 until elementsPerBlock).map(j => tmp(i)(j) := doutRTupled(index(j)))
-    forwarding(i) := addr(i).addrHi === writePending(i).addrHi && io.we(i) &&
-      writePending(i).valid
+    forwarding(i) := fwd
 
     when (writePending(i).valid) {
       // Write the element
@@ -107,7 +110,7 @@ class SRAMElement (
   for (i <- 0 until numPorts) {
     // Assign the pending write data
     writePending(i).valid := false.B
-    when ((io.we(i)) && (forwarding(i) === false.B)) {
+    when (io.we(i) && (forwarding(i) === false.B)) {
       writePending(i).valid := true.B
       writePending(i).data := io.dinElement(i)
       writePending(i).addrHi := addr(i).addrHi
