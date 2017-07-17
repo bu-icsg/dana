@@ -91,3 +91,6 @@ class DanaConfig
     case RegisterFileNumElements => scratchpad
     case _ => throw new CDEMatchError
   }})
+
+class DanaAsicConfig extends Config(
+  new DanaConfig(numPes=4, cache=1, scratchpad=2048, cacheSize=128*1024)
