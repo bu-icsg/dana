@@ -17,6 +17,7 @@ TOOLS = \
 	fann-random \
 	fann-train \
 	generate-ant \
+	parse-learn-trace \
 	fann-eval \
 	fann-eval-fixed
 BINS     = $(addprefix $(DIR_BIN)/, $(TOOLS))
@@ -48,9 +49,13 @@ LDIRS = \
 	$(DIR_BIN)/fann-train.o \
 	$(DIR_BIN)/fann-random.o \
 	$(DIR_BIN)/fann-float-to-fixed.o \
-	$(DIR_BIN)/generate-ant.o
+	$(DIR_BIN)/generate-ant.o \
+	$(DIR_BIN)/parse-learn-trace.o
 
 $(DIR_BIN)/generate-ant: $(DIR_BIN)/generate-ant.o $(DIR_TOP)/tests/libs/build/$(TARGET)/libxfiles-ant.a $(libfann_dep)
+	$(CC) $(CFLAGS) $< $(LDIRS) -lxfiles-ant -o $@
+
+$(DIR_BIN)/parse-learn-trace: $(DIR_BIN)/parse-learn-trace.o $(DIR_TOP)/tests/libs/build/$(TARGET)/libxfiles-ant.a $(libfann_dep)
 	$(CC) $(CFLAGS) $< $(LDIRS) -lxfiles-ant -o $@
 
 # No pattern rules as I need to be explicit about what is linking
