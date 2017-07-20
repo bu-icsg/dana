@@ -44,6 +44,7 @@ class DefaultDanaConfig extends Config ( topDefinitions = {
     // Configuration Cache
     case CacheNumEntries           => 2
     case CacheDataSize             => 32 * 1024
+    case CacheInit                 => Nil
     // Register File
     case RegisterFileNumElements   => 10240
     // Enables support for in-hardware learning
@@ -89,6 +90,15 @@ class DanaConfig
     case CacheNumEntries         => cache
     case CacheDataSize           => cacheSize
     case RegisterFileNumElements => scratchpad
+    case _ => throw new CDEMatchError
+  }})
+
+case class CacheInitParameters(asid: Int, nnid: Int)
+
+class CacheInitialized extends Config( topDefinitions = {
+  (pname,site,here) => pname match {
+    case CacheInit => Seq(
+      CacheInitParameters(asid = 1, nnid = 0))
     case _ => throw new CDEMatchError
   }})
 

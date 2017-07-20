@@ -11,6 +11,8 @@ import cde._
 //   * I don't think that the location bit is used at all. Remove this
 //     if it isn't
 
+case object CacheInit extends Field[Seq[CacheInitParameters]]
+
 object CacheTypes {
   object Mem {
     val read = 0x0
@@ -384,8 +386,21 @@ abstract class CacheBase[
   }
 
   // Reset
-  when (reset) {for (i <- 0 until cacheNumEntries) {
-    table(i).valid := false.B }}
+  when (reset) {
+    for (i <- 0 until cacheNumEntries) { table(i).valid := false.B }
+    // Optional Cache initialization
+    if (!p(CacheInit).isEmpty) {
+      p(CacheInit).zipWithIndex.map{ case (c, i) => {
+        when (reset) {
+          table(i).valid       := true.B
+          table(i).asid        := c.asid.U
+          table(i).nnid        := c.nnid.U
+          table(i).notifyFlag  := false.B
+          table(i).fetch       := false.B
+          table(i).notifyIndex := 0.U
+          table(i).notifyMask  := 0.U
+          table(i).inUseCount  := 0.U } }}}
+  }
 
   // Assertions
 
