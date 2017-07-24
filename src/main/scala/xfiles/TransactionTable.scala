@@ -279,7 +279,8 @@ class XFilesTransactionTable(implicit p: Parameters) extends XFilesModule()(p)
     val finished = entry.flags.done && queueOutput(idxAsidTid).count === 1.U
     readDataPollCount := readDataPollCount + 1.U
     // error := readDataPollCount > 512.U
-    when (queueOutput(idxAsidTid).deq.fire() & finished) {
+    when (queueOutput(idxAsidTid).deq.fire() & finished &
+      !queueOutput(idxAsidTid).enq.fire()) {
       printfInfo("T0d%d is done via queue, evicting...\n", idxAsidTid)
     }
   }
