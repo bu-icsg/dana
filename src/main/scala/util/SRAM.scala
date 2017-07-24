@@ -55,38 +55,17 @@ class SRAM (
     dataWidth = dataWidth,
     sramDepth = sramDepth))
 
-  val mem = Mem(sramDepth, UInt(dataWidth.W))
+  val mem = SeqMem(sramDepth, UInt(dataWidth.W))
 
-  if (numReadWritePorts > 0) {
-    val buf = Reg(Vec(numReadWritePorts, UInt(dataWidth.W)))
-    for (i <- 0 until numReadWritePorts) {
-      when (io.we(i)) {
-        mem(io.addr(i)) := io.din(i)
-      }
-      when (io.re(i)) {
-        buf(i) := mem(io.addr(i))
-      }
-      io.dout(i) := buf(i)
-    }
-  }
+  for (i <- 0 until numReadWritePorts) {
+    when (io.we(i))                    { mem(io.addr(i))  := io.din(i)        }
+    when (io.re(i))                    { io.dout(i)       := mem(io.addr(i))  }}
 
-  if (numReadPorts > 0) {
-    val bufR = Reg(Vec(numReadPorts, UInt(dataWidth.W)))
-    for (i <- 0 until numReadPorts) {
-      when (io.reR(i)) {
-        bufR(i) := mem(io.addrR(i))
-      }
-      io.doutR(i) := bufR(i)
-    }
-  }
+  for (i <- 0 until numReadPorts)      {
+    when (io.reR(i))                   { io.doutR(i)      := mem(io.addrR(i)) }}
 
-  if (numWritePorts > 0) {
-    for (i <- 0 until numWritePorts) {
-      when (io.weW(i)) {
-        mem(io.addrW(i)) := io.dinW(i)
-      }
-    }
-  }
+  for (i <- 0 until numWritePorts)     {
+    when (io.weW(i))                   { mem(io.addrW(i)) := io.dinW(i)       }}
 }
 
 class SRAMSinglePortInterface(
