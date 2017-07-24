@@ -424,7 +424,6 @@ class DanaTransactionTableBase[StateType <: TransactionState,
     // overwrite that of the e_TTABLE_LAYER.
     when (resp.layerValid) {
       val tIdx = resp.layerValidIndex
-      val inLastOld = table(tIdx).inLast
       val inLastNew = table(tIdx).currentLayer === (table(tIdx).numLayers - 1.U)
       table(tIdx).inLast := inLastNew
       printfInfo("RegFile has all outputs of tIdx 0x%x\n",
@@ -728,12 +727,9 @@ class DanaTransactionTable(implicit p: Parameters)
       val inLastNew = table(tIdx).currentLayer === (table(tIdx).numLayers - 1.U)
       val inFirstNew = table(tIdx).currentLayer === 0.U
       table(tIdx).inFirst := inFirstNew
-      when (!inLastOld) {
-        table(tIdx).waiting := false.B
-      } .otherwise {
-        table(tIdx).decInUse := true.B
-        table(tIdx).waiting := false.B
-      }
+      table(tIdx).waiting := false.B
+      when (inLastOld) {
+        table(tIdx).decInUse := true.B }
       printfInfo("  inFirst/inLast: %x->%x/%x->%x\n", table(tIdx).inFirst,
         inFirstNew, inLastOld, inLastNew)
     }
