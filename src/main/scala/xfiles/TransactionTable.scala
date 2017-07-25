@@ -234,19 +234,21 @@ class XFilesTransactionTable(implicit p: Parameters) extends XFilesModule()(p)
     }
   }
 
+  val entry = table(idxAsidTid)
   when (writeData | writeDataLast) {
     val queue = queueInput(idxAsidTid)
     genResp(resp_d.bits.rocc.data, resp_QUEUE_ERR, tid)
     when (queue.enq.ready) {
       genResp(resp_d.bits.rocc.data, resp_OK, tid)
-      table(idxAsidTid).flags.input := false.B
+      entry.flags.input := false.B
     }
   }
 
+  val finished = ( entry.flags.done &&
+    queueOutput(idxAsidTid).count === 1.U &&
+    !queueOutput(idxAsidTid).enq.fire() )
   when (readDataPoll) {
     // val queueOut = queueOutput(idxAsidTid)
-    val entry = table(idxAsidTid)
-    val finished = entry.flags.done && queueOutput(idxAsidTid).count === 1.U
     genResp(resp_d.bits.rocc.data, resp_NOT_DONE, tid)
     when (queueOutput(idxAsidTid).deq.fire()) {
       genResp(resp_d.bits.rocc.data, resp_OK, tid, queueOutput(idxAsidTid).deq.bits)
@@ -275,12 +277,9 @@ class XFilesTransactionTable(implicit p: Parameters) extends XFilesModule()(p)
   when (writeData)     { printfInfo("writeData(ASID 0x%x, TID 0x%x)\n", asid, tid)     }
   when (writeDataLast) { printfInfo("writeDataLast(ASID 0x%x, TID 0x%x)\n", asid, tid) }
   when (readDataPoll)  { printfInfo("readDataPoll(ASID 0x%x, TID 0x%x)\n", asid, tid)
-    val entry = table(idxAsidTid)
-    val finished = entry.flags.done && queueOutput(idxAsidTid).count === 1.U
     readDataPollCount := readDataPollCount + 1.U
     // error := readDataPollCount > 512.U
-    when (queueOutput(idxAsidTid).deq.fire() & finished &
-      !queueOutput(idxAsidTid).enq.fire()) {
+    when (queueOutput(idxAsidTid).deq.fire() & finished) {
       printfInfo("T0d%d is done via queue, evicting...\n", idxAsidTid)
     }
   }
