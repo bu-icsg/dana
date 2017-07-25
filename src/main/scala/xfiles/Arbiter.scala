@@ -19,7 +19,7 @@ class XFilesArbiter()(implicit p: Parameters)
 
   override val printfSigil = "xfiles.Arbiter: "
 
-  val tTable = Module(new XFilesTransactionTable).io
+  val tTable = Module(XFilesTransactionTable()(p)).io
   val csrFile = buildBackend.csrFile_gen(p)
 
   // Each user request from a core gets entered into a queue. This is

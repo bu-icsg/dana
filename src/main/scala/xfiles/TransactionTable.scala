@@ -81,6 +81,8 @@ class RespBundle(implicit p: Parameters) extends XFilesBundle()(p) {
 
 class XFilesTransactionTable(implicit p: Parameters) extends XFilesModule()(p)
     with HasTable with XFilesResponseCodes {
+   override val printfSigil = "xfiles.TTable: "
+
   val io = IO( new Bundle {
     val xfiles = new RoCCInterface
     val backend = Flipped(new XFilesBackendInterface)
@@ -88,8 +90,6 @@ class XFilesTransactionTable(implicit p: Parameters) extends XFilesModule()(p)
     val probes = Output(new XFProbes)
     val probes_backend = Output(p(BuildXFilesBackend).csrProbes_gen(p))
   })
-
-  override val printfSigil = "xfiles.TTable: "
 
   val queueSize = p(TransactionTableQueueSize)
 
@@ -194,7 +194,7 @@ class XFilesTransactionTable(implicit p: Parameters) extends XFilesModule()(p)
 
     queueOutput(i).deq.ready := deq
   })
-  io.backend.xfQueue.out.ready := !queueOutput(io.backend.xfQueue.tidxOut).almostFull
+  io.backend.xfQueue.out.ready := !queueOutput(io.backend.xfResp.tidx.bits).almostFull
 
   // Hook up the arbiter to the table
   (0 until numEntries).map(i => {
@@ -226,8 +226,6 @@ class XFilesTransactionTable(implicit p: Parameters) extends XFilesModule()(p)
   when (newRequest) {
     val queue = queueInput(idxFree)
     genResp(resp_d.bits.rocc.data, resp_TID, (-err_XFILES_TTABLEFULL).S(tidWidth.W))
-    printfInfo("newRequest: idxFree 0x%x, ttable_entries 0x%x\n", idxFree,
-      io.status.ttable_entries)
     when (hasFree & queue.enq.ready) {
       genResp(resp_d.bits.rocc.data, resp_TID, tid)
       table(idxFree).reserve(asid, tid)
@@ -265,65 +263,87 @@ class XFilesTransactionTable(implicit p: Parameters) extends XFilesModule()(p)
   }
 
   when (reset) { (0 until numEntries).map(i => { table(i).reset() })}
+}
 
-  //------------------------------------ Printfs, asserts
-  val error = Reg(Bool(), init = false.B)
+object XFilesTransactionTable {
+  trait Printfs extends XFilesTransactionTable {
+    val readDataPollCount = Reg(init = 0.U(32.W))
 
-  // Check for too many reads without a response
-  val readDataPollCount = Reg(init = 0.U(32.W))
-
-  when (newRequest)    { printfInfo("newRequest(ASID 0x%x, TID 0x%x)\n", asid, tid)    }
-  when (unknownCmd)    { printfInfo("unknownCmd(ASID 0x%x, TID 0x%x)\n", asid, tid)    }
-  when (writeData)     { printfInfo("writeData(ASID 0x%x, TID 0x%x)\n", asid, tid)     }
-  when (writeDataLast) { printfInfo("writeDataLast(ASID 0x%x, TID 0x%x)\n", asid, tid) }
-  when (readDataPoll)  { printfInfo("readDataPoll(ASID 0x%x, TID 0x%x)\n", asid, tid)
-    readDataPollCount := readDataPollCount + 1.U
-    // error := readDataPollCount > 512.U
-    when (queueOutput(idxAsidTid).deq.fire() & finished) {
-      printfInfo("T0d%d is done via queue, evicting...\n", idxAsidTid)
+    when (newRequest) {
+      printfInfo("newRequest(ASID 0x%x, TID 0x%x)\n", asid, tid) }
+    when (unknownCmd) {
+      printfInfo("unknownCmd(ASID 0x%x, TID 0x%x)\n", asid, tid) }
+    when (writeData) {
+      printfInfo("writeData(ASID 0x%x, TID 0x%x)\n", asid, tid) }
+    when (writeDataLast) {
+      printfInfo("writeDataLast(ASID 0x%x, TID 0x%x)\n", asid, tid) }
+    when (readDataPoll) {
+      printfInfo("readDataPoll(ASID 0x%x, TID 0x%x)\n", asid, tid)
+      readDataPollCount := readDataPollCount + 1.U
+      // error := readDataPollCount > 512.U
+      when (queueOutput(idxAsidTid).deq.fire() & finished) {
+        printfInfo("T0d%d is done via queue, evicting...\n", idxAsidTid)
+      }
     }
+
+    when (arbiter.out.fire()) {
+      val tidx = arbiter.chosen
+      printfInfo("Arbiter scheduled tidx 0d%d (ASID:0x%x/TID:0x%x)\n",
+        tidx, table(tidx).asid, table(tidx).tid)
+    }
+
+    when (io.xfiles.resp.fire()) {
+      printfInfo("XF TTable response to R0d%d with data 0x%x\n",
+        io.xfiles.resp.bits.rd, io.xfiles.resp.bits.data)
+    }
+
+    (0 until numEntries).map(i => {
+      when (queueInput(i).enq.fire()) {
+        printfInfo("queueIn[%d] enq [f:0x%x, rs1:0x%x, rs2:0x%x], #:0d%d\n",
+          i.U, queueInput(i).enq.bits.funct, queueInput(i).enq.bits.rs1,
+          queueInput(i).enq.bits.rs2, queueInput(i).count) }
+      when (queueInput(i).deq.fire()) {
+        printfInfo("queueIn[%d] deq [f:0x%x, rs1:0x%x, rs2:0x%x], #:0d%d\n",
+          i.U, queueInput(i).deq.bits.funct, queueInput(i).deq.bits.rs1,
+          queueInput(i).deq.bits.rs2, queueInput(i).count) }
+      when (queueOutput(i).enq.fire()) {
+        printfInfo("queueOut[%d] enq [data:0x%x], #:0d%d\n",
+          i.U, queueOutput(i).enq.bits, queueOutput(i).count) }
+      when (queueOutput(i).deq.fire()) {
+        printfInfo("queueOut[%d] deq [data:0x%x], #:0d%d\n",
+          i.U, queueOutput(i).deq.bits, queueOutput(i).count) }
+    })
+
+    when (RegNext(newRequest | writeData | writeDataLast | readDataPoll |
+      io.backend.xfResp.tidx.fire())) {
+      info(table, "xfttable,") }
   }
 
-  when (arbiter.out.fire()) {
-    val tidx = arbiter.chosen
-    printfInfo("Arbiter scheduled tidx 0d%d (ASID:0x%x/TID:0x%x)\n",
-      tidx, table(tidx).asid, table(tidx).tid)
+  trait Asserts extends XFilesTransactionTable {
+    val error = Reg(Bool(), init = false.B)
+
+    (0 until numEntries).map(i => {
+      assert(!(queueInput(i).enq.valid & !queueInput(i).enq.ready),
+        printfSigil ++ "Input queue overflowed\n")
+
+      assert(!(queueOutput(i).count === 0.U &&
+        table(i).flags.valid && table(i).flags.reserved && table(i).flags.output),
+        printfSigil ++ "(deadlock) Output queue empty, but waiting for dequeue")
+
+      assert(!(queueInput(i).count === queueSize.U &&
+        table(i).flags.valid && table(i).flags.reserved && table(i).flags.input),
+        printfSigil ++ "(deadlock) Input queue full, but waiting for enqueue")
+    })
+
+    assert(!(resp_d.valid & io.backend.rocc.resp.valid),
+      printfSigil ++ "newRequest resp just aliased backend resp")
+    assert(!((writeData | writeDataLast) & !hitAsidTid),
+      printfSigil ++ "writeData or writeDataLast without TTable ASID/TID hit")
+    assert(!(error),
+      printfSigil ++ "error asserted")
   }
 
-  when (io.xfiles.resp.fire()) {
-    printfInfo("XF TTable response to R0d%d with data 0x%x\n",
-      io.xfiles.resp.bits.rd, io.xfiles.resp.bits.data)
+  def apply()(implicit p: Parameters): XFilesTransactionTable = {
+    new XFilesTransactionTable with Printfs with Asserts
   }
-
-  (0 until numEntries).map(i => {
-    // Input Queue
-    assert(!(queueInput(i).enq.valid & !queueInput(i).enq.ready),
-      printfSigil ++ "Input queue overflowed\n")
-    when (queueInput(i).enq.fire()) {
-      printfInfo("queueIn[%d] enq [f:0x%x, rs1:0x%x, rs2:0x%x], #:0d%d\n",
-        i.U, queueInput(i).enq.bits.funct, queueInput(i).enq.bits.rs1,
-        queueInput(i).enq.bits.rs2, queueInput(i).count) }
-    when (queueInput(i).deq.fire()) {
-      printfInfo("queueIn[%d] deq [f:0x%x, rs1:0x%x, rs2:0x%x], #:0d%d\n",
-        i.U, queueInput(i).deq.bits.funct, queueInput(i).deq.bits.rs1,
-        queueInput(i).deq.bits.rs2, queueInput(i).count) }
-    when (queueOutput(i).enq.fire()) {
-      printfInfo("queueOut[%d] enq [data:0x%x], #:0d%d\n",
-        i.U, queueOutput(i).enq.bits, queueOutput(i).count) }
-    when (queueOutput(i).deq.fire()) {
-      printfInfo("queueOut[%d] deq [data:0x%x], #:0d%d\n",
-        i.U, queueOutput(i).deq.bits, queueOutput(i).count) }
-  })
-
-  when (RegNext(newRequest | writeData | writeDataLast | readDataPoll |
-    io.backend.xfResp.tidx.fire())) {
-    info(table, "xfttable,") }
-
-  // Explicit assertions
-  assert(!(resp_d.valid & io.backend.rocc.resp.valid),
-    printfSigil ++ "newRequest resp just aliased backend resp")
-  assert(!((writeData | writeDataLast) & !hitAsidTid),
-    printfSigil ++ "writeData or writeDataLast without TTable ASID/TID hit")
-  assert(!(error),
-    printfSigil ++ "error asserted")
 }

@@ -484,7 +484,6 @@ class DanaTransactionTableBase[StateType <: TransactionState,
       entry.needsAsidNnid | entry.needsInputs)
   })
   io.arbiter.xfQueue.tidxIn := ioArbiter.chosen
-  io.arbiter.xfQueue.tidxOut := Reg(next = ioArbiter.chosen)
   io.arbiter.xfResp.tidx.bits := ioArbiter.chosen
   io.arbiter.xfResp.flags.reset("vdio")
 
@@ -492,7 +491,8 @@ class DanaTransactionTableBase[StateType <: TransactionState,
   queueOutTidx_d.valid := false.B
   queueOutTidx_d.bits := ioArbiter.chosen
   when (ioArbiter.out.valid) {
-    val entry = table(ioArbiter.chosen)
+    val tidIdx = ioArbiter.chosen
+    val entry = table(tidIdx)
     when (entry.needsAsidNnid) {
       when (!io.arbiter.xfQueue.in.valid) {
         io.arbiter.xfResp.tidx.valid := true.B
@@ -518,7 +518,6 @@ class DanaTransactionTableBase[StateType <: TransactionState,
     }
 
     when (entry.needsInputs) {
-      val tidIdx = io.arbiter.xfResp.tidx.bits
       when (!io.arbiter.xfQueue.in.valid) {
         io.arbiter.xfResp.tidx.valid := true.B
         io.arbiter.xfResp.flags.set("vi")
@@ -552,6 +551,7 @@ class DanaTransactionTableBase[StateType <: TransactionState,
       }
     }
 
+    // [TODO] This needs a response pipe..
     when (entry.flags.done) {
       when (!io.arbiter.xfQueue.out.ready) {
         io.arbiter.xfResp.tidx.valid := true.B
@@ -564,6 +564,7 @@ class DanaTransactionTableBase[StateType <: TransactionState,
         // overwrite the FIFO.
         io.regFile.req.valid := true.B
         io.regFile.req.bits.reqType := e_TTABLE_REGFILE_READ
+        io.regFile.req.bits.tidIdx := tidIdx
         io.regFile.req.bits.addr := entry.readIdx + entry.regFileAddrOutFixed
 
         entry.readIdx := entry.readIdx + 1.U
@@ -577,6 +578,7 @@ class DanaTransactionTableBase[StateType <: TransactionState,
 
   io.arbiter.xfQueue.out.valid := queueOutTidx_d.valid
   io.arbiter.xfQueue.out.bits := io.regFile.resp.bits.data
+  io.arbiter.xfQueue.tidxOut := queueOutTidx_d.bits
 
   io.control.req <> entryArbiter.io.out
 
