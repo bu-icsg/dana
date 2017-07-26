@@ -270,7 +270,7 @@ class ControlReq(implicit p: Parameters) extends DanaBundle()(p) {
   // State info
   val currentNodeInLayer = UInt(16.W) // [TODO] fragile
   val currentLayer       = UInt(16.W) // [TODO] fragile
-  val neuronPointer      = UInt(11.W) // [TODO] fragile
+  val neuronPointer      = UInt(log2Up(elementWidth * elementsPerBlock * cacheNumBlocks).W)
   val decimalPoint       = UInt(decimalPointWidth.W)
   val regFileAddrIn      = UInt(log2Up(regFileNumElements).W)
   val regFileAddrOut     = UInt(log2Up(regFileNumElements).W)

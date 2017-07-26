@@ -57,7 +57,7 @@ class ControlPETableInterfaceReq(implicit p: Parameters) extends DanaBundle()(p)
   val inAddr          = UInt(ioIdxWidth.W)
   val outAddr         = UInt(ioIdxWidth.W)
   val location        = UInt(1.W)
-  val neuronPointer   = UInt(12.W) // [TODO] fragile
+  val neuronPointer   = UInt(log2Up(elementWidth * elementsPerBlock * cacheNumBlocks).W)
   val decimalPoint    = UInt(decimalPointWidth.W)
 }
 
