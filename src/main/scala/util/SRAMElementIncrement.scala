@@ -110,15 +110,15 @@ class SRAMElementIncrement (
       addr(i).addrHi === writePending(i).addrHi)
 
     // Connections to the sram
-    sram.io.weW(i) := writePending(i).valid
-    sram.io.reR(i) := io.re(i) || (io.we(i) && !fwd)
-    sram.io.dinW(i) := tmp1(i).asUInt
-    sram.io.addrW(i) := writePending(i).addrHi
-    sram.io.addrR(i) := addr(i).addrHi
-    io.dout(i) := sram.io.doutR(i)
+    sram.weW(i) := writePending(i).valid
+    sram.reR(i) := io.re(i) || (io.we(i) && !fwd)
+    sram.dinW(i) := tmp1(i).asUInt
+    sram.addrW(i) := writePending(i).addrHi
+    sram.addrR(i) := addr(i).addrHi
+    io.dout(i) := sram.doutR(i)
 
     // Defaults
-    val doutRTupled = (((x: Int, y: Int) => sram.io.doutR(i)(x, y)) tupled)
+    val doutRTupled = (((x: Int, y: Int) => sram.doutR(i)(x, y)) tupled)
     (0 until elementsPerBlock).map(j => tmp0(i)(j) := doutRTupled(index(j)))
     tmp1(i) := tmp0(i)
     forwarding(i) := fwd
@@ -132,7 +132,7 @@ class SRAMElementIncrement (
         is (1.U) {
           writeBlock(tmp0(i), writePending(i).dataBlock) }
         is (2.U) {
-          writeBlockIncrement(tmp0(i), sram.io.doutR(i), writePending(i).dataBlock) }}
+          writeBlockIncrement(tmp0(i), sram.doutR(i), writePending(i).dataBlock) }}
 
       // Handle forwarding by updating tmp1
       when (forwarding(i)) {
@@ -147,7 +147,7 @@ class SRAMElementIncrement (
       printf("[INFO] SramEleInc: WRITE port/type/fwd?/fwdType 0x%x/0x%x/0x%x/0x%x\n",
         i.U, writePending(i).wType, forwarding(i), io.wType(i))
       printf("[INFO]              DATA addr/dataOld/dataNew 0x%x/0x%x/0x%x\n",
-        writePending(i).addrHi##writePending(i).addrLo, sram.io.doutR(i),
+        writePending(i).addrHi##writePending(i).addrLo, sram.doutR(i),
         tmp1(i).asUInt)
     }
   }

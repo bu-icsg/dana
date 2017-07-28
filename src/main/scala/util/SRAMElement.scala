@@ -87,15 +87,15 @@ class SRAMElement (
       addr(i).addrHi === writePending(i).addrHi)
 
     // Connections to the sram
-    sram.io.weW(i) := writePending(i).valid
-    sram.io.dinW(i) := tmp(i)
-    sram.io.addrW(i) := writePending(i).addrHi
-    sram.io.addrR(i) := addr(i).addrHi
-    sram.io.reR(i) := io.re(i) || (io.we(i) && !fwd)
-    io.dout(i) := sram.io.doutR(i)
+    sram.weW(i) := writePending(i).valid
+    sram.dinW(i) := tmp(i)
+    sram.addrW(i) := writePending(i).addrHi
+    sram.addrR(i) := addr(i).addrHi
+    sram.reR(i) := io.re(i) || (io.we(i) && !fwd)
+    io.dout(i) := sram.doutR(i)
 
     // Defaults
-    val doutRTupled = (((x: Int, y: Int) => sram.io.doutR(i)(x, y)) tupled)
+    val doutRTupled = (((x: Int, y: Int) => sram.doutR(i)(x, y)) tupled)
     (0 until elementsPerBlock).map(j => tmp(i)(j) := doutRTupled(index(j)))
     forwarding(i) := fwd
 

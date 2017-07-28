@@ -4,6 +4,41 @@ package dana
 
 import chisel3._
 import chisel3.util._
+import java.awt.Dimension
+import scala.Array
+import scala.math.min
+
+class SRAMInterface(
+  val dataWidth: Int,
+  val numReadPorts: Int,
+  val numWritePorts: Int,
+  val numReadWritePorts: Int,
+  val sramDepth: Int
+) extends Bundle {
+  override def cloneType = new SRAMInterface(
+    dataWidth = dataWidth,
+    numReadPorts = numReadPorts,
+    numWritePorts = numWritePorts,
+    numReadWritePorts = numReadWritePorts,
+    sramDepth = sramDepth
+  ).asInstanceOf[this.type]
+  // Data Input
+  val din   = Input(Vec(numReadWritePorts, UInt(dataWidth.W)))
+  val dinW  = Input(Vec(numWritePorts,     UInt(dataWidth.W)))
+  // Data Output
+  val dout  = Output(Vec(numReadWritePorts, UInt(dataWidth.W)))
+  val doutR = Output(Vec(numReadPorts,      UInt(dataWidth.W)))
+  // Addresses
+  val addr  = Input(Vec(numReadWritePorts, UInt(log2Up(sramDepth).W)))
+  val addrR = Input(Vec(numReadPorts,      UInt(log2Up(sramDepth).W)))
+  val addrW = Input(Vec(numWritePorts,     UInt(log2Up(sramDepth).W)))
+  // Write enable
+  val we    = Input(Vec(numReadWritePorts, Bool()))
+  val weW   = Input(Vec(numWritePorts,     Bool()))
+  // Read enable
+  val re    = Input(Vec(numReadWritePorts, Bool()))
+  val reR   = Input(Vec(numReadPorts, Bool()))
+}
 
 class SRAMVariantInterface(
   val dataWidth: Int,
@@ -30,28 +65,62 @@ class SRAMVariant(
 
   def writeElement(a: Vec[UInt], index: UInt, b: UInt) { a(index) := b }
 
+  def divUp (dividend: Int, divisor: Int): Int = {
+    (dividend + divisor - 1) / divisor}
+
   lazy val io = IO(new SRAMVariantInterface(
     dataWidth = dataWidth,
     sramDepth = sramDepth,
     numPorts = numPorts))
 
-  val sram = Module(new SRAM(
-    id = id,
-    dataWidth = dataWidth,
-    sramDepth = sramDepth,
-    numReadPorts = numPorts,
-    numWritePorts = numPorts,
-    numReadWritePorts = 0))
+  val blockSize = new Dimension(min(32, dataWidth), min(4096, sramDepth))
+  val rows = divUp(sramDepth, blockSize.height)
+  val cols = divUp(dataWidth, blockSize.width)
+  require(dataWidth % blockSize.width == 0)
+  
+  val blockRows = Wire(Vec(rows, new SRAMInterface(dataWidth = dataWidth,
+                                                   numReadPorts = numPorts,
+                                                   numWritePorts = numPorts,
+                                                   numReadWritePorts = 0,
+                                                   sramDepth = blockSize.height)))
+  for (r <- 0 until rows) {
+    for (c <- 0 until cols) {
+      val sram = Module(new SRAM(
+        id = id,
+        dataWidth = blockSize.width,
+        sramDepth = blockSize.height,
+        numReadPorts = numPorts,
+        numWritePorts = numPorts,
+        numReadWritePorts = 0))
+      for (i <- 0 until numPorts) {
+        sram.io.weW(i) := blockRows(r.U).weW(i)
+        sram.io.dinW(i) := blockRows(r.U).dinW(i)((c + 1)*blockSize.width - 1, c*blockSize.width)
+        sram.io.addrW(i) := blockRows(r.U).addrW(i)
+        sram.io.reR(i) := blockRows(r.U).reR(i)
+        blockRows(r.U).doutR(i)((c + 1)*blockSize.width - 1, c*blockSize.width) := sram.io.doutR(i)
+        sram.io.addrR(i) := blockRows(r.U).addrR(i)
+      }
+    }
+  }
+  val sram = Wire(new SRAMInterface(dataWidth = dataWidth,
+                                    numReadPorts = numPorts,
+                                    numWritePorts = numPorts,
+                                    numReadWritePorts = 0,
+                                    sramDepth = sramDepth))
+  for (i <- 0 until numPorts) {
+    sram.weW(i) := io.we(i)
+    sram.addrW(i) := io.addr(i)
+    sram.dinW(i) := io.din(i)
+    sram.reR(i) := io.re(i)
+    sram.addrR(i) := io.addr(i)
+    io.dout(i) := sram.doutR(i)
 
-  def divUp (dividend: Int, divisor: Int): Int = {
-    (dividend + divisor - 1) / divisor}
-
-  // Basic block read and block write
-  (0 until numPorts).map(i => {
-    sram.io.weW(i) := io.we(i)
-    sram.io.reR(i) := io.re(i)
-    sram.io.dinW(i) := io.din(i)
-    sram.io.addrR(i) := io.addr(i)
-    sram.io.addrW(i) := io.addr(i)
-    io.dout(i) := sram.io.doutR(i) })
+    val addrHigh = io.addr(i)(log2Up(sramDepth) - 1, log2Up(blockSize.height))
+    blockRows(addrHigh).weW(i) := sram.weW(i)
+    blockRows(addrHigh).addrW(i) := sram.addrW(i)(log2Up(blockSize.height) - 1, 0)
+    blockRows(addrHigh).dinW(i) := sram.dinW(i)
+    blockRows(addrHigh).reR(i) := sram.reR(i)
+    blockRows(addrHigh).addrR(i) := sram.addrR(i)(log2Up(blockSize.height) - 1, 0)
+    sram.doutR(i) := blockRows(addrHigh).doutR(i)
+  }
 }
