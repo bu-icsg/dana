@@ -8,38 +8,6 @@ import java.awt.Dimension
 import scala.Array
 import scala.math.min
 
-class SRAMInterface(
-  val dataWidth: Int,
-  val numReadPorts: Int,
-  val numWritePorts: Int,
-  val numReadWritePorts: Int,
-  val sramDepth: Int
-) extends Bundle {
-  override def cloneType = new SRAMInterface(
-    dataWidth = dataWidth,
-    numReadPorts = numReadPorts,
-    numWritePorts = numWritePorts,
-    numReadWritePorts = numReadWritePorts,
-    sramDepth = sramDepth
-  ).asInstanceOf[this.type]
-  // Data Input
-  val din   = Input(Vec(numReadWritePorts, UInt(dataWidth.W)))
-  val dinW  = Input(Vec(numWritePorts,     UInt(dataWidth.W)))
-  // Data Output
-  val dout  = Output(Vec(numReadWritePorts, UInt(dataWidth.W)))
-  val doutR = Output(Vec(numReadPorts,      UInt(dataWidth.W)))
-  // Addresses
-  val addr  = Input(Vec(numReadWritePorts, UInt(log2Up(sramDepth).W)))
-  val addrR = Input(Vec(numReadPorts,      UInt(log2Up(sramDepth).W)))
-  val addrW = Input(Vec(numWritePorts,     UInt(log2Up(sramDepth).W)))
-  // Write enable
-  val we    = Input(Vec(numReadWritePorts, Bool()))
-  val weW   = Input(Vec(numWritePorts,     Bool()))
-  // Read enable
-  val re    = Input(Vec(numReadWritePorts, Bool()))
-  val reR   = Input(Vec(numReadPorts, Bool()))
-}
-
 class SRAMVariantInterface(
   val dataWidth: Int,
   val sramDepth: Int,
