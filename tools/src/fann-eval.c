@@ -69,15 +69,9 @@ int main (int argc, char * argv[]) {
   for (int i = 0; i < fann_length_train_data(data); i++) {
     calc_out = fann_test(ann, data->input[i], data->output[i]);
     if (opt_verbose) {
-      printf("[INFO] ");
-      for (int k = 0; k < data->num_input; k++) {
-        printf(FANNPRINTF " ", data->input[i][k]);
-      }
-      printf("-> ");
       for (int k = 0; k < data->num_output; k++) {
-        printf(FANNPRINTF " ", calc_out[k]);
+        printf("[info] %d -> " FANNPRINTF " \n", k, calc_out[k]);
       }
-      printf("\n");
     }
   }
 
