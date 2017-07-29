@@ -83,12 +83,12 @@ class SRAMVariant(
     sram.addrR(i) := io.addr(i)
     io.dout(i) := sram.doutR(i)
 
-    val addrHigh = if (rows > 1) io.addr(i)(log2Up(sramDepth) - 1, log2Up(blockSize.height)) else 0.U
-    blockRows(addrHigh).weW(i) := sram.weW(i)
-    blockRows(addrHigh).addrW(i) := sram.addrW(i)(log2Up(blockSize.height) - 1, 0)
-    blockRows(addrHigh).dinW(i) := sram.dinW(i)
-    blockRows(addrHigh).reR(i) := sram.reR(i)
-    blockRows(addrHigh).addrR(i) := sram.addrR(i)(log2Up(blockSize.height) - 1, 0)
-    sram.doutR(i) := blockRows(addrHigh).doutR(i)
+    val bank = if (rows > 1) io.addr(i)(log2Up(sramDepth) - 1, log2Up(blockSize.height)) else 0.U
+    blockRows(bank).weW(i) := sram.weW(i) && bank === i.U
+    blockRows(bank).addrW(i) := sram.addrW(i)(log2Up(blockSize.height) - 1, 0)
+    blockRows(bank).dinW(i) := sram.dinW(i)
+    blockRows(bank).reR(i) := sram.reR(i) && bank === i.U
+    blockRows(bank).addrR(i) := sram.addrR(i)(log2Up(blockSize.height) - 1, 0)
+    sram.doutR(i) := blockRows(bank).doutR(i)
   }
 }
