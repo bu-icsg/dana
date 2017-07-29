@@ -52,22 +52,22 @@ class SRAMVariant(
                                                    numReadWritePorts = 0,
                                                    sramDepth = blockSize.height)))
   for (r <- 0 until rows) {
-    for (c <- 0 until cols) {
-      val sram = Module(new SRAM(
-        id = id,
-        dataWidth = blockSize.width,
-        sramDepth = blockSize.height,
-        numReadPorts = numPorts,
-        numWritePorts = numPorts,
-        numReadWritePorts = 0))
-      for (i <- 0 until numPorts) {
-        sram.io.weW(i) := blockRows(r.U).weW(i)
-        sram.io.dinW(i) := blockRows(r.U).dinW(i)((c + 1)*blockSize.width - 1, c*blockSize.width)
-        sram.io.addrW(i) := blockRows(r.U).addrW(i)
-        sram.io.reR(i) := blockRows(r.U).reR(i)
-        blockRows(r.U).doutR(i)((c + 1)*blockSize.width - 1, c*blockSize.width) := sram.io.doutR(i)
-        sram.io.addrR(i) := blockRows(r.U).addrR(i)
+    val srams = Seq.fill(cols)(Module(new SRAM(
+      id = id,
+      dataWidth = blockSize.width,
+      sramDepth = blockSize.height,
+      numReadPorts = numPorts,
+      numWritePorts = numPorts,
+      numReadWritePorts = 0)))
+    for (i <- 0 until numPorts) {
+      for (c <- 0 until cols) {
+        srams(c).io.weW(i) := blockRows(r.U).weW(i)
+        srams(c).io.dinW(i) := blockRows(r.U).dinW(i)((c + 1)*blockSize.width - 1, c*blockSize.width)
+        srams(c).io.addrW(i) := blockRows(r.U).addrW(i)
+        srams(c).io.reR(i) := blockRows(r.U).reR(i)
+        srams(c).io.addrR(i) := blockRows(r.U).addrR(i)
       }
+      blockRows(r.U).doutR(i) := srams map (a => a.io.doutR(i)) reduce ((a, b) => a ## b)
     }
   }
   val sram = Wire(new SRAMInterface(dataWidth = dataWidth,
