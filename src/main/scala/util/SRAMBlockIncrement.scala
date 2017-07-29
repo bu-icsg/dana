@@ -56,7 +56,7 @@ class SRAMBlockIncrement (
   override val sramDepth: Int = 64,
   override val numPorts: Int = 1,
   val elementWidth: Int = 8
-) extends SRAMVariant {
+) extends SRAMVariant(id, dataWidth, sramDepth, numPorts) {
   override lazy val io = IO(new SRAMBlockIncrementInterface(
     dataWidth = dataWidth,
     sramDepth = sramDepth,

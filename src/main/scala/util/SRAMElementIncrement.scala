@@ -53,11 +53,12 @@ class WritePendingIncrementBundle (
 // operation, each write port needs an associated read port.
 // Consequently, this only has RW ports.
 class SRAMElementIncrement (
+  override val id: Int = 0,
   override val dataWidth: Int = 32,
   override val sramDepth: Int = 64,
   override val numPorts: Int = 1,
   val elementWidth: Int = 8
-) extends SRAMVariant {
+) extends SRAMVariant(id, dataWidth, sramDepth, numPorts) {
   override lazy val io = IO(new SRAMElementIncrementInterface(
     dataWidth = dataWidth,
     sramDepth = sramDepth,
