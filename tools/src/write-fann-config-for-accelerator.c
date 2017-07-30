@@ -11,6 +11,7 @@
 
 #include "fann/src/include/fixedfann.h"
 #include "tools/src/copyright.h"
+#include "tools/src/encoding.h"
 
 void usage()
 {
@@ -33,6 +34,7 @@ int main(int argc, char *argv[])
   int flag_verbose = 0;
   int write_count, exit_code = 0;
 
+  FILE * file = NULL;
   int c;
   while ((c = getopt (argc, argv, "hv")) != -1)
     switch (c) {
@@ -47,7 +49,6 @@ int main(int argc, char *argv[])
         abort ();
       }
 
-  FILE * file = NULL;
   int size_of_block = -1;
   int decimal_point_offset = -1024;
   int index;
@@ -294,6 +295,10 @@ int main(int argc, char *argv[])
     write_count = size_of_block;
     for (neuron = layer->first_neuron; neuron != layer->last_neuron - 1; neuron++) {
       weight_count += neuron->last_con - neuron->first_con;
+      if (weight_offset > (1 << 16) - 1) {
+        fprintf(stderr, "[ERROR] Unable to encode weight offset (0x%x) in 16 bits\n",
+                weight_offset);
+      }
       fwrite(&weight_offset, 2, 1, file);
       connections = neuron->last_con - neuron->first_con - 1;
       fwrite(&connections, 1, 1, file);
@@ -372,7 +377,7 @@ int main(int argc, char *argv[])
     layer_count++;
   }
 
- bail:
+bail:
   if (file != NULL)
     fclose(file);
   if (ann != NULL)

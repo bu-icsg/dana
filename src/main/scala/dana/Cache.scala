@@ -395,6 +395,7 @@ abstract class CacheBase[
           table(i).valid       := true.B
           table(i).asid        := c.asid.U
           table(i).nnid        := c.nnid.U
+          table(i).wbPending   := false.B
           table(i).notifyFlag  := false.B
           table(i).fetch       := false.B
           table(i).notifyIndex := 0.U
