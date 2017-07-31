@@ -1,7 +1,7 @@
 // See LICENSE.IBM for license details.
 
 // Preprocessing:
-//   convert -trim -negate -resize '20x20' -gravity center -extent '28x28' -background black  [image] -
+//   convert -trim -negate -resize '20x20' -gravity center -extent '28x28' -background black [image] -
 
 #include <stdio.h>
 #include <getopt.h>
@@ -155,7 +155,7 @@ int main (int argc, char * argv[]) {
     input = (fann_type *) malloc(sizeof(fann_type) * width * height);
     for (int i = 0; i < height; i++) {
       for (int j = 0; j < width; j++) {
-        input[i * height + j] = (fann_type) img[i][j];
+        input[i * height + j] = (fann_type) img[i][j] / 255;
       }
     }
 
