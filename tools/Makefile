@@ -3,8 +3,8 @@ TARGET  = host
 
 include ../Makefrag
 
-DIR_SRC  = src
-DIR_BIN  = bin
+DIR_SRC  = $(DIR_TOP)/tools/src
+DIR_BIN  = $(DIR_TOP)/tools/bin
 DIR_INC  = $(DIR_SRC)/include
 COMMA    = ,
 
@@ -18,7 +18,8 @@ TOOLS = \
 	fann-train \
 	generate-ant \
 	fann-eval \
-	fann-eval-fixed
+	fann-eval-fixed \
+	fann-image
 BINS     = $(addprefix $(DIR_BIN)/, $(TOOLS))
 
 vpath %.c src
@@ -48,7 +49,8 @@ LDIRS = \
 	$(DIR_BIN)/fann-train.o \
 	$(DIR_BIN)/fann-random.o \
 	$(DIR_BIN)/fann-float-to-fixed.o \
-	$(DIR_BIN)/generate-ant.o
+	$(DIR_BIN)/generate-ant.o \
+	$(DIR_BIN)/fann-image.o
 
 $(DIR_BIN)/generate-ant: $(DIR_BIN)/generate-ant.o $(DIR_TOP)/tests/libs/build/$(TARGET)/libxfiles-ant.a $(libfann_dep)
 	$(CC) $(CFLAGS) $< $(LDIRS) -lxfiles-ant -o $@
@@ -69,6 +71,8 @@ $(DIR_BIN)/fann-train-to-c-header: $(DIR_BIN)/fann-train-to-c-header.o $(libfann
 	$(CC) $(CFLAGS) $< $(LDIRS) -lm -lfann -fopenmp -o $@
 $(DIR_BIN)/fann-eval: $(DIR_BIN)/fann-eval.o $(libfann_dep)
 	$(CC) $(CFLAGS) $< $(LDIRS) -lm -lfann -fopenmp -o $@
+$(DIR_BIN)/fann-image: $(DIR_BIN)/fann-image.o $(libfann_dep)
+	$(CC) $(CFLAGS) $< $(LDIRS) -lm -lfann -lpng -fopenmp -o $@
 $(DIR_BIN)/fann-train: $(DIR_BIN)/fann-train.o $(libfann_dep)
 	$(CC) $(CFLAGS) $< $(LDIRS) -lm -lfann -fopenmp -o $@
 $(DIR_BIN)/fann-random: $(DIR_BIN)/fann-random.o $(libfann_dep)

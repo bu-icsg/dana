@@ -2,7 +2,7 @@
 
 # RISC-V related options
 ifeq "$(TARGET)" "host"
-CFLAGS = -DNO_VM=1
+CFLAGS := $(CFLAGS) -DNO_VM=1
 else
 TARGET_DASH = $(TARGET)-
 endif
