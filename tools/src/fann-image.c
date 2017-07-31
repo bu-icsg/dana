@@ -23,6 +23,7 @@ static char * usage_message =
     "\n"
     "Mandatory options to long options are mandatory for short options, too.\n"
     "  -n, --nn-config [CONFIG]   read FANN floating point network from FILE\n"
+    "  --emit-fann-train [FILE]   write the images to a FANN training FILE\n"
     "  --verbose                  print information while running\n"
     "\n";
 
@@ -50,6 +51,31 @@ void console_print(png_bytep * img, int width, int height) {
   fprintf(stderr, "+\n");
 }
 
+int emit_fann_test(const char * file,
+                    fann_type * input, fann_type * output,
+                    int input_size, int output_size) {
+
+  int exit_code = 0;
+
+  FILE * fp = fopen(file, "w");
+  if (!fp) {
+    fprintf(stderr, "[error] Unable to open file %s\n\n", file);
+    exit_code = 2;
+    return exit_code;
+  }
+
+  fprintf(fp, "1 %d %d\n", input_size, output_size);
+  for (int i = 0; i < input_size; i++)
+    fprintf(fp, FANNPRINTF " ", input[i]);
+  fprintf(fp, "\n");
+  for (int i = 0; i < output_size; i++)
+    fprintf(fp, FANNPRINTF " ", (fann_type) output[i]);
+  fprintf(fp, "\n");
+
+  fclose(fp);
+  return exit_code;
+}
+
 int main (int argc, char * argv[]) {
   PRINT_NOTICES(COPYRIGHT_FANN);
   int exit_code = 0;
@@ -65,11 +91,13 @@ int main (int argc, char * argv[]) {
 
   int c;
   static int opt_verbose = 0;
+  char * opt_emit_training_file = NULL;
   while (1) {
     static struct option long_options[] = {
-      {"--help",               no_argument,       0, 'h'},
-      {"nn-config",            required_argument, 0, 'n'},
-      {"verbose",              no_argument,       &opt_verbose, 1},
+      {"help",               no_argument,       0, 'h'},
+      {"nn-config",          required_argument, 0, 'n'},
+      {"emit-training-file", required_argument, 0, 1},
+      {"verbose",            no_argument,       &opt_verbose, 1},
       {0, 0, 0, 0}
     };
     int option_index = 0;
@@ -78,7 +106,10 @@ int main (int argc, char * argv[]) {
     if (c == -1)
       break;
     switch (c) {
-      case 'h': usage(); goto bail; break;
+      case 1:
+        opt_emit_training_file = optarg;
+        break;
+      case 'h': usage(); goto bail;
       case 'n': ann = fann_create_from_file(optarg); break;
     }
   }
@@ -160,6 +191,7 @@ int main (int argc, char * argv[]) {
     }
 
     unsigned int num_output = fann_get_num_output(ann);
+    unsigned int num_input = fann_get_num_input(ann);
     logits = fann_run(ann, input);
 
     fann_type max = -8192;
@@ -173,6 +205,15 @@ int main (int argc, char * argv[]) {
         fprintf(stderr, "[info] %d -> " FANNPRINTF "\n", i, logits[i]);
     }
     printf("%d\n", max_logit);
+
+    if (opt_emit_training_file) {
+      int e = emit_fann_test(opt_emit_training_file, input, logits,
+                             num_input, num_output);
+      if (e) {
+        exit_code = e;
+        goto bail;
+      }
+    }
 
     // Clean things up for the next iteration
     for (int i = 0; i < height; i++)
