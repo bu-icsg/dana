@@ -14,14 +14,13 @@ struct global_info_t {
   uint16_t decimal_point  : 3;
   uint16_t error_function : 1;
   uint16_t binary_format  : 3;
-  uint16_t unused_0       : 9;
+  uint16_t _unused_0      : 9;
   uint16_t total_weight_blocks; // ???
   uint16_t total_neurons;
   uint16_t total_layers;
   dana_ptr_t ptr_first_layer;
   dana_ptr_t ptr_weights;
-  uint16_t learning_rate; // [todo] remove
-  uint16_t weight_decay;  // [todo] remove
+  uint32_t _unused_1;
 };
 
 struct layer_info_t {
@@ -39,10 +38,13 @@ struct neuron_info_t {
 };
 
 enum encoding_error_t {
-  FAILED_TO_READ_ANN_FROM_FILE = 1,
+  NO_ERROR = 0,
+  FAILED_TO_READ_ANN_FROM_FILE,
   FAILED_TO_OPEN_BIN_OUT,
   BAD_ARGUMENTS,
-  UNSUPPORTED_BLOCK_WIDTH
+  UNSUPPORTED_BLOCK_WIDTH,
+  VERIFY_GLOBAL_FAILED,
+  VERIFY_NEURON_FAILED
 };
 
 

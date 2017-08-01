@@ -50,15 +50,10 @@ int global_info_verify(const struct global_info_t * info,
     fprintf(stderr, "[ERROR] Decimal point (%d) is not in range [%d, %d]\n",
             ann->decimal_point, opt->decimal_point_offset,
             opt->decimal_point_offset + 7);
-    return 3;
-  }
-  if (info->weight_decay == 0) {
-    fprintf(stderr, "[ERROR] Weight decay would be zero (found 0x%x), exiting!",
-            info->weight_decay);
-    return 4;
+    return VERIFY_GLOBAL_FAILED;
   }
 
-  return 0;
+  return NO_ERROR;
 }
 
 int neuron_info_verify(const struct neuron_info_t * info,
@@ -68,10 +63,10 @@ int neuron_info_verify(const struct neuron_info_t * info,
       (info->steepness > 7)) {
     fprintf(stderr, "[ERROR] Steepness %d is not of the correct format\n",
             neuron->activation_steepness);
-    return 5;
+    return VERIFY_NEURON_FAILED;
   }
 
-  return 0;
+  return NO_ERROR;
 }
 
 void neuron_info_printf(const struct neuron_info_t * info,
@@ -242,24 +237,17 @@ int main(int argc, char *argv[])
   if (opt.verbose)
     printf("Weights *: 0x%x (%d)\n", weights, weights);
 
-  // Write the learning rate. Use a default value if the learning rate
-  // is set to zero.
-  uint16_t learning_rate = ann->learning_rate;
-  if (learning_rate == 0)
-    learning_rate = 0.25 * pow(2, ann->decimal_point);
-
   struct global_info_t global_info = {
     .decimal_point       = ann->decimal_point - opt.decimal_point_offset,
     .error_function      = ann->train_error_function,
     .binary_format       = block_width_encoded,
-    .unused_0            = 0,
+    ._unused_0           = 0,
     .total_weight_blocks = num_weight_blocks,
     .total_neurons       = num_nodes,
     .total_layers        = num_layers,
     .ptr_first_layer     = first_layer,
     .ptr_weights         = weights,
-    .learning_rate       = learning_rate,
-    .weight_decay        = (uint16_t)((double)0.008 * pow(2.0, ann->decimal_point))
+    ._unused_1           = 0
   };
 
   if ((exit_code = global_info_verify(&global_info, ann, &opt)) != 0)
