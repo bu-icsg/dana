@@ -7,8 +7,8 @@
 #define W_NEURON_NEURONS_IN_LAYER 10
 #define W_NEURON_NEURONS_IN_PREVIOUS_LAYER W_NEURON_NEURONS_IN_LAYER
 
-typedef uint16_t dana_ptr_t;
-typedef uint32_t dana_data_t;
+typedef uint32_t dana_ptr_t;  // internal configuration pointer
+typedef uint32_t dana_data_t; // DANA arithmetic unit
 
 struct global_info_t {
   uint16_t decimal_point  : 3;
@@ -20,20 +20,21 @@ struct global_info_t {
   uint16_t total_layers;
   dana_ptr_t ptr_first_layer;
   dana_ptr_t ptr_weights;
-  uint32_t _unused_1;
 };
 
 struct layer_info_t {
-  uint32_t ptr_neuron           : 12;
-  uint32_t num_neurons          : 10;
-  uint32_t num_neurons_previous : 10;
+  dana_ptr_t ptr_neuron;
+  uint32_t num_neurons          : 16;
+  uint32_t num_neurons_previous : 16;
 };
 
 struct neuron_info_t {
   dana_ptr_t ptr_weight_offset;
-  uint16_t num_weights         : 8;
-  uint16_t activation_function : 5;
-  uint16_t steepness           : 3;
+  uint16_t num_weights;
+  uint8_t activation_function : 5;
+  uint8_t steepness           : 3;
+  uint8_t _unused_0;
+  uint32_t _unused_1;
   dana_data_t bias;
 };
 
@@ -44,7 +45,8 @@ enum encoding_error_t {
   BAD_ARGUMENTS,
   UNSUPPORTED_BLOCK_WIDTH,
   VERIFY_GLOBAL_FAILED,
-  VERIFY_NEURON_FAILED
+  VERIFY_NEURON_FAILED,
+  STRUCT_LARGER_THAN_16B
 };
 
 

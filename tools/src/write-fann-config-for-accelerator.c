@@ -170,6 +170,12 @@ int main(int argc, char *argv[])
            size_of_block, sizeof(struct layer_info_t), layers_per_block,
            size_of_node, nodes_per_block, size_of_weight, weights_per_block);
 
+  if (layers_per_block == 0 || nodes_per_block == 0 || weights_per_block == 0) {
+    fprintf(stderr, "[error] Choice of encoding results in struct > 16B");
+    exit_code = STRUCT_LARGER_THAN_16B;
+    goto bail;
+  }
+
   // Encode the block width and append this to the encoded decimal
   // point. The block width must be [16, 32, 64, 128] which is encoded
   // as [0, 1, 2, 3].
@@ -246,8 +252,7 @@ int main(int argc, char *argv[])
     .total_neurons       = num_nodes,
     .total_layers        = num_layers,
     .ptr_first_layer     = first_layer,
-    .ptr_weights         = weights,
-    ._unused_1           = 0
+    .ptr_weights         = weights
   };
 
   if ((exit_code = global_info_verify(&global_info, ann, &opt)) != 0)
@@ -304,11 +309,6 @@ int main(int argc, char *argv[])
     write_count = size_of_block;
     for (neuron = layer->first_neuron; neuron != layer->last_neuron - 1; neuron++) {
       weight_count += neuron->last_con - neuron->first_con;
-      if (weight_offset > (1 << sizeof(dana_ptr_t) * 8) - 1) {
-        fprintf(stderr, "[ERROR] Unable to encode weight offset (0x%x) in dana_ptr_t (%ld bits)\n",
-                weight_offset, sizeof(dana_ptr_t) * 8);
-      }
-
       connections = neuron->last_con - neuron->first_con - 1;
       steepness = log((double)neuron->activation_steepness /
                       pow(2, ann->decimal_point)) / log(2) + 4;
@@ -318,6 +318,8 @@ int main(int argc, char *argv[])
         .num_weights         = connections,
         .activation_function = neuron->activation_function,
         .steepness           = steepness,
+        ._unused_0           = 0,
+        ._unused_1           = 0,
         .bias                = ann->weights[weight_count - 1]
       };
       neuron_info_verify(&neuron_info, neuron);
@@ -326,6 +328,11 @@ int main(int argc, char *argv[])
       write_count -= size_of_node;
       if (write_count == 0)
         write_count = size_of_block;
+      if (weight_offset + size_of_weight * (neuron->last_con - neuron->first_con - 1) <
+          weight_offset) {
+        fprintf(stderr, "[ERROR] Unable to encode weight offset (0x%x) in dana_ptr_t (%ld bits)\n",
+                weight_offset, sizeof(dana_ptr_t) * 8);
+      }
       weight_offset += size_of_weight * (neuron->last_con - neuron->first_con - 1);
       if (opt.verbose)
         neuron_info_printf(&neuron_info, ann, layer_count, node_count);
