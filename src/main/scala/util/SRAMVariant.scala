@@ -41,7 +41,7 @@ class SRAMVariant(
     sramDepth = sramDepth,
     numPorts = numPorts))
 
-  val blockSize = new Dimension(min(32, dataWidth), min(4096, sramDepth))
+  val blockSize = new Dimension(min(32, dataWidth), min(1024, sramDepth))
   val rows = divUp(sramDepth, blockSize.height)
   val cols = divUp(dataWidth, blockSize.width)
   require(dataWidth % blockSize.width == 0)

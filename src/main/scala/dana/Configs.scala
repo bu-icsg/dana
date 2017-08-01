@@ -43,18 +43,20 @@ class DefaultDanaConfig extends Config ( topDefinitions = {
     case PeCooldownWidth           => 8
     // Configuration Cache
     case CacheNumEntries           => 2
-    case CacheDataSize             => 32 * 1024
+    case CacheDataSize             => 32 * 1024 // KiB
+    case CacheNumBlocks            => divUp(divUp((site(CacheDataSize) * 8),
+      site(ElementWidth)), site(ElementsPerBlock))
     case CacheInit                 => Nil
     // Register File
-    case RegisterFileNumElements   => 10240
+    case RegisterFileDataSize      => 8 * 1024  // KiB
+    case RegisterFileNumElements   => divUp(site(RegisterFileDataSize) * 8,
+      site(ElementWidth))
     // Enables support for in-hardware learning
     case LearningEnabled           => true
     case BitsPerBlock              => site(ElementsPerBlock) * site(ElementWidth)
     case BytesPerBlock             => site(BitsPerBlock) / 8
     case RegFileNumBlocks          => divUp(site(RegisterFileNumElements),
       site(ElementsPerBlock))
-    case CacheNumBlocks            => divUp(divUp((site(CacheDataSize) * 8),
-      site(ElementWidth)), site(ElementsPerBlock))
     case NNConfigNeuronWidth       => 64
     case BuildXFilesBackend        => XFilesBackendParameters(
       generator = (p: Parameters)  => Module(new Dana()(p)),
@@ -80,7 +82,7 @@ class DanaConfig
     epb:        Int     = 4,
     cache:      Int     = 2,
     cacheSize:  Int     = 32 * 1024,
-    scratchpad: Int     = 10240,
+    scratchpad: Int     = 8 * 1024,
     learning:   Boolean = true)
     extends Config( topDefinitions = {
   (pname,site,here) => pname match {
@@ -89,7 +91,7 @@ class DanaConfig
     case ElementsPerBlock        => epb
     case CacheNumEntries         => cache
     case CacheDataSize           => cacheSize
-    case RegisterFileNumElements => scratchpad
+    case RegisterFileDataSize    => scratchpad
     case _ => throw new CDEMatchError
   }})
 
