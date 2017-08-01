@@ -3,9 +3,7 @@
 import subprocess
 import argparse
 import os
-#from generate_ant import ant
 import sys
-import ipdb
 
 path_generate_ant = './generate-ant'
 path_fann_eval_fixed = '../bin/fann-eval-fixed'
