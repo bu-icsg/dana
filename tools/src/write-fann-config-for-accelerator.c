@@ -316,9 +316,9 @@ int main(int argc, char *argv[])
     write_count = size_of_block;
     for (neuron = layer->first_neuron; neuron != layer->last_neuron - 1; neuron++) {
       weight_count += neuron->last_con - neuron->first_con;
-      if (weight_offset > (1 << 16) - 1) {
-        fprintf(stderr, "[ERROR] Unable to encode weight offset (0x%x) in 16 bits\n",
-                weight_offset);
+      if (weight_offset > (1 << sizeof(dana_ptr_t) * 8) - 1) {
+        fprintf(stderr, "[ERROR] Unable to encode weight offset (0x%x) in dana_ptr_t (%ld bits)\n",
+                weight_offset, sizeof(dana_ptr_t) * 8);
       }
 
       connections = neuron->last_con - neuron->first_con - 1;
