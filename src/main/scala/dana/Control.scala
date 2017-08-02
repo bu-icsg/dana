@@ -181,8 +181,9 @@ class ControlBase(implicit p: Parameters) extends DanaModule()(p) {
   io.peTable.req.bits.inAddr := io.tTable.req.bits.regFileAddrIn
   io.peTable.req.bits.outAddr := io.tTable.req.bits.regFileAddrOut +
     io.tTable.req.bits.currentNodeInLayer
-  io.peTable.req.bits.neuronPointer := io.tTable.req.bits.neuronPointer +
-    (io.tTable.req.bits.currentNodeInLayer << 3.U)
+  io.peTable.req.bits.neuronPointer := (io.tTable.req.bits.neuronPointer +
+    (io.tTable.req.bits.currentNodeInLayer <<
+      log2Up((new NnConfigNeuron).getWidth / 8).U))
   io.peTable.req.bits.decimalPoint := io.tTable.req.bits.decimalPoint
   io.peTable.req.bits.location := io.tTable.req.bits.regFileLocationBit
 

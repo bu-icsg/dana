@@ -31,13 +31,13 @@ class TransactionState(implicit p: Parameters) extends TableEntry()(p)
   val cacheIndex          = UInt(log2Up(cacheNumEntries).W)
   val nnid                = UInt(nnidWidth.W)
   val decimalPoint        = UInt(decimalPointWidth.W)
-  val numLayers           = UInt(16.W) // [TODO] fragile
-  val numNodes            = UInt(16.W) // [TODO] fragile
-  val currentNode         = UInt(16.W) // [TODO] fragile
-  val currentNodeInLayer  = UInt(16.W) // [TODO] fragile
-  val currentLayer        = UInt(16.W) // [TODO] fragile
-  val nodesInCurrentLayer = UInt(16.W) // [TODO] fragile
-  val neuronPointer       = UInt(11.W) // [TODO] fragile
+  val numLayers           = UInt(p(GlobalInfo).total_layers.W)
+  val numNodes            = UInt(p(GlobalInfo).total_neurons.W)
+  val currentNode         = UInt(p(GlobalInfo).total_neurons.W)
+  val currentNodeInLayer  = UInt(p(GlobalInfo).total_neurons.W)
+  val currentLayer        = UInt(p(GlobalInfo).total_layers.W)
+  val nodesInCurrentLayer = UInt(p(GlobalInfo).total_neurons.W)
+  val neuronPointer       = UInt(p(DanaPtrBits).W)
   val regFileLocationBit  = UInt(1.W)
   val regFileAddrIn       = UInt(log2Up(regFileNumElements).W)
   val regFileAddrOut      = UInt(log2Up(regFileNumElements).W)
@@ -179,23 +179,21 @@ class TransactionStateLearn(implicit p: Parameters)
   // flags
   val needsOutputs         = Bool()
   //
-  val globalWtptr          = UInt(16.W)           //[TODO] fragile
+  val globalWtptr          = UInt(p(DanaPtrBits).W)
   val inLastEarly          = Bool()
   val transactionType      = UInt(log2Up(3).W)    // [TODO] fragile
-  val numTrainOutputs      = UInt(16.W)           // [TODO] fragile
   val stateLearn           = UInt(log2Up(8).W)    // [TODO] fragile
-  val errorFunction        = UInt(log2Up(2).W)    // [TODO] fragile
-  val learningRate         = UInt(elementWidth.W)
-  val weightDecay          = UInt(elementWidth.W)
-  val numWeightBlocks      = UInt(16.W)           // [TODO] fragile
-  val mse                  = UInt(elementWidth.W) // unused
+  val errorFunction        = UInt(p(GlobalInfo).error_function.W)
+  val learningRate         = UInt(p(DanaDataBits).W)
+  val weightDecay          = UInt(p(DanaDataBits).W)
+  val numWeightBlocks      = UInt(p(GlobalInfo).total_weight_blocks.W)
   // Batch training information
-  val numBatchItems        = UInt(16.W)           // [TODO] fragile
-  val curBatchItem         = UInt(16.W)           // [TODO] fragile
-  val biasAddr             = UInt(16.W)           // [TODO] fragile
-  val offsetBias           = UInt(16.W)           // [TODO] fragile
-  val offsetDW             = UInt(16.W)           // [TODO] fragile
-  val numOutputs           = UInt(16.W)           // [TODO] fragile
+  val numBatchItems        = UInt(p(DanaDataBits).W)
+  val curBatchItem         = UInt(p(DanaDataBits).W)
+  val biasAddr             = UInt(p(DanaPtrBits).W)
+  val offsetBias           = UInt(p(DanaPtrBits).W)
+  val offsetDW             = UInt(p(DanaPtrBits).W)
+  val numOutputs           = UInt(p(DanaDataBits).W)
   // We need to keep track of where inputs and outputs should be
   // written to in the Register File.
   val regFileAddrInFixed   = UInt(log2Up(regFileNumElements).W)
@@ -203,14 +201,13 @@ class TransactionStateLearn(implicit p: Parameters)
   val regFileAddrDW        = UInt(log2Up(regFileNumElements).W)
   val regFileAddrSlope     = UInt(log2Up(regFileNumElements).W)
   val regFileAddrAux       = UInt(log2Up(regFileNumElements).W)
-  val nodesInPreviousLayer = UInt(16.W)           // [TODO] fragile
-  val nodesInLast          = UInt(16.W)           // [TODO] fragile
+  val nodesInPreviousLayer = UInt(p(GlobalInfo).total_neurons.W)
+  val nodesInLast          = UInt(p(GlobalInfo).total_neurons.W)
 
   aliasList += (
     "globalWtptr"          -> "GW*",
     "inLastEarly"          -> "L?e",
     "transactionType"      -> "T?",
-    "numTrainOutputs"      -> "#TO",
     "stateLearn"           -> "state",
     "errorFunction"        -> "ef",
     "learningRate"         -> "lr",
@@ -281,8 +278,8 @@ class ControlReq(implicit p: Parameters) extends DanaBundle()(p) {
   val asid               = UInt(asidWidth.W)
   val nnid               = UInt(nnidWidth.W) // formerly nn_hash
   // State info
-  val currentNodeInLayer = UInt(16.W) // [TODO] fragile
-  val currentLayer       = UInt(16.W) // [TODO] fragile
+  val currentNodeInLayer = UInt(p(GlobalInfo).total_neurons.W)
+  val currentLayer       = UInt(p(GlobalInfo).total_layers.W)
   val neuronPointer      = UInt(log2Up(elementWidth * elementsPerBlock * cacheNumBlocks).W)
   val decimalPoint       = UInt(decimalPointWidth.W)
   val regFileAddrIn      = UInt(log2Up(regFileNumElements).W)
@@ -295,11 +292,10 @@ class ControlReqLearn(implicit p: Parameters) extends ControlReq()(p) {
   val inLastEarly         = Bool()
   val transactionType     = UInt(log2Up(3).W) // [TODO] fragile
   val stateLearn          = UInt(log2Up(8).W) // [TODO] fragile
-  val errorFunction       = UInt(log2Up(2).W) // [TODO] fragile
-  val learningRate        = UInt(elementWidth.W)
-  val weightDecay         = UInt(elementWidth.W)
-  val numWeightBlocks     = UInt(16.W) // [TODO] fragile
-  // val regFileAddrDelta = UInt(log2Up(regFileNumElements).W)
+  val errorFunction       = UInt(p(GlobalInfo).error_function.W)
+  val learningRate        = UInt(p(DanaDataBits).W)
+  val weightDecay         = UInt(p(DanaDataBits).W)
+  val numWeightBlocks     = UInt(p(GlobalInfo).total_weight_blocks.W)
   val regFileAddrDW       = UInt(log2Up(regFileNumElements).W)
   val regFileAddrSlope    = UInt(log2Up(regFileNumElements).W)
   val regFileAddrBias     = UInt(log2Up(regFileNumElements).W)
