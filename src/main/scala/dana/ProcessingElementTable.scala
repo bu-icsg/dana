@@ -273,13 +273,9 @@ class ProcessingElementTableBase[PeStateType <: ProcessingElementState,
 
   // Inbound requests from the cache. I setup some helper nodes here
   // that interpret the data coming from the cache.
-  val cacheRespVec = Wire(Vec(bitsPerBlock/nnConfigNeuronWidth,
-    new CompressedNeuron))
+  val cacheRespVec = Vec(bitsPerBlock/(new NnConfigNeuron).getWidth,
+    new NnConfigNeuron).fromBits(io.cache.resp.bits.data)
   val neuronIndex = io.cache.resp.bits.neuronIndex
-  (0 until cacheRespVec.length).map(i =>
-    cacheRespVec(i).populate(io.cache.resp.bits.data((i+1) *
-      cacheRespVec(i).getWidth - 1,
-      i * cacheRespVec(i).getWidth), cacheRespVec(i)))
   // Deal with the cache response if one exists.
   when (io.cache.resp.valid) {
     val peIndex = io.cache.resp.bits.peIndex
@@ -288,14 +284,14 @@ class ProcessingElementTableBase[PeStateType <: ProcessingElementState,
         val resp = cacheRespVec(neuronIndex)
         // [TODO] Fragile on increases to widthActivationFunction or
         // widthSteepness.
-        table(peIndex).weightPtr := resp.weightPtr
-        table(peIndex).numWeights := resp.numWeights
+        table(peIndex).weightPtr := resp.weightOffset
+        table(peIndex).numWeights := resp.numberOfWeights
         table(peIndex).activationFunction := resp.activationFunction
         table(peIndex).steepness := resp.steepness
         table(peIndex).bias := resp.bias
         pe(peIndex).req.valid := true.B
         printfInfo("Bias: 0x%x\n", resp.bias)
-        printfInfo("Weight ptr: 0x%x\n", resp.weightPtr)
+        printfInfo("Weight ptr: 0x%x\n", resp.weightOffset)
       }
       is (e_CACHE_WEIGHT) {
         table(peIndex).weightPtr :=
@@ -499,10 +495,10 @@ class ProcessingElementTableLearn(implicit p: Parameters)
     val peIndex = io.cache.resp.bits.peIndex
     switch (io.cache.resp.bits.field) {
       is (e_CACHE_NEURON) {
-        val weightOffset = (cacheRespVec(neuronIndex).weightPtr -
+        val weightOffset = (cacheRespVec(neuronIndex).weightOffset -
           table(peIndex).globalWtptr) >>
           ((log2Up(elementWidth / 8)).U) // [TODO] possibly fragile
-        table(peIndex).weightPtrSaved := cacheRespVec(neuronIndex).weightPtr
+        table(peIndex).weightPtrSaved := cacheRespVec(neuronIndex).weightOffset
         table(peIndex).weightoffset:= weightOffset
         printfInfo("weightoffset 0x%x\n", weightOffset)
       }

@@ -109,33 +109,34 @@ class TransactionState(implicit p: Parameters) extends TableEntry()(p)
     this.regFileLocationBit  := 0.U
   }
   def cacheValid(resp: ControlResp) {
-    this.cacheValid := true.B
-    this.numLayers := resp.data(0)
-    this.numNodes := resp.data(1)
-    this.cacheIndex := resp.data(2)(
-      log2Up(cacheNumEntries) + errorFunctionWidth - 1, errorFunctionWidth)
-    this.decimalPoint := resp.decimalPoint
-    // this.learningRate := resp.data(3)
-    // this.lambda := resp.data(4)
+    val info = (new NnConfigHeader).fromBits(resp.data)
+
+    this.cacheValid   := true.B
+    this.numLayers    := info.totalLayers
+    this.numNodes     := info.totalNeurons
+    this.decimalPoint := info.decimalPoint
+    this.cacheIndex   := resp.cacheIndex
     // Once we know the cache is valid, this entry is no longer waiting
     this.waiting := false.B
     printfInfo("DANA TTable: Updating global info from Cache...\n")
-    printfInfo("  total layers:            0x%x\n", resp.data(0))
-    printfInfo("  total nodes:             0x%x\n", resp.data(1))
-    printfInfo("  cache index:             0x%x\n", resp.data(2)(
-      log2Up(cacheNumEntries) + errorFunctionWidth - 1, errorFunctionWidth))
+    printfInfo("  total layers:            0x%x\n", info.totalLayers)
+    printfInfo("  total nodes:             0x%x\n", info.totalNeurons)
+    printfInfo("  decimal point:           0x%x\n", info.decimalPoint)
+    printfInfo("  cache index:             0x%x\n", resp.cacheIndex)
   }
   def newLayer(resp: ControlResp) {
+    val info = (new NnConfigLayer).fromBits(resp.data)
+
     this.needsLayerInfo := false.B
     this.currentNodeInLayer := 0.U
-    this.nodesInCurrentLayer := resp.data(0)
-    this.neuronPointer := resp.data(2)
+    this.nodesInCurrentLayer := info.neuronsInLayer
+    this.neuronPointer := info.neuronPointer
 
     // Once we have layer information, we can update the
     // previous and current layer addresses. These are adjusted
     // to be on block boundaries, so there's an optional round
     // term.
-    val nicl = resp.data(0)
+    val nicl = info.neuronsInLayer
     val niclMSBs = // Nodes in previous layer MSBs [TODO] fragile
       nicl(15, log2Up(elementsPerBlock)) ##
     0.U(log2Up(elementsPerBlock).W)
@@ -156,9 +157,9 @@ class TransactionState(implicit p: Parameters) extends TableEntry()(p)
       this.numLayers)
     printfInfo("  layer is:                   0x%x\n",
       this.currentLayer)
-    printfInfo("  neuron pointer:             0x%x\n", resp.data(2))
-    printfInfo("  nodes in current layer:     0x%x\n", resp.data(0))
-    printfInfo("  nodes in previous layer:    0x%x\n", resp.data(1))
+    printfInfo("  neuron pointer:             0x%x\n", info.neuronPointer)
+    printfInfo("  nodes in current layer:     0x%x\n", info.neuronsInLayer)
+    printfInfo("  nodes in previous layer:    0x%x\n", info.neuronsInPreviousLayer)
     printfInfo("  nicl:                       0x%x\n", nicl)
     printfInfo("  niclMSBs:                   0x%x\n", niclMSBs)
     printfInfo("  niclLSBs:                   0x%x\n", niclLSBs)
@@ -252,6 +253,18 @@ class TransactionStateLearn(implicit p: Parameters)
     this.offsetBias         := 0.U
     this.offsetDW           := 0.U
   }
+
+  override def cacheValid(resp: ControlResp) {
+    super.cacheValid(resp)
+    val info = (new NnConfigHeader).fromBits(resp.data)
+
+    this.globalWtptr := info.weightsPointer
+    this.errorFunction := info.errorFunction
+    this.numWeightBlocks := info.totalWeightBlocks
+    printfInfo("  global weight pointer:   0x%x\n", info.weightsPointer)
+    printfInfo("  error function:          0x%x\n", info.errorFunction)
+    printfInfo("  total weight blocsk:     0x%x\n", info.totalWeightBlocks)
+  }
 }
 
 class ControlReq(implicit p: Parameters) extends DanaBundle()(p) {
@@ -298,17 +311,13 @@ class ControlResp(implicit p: Parameters) extends DanaBundle()(p) {
   val readyCache      = Bool()
   val readyPeTable    = Bool()
   val cacheValid      = Bool()
+  val cacheIndex      = UInt(log2Up(cacheNumEntries).W)
   val tableIndex      = UInt(log2Up(transactionTableNumEntries).W)
   val tableMask       = UInt(transactionTableNumEntries.W)
   val field           = UInt(4.W) // [TODO] fragile on Constants.scala
-  val data            = Vec(6, UInt(16.W)) // [TODO] fragile
-  val decimalPoint    = UInt(decimalPointWidth.W)
+  val data            = UInt((new NnConfigHeader).getWidth.W)
   val layerValid      = Bool()
   val layerValidIndex = UInt(log2Up(transactionTableNumEntries).W)
-}
-
-class ControlRespLearn(implicit p: Parameters) extends ControlResp()(p) {
-  val globalWtptr     = UInt(16.W) //[TODO] fragile
 }
 
 class TTableControlInterface(implicit val p: Parameters)
@@ -320,7 +329,6 @@ class TTableControlInterface(implicit val p: Parameters)
 class TTableControlInterfaceLearn(implicit p: Parameters)
     extends TTableControlInterface()(p) {
   override lazy val req = Decoupled(new ControlReqLearn)
-  override lazy val resp = Flipped(Decoupled(new ControlRespLearn))
 }
 
 class TTableRegisterFileReq(implicit p: Parameters) extends DanaBundle()(p) {
@@ -694,11 +702,14 @@ class DanaTransactionTable(implicit p: Parameters)
   }
 
   when (io.control.resp.valid) {
-    val tIdx = io.control.resp.bits.tableIndex
-    when (io.control.resp.bits.cacheValid) {
-      switch (io.control.resp.bits.field) {
+    val resp = io.control.resp.bits
+    val tIdx = resp.tableIndex
+    when (resp.cacheValid) {
+      switch (resp.field) {
         is (e_TTABLE_LAYER) {
-          val nicl = io.control.resp.bits.data(0)
+          val info = (new NnConfigLayer).fromBits(resp.data)
+
+          val nicl = info.neuronsInLayer
           val niclMSBs = // Nodes in previous layer MSBs [TODO] fragile
             nicl(15, log2Up(elementsPerBlock)) ##
           0.U(log2Up(elementsPerBlock).W)
@@ -897,34 +908,31 @@ class DanaTransactionTableLearn(implicit p: Parameters)
   val layerValid = io.control.resp.valid && io.control.resp.bits.layerValid
 
   when (cacheValid) {
-    val tIdx = io.control.resp.bits.tableIndex
+    val resp = io.control.resp.bits
+    val tIdx = resp.tableIndex
     val t = table(tIdx)
-    switch(io.control.resp.bits.field) {
+    switch(resp.field) {
       is(e_TTABLE_CACHE_VALID) {
-        t.globalWtptr := io.control.resp.bits.globalWtptr
+        val info = (new NnConfigHeader).fromBits(resp.data)
+
+        // t.globalWtptr := io.control.resp.bits.globalWtptr
         when (t.transactionType === e_TTYPE_BATCH) {
-          t.numNodes := io.control.resp.bits.data(1) * 2.U
+          t.numNodes := info.totalNeurons * 2.U
         }
         val learningRate = io.status.learn_rate >> (
-          decimalPointOffset.U - io.control.resp.bits.decimalPoint)
+          decimalPointOffset.U - info.decimalPoint)
         val weightDecay = io.status.weight_decay >> (
-          decimalPointOffset.U - io.control.resp.bits.decimalPoint)
+          decimalPointOffset.U - info.decimalPoint)
         t.learningRate := learningRate
         t.weightDecay := weightDecay
-        t.errorFunction := io.control.resp.bits.data(2)(
-          errorFunctionWidth - 1, 0)
-        t.numWeightBlocks := io.control.resp.bits.data(5)
-        printfInfo("  error function:          0x%x\n",
-          io.control.resp.bits.data(2)(errorFunctionWidth - 1, 0))
+
         printfInfo("  learning rate:           0x%x \n", learningRate)
         printfInfo("  weight decay:            0x%x \n", weightDecay)
-        printfInfo("  Totalweightblocks :      0x%x\n",
-          io.control.resp.bits.data(5))
-        printfInfo("  Global Weight Pointer :  0x%x\n",
-          io.control.resp.bits.globalWtptr)
       }
       is(e_TTABLE_LAYER) {
-        val nicl = io.control.resp.bits.data(0)
+        val info = (new NnConfigLayer).fromBits(resp.data)
+
+        val nicl = info.neuronsInLayer
         val niclMSBs = // Nodes in previous layer MSBs [TODO] fragile
           nicl(15, log2Up(elementsPerBlock)) ##
         0.U(log2Up(elementsPerBlock).W)
@@ -933,7 +941,7 @@ class DanaTransactionTableLearn(implicit p: Parameters)
         val round = Mux(niclLSBs =/= 0.U, elementsPerBlock.U, 0.U)
         val niclOffset = niclMSBs + round
 
-        val nipl = io.control.resp.bits.data(1)
+        val nipl = info.neuronsInPreviousLayer
         val niplMSBs = nipl(15, log2Up(elementsPerBlock)) ##
         0.U(log2Up(elementsPerBlock).W)
         val niplLSBs = nipl(log2Up(elementsPerBlock)-1,0)
@@ -1230,8 +1238,7 @@ class DanaTransactionTableLearn(implicit p: Parameters)
   }
 
   // Catch any jumps to an error state
-  (0 until transactionTableNumEntries).map(i =>
-    assert(!((table(i).flags.valid || table(i).flags.reserved) &&
-      table(i).stateLearn === e_TTABLE_STATE_ERROR),
-      "DANA TTable Transaction is in error state"))
+  table map (t => assert(
+    !((t.flags.valid || t.flags.reserved) && t.stateLearn === e_TTABLE_STATE_ERROR),
+      "DANA TTable Transaction is in error state") )
 }

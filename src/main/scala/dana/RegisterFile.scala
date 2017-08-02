@@ -185,14 +185,14 @@ class RegisterFile(implicit p: Parameters) extends RegisterFileBase (
     dataWidth = p(BitsPerBlock),
     sramDepth = pow(2, log2Up(p(RegFileNumBlocks))).toInt,
     numPorts = 1,
-    elementWidth = p(ElementWidth))).io))(p)
+    elementWidth = p(DanaDataBits))).io))(p)
 
 class RegisterFileLearn(implicit p: Parameters) extends RegisterFileBase (
   Vec.fill(p(TransactionTableNumEntries))(Module(new SRAMElementIncrement(
     dataWidth = p(BitsPerBlock),
     sramDepth = pow(2, log2Up(p(RegFileNumBlocks))).toInt,
     numPorts = 1,
-    elementWidth = p(ElementWidth))).io))(p) {
+    elementWidth = p(DanaDataBits))).io))(p) {
   override lazy val io = IO(new RegisterFileInterfaceLearn)
 
   val readReqType_d0 = Reg(next = io.pe.req.bits.reqType)

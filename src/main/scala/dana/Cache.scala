@@ -76,20 +76,20 @@ class CacheInterfaceLearn(implicit p: Parameters)
   override lazy val pe      = Flipped(new PECacheInterfaceLearn)
 }
 
-class CompressedNeuron(implicit p: Parameters) extends DanaBundle()(p) {
-  val weightPtr          = UInt(16.W)
-  val numWeights         = UInt(8.W)
-  val activationFunction = UInt(activationFunctionWidth.W)
-  val steepness          = UInt(steepnessWidth.W)
-  val bias               = SInt(elementWidth.W)
-  def populate(data: UInt, out: CompressedNeuron) {
-    out.weightPtr := data(15, 0)
-    out.numWeights := data(23, 16)
-    out.activationFunction := data(28, 24)
-    out.steepness := data(31, 29)
-    out.bias := data(63, 32).asSInt
-  }
-}
+// class CompressedNeuron(implicit p: Parameters) extends DanaBundle()(p) {
+//   val weightPtr          = UInt(16.W)
+//   val numWeights         = UInt(8.W)
+//   val activationFunction = UInt(activationFunctionWidth.W)
+//   val steepness          = UInt(steepnessWidth.W)
+//   val bias               = SInt(elementWidth.W)
+//   def populate(data: UInt, out: CompressedNeuron) {
+//     out.weightPtr := data(15, 0)
+//     out.numWeights := data(23, 16)
+//     out.activationFunction := data(28, 24)
+//     out.steepness := data(31, 29)
+//     out.bias := data(63, 32).asSInt
+//   }
+// }
 
 abstract class CacheBase[
   A <: SRAMVariant, B <: SRAMVariantInterface, C <: ControlCacheInterfaceReq,
@@ -262,7 +262,6 @@ abstract class CacheBase[
       is (e_CACHE_LAYER_INFO) {
         controlRespPipe(0).valid := true.B
         controlRespPipe(0).bits.field := e_CACHE_LAYER
-        // The layer sub-index is temporarily stored in data(0)
 
         // Read the layer information from the correct block. A layer
         // occupies one block, so we need to pull the block address
@@ -293,11 +292,11 @@ abstract class CacheBase[
   // Pipeline second stage (SRAM read)
   val thisCache = memIo(controlRespPipe(0).bits.cacheIndex).dout(0)
   when (controlRespPipe(0).bits.field === e_CACHE_INFO) {
-    controlRespPipe(1).bits.data := (new NnConfigHeader).fromBits(thisCache) }
+    controlRespPipe(1).bits.data := thisCache }
   when (controlRespPipe(0).bits.field === e_CACHE_LAYER_INFO) {
-    val dataDecode = Vec(bitsPerBlock/(new NnConfigLayer).getWidth,
-      new NnConfigLayer).fromBits(thisCache)
-    controlRespPipe(1).bits.data := dataDecode(layer_d) }
+    val size = (new NnConfigLayer).getWidth
+    val dataDecode = Vec(bitsPerBlock/size, UInt(size.W)).fromBits(thisCache)
+    controlRespPipe(1).bits.data := 0.U ## dataDecode(layer_d) }
 
   // Handle requests from the Processing Element Table
   peRespPipe(0).bits.field := io.pe.req.bits.field
@@ -438,7 +437,7 @@ class CacheLearn(implicit p: Parameters) extends CacheBase[SRAMBlockIncrement,
       dataWidth = p(BitsPerBlock),
       sramDepth = p(CacheNumBlocks),
       numPorts = 1,
-      elementWidth = p(ElementWidth) )))
+      elementWidth = p(DanaDataBits) )))
   lazy val memIo = Wire(Vec(p(CacheNumEntries), mem(0).io.cloneType))
 
   def genControlReq = new ControlCacheInterfaceReqLearn

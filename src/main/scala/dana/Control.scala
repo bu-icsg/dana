@@ -135,7 +135,6 @@ class ControlBase(implicit p: Parameters) extends DanaModule()(p) {
   io.tTable.resp.bits.data := io.cache.resp.bits.data
   io.tTable.resp.bits.tableIndex := io.cache.resp.bits.tableIndex
   io.tTable.resp.bits.tableMask := io.cache.resp.bits.tableMask
-  io.tTable.resp.bits.decimalPoint := io.cache.resp.bits.decimalPoint
   io.tTable.resp.bits.cacheValid := io.cache.resp.valid
   io.tTable.resp.bits.layerValidIndex := io.regFile.resp.bits.tIdx
   io.tTable.resp.bits.layerValid := io.regFile.resp.valid
@@ -144,7 +143,9 @@ class ControlBase(implicit p: Parameters) extends DanaModule()(p) {
   io.regFile.req.valid := false.B
   io.regFile.resp.ready := false.B // [TODO] not correct
   io.regFile.req.bits.tIdx := io.cache.resp.bits.tableIndex
-  io.regFile.req.bits.totalWrites := io.cache.resp.bits.data(0)
+
+  val infoAsLayer = (new NnConfigLayer).fromBits(io.cache.resp.bits.data)
+  io.regFile.req.bits.totalWrites := infoAsLayer.neuronsInLayer
   io.regFile.req.bits.location := io.cache.resp.bits.regFileLocationBit
 
   // Handling of Cache responses
@@ -154,8 +155,6 @@ class ControlBase(implicit p: Parameters) extends DanaModule()(p) {
     io.cache.resp.bits.field === e_CACHE_LAYER)
   when (cacheInfoResp) {
     io.tTable.resp.bits.field := e_TTABLE_CACHE_VALID
-    io.tTable.resp.bits.data(2) := io.cache.resp.bits.cacheIndex ##
-    io.cache.resp.bits.data(2)(errorFunctionWidth - 1,0)
   }
   when (cacheLayerResp) {
     io.tTable.resp.bits.field := e_TTABLE_LAYER
@@ -211,9 +210,8 @@ class ControlLearn(implicit p: Parameters)
     extends ControlBase()(p) {
   override lazy val io = IO(new ControlInterfaceLearn)
 
-  io.tTable.resp.bits.globalWtptr := io.cache.resp.bits.globalWtptr
   io.regFile.req.bits.totalWrites := io.cache.resp.bits.totalWritesMul *
-    io.cache.resp.bits.data(0)
+    infoAsLayer.neuronsInLayer
 
   io.peTable.req.bits.inAddr :=
     Mux((io.tTable.req.bits.stateLearn === e_TTABLE_STATE_LEARN_ERROR_BACKPROP) ||

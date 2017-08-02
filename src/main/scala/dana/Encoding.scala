@@ -6,8 +6,8 @@ import chisel3._
 import cde.{Parameters, Field}
 import _root_.util.ParameterizedBundle
 
-case object DanaPtr extends Field[Int]
-case object DanaData extends Field[Int]
+case object DanaPtrBits extends Field[Int]
+case object DanaDataBits extends Field[Int]
 case object GlobalInfo extends Field[GlobalInfo_t]
 case object LayerInfo extends Field[LayerInfo_t]
 case object NeuronInfo extends Field[NeuronInfo_t]
@@ -34,7 +34,7 @@ class NnConfigLayer(implicit p: Parameters) extends ParameterizedBundle()(p) {
 
 class NnConfigNeuron(implicit p: Parameters) extends ParameterizedBundle()(p) {
   val info = p(NeuronInfo)
-  val bias                   = UInt(info.bias.W)
+  val bias                   = SInt(info.bias.W)
   val _unused_1              = UInt(info._unused_1.W)
   val _unused_0              = UInt(info._unused_0.W)
   val steepness              = UInt(info.steepness.W)

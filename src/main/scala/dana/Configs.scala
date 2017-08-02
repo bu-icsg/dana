@@ -37,8 +37,8 @@ case class NeuronInfo_t (
 
 class DefaultDanaConfig extends Config ( topDefinitions = {
   (pname,site,here) => pname match {
-    case DanaPtr  => 32
-    case DanaData => 32
+    case DanaPtrBits  => 32
+    case DanaDataBits => 32
 
     case GlobalInfo => GlobalInfo_t (
       decimal_point       = 3,
@@ -48,49 +48,24 @@ class DefaultDanaConfig extends Config ( topDefinitions = {
       total_weight_blocks = 16,
       total_neurons       = 16,
       total_layers        = 16,
-      ptr_first_layer     = site(DanaPtr),
-      ptr_weights         = site(DanaPtr))
+      ptr_first_layer     = site(DanaPtrBits),
+      ptr_weights         = site(DanaPtrBits))
 
     case LayerInfo => LayerInfo_t (
-      ptr_neuron           = site(DanaPtr),
+      ptr_neuron           = site(DanaPtrBits),
       num_neurons          = 16,
       num_neurons_previous = 16)
 
     case NeuronInfo => NeuronInfo_t (
-      ptr_weight_offset   = site(DanaPtr),
+      ptr_weight_offset   = site(DanaPtrBits),
       num_weights         = 16,
       activation_function = 5,
       steepness           = 3,
       _unused_0           = 8,
       _unused_1           = 32,
-      bias                = site(DanaData))
+      bias                = site(DanaDataBits))
     case DecimalPointOffset => 7
     case SteepnessOffset => 4
-
-    // NN Config Global Info
-    // case DecimalPointWidth         => 3
-    // case SteepnessOffset           => 4
-    // case LambdaWidth               => 16
-    // case LearningRateWidth         => 16
-    // case NNConfigPointerWidth      => 16
-    // case TotalLayersWidth          => 16
-    // case TotalNeuronsWidth         => 16
-    // case TotalWeightBlocksWidth    => 16
-    // case ElementsPerBlockCodeWidth => 2
-    // case ErrorFunctionWidth        => 1
-    // case NNConfigUnusedWidth       => 10
-
-    // NN Config Layer Info
-    // case ElementWidth              => 32
-    // case ElementsPerBlock          => 4
-    // case SteepnessWidth            => 3
-    // case ActivationFunctionWidth   => 5
-    // case NumberOfWeightsWidth      => 8
-
-    // NN Config Neuron Info
-    // case NeuronsInPrevLayerWidth   => 10
-    // case NeuronsInLayerWidth       => 10
-    // case NeuronPointerWidth        => 12
 
     // ANTW Parameters
     case AntwRobEntries            => 32
@@ -104,15 +79,15 @@ class DefaultDanaConfig extends Config ( topDefinitions = {
     case CacheNumEntries           => 2
     case CacheDataSize             => 32 * 1024 // KiB
     case CacheNumBlocks            => divUp(divUp((site(CacheDataSize) * 8),
-      site(ElementWidth)), site(ElementsPerBlock))
+      site(DanaDataBits)), site(ElementsPerBlock))
     case CacheInit                 => Nil
     // Register File
     case RegisterFileDataSize      => 8 * 1024  // KiB
     case RegisterFileNumElements   => divUp(site(RegisterFileDataSize) * 8,
-      site(ElementWidth))
+      site(DanaDataBits))
     // Enables support for in-hardware learning
     case LearningEnabled           => true
-    case BitsPerBlock              => site(ElementsPerBlock) * site(ElementWidth)
+    case BitsPerBlock              => site(ElementsPerBlock) * site(DanaDataBits)
     case BytesPerBlock             => site(BitsPerBlock) / 8
     case RegFileNumBlocks          => divUp(site(RegisterFileNumElements),
       site(ElementsPerBlock))

@@ -9,7 +9,6 @@ import rocket.XLen
 import xfiles._
 import cde._
 
-case object ElementWidth extends Field[Int]
 case object ElementsPerBlock extends Field[Int]
 case object NnidWidth extends Field[Int]
 case object FeedbackWidth extends Field[Int]
@@ -29,55 +28,27 @@ case object AntwRobEntries extends Field[Int]
 case object EnableCacheDump extends Field[Boolean]
 // NN Config Global Info
 case object DecimalPointOffset extends Field[Int]
-case object DecimalPointWidth extends Field[Int]
-case object ActivationFunctionWidth extends Field[Int]
-case object SteepnessWidth extends Field[Int]
+// case object DecimalPointWidth extends Field[Int]
 case object SteepnessOffset extends Field[Int]
-case object LambdaWidth extends Field[Int]
-case object LearningRateWidth extends Field[Int]
-case object NNConfigPointerWidth extends Field[Int]
-case object TotalLayersWidth extends Field[Int]
-case object TotalNeuronsWidth extends Field[Int]
-case object TotalWeightBlocksWidth extends Field[Int]
-case object ElementsPerBlockCodeWidth extends Field[Int]
-case object ErrorFunctionWidth extends Field[Int]
-case object NNConfigUnusedWidth extends Field[Int]
-// NN Config Layer Info
-case object NumberOfWeightsWidth extends Field[Int]
+
 // NN Config Neuron Info
-case object NeuronsInPrevLayerWidth extends Field[Int]
-case object NeuronsInLayerWidth extends Field[Int]
-case object NeuronPointerWidth extends Field[Int]
 
 trait DanaParameters {
   implicit val p: Parameters
   // Neural network configuration parameters
   val decimalPointOffset = p(DecimalPointOffset)
-  val decimalPointWidth = p(DecimalPointWidth)
-  val lambdaWidth = p(LambdaWidth)
-  val learningRateWidth = p(LearningRateWidth)
-  val nnConfigPointerWidth = p(NNConfigPointerWidth)
-  val totalLayersWidth = p(TotalLayersWidth)
-  val totalNeuronsWidth = p(TotalNeuronsWidth)
-  val totalWeightBlocksWidth = p(TotalWeightBlocksWidth)
-  val elementsPerBlockCodeWidth = p(ElementsPerBlockCodeWidth)
-  val errorFunctionWidth = p(ErrorFunctionWidth)
-  val nnConfigUnusedWidth = p(NNConfigUnusedWidth)
+  val decimalPointWidth = p(GlobalInfo).decimal_point
+  val steepnessOffset = p(SteepnessOffset)
+
   // Layer Info
   //   * Activation Function width increases will break
   //     ProcessingElementTable logic for indexing into cache data
   //   * Steepness width increases will break ProcessingElementTable
   //     logic for indexing into cache data
-  val activationFunctionWidth = p(ActivationFunctionWidth)
-  val steepnessWidth = p(SteepnessWidth)
-  val steepnessOffset = p(SteepnessOffset)
-  val numberOfWeightsWidth = p(NumberOfWeightsWidth)
-  val elementWidth = p(ElementWidth)
+  val activationFunctionWidth = p(NeuronInfo).activation_function
+  val steepnessWidth = p(NeuronInfo).steepness
+  val elementWidth = p(DanaDataBits)
   val elementsPerBlock = p(ElementsPerBlock)
-  // Neuron Info
-  val neuronsInPrevLayerWidth = p(NeuronsInPrevLayerWidth)
-  val neuronsInLayerWidth = p(NeuronsInLayerWidth)
-  val neuronPointerWidth = p(NeuronPointerWidth)
 
   val nnidWidth = p(NnidWidth)
   val feedbackWidth = p(FeedbackWidth)
@@ -96,7 +67,7 @@ trait DanaParameters {
   val regFileNumBlocks = p(RegFileNumBlocks)
   val cacheNumBlocks = p(CacheNumBlocks)
   // [TODO] This ioIdxWidth looks wrong?
-  val ioIdxWidth = log2Up(p(RegisterFileNumElements) * p(ElementWidth))
+  val ioIdxWidth = log2Up(p(RegisterFileNumElements) * p(DanaDataBits))
   val bitsPerBlock = p(BitsPerBlock)
   val bytesPerBlock = p(BytesPerBlock)
   val learningEnabled = p(LearningEnabled)
