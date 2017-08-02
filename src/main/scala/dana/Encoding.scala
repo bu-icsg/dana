@@ -3,7 +3,8 @@
 package dana
 
 import chisel3._
-import cde.Parameters
+import cde.{Parameters, Field}
+import _root_.util.ParameterizedBundle
 
 case object DanaPtr extends Field[Int]
 case object DanaData extends Field[Int]
@@ -25,7 +26,7 @@ class NnConfigHeader(implicit p: Parameters) extends ParameterizedBundle()(p) {
 }
 
 class NnConfigLayer(implicit p: Parameters) extends ParameterizedBundle()(p) {
-  val info = p(GlobalInfo)
+  val info = p(LayerInfo)
   val neuronsInPreviousLayer = UInt(info.num_neurons_previous.W)
   val neuronsInLayer         = UInt(info.num_neurons.W)
   val neuronPointer          = UInt(info.ptr_neuron.W)

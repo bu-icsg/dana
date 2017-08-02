@@ -174,14 +174,7 @@ abstract class CacheBase[
 
   // Default values
   controlRespPipe(0).valid := false.B
-  controlRespPipe(0).bits.fetch := false.B
-  controlRespPipe(0).bits.tableIndex := 0.U
-  controlRespPipe(0).bits.tableMask := 0.U
-  controlRespPipe(0).bits.cacheIndex := 0.U
-  controlRespPipe(0).bits.data := Vec.fill(6)(0.U)
-  controlRespPipe(0).bits.decimalPoint := 0.U
-  controlRespPipe(0).bits.field := 0.U
-  controlRespPipe(0).bits.regFileLocationBit := 0.U
+  controlRespPipe(0).bits.elements map { case (_, x) => x := 0.U }
 
   peRespPipe(0).valid := false.B
   peRespPipe(0).bits.data := 0.U
@@ -220,7 +213,7 @@ abstract class CacheBase[
   // Blind assignments
   controlRespPipe(0).bits.tableIndex := tableIndex
   controlRespPipe(0).bits.regFileLocationBit := location
-  controlRespPipe(0).bits.data(0) := layer(log2Up(elementsPerBlock) - 1, 0)
+  val layer_d = RegNext(layer(log2Up(elementsPerBlock) - 1, 0))
   when (hasNotify) {
     controlRespPipe(0).bits.tableIndex := table(idxNotify).notifyIndex
     controlRespPipe(0).bits.tableMask := table(idxNotify).notifyMask
@@ -298,32 +291,13 @@ abstract class CacheBase[
   }
 
   // Pipeline second stage (SRAM read)
-  switch (controlRespPipe(0).bits.field) {
-    is (e_CACHE_INFO) {
-      val thisCache = memIo(controlRespPipe(0).bits.cacheIndex).dout(0)
-      val dataDecode = (new NnConfigHeader).fromBits(thisCache)
-
-      controlRespPipe(1).bits.decimalPoint := dataDecode.decimalPoint
-      controlRespPipe(1).bits.data(0) := dataDecode.totalLayers
-      controlRespPipe(1).bits.data(1) := dataDecode.totalNeurons
-      // Pass back the error function in LSBs of data(2)
-      controlRespPipe(1).bits.data(2) := (0.U((16-errorFunctionWidth).W) ##
-        dataDecode.errorFunction)
-      controlRespPipe(1).bits.data(3) := dataDecode.learningRate
-      controlRespPipe(1).bits.data(4) := dataDecode.lambda
-      controlRespPipe(1).bits.data(5) := dataDecode.totalWeightBlocks
-    }
-    is (e_CACHE_LAYER_INFO) {
-      val thisCache = memIo(controlRespPipe(0).bits.cacheIndex).dout(0)
-      // [TODO] fragile
-      val dataDecode = Vec(bitsPerBlock/32, new NnConfigLayer).fromBits(thisCache)
-      val neuronIdx = controlRespPipe(0).bits.data(0)
-
-      controlRespPipe(1).bits.data(0) := dataDecode(neuronIdx).neuronsInLayer
-      controlRespPipe(1).bits.data(1) := dataDecode(neuronIdx).neuronsInPreviousLayer
-      controlRespPipe(1).bits.data(2) := dataDecode(neuronIdx).neuronPointer
-    }
-  }
+  val thisCache = memIo(controlRespPipe(0).bits.cacheIndex).dout(0)
+  when (controlRespPipe(0).bits.field === e_CACHE_INFO) {
+    controlRespPipe(1).bits.data := (new NnConfigHeader).fromBits(thisCache) }
+  when (controlRespPipe(0).bits.field === e_CACHE_LAYER_INFO) {
+    val dataDecode = Vec(bitsPerBlock/(new NnConfigLayer).getWidth,
+      new NnConfigLayer).fromBits(thisCache)
+    controlRespPipe(1).bits.data := dataDecode(layer_d) }
 
   // Handle requests from the Processing Element Table
   peRespPipe(0).bits.field := io.pe.req.bits.field
@@ -481,13 +455,9 @@ class CacheLearn(implicit p: Parameters) extends CacheBase[SRAMBlockIncrement,
   }
 
   controlRespPipe(0).bits.totalWritesMul := 0.U
-  controlRespPipe(0).bits.totalWritesMul :=
-  tTableReqQueue.deq.bits.totalWritesMul
+  controlRespPipe(0).bits.totalWritesMul := tTableReqQueue.deq.bits.totalWritesMul
 
-  // [TODO] Why is this always assigned?
-  val thisCache = memIo(controlRespPipe(0).bits.cacheIndex).dout(0)
   val dataDecode = (new NnConfigHeader).fromBits(thisCache)
-  controlRespPipe(1).bits.globalWtptr := dataDecode.weightsPointer
 
   when (io.pe.req.valid) {
     val cacheIdx = io.pe.req.bits.cacheIndex
