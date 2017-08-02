@@ -51,7 +51,6 @@ case object NeuronPointerWidth extends Field[Int]
 
 trait DanaParameters {
   implicit val p: Parameters
-
   // Neural network configuration parameters
   val decimalPointOffset = p(DecimalPointOffset)
   val decimalPointWidth = p(DecimalPointWidth)
@@ -320,42 +319,6 @@ class Dana(implicit p: Parameters) extends XFilesBackend()(p)
   io.xfQueue <> tTable.io.arbiter.xfQueue
 
   when (io.rocc.cmd.valid) { printfInfo("io.tTable.rocc.cmd.valid asserted\n") }
-}
-
-// These must match the configuration specified in
-// doc/binary-encodings-data-structures.md.
-
-// [TODO] Create a better way for only specifying the encodings in
-// one place and pulling them in to generate this.
-class NnConfigHeader(implicit p: Parameters) extends DanaBundle()(p) {
-  // [TODO] Fragile
-  val lambda                 = UInt(lambdaWidth.W)
-  val learningRate           = UInt(learningRateWidth.W)
-  val weightsPointer         = UInt(nnConfigPointerWidth.W)
-  val firstLayerPointer      = UInt(nnConfigPointerWidth.W)
-  val totalLayers            = UInt(totalLayersWidth.W)
-  val totalNeurons           = UInt(totalNeuronsWidth.W)
-  val totalWeightBlocks      = UInt(totalWeightBlocksWidth.W)
-  val _unused                = UInt(nnConfigUnusedWidth.W)
-  val elementsPerBlockCode   = UInt(elementsPerBlockCodeWidth.W)
-  val errorFunction          = UInt(errorFunctionWidth.W)
-  val decimalPoint           = UInt(decimalPointWidth.W)
-}
-
-class NnConfigLayer(implicit p: Parameters) extends DanaBundle()(p) {
-  // [TODO] Fragile
-  val bias                   = UInt(elementWidth.W)
-  val steepness              = UInt(steepnessWidth.W)
-  val activationFunction     = UInt(activationFunctionWidth.W)
-  val numberOfWeights        = UInt(numberOfWeightsWidth.W)
-  val weightOffset           = UInt(nnConfigPointerWidth.W)
-}
-
-class NnConfigNeuron(implicit p: Parameters) extends DanaBundle()(p) {
-  // [TODO] Fragile
-  val neuronsInPreviousLayer = UInt(neuronsInPrevLayerWidth.W)
-  val neuronsInLayer         = UInt(neuronsInLayerWidth.W)
-  val neuronPointer          = UInt(neuronPointerWidth.W)
 }
 
 class DanaStatusIO(implicit p: Parameters) extends DanaBundle()(p) {

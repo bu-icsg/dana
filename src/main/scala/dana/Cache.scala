@@ -316,7 +316,7 @@ abstract class CacheBase[
     is (e_CACHE_LAYER_INFO) {
       val thisCache = memIo(controlRespPipe(0).bits.cacheIndex).dout(0)
       // [TODO] fragile
-      val dataDecode = Vec(bitsPerBlock/32, new NnConfigNeuron).fromBits(thisCache)
+      val dataDecode = Vec(bitsPerBlock/32, new NnConfigLayer).fromBits(thisCache)
       val neuronIdx = controlRespPipe(0).bits.data(0)
 
       controlRespPipe(1).bits.data(0) := dataDecode(neuronIdx).neuronsInLayer
