@@ -22,8 +22,8 @@ class RegisterFileInterfaceLearn(implicit p: Parameters)
 
 class RegisterFileState(implicit p: Parameters) extends DanaBundle()(p) {
   val valid = Bool()
-  val totalWrites = UInt(16.W) // [TODO] fragile
-  val countWrites = UInt(16.W) // [TODO] fragile
+  val totalWrites = UInt(p(GlobalInfo).total_neurons.W)
+  val countWrites = UInt(p(GlobalInfo).total_neurons.W)
 }
 
 class RegisterFileBase[SramIf <: SRAMElementInterface](

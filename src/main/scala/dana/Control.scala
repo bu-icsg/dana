@@ -27,7 +27,7 @@ class ControlCacheInterfaceReq(implicit p: Parameters) extends DanaBundle()(p) {
   val asid               = UInt(asidWidth.W)
   val nnid               = UInt(nnidWidth.W)
   val tableIndex         = UInt(log2Up(transactionTableNumEntries).W)
-  val currentLayer       = UInt(16.W) // [TODO] fragile
+  val currentLayer       = UInt(p(GlobalInfo).total_layers.W)
   val regFileLocationBit = UInt(1.W) // [TODO] fragile
   val notDirty           = Bool()
 }
@@ -66,7 +66,7 @@ class ControlPETableInterfaceReqLearn(implicit p: Parameters)
   val slopeAddr       = UInt(ioIdxWidth.W)
   val biasAddr        = UInt(ioIdxWidth.W)
   val auxAddr         = UInt(ioIdxWidth.W)
-  val errorFunction   = UInt(log2Up(2).W) // [TODO] fragile
+  val errorFunction   = UInt(p(GlobalInfo).error_function.W)
   val stateLearn      = UInt(log2Up(7).W) // [TODO] fragile
   val inLast          = Bool()
   val resetWB         = Bool()
@@ -74,9 +74,9 @@ class ControlPETableInterfaceReqLearn(implicit p: Parameters)
   val batchFirst      = Bool()
   val learningRate    = UInt(elementWidth.W)
   val weightDecay     = UInt(elementWidth.W)
-  val numWeightBlocks = UInt(16.W) // [TODO] fragile
+  val numWeightBlocks = UInt(p(GlobalInfo).total_weight_blocks.W)
   val tType           = UInt(log2Up(3).W) // [TODO] fragile
-  val globalWtptr     = UInt(16.W) // [TODO] fragile
+  val globalWtptr     = UInt(p(DanaPtrBits).W)
 }
 
 class ControlPETableInterface(implicit p: Parameters) extends DanaBundle()(p) {
@@ -93,7 +93,7 @@ class ControlPETableInterfaceLearn(implicit p: Parameters)
 
 class ControlRegisterFileInterfaceReq(implicit p: Parameters) extends DanaBundle()(p) {
   val tIdx        = UInt(transactionTableNumEntries.W)
-  val totalWrites = UInt(16.W) // [TODO] fragile
+  val totalWrites = UInt(p(GlobalInfo).total_neurons.W)
   val location    = UInt(1.W)     // [TODO] fragile
 }
 

@@ -137,26 +137,21 @@ class TransactionState(implicit p: Parameters) extends TableEntry()(p)
     // to be on block boundaries, so there's an optional round
     // term.
     val nicl = info.neuronsInLayer
-    val niclMSBs = // Nodes in previous layer MSBs [TODO] fragile
-      nicl(15, log2Up(elementsPerBlock)) ##
-    0.U(log2Up(elementsPerBlock).W)
-    val niclLSBs = // Nodes in previous layer LSBs
-      nicl(log2Up(elementsPerBlock)-1, 0)
+    val niclMSBs = nicl(nicl.getWidth - 1, log2Up(elementsPerBlock)) ##
+      0.U(log2Up(elementsPerBlock).W)
+    val niclLSBs = nicl(log2Up(elementsPerBlock)-1, 0)
     val round = Mux(niclLSBs =/= 0.U, elementsPerBlock.U, 0.U)
     val niclOffset = niclMSBs + round
 
-    val niplMSBs =
-      this.nodesInCurrentLayer(15, log2Up(elementsPerBlock)) ##
-    0.U(log2Up(elementsPerBlock).W)
+    val niplMSBs = this.nodesInCurrentLayer(
+      this.nodesInCurrentLayer.getWidth - 1, log2Up(elementsPerBlock)) ##
+      0.U(log2Up(elementsPerBlock).W)
     val niplLSBs = this.nodesInCurrentLayer(log2Up(elementsPerBlock)-1,0)
-    val niplOffset = niplMSBs + Mux(niplLSBs =/= 0.U,
-      elementsPerBlock.U, 0.U)
+    val niplOffset = niplMSBs + Mux(niplLSBs =/= 0.U, elementsPerBlock.U, 0.U)
 
     printfInfo("DANA TTable: Updating cache layer...\n")
-    printfInfo("  total layers:               0x%x\n",
-      this.numLayers)
-    printfInfo("  layer is:                   0x%x\n",
-      this.currentLayer)
+    printfInfo("  total layers:               0x%x\n", this.numLayers)
+    printfInfo("  layer is:                   0x%x\n", this.currentLayer)
     printfInfo("  neuron pointer:             0x%x\n", info.neuronPointer)
     printfInfo("  nodes in current layer:     0x%x\n", info.neuronsInLayer)
     printfInfo("  nodes in previous layer:    0x%x\n", info.neuronsInPreviousLayer)
@@ -167,10 +162,9 @@ class TransactionState(implicit p: Parameters) extends TableEntry()(p)
     printfInfo("  niplMSBs:                   0x%x\n", niplMSBs)
     printfInfo("  niplLSBs:                   0x%x\n", niplLSBs)
     printfInfo("  niplOffset:                 0x%x\n", niplOffset)
-    printfInfo("  regFileAddrIn:              0x%x\n",
-      this.regFileAddrOut)
-    printfInfo("  regFileAddrOut:             0x%x\n",
-      this.regFileAddrOut +  niplOffset)
+    printfInfo("  regFileAddrIn:              0x%x\n", this.regFileAddrOut)
+    printfInfo("  regFileAddrOut:             0x%x\n", this.regFileAddrOut +
+      niplOffset)
   }
 }
 
@@ -288,7 +282,7 @@ class ControlReq(implicit p: Parameters) extends DanaBundle()(p) {
 }
 
 class ControlReqLearn(implicit p: Parameters) extends ControlReq()(p) {
-  val globalWtptr         = UInt(16.W) // [TODO] fragile
+  val globalWtptr         = UInt(p(DanaPtrBits).W)
   val inLastEarly         = Bool()
   val transactionType     = UInt(log2Up(3).W) // [TODO] fragile
   val stateLearn          = UInt(log2Up(8).W) // [TODO] fragile
@@ -706,17 +700,15 @@ class DanaTransactionTable(implicit p: Parameters)
           val info = (new NnConfigLayer).fromBits(resp.data)
 
           val nicl = info.neuronsInLayer
-          val niclMSBs = // Nodes in previous layer MSBs [TODO] fragile
-            nicl(15, log2Up(elementsPerBlock)) ##
-          0.U(log2Up(elementsPerBlock).W)
-          val niclLSBs = // Nodes in previous layer LSBs
-            nicl(log2Up(elementsPerBlock)-1, 0)
+          val niclMSBs = nicl(nicl.getWidth - 1, log2Up(elementsPerBlock)) ##
+            0.U(log2Up(elementsPerBlock).W)
+          val niclLSBs =  nicl(log2Up(elementsPerBlock)-1, 0)
           val round = Mux(niclLSBs =/= 0.U, elementsPerBlock.U, 0.U)
           val niclOffset = niclMSBs + round
 
-          val niplMSBs =
-            table(tIdx).nodesInCurrentLayer(15, log2Up(elementsPerBlock)) ##
-          0.U(width=log2Up(elementsPerBlock).W)
+          val niplMSBs = table(tIdx).nodesInCurrentLayer(
+            table(tIdx).nodesInCurrentLayer.getWidth - 1,
+            log2Up(elementsPerBlock)) ## 0.U(width=log2Up(elementsPerBlock).W)
           val niplLSBs = table(tIdx).nodesInCurrentLayer(log2Up(elementsPerBlock)-1,0)
           val niplOffset = niplMSBs + Mux(niplLSBs =/= 0.U,
             elementsPerBlock.U, 0.U)
@@ -748,8 +740,7 @@ class DanaTransactionTable(implicit p: Parameters)
     val tIdx = entryArbiter.io.out.bits.tableIndex
     val inLastNode = table(tIdx).currentNodeInLayer ===
       table(tIdx).nodesInCurrentLayer - 1.U
-    val notInLastLayer = table(tIdx).currentLayer <
-      (table(tIdx).numLayers - 1.U)
+    val notInLastLayer = table(tIdx).currentLayer <(table(tIdx).numLayers - 1.U)
     when(inLastNode && notInLastLayer) {
       table(tIdx).needsLayerInfo := true.B
       table(tIdx).currentLayer := table(tIdx).currentLayer + 1.U
@@ -929,20 +920,17 @@ class DanaTransactionTableLearn(implicit p: Parameters)
         val info = (new NnConfigLayer).fromBits(resp.data)
 
         val nicl = info.neuronsInLayer
-        val niclMSBs = // Nodes in previous layer MSBs [TODO] fragile
-          nicl(15, log2Up(elementsPerBlock)) ##
-        0.U(log2Up(elementsPerBlock).W)
-        val niclLSBs = // Nodes in previous layer LSBs
-          nicl(log2Up(elementsPerBlock)-1, 0)
+        val niclMSBs = nicl(nicl.getWidth - 1, log2Up(elementsPerBlock)) ##
+          0.U(log2Up(elementsPerBlock).W)
+        val niclLSBs = nicl(log2Up(elementsPerBlock)-1, 0)
         val round = Mux(niclLSBs =/= 0.U, elementsPerBlock.U, 0.U)
         val niclOffset = niclMSBs + round
 
         val nipl = info.neuronsInPreviousLayer
-        val niplMSBs = nipl(15, log2Up(elementsPerBlock)) ##
-        0.U(log2Up(elementsPerBlock).W)
+        val niplMSBs = nipl(nipl.getWidth - 1, log2Up(elementsPerBlock)) ##
+          0.U(log2Up(elementsPerBlock).W)
         val niplLSBs = nipl(log2Up(elementsPerBlock)-1,0)
-        val niplOffset = niplMSBs + Mux(niplLSBs =/= 0.U,
-          elementsPerBlock.U, 0.U)
+        val niplOffset = niplMSBs + Mux(niplLSBs=/=0.U, elementsPerBlock.U, 0.U)
 
         printfInfo("  nicl:             0x%x\n", nicl)
         printfInfo("  niclOffset:       0x%x\n", niclOffset)
@@ -983,17 +971,14 @@ class DanaTransactionTableLearn(implicit p: Parameters)
             // The bias offset is the size of the bias region
             val offsetBias = t.offsetBias + niclOffset
             t.offsetBias := offsetBias
-            val biasAddr = regFileAddrOut + t.offsetBias +
-            t.offsetDW + niclOffset
+            val biasAddr = regFileAddrOut +t.offsetBias +t.offsetDW +niclOffset
             t.biasAddr := biasAddr
             t.regFileAddrSlope := biasAddr + niclOffset
-            printfInfo("  offsetBias:       0x%x\n",
-              t.offsetBias + niclOffset)
+            printfInfo("  offsetBias:       0x%x\n", t.offsetBias + niclOffset)
             // The DW offset is the size of the DW region
             when (!t.inLastEarly) {
               t.offsetDW := t.offsetDW + niclOffset
-              printfInfo("  offsetDW:         0x%x\n",
-                t.offsetDW + niclOffset)
+              printfInfo("  offsetDW:         0x%x\n", t.offsetDW + niclOffset)
             }
 
             // Store the number of nodes in the output layer for future use
@@ -1058,22 +1043,18 @@ class DanaTransactionTableLearn(implicit p: Parameters)
                 // compute this because we know both the slope
                 // offset (which is the offset from the bias region
                 // to the start of the weight update region).
-                t.biasAddr := t.regFileAddrSlope -
-                t.offsetBias
-                printfInfo("  regFileAddrDw:   0x%x\n",
-                  t.regFileAddrInFixed)
+                t.biasAddr := t.regFileAddrSlope - t.offsetBias
+                printfInfo("  regFileAddrDw:   0x%x\n", t.regFileAddrInFixed)
                 printfInfo("  regFileAddrIn:   0x%x\n",
                   t.regFileAddrInFixed + niclOffset)
               }.otherwise{
                 t.regFileAddrDW := t.regFileAddrIn
                 t.regFileAddrIn := t.regFileAddrIn + niclOffset
                 t.biasAddr := t.biasAddr + niplOffset
-                printfInfo("  regFileAddrDw:   0x%x\n",
-                  t.regFileAddrIn)
+                printfInfo("  regFileAddrDw:   0x%x\n", t.regFileAddrIn)
                 printfInfo("  regFileAddrIn:   0x%x\n",
                   t.regFileAddrInFixed + niclOffset)
-                printfInfo("  biasAddr:        0x%x\n",
-                  t.biasAddr + niplOffset)
+                printfInfo("  biasAddr:        0x%x\n", t.biasAddr + niplOffset)
               }
             }.otherwise{
               t.regFileAddrDW := t.regFileAddrIn

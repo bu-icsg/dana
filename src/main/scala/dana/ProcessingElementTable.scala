@@ -102,7 +102,7 @@ class ProcessingElementState(implicit p: Parameters) extends DanaBundle()(p) {
   val decimalPoint       = UInt(decimalPointWidth.W)
   val inBlock            = UInt(bitsPerBlock.W)
   val weightBlock        = UInt(bitsPerBlock.W)
-  val numWeights         = UInt(8.W)         // [TODO] fragile
+  val numWeights         = UInt(p(GlobalInfo).total_weight_blocks.W)
   val activationFunction = UInt(activationFunctionWidth.W)
   val steepness          = UInt(steepnessWidth.W)
   val bias               = SInt(elementWidth.W)
@@ -120,10 +120,10 @@ class ProcessingElementStateLearn(implicit p: Parameters)
   val weightPtrSaved     = UInt(log2Up(elementWidth * elementsPerBlock * cacheNumBlocks).W)
   val learnReg           = SInt(elementWidth.W)
   val dw_in              = SInt(elementWidth.W)
-  val errorFunction      = UInt(log2Up(2).W) // [TODO] fragile
+  val errorFunction      = UInt(p(GlobalInfo).error_function.W)
   val learningRate       = UInt(elementWidth.W)
   val weightDecay        = SInt(elementWidth.W)
-  val globalWtptr        = UInt(16.W)        // [TODO] fragile
+  val globalWtptr        = UInt(p(DanaPtrBits).W)
   val numWeightBlocks    = UInt(16.W)
   val stateLearn         = UInt(log2Up(7).W) // [TODO] fragile
   val tType              = UInt(log2Up(3).W) // [TODO] fragile

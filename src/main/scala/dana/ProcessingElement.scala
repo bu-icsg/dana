@@ -7,7 +7,7 @@ import Chisel._
 import cde._
 
 class ProcessingElementReq(implicit p: Parameters) extends DanaBundle()(p) {
-  val numWeights         = UInt(8.W)         // [TODO] fragile
+  val numWeights         = UInt(p(NeuronInfo).num_weights.W)
   val index              = UInt(log2Up(peTableNumEntries).W)
   val decimalPoint       = UInt(decimalPointWidth.W)
   val steepness          = UInt(steepnessWidth.W)
@@ -19,7 +19,7 @@ class ProcessingElementReq(implicit p: Parameters) extends DanaBundle()(p) {
 
 class ProcessingElementReqLearn(implicit p: Parameters)
     extends ProcessingElementReq()(p) {
-  val errorFunction      = UInt(log2Up(2).W) // [TODO] fragile
+  val errorFunction      = UInt(p(GlobalInfo).error_function.W)
   val learningRate       = UInt(elementWidth.W)
   val weightDecay        = SInt(elementWidth.W)
   val learnReg           = SInt(elementWidth.W)
