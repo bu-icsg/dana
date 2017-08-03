@@ -82,6 +82,9 @@ trait DanaParameters {
   val int_INVEPB      = 0x15
   val int_MISALIGNED  = 0x16
   val int_UNKNOWN     = 0x17
+
+  def largestWidth = Seq((new NnConfigHeader).getWidth,
+    (new NnConfigLayer).getWidth, (new NnConfigNeuron).getWidth).max
 }
 
 trait DanaEnums {

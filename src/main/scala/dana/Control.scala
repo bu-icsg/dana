@@ -14,7 +14,7 @@ class ControlCacheInterfaceResp(implicit p: Parameters) extends DanaBundle()(p) 
   val tableIndex         = UInt(log2Up(transactionTableNumEntries).W)
   val tableMask          = UInt(transactionTableNumEntries.W)
   val cacheIndex         = UInt(log2Up(cacheNumEntries).W)
-  val data               = UInt((new NnConfigHeader).getWidth.W)
+  val data               = UInt(largestWidth.W)
   val field              = UInt(log2Up(7).W) // [TODO] fragile on Constants.scala
   val regFileLocationBit = UInt(1.W)
 }

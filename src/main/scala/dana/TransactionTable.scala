@@ -307,7 +307,7 @@ class ControlResp(implicit p: Parameters) extends DanaBundle()(p) {
   val tableIndex      = UInt(log2Up(transactionTableNumEntries).W)
   val tableMask       = UInt(transactionTableNumEntries.W)
   val field           = UInt(4.W) // [TODO] fragile on Constants.scala
-  val data            = UInt((new NnConfigHeader).getWidth.W)
+  val data            = UInt(largestWidth.W)
   val layerValid      = Bool()
   val layerValidIndex = UInt(log2Up(transactionTableNumEntries).W)
 }

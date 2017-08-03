@@ -283,7 +283,7 @@ abstract class CacheBase[
   when (controlRespPipe(0).bits.field === e_CACHE_LAYER_INFO) {
     val size = (new NnConfigLayer).getWidth
     val dataDecode = Vec(bitsPerBlock/size, UInt(size.W)).fromBits(thisCache)
-    controlRespPipe(1).bits.data := 0.U ## dataDecode(layer_d) }
+    controlRespPipe(1).bits.data := dataDecode(layer_d) }
 
   // Handle requests from the Processing Element Table
   peRespPipe(0).bits.field := io.pe.req.bits.field
