@@ -588,11 +588,16 @@ class ProcessingElementTableLearn(implicit p: Parameters)
     peArbiter.io.in(i).bits.resetWeightPtr := pe(i).resp.bits.resetWeightPtr
   }
 
-  val biasIndex = table(peArbiter.io.out.bits.index).neuronPtr(
-    log2Up(bitsPerBlock) - 3 - 1, log2Up(64) - 3)
-  val biasUpdateVec = Wire(Vec(elementsPerBlock, SInt(elementWidth.W)))
-  biasUpdateVec map (_ := 0.S)
-  biasUpdateVec(biasIndex * 2.U + 1.U) := peArbiter.io.out.bits.data
+  val biasIndex = bitsPerBlock compare (new NnConfigNeuron).getWidth match {
+    case 0 => 0.U
+    case 1 => table(peArbiter.io.out.bits.index).neuronPtr(
+      log2Up(bitsPerBlock) - 3 - 1, log2Up((new NnConfigNeuron).getWidth) - 3)
+    case -1 => throw new Exception("Bits per Block < sizeof(ConfigNeuron)")
+  }
+  val biasUpdateVec = Wire(Vec(bitsPerBlock/(new NnConfigNeuron).getWidth,
+    new NnConfigNeuron))
+  biasUpdateVec map (_ := (new NnConfigNeuron).fromBits(0.U))
+  biasUpdateVec(biasIndex).bias := peArbiter.io.out.bits.data
 
   val biasAddrLSBs = table(peArbiter.io.out.bits.index).biasAddr(
     log2Up(elementsPerBlock)-1,0)
