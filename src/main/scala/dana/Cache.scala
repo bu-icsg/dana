@@ -78,21 +78,6 @@ class CacheInterfaceLearn(implicit p: Parameters)
   override lazy val pe      = Flipped(new PECacheInterfaceLearn)
 }
 
-// class CompressedNeuron(implicit p: Parameters) extends DanaBundle()(p) {
-//   val weightPtr          = UInt(16.W)
-//   val numWeights         = UInt(8.W)
-//   val activationFunction = UInt(activationFunctionWidth.W)
-//   val steepness          = UInt(steepnessWidth.W)
-//   val bias               = SInt(elementWidth.W)
-//   def populate(data: UInt, out: CompressedNeuron) {
-//     out.weightPtr := data(15, 0)
-//     out.numWeights := data(23, 16)
-//     out.activationFunction := data(28, 24)
-//     out.steepness := data(31, 29)
-//     out.bias := data(63, 32).asSInt
-//   }
-// }
-
 abstract class CacheBase[
   A <: SRAMVariant, B <: SRAMVariantInterface, C <: ControlCacheInterfaceReq,
   D <: ControlCacheInterfaceResp](implicit p: Parameters)
