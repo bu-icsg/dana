@@ -200,7 +200,6 @@ abstract class CacheBase[
   // Blind assignments
   controlRespPipe(0).bits.tableIndex := tableIndex
   controlRespPipe(0).bits.regFileLocationBit := location
-  val layer_d = RegNext(layer(log2Up(elementsPerBlock) - 1, 0))
   when (hasNotify) {
     controlRespPipe(0).bits.tableIndex := table(idxNotify).notifyIndex
     controlRespPipe(0).bits.tableMask := table(idxNotify).notifyMask
@@ -209,6 +208,16 @@ abstract class CacheBase[
     controlRespPipe(0).bits.tableIndex := tableIndex
     controlRespPipe(0).bits.tableMask := UIntToOH(tableIndex)
     controlRespPipe(0).bits.cacheIndex := derefNnid
+  }
+
+  val (layerMSB, layerLSB_d) = {
+    val layersPerBlock = bitsPerBlock / (new NnConfigLayer).getWidth
+    val lsb = layersPerBlock match {
+      case 0 => throw new Exception("Layers larger than block size")
+      case 1 => 0.U
+      case _ => layer(log2Up(layersPerBlock) - 1, 0) }
+    val msb = layer(layer.getWidth - 1, log2Up(layersPerBlock))
+    (msb, RegNext(lsb))
   }
 
   io.antw.cmd.valid := false.B
@@ -253,8 +262,7 @@ abstract class CacheBase[
         // Read the layer information from the correct block. A layer
         // occupies one block, so we need to pull the block address
         // out of the layer number.
-        memIo(derefNnid).addr(0) := (1.U + // Offset from info region
-          layer(layer.getWidth-1, log2Up(elementsPerBlock)) )
+        memIo(derefNnid).addr(0) := 1.U + layerMSB
         memIo(derefNnid).re(0) := true.B
       }
       is (e_CACHE_DECREMENT_IN_USE_COUNT) {
@@ -283,7 +291,7 @@ abstract class CacheBase[
   when (controlRespPipe(0).bits.field === e_CACHE_LAYER_INFO) {
     val size = (new NnConfigLayer).getWidth
     val dataDecode = Vec(bitsPerBlock/size, UInt(size.W)).fromBits(thisCache)
-    controlRespPipe(1).bits.data := dataDecode(layer_d) }
+    controlRespPipe(1).bits.data := dataDecode(layerLSB_d) }
 
   // Handle requests from the Processing Element Table
   peRespPipe(0).bits.field := io.pe.req.bits.field
