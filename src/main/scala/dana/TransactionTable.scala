@@ -276,7 +276,7 @@ class ControlReq(implicit p: Parameters) extends DanaBundle()(p) {
   // State info
   val currentNodeInLayer = UInt(p(GlobalInfo).total_neurons.W)
   val currentLayer       = UInt(p(GlobalInfo).total_layers.W)
-  val neuronPointer      = UInt(log2Up(elementWidth * elementsPerBlock * cacheNumBlocks).W)
+  val neuronPointer      = UInt(p(DanaPtrBits).W)
   val decimalPoint       = UInt(decimalPointWidth.W)
   val regFileAddrIn      = UInt(log2Up(regFileNumElements).W)
   val regFileAddrOut     = UInt(log2Up(regFileNumElements).W)
