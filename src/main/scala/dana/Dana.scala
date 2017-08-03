@@ -9,6 +9,8 @@ import rocket.XLen
 import xfiles._
 import cde._
 
+import dana.abi._
+
 case object ElementsPerBlock extends Field[Int]
 case object NnidWidth extends Field[Int]
 case object FeedbackWidth extends Field[Int]
@@ -26,12 +28,6 @@ case object CacheNumBlocks extends Field[Int]
 case object NNConfigNeuronWidth extends Field[Int]
 case object AntwRobEntries extends Field[Int]
 case object EnableCacheDump extends Field[Boolean]
-// NN Config Global Info
-case object DecimalPointOffset extends Field[Int]
-// case object DecimalPointWidth extends Field[Int]
-case object SteepnessOffset extends Field[Int]
-
-// NN Config Neuron Info
 
 trait DanaParameters {
   implicit val p: Parameters

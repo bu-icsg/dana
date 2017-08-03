@@ -7,10 +7,12 @@ import chisel3._
 import chisel3.util._
 import rocket.{RoCCCommand, RoCCResponse, MStatus}
 import cde._
+import _root_.util.ParameterizedBundle
+
 import xfiles.{TransactionTableNumEntries, TableEntry, HasTable,
   XFilesResponseCodes, XFilesBackendReq, XFilesBackendResp,
   XFilesQueueInterface}
-import _root_.util.ParameterizedBundle
+import dana.abi._
 
 class TransactionState(implicit p: Parameters) extends TableEntry()(p)
     with DanaParameters {

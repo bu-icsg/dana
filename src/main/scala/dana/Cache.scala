@@ -7,6 +7,8 @@ import chisel3._
 import chisel3.util._
 import cde._
 
+import dana.abi._
+
 // [TODO]
 //   * I don't think that the location bit is used at all. Remove this
 //     if it isn't

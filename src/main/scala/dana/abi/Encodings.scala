@@ -1,6 +1,6 @@
 // See LICENSE.IBM for license details
 
-package dana
+package dana.abi
 
 import chisel3._
 import cde.{Parameters, Field}
@@ -11,6 +11,8 @@ case object DanaDataBits extends Field[Int]
 case object GlobalInfo extends Field[GlobalInfo_t]
 case object LayerInfo extends Field[LayerInfo_t]
 case object NeuronInfo extends Field[NeuronInfo_t]
+case object DecimalPointOffset extends Field[Int]
+case object SteepnessOffset extends Field[Int]
 
 class NnConfigHeader(implicit p: Parameters) extends ParameterizedBundle()(p) {
   val info = p(GlobalInfo)

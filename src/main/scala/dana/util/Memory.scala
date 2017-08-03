@@ -1,11 +1,13 @@
 // See LICENSE.BU for license details.
 // See LICENSE.IBM for license details.
 
-package dana
+package dana.util
 
 import chisel3._
 import chisel3.util._
 import cde._
+
+import dana._
 
 class MemoryInterface(implicit p: Parameters) extends DanaBundle()(p) {
   val cache = Flipped(new CacheAntwInterface)

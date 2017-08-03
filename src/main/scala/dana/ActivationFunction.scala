@@ -7,6 +7,8 @@ import chisel3._
 import chisel3.util._
 import cde._
 
+import dana.abi._
+
 class ActivationFunctionReq(implicit p: Parameters) extends DanaBundle()(p) {
   val decimal            = UInt(decimalPointWidth.W)
   val steepness          = UInt(steepnessWidth.W)

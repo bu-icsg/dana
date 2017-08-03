@@ -9,6 +9,8 @@ import scala.math.pow
 import xfiles.{TransactionTableNumEntries}
 import cde._
 
+import dana.abi._
+
 class RegisterFileInterface(implicit p: Parameters) extends DanaStatusIO()(p) {
   lazy val pe = Flipped(new PERegisterFileInterface)
   val control = Flipped(new ControlRegisterFileInterface)

@@ -6,6 +6,8 @@ package dana
 import Chisel._
 import cde._
 
+import dana.abi._
+
 class ProcessingElementReq(implicit p: Parameters) extends DanaBundle()(p) {
   val numWeights         = UInt(p(NeuronInfo).num_weights.W)
   val index              = UInt(log2Up(peTableNumEntries).W)
