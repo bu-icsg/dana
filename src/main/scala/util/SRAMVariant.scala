@@ -100,6 +100,7 @@ class SRAMVariant(
       row.reR(i)   := sram.reR(i) && bankR === rowIdx.U;
       row.addrR(i) := sram.addrR(i)(log2Up(blockSize.height) - 1, 0)
     }}
-    sram.doutR(i) := MuxLookup(bankR, blockRows(0).doutR(i), (0 until rows) map (r => (r.U -> blockRows(r).doutR(i))))
+    sram.doutR(i) := MuxLookup(RegNext(bankR), blockRows(0).doutR(i), (0 until rows).
+      map (r => (r.U -> blockRows(r).doutR(i))))
   }
 }
