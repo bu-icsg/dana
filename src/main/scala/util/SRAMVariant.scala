@@ -4,9 +4,10 @@ package dana
 
 import chisel3._
 import chisel3.util._
-import java.awt.Dimension
 import scala.Array
 import scala.math.min
+
+case class Dimension(width: Int, height: Int)
 
 class SRAMVariantInterface(
   val dataWidth: Int,
@@ -41,7 +42,7 @@ class SRAMVariant(
     sramDepth = sramDepth,
     numPorts = numPorts))
 
-  val blockSize = new Dimension(min(32, dataWidth), min(1024, sramDepth))
+  val blockSize = Dimension(min(32, dataWidth), min(1024, sramDepth))
   val rows = divUp(sramDepth, blockSize.height)
   val cols = divUp(dataWidth, blockSize.width)
   require(dataWidth % blockSize.width == 0)
@@ -83,14 +84,22 @@ class SRAMVariant(
     sram.addrR(i) := io.addr(i)
     io.dout(i) := sram.doutR(i)
 
-    val bank = if (rows > 1) io.addr(i)(log2Up(sramDepth) - 1, log2Up(blockSize.height)) else 0.U
-    for (r <- 0 until rows) {
-      blockRows(r).weW(i) := sram.weW(i) && bank === r.U;
-      blockRows(r).addrW(i) := sram.addrW(i)(log2Up(blockSize.height) - 1, 0)
-      blockRows(r).dinW(i) := sram.dinW(i)
-      blockRows(r).reR(i) := sram.reR(i) && bank === r.U;
-      blockRows(r).addrR(i) := sram.addrR(i)(log2Up(blockSize.height) - 1, 0)
+    val (bankR, bankW) = rows compare 1 match {
+      case 0 => (0.U, 0.U)
+      case 1 => (
+        sram.addrR(i)(log2Up(sramDepth) - 1, log2Up(blockSize.height)),
+        sram.addrW(i)(log2Up(sramDepth) - 1, log2Up(blockSize.height)))
+      case _ =>
+        throw new Exception(s"Unable to determine banking for rows: ${rows}")
     }
-    sram.doutR(i) := MuxLookup(bank, blockRows(0).doutR(i), (0 until rows) map (r => (r.U -> blockRows(r).doutR(i))))
+    blockRows.zipWithIndex.map { case(row, rowIdx) => {
+      row.weW(i)   := sram.weW(i) && bankW === rowIdx.U;
+      row.addrW(i) := sram.addrW(i)(log2Up(blockSize.height) - 1, 0)
+      row.dinW(i)  := sram.dinW(i)
+
+      row.reR(i)   := sram.reR(i) && bankR === rowIdx.U;
+      row.addrR(i) := sram.addrR(i)(log2Up(blockSize.height) - 1, 0)
+    }}
+    sram.doutR(i) := MuxLookup(bankR, blockRows(0).doutR(i), (0 until rows) map (r => (r.U -> blockRows(r).doutR(i))))
   }
 }
