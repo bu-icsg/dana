@@ -1,6 +1,6 @@
 # Shared NN configurations used by fann-random to generate networks
-andSigmoidSymmetric,-l2 -l1 -a5 -o5 -r0.7
-orSigmoidSymmetric,-l2 -l1 -a5 -o5 -r0.7
+andSigmoidSymmetric,-l2 -l2 -l1 -a5 -o5 -r0.7
+orSigmoidSymmetric,-l2 -l2 -l1 -a5 -o5 -r0.7
 xorSigmoid,-r0.7 -l2 -l4 -l1 -a5 -o3
 xorSigmoidSymmetric,-l2 -l8 -l1 -a5 -o5 -r0.7
 xorSigmoidSymmetricThreeLayer,-l2 -l8 -l9 -l1 -a5 -o5 -r0.7
@@ -39,7 +39,7 @@ soybean,-l82 -l32 -l19 -a5 -o3 -r0.7
 thyroid,-l21 -l10 -l3 -a5 -o3
 two-spiral,-l2 -l10 -l30 -l3 -l1 -a5 -o3
 # Parity configurations
-parity-1,-l1 -l1 -a5 -o5
+parity-1,-l1 -l1 -l1 -a5 -o5
 parity-2,-l2 -l4 -l1 -a5 -o5 -r0.2
 parity-3,-l3 -l8 -l1 -a5 -o5 -r0.2
 parity-4,-l4 -l9 -l1 -a5 -o5 -r0.7
@@ -78,3 +78,10 @@ sin-scale-3.75,-l1 -l8 -l1 -a3 -o5 -r0.7
 sin-scale-4.00,-l1 -l8 -l1 -a3 -o5 -r0.7
 sinc,-l1 -l8 -l1 -a3 -o5 -r0.7
 gaussian,-l1 -l8 -l1 -a3 -o5 -r0.7
+# MNIST
+mnist-300,-l784 -l300 -l10 -a5 -o0 --steepness-hidden 1 --steepness-output 1
+mnist-1000,-l784 -l1000 -l10 -a5 -o0 --steepness-hidden 1 --steepness-output 1
+mnist-300-100,-l784 -l300 -l100 -l10 -a5 -o0 --steepness-hidden 1 --steepness-output 1
+mnist-500-150,-l784 -l500 -l150 -l10 -a5 -o0 --steepness-hidden 1 --steepness-output 1
+mnist-500-500-2000-30,-l784 -l500 -l500 -l2000 -l30 -l10 -a5 -o0 --steepness-hidden 1 --steepness-output 1
+mnist-2500-2000-1500-1000-500,-l784 -l2500 -l2000 -l1500 -l1000 -l500 -l10 -a5 -o0 --steepness-hidden 1 --steepness-output 1
