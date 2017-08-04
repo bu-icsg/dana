@@ -99,8 +99,8 @@ class ProcessingElementState(implicit p: Parameters) extends DanaBundle()(p) {
   // current node in the layer and will be used to generate an
   // expected output request to the Register File
   val location           = UInt(1.W)
-  val neuronPtr          = UInt(log2Up(elementWidth * elementsPerBlock * cacheNumBlocks).W)
-  val weightPtr          = UInt(log2Up(elementWidth * elementsPerBlock * cacheNumBlocks).W)
+  val neuronPtr          = UInt(p(DanaPtrBits).W)
+  val weightPtr          = UInt(p(DanaPtrBits).W)
   val decimalPoint       = UInt(decimalPointWidth.W)
   val inBlock            = UInt(bitsPerBlock.W)
   val weightBlock        = UInt(bitsPerBlock.W)
@@ -108,7 +108,7 @@ class ProcessingElementState(implicit p: Parameters) extends DanaBundle()(p) {
   val activationFunction = UInt(activationFunctionWidth.W)
   val steepness          = UInt(steepnessWidth.W)
   val bias               = SInt(elementWidth.W)
-  val weightoffset       = UInt(16.W)
+  val weightoffset       = UInt(p(NeuronInfo).ptr_weight_offset.W)
 }
 
 class ProcessingElementStateLearn(implicit p: Parameters)
@@ -119,14 +119,14 @@ class ProcessingElementStateLearn(implicit p: Parameters)
   val biasAddr           = UInt(log2Up(p(ScratchpadElements)).W)
   val auxAddr            = UInt(log2Up(p(ScratchpadElements)).W)
   val inAddrSaved        = UInt(log2Up(p(ScratchpadElements)).W)
-  val weightPtrSaved     = UInt(log2Up(elementWidth * elementsPerBlock * cacheNumBlocks).W)
+  val weightPtrSaved     = UInt(p(DanaPtrBits).W)
   val learnReg           = SInt(elementWidth.W)
   val dw_in              = SInt(elementWidth.W)
   val errorFunction      = UInt(p(GlobalInfo).error_function.W)
   val learningRate       = UInt(elementWidth.W)
   val weightDecay        = SInt(elementWidth.W)
   val globalWtptr        = UInt(p(DanaPtrBits).W)
-  val numWeightBlocks    = UInt(16.W)
+  val numWeightBlocks    = UInt(p(NeuronInfo).num_weights.W)
   val stateLearn         = UInt(log2Up(7).W) // [TODO] fragile
   val tType              = UInt(log2Up(3).W) // [TODO] fragile
   val inLast             = Bool()
@@ -200,7 +200,7 @@ class ProcessingElementTableBase[PeStateType <: ProcessingElementState,
   val cooldown = Reg(init = 0.U(peCooldownWidth.W))
   when (io.status.pe_governor === PeGovernor.cooldown.U) {
     when (io.control.req.fire()) { cooldown := io.status.pe_cooldown }
-    when (cooldown =/= 0.U)    { cooldown := cooldown - 1.U      }
+    when (cooldown =/= 0.U)      { cooldown := cooldown - 1.U        }
     io.control.req.ready := hasFree && cooldown === 0.U }
 
   val peRamp = Reg(init = 1.U((io.status.pes_active.getWidth + 1).W))
