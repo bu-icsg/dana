@@ -94,10 +94,10 @@ int main (int argc, char * argv[]) {
   char * opt_emit_training_file = NULL;
   while (1) {
     static struct option long_options[] = {
-      {"help",               no_argument,       0, 'h'},
-      {"nn-config",          required_argument, 0, 'n'},
-      {"emit-training-file", required_argument, 0, 1},
-      {"verbose",            no_argument,       &opt_verbose, 1},
+      {"help",            no_argument,       0, 'h'},
+      {"nn-config",       required_argument, 0, 'n'},
+      {"emit-fann-train", required_argument, 0, 1},
+      {"verbose",         no_argument,       &opt_verbose, 1},
       {0, 0, 0, 0}
     };
     int option_index = 0;
