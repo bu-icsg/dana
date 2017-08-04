@@ -13,13 +13,12 @@ import dana.abi._
 
 case object ElementsPerBlock extends Field[Int]
 case object NnidWidth extends Field[Int]
-case object FeedbackWidth extends Field[Int]
 case object PeTableNumEntries extends Field[Int]
 case object PeCooldownWidth extends Field[Int]
 case object CacheNumEntries extends Field[Int]
-case object CacheDataSize extends Field[Int]
-case object RegisterFileNumElements extends Field[Int]
-case object RegisterFileDataSize extends Field[Int]
+case object CacheSizeBytes extends Field[Int]
+case object ScratchpadBytes extends Field[Int]
+case object ScratchpadElements extends Field[Int]
 case object LearningEnabled extends Field[Boolean]
 case object BitsPerBlock extends Field[Int]
 case object BytesPerBlock extends Field[Int]
@@ -47,7 +46,6 @@ trait DanaParameters {
   val elementsPerBlock = p(ElementsPerBlock)
 
   val nnidWidth = p(NnidWidth)
-  val feedbackWidth = p(FeedbackWidth)
   val antwRobEntries = p(AntwRobEntries)
 
   // Processing Element Table
@@ -55,15 +53,10 @@ trait DanaParameters {
   val peCooldownWidth = p(PeCooldownWidth)
   // Configuration Cache
   val cacheNumEntries = p(CacheNumEntries)
-  val cacheDataSize = p(CacheDataSize)
-  // Register File
-  val regFileNumElements = p(RegisterFileNumElements)
 
   // Derived parameters
   val regFileNumBlocks = p(RegFileNumBlocks)
   val cacheNumBlocks = p(CacheNumBlocks)
-  // [TODO] This ioIdxWidth looks wrong?
-  val ioIdxWidth = log2Up(p(RegisterFileNumElements) * p(DanaDataBits))
   val bitsPerBlock = p(BitsPerBlock)
   val bytesPerBlock = p(BytesPerBlock)
   val learningEnabled = p(LearningEnabled)

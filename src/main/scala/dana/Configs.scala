@@ -15,25 +15,24 @@ class DefaultHardwareConfig extends Config ( topDefinitions = {
     case AntwRobEntries            => 32
     // Field widths
     case NnidWidth                 => 16
-    case FeedbackWidth             => 12
     // Processing Element Table
     case PeTableNumEntries         => 1
     case PeCooldownWidth           => 8
     // Configuration Cache
     case CacheNumEntries           => 2
-    case CacheDataSize             => 32 * 1024 // KiB
-    case CacheNumBlocks            => divUp(divUp((site(CacheDataSize) * 8),
+    case CacheSizeBytes            => 32 * 1024 // KiB
+    case CacheNumBlocks            => divUp(divUp((site(CacheSizeBytes) * 8),
       site(DanaDataBits)), site(ElementsPerBlock))
     case CacheInit                 => Nil
     // Register File
-    case RegisterFileDataSize      => 8 * 1024  // KiB
-    case RegisterFileNumElements   => divUp(site(RegisterFileDataSize) * 8,
+    case ScratchpadBytes           => 8 * 1024  // KiB
+    case ScratchpadElements        => divUp(site(ScratchpadBytes) * 8,
       site(DanaDataBits))
     // Enables support for in-hardware learning
     case LearningEnabled           => true
     case BitsPerBlock              => site(ElementsPerBlock) * site(DanaDataBits)
     case BytesPerBlock             => site(BitsPerBlock) / 8
-    case RegFileNumBlocks          => divUp(site(RegisterFileNumElements),
+    case RegFileNumBlocks          => divUp(site(ScratchpadElements),
       site(ElementsPerBlock))
     case NNConfigNeuronWidth       => 64
     case BuildXFilesBackend        => XFilesBackendParameters(
@@ -66,12 +65,12 @@ class DanaConfig
     learning:   Boolean = true)
     extends Config( topDefinitions = {
   (pname,site,here) => pname match {
-    case LearningEnabled         => learning
-    case PeTableNumEntries       => numPes
-    case ElementsPerBlock        => epb
-    case CacheNumEntries         => cache
-    case CacheDataSize           => cacheSize
-    case RegisterFileDataSize    => scratchpad
+    case LearningEnabled   => learning
+    case PeTableNumEntries => numPes
+    case ElementsPerBlock  => epb
+    case CacheNumEntries   => cache
+    case CacheSizeBytes    => cacheSize
+    case ScratchpadBytes   => scratchpad
     case _ => throw new CDEMatchError
   }})
 

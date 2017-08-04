@@ -53,21 +53,20 @@ class ControlCacheInterfaceLearn(implicit p: Parameters)
 class ControlPETableInterfaceReq(implicit p: Parameters) extends DanaBundle()(p) {
   val cacheIndex      = UInt(log2Up(cacheNumEntries).W)
   val tIdx            = UInt(log2Up(transactionTableNumEntries).W)
-  // [TODO] Change ioIdxWidth to regFileNumElements?
-  val inAddr          = UInt(ioIdxWidth.W)
-  val outAddr         = UInt(ioIdxWidth.W)
+  val inAddr          = UInt(p(DanaPtrBits).W)
+  val outAddr         = UInt(p(DanaPtrBits).W)
   val location        = UInt(1.W)
-  val neuronPointer   = UInt(log2Up(elementWidth * elementsPerBlock * cacheNumBlocks).W)
+  val neuronPointer   = UInt(p(DanaPtrBits).W)
   val decimalPoint    = UInt(decimalPointWidth.W)
 }
 
 class ControlPETableInterfaceReqLearn(implicit p: Parameters)
     extends ControlPETableInterfaceReq()(p) {
-  val learnAddr       = UInt(ioIdxWidth.W)
-  val dwAddr          = UInt(ioIdxWidth.W)
-  val slopeAddr       = UInt(ioIdxWidth.W)
-  val biasAddr        = UInt(ioIdxWidth.W)
-  val auxAddr         = UInt(ioIdxWidth.W)
+  val learnAddr       = UInt(p(DanaPtrBits).W)
+  val dwAddr          = UInt(p(DanaPtrBits).W)
+  val slopeAddr       = UInt(p(DanaPtrBits).W)
+  val biasAddr        = UInt(p(DanaPtrBits).W)
+  val auxAddr         = UInt(p(DanaPtrBits).W)
   val errorFunction   = UInt(p(GlobalInfo).error_function.W)
   val stateLearn      = UInt(log2Up(7).W) // [TODO] fragile
   val inLast          = Bool()

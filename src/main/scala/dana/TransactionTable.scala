@@ -41,12 +41,12 @@ class TransactionState(implicit p: Parameters) extends TableEntry()(p)
   val nodesInCurrentLayer = UInt(p(GlobalInfo).total_neurons.W)
   val neuronPointer       = UInt(p(DanaPtrBits).W)
   val regFileLocationBit  = UInt(1.W)
-  val regFileAddrIn       = UInt(log2Up(regFileNumElements).W)
-  val regFileAddrOut      = UInt(log2Up(regFileNumElements).W)
-  val readIdx             = UInt(log2Up(regFileNumElements).W)
-  val indexElement        = UInt(log2Up(regFileNumElements).W)
+  val regFileAddrIn       = UInt(log2Up(p(ScratchpadElements)).W)
+  val regFileAddrOut      = UInt(log2Up(p(ScratchpadElements)).W)
+  val readIdx             = UInt(log2Up(p(ScratchpadElements)).W)
+  val indexElement        = UInt(log2Up(p(ScratchpadElements)).W)
   //-------- Can be possibly moved over to a learning-only config
-  val regFileAddrOutFixed = UInt(log2Up(regFileNumElements).W)
+  val regFileAddrOutFixed = UInt(log2Up(p(ScratchpadElements)).W)
 
   aliasList += ( "valid"  -> "V",
     "reserved"            -> "R",
@@ -192,11 +192,11 @@ class TransactionStateLearn(implicit p: Parameters)
   val numOutputs           = UInt(p(DanaDataBits).W)
   // We need to keep track of where inputs and outputs should be
   // written to in the Register File.
-  val regFileAddrInFixed   = UInt(log2Up(regFileNumElements).W)
-  // val regFileAddrDelta  = UInt(log2Up(regFileNumElements).W)
-  val regFileAddrDW        = UInt(log2Up(regFileNumElements).W)
-  val regFileAddrSlope     = UInt(log2Up(regFileNumElements).W)
-  val regFileAddrAux       = UInt(log2Up(regFileNumElements).W)
+  val regFileAddrInFixed   = UInt(log2Up(p(ScratchpadElements)).W)
+  // val regFileAddrDelta  = UInt(log2Up(p(ScratchpadElements)).W)
+  val regFileAddrDW        = UInt(log2Up(p(ScratchpadElements)).W)
+  val regFileAddrSlope     = UInt(log2Up(p(ScratchpadElements)).W)
+  val regFileAddrAux       = UInt(log2Up(p(ScratchpadElements)).W)
   val nodesInPreviousLayer = UInt(p(GlobalInfo).total_neurons.W)
   val nodesInLast          = UInt(p(GlobalInfo).total_neurons.W)
 
@@ -278,8 +278,8 @@ class ControlReq(implicit p: Parameters) extends DanaBundle()(p) {
   val currentLayer       = UInt(p(GlobalInfo).total_layers.W)
   val neuronPointer      = UInt(p(DanaPtrBits).W)
   val decimalPoint       = UInt(decimalPointWidth.W)
-  val regFileAddrIn      = UInt(log2Up(regFileNumElements).W)
-  val regFileAddrOut     = UInt(log2Up(regFileNumElements).W)
+  val regFileAddrIn      = UInt(log2Up(p(ScratchpadElements)).W)
+  val regFileAddrOut     = UInt(log2Up(p(ScratchpadElements)).W)
   val regFileLocationBit = UInt(1.W) // [TODO] fragile on definition above
 }
 
@@ -292,10 +292,10 @@ class ControlReqLearn(implicit p: Parameters) extends ControlReq()(p) {
   val learningRate        = UInt(p(DanaDataBits).W)
   val weightDecay         = UInt(p(DanaDataBits).W)
   val numWeightBlocks     = UInt(p(GlobalInfo).total_weight_blocks.W)
-  val regFileAddrDW       = UInt(log2Up(regFileNumElements).W)
-  val regFileAddrSlope    = UInt(log2Up(regFileNumElements).W)
-  val regFileAddrBias     = UInt(log2Up(regFileNumElements).W)
-  val regFileAddrAux      = UInt(log2Up(regFileNumElements).W)
+  val regFileAddrDW       = UInt(log2Up(p(ScratchpadElements)).W)
+  val regFileAddrSlope    = UInt(log2Up(p(ScratchpadElements)).W)
+  val regFileAddrBias     = UInt(log2Up(p(ScratchpadElements)).W)
+  val regFileAddrAux      = UInt(log2Up(p(ScratchpadElements)).W)
   val batchFirst          = Bool()
 }
 
@@ -326,7 +326,7 @@ class TTableControlInterfaceLearn(implicit p: Parameters)
 class TTableRegisterFileReq(implicit p: Parameters) extends DanaBundle()(p) {
   val reqType = UInt(log2Up(2).W) // [TODO] Frgaile on Dana enum
   val tidIdx  = UInt(log2Up(transactionTableNumEntries).W)
-  val addr    = UInt(log2Up(regFileNumElements).W)
+  val addr    = UInt(log2Up(p(ScratchpadElements)).W)
   val data    = UInt(elementWidth.W)
 }
 
@@ -540,7 +540,7 @@ class DanaTransactionTableBase[StateType <: TransactionState,
         val isLast = io.arbiter.xfQueue.in.bits.funct === t_USR_WRITE_DATA_LAST.U
         when (isLast) {
           val nextIndexBlock = (table(tidIdx).indexElement(
-            log2Up(regFileNumElements)-1,log2Up(elementsPerBlock)) ##
+            log2Up(p(ScratchpadElements))-1,log2Up(elementsPerBlock)) ##
             0.U(log2Up(elementsPerBlock).W)) + elementsPerBlock.U
           entry.indexElement := nextIndexBlock
           entry.needsInputs := false.B
@@ -813,7 +813,7 @@ class DanaTransactionTableLearn(implicit p: Parameters)
     // the "needsInputs" state
     val isLast = io.arbiter.xfQueue.in.bits.funct === t_USR_WRITE_DATA_LAST.U
     val numInputs = entry.indexElement
-    val numInputsMSBs = numInputs(log2Up(regFileNumElements) - 1,
+    val numInputsMSBs = numInputs(log2Up(p(ScratchpadElements)) - 1,
       log2Up(elementsPerBlock)) ## 0.U(log2Up(elementsPerBlock).W)
     val numInputsOffset = numInputsMSBs + elementsPerBlock.U
     when (entry.needsInputs & io.arbiter.xfQueue.in.valid & isLast) {
@@ -847,7 +847,7 @@ class DanaTransactionTableLearn(implicit p: Parameters)
 
         when (isLast) {
           val nextIndexBlock = (entry.indexElement(
-            log2Up(regFileNumElements)-1,log2Up(elementsPerBlock)) ##
+            log2Up(p(ScratchpadElements))-1,log2Up(elementsPerBlock)) ##
             0.U(log2Up(elementsPerBlock).W)) + elementsPerBlock.U
           entry.indexElement := nextIndexBlock
           entry.needsInputs := true.B

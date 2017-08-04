@@ -35,7 +35,7 @@ class PECacheInterfaceLearn(implicit p: Parameters)
 class PERegisterFileReq(implicit p: Parameters) extends DanaBundle()(p) {
   // The register index should go down to the element level
   val isWrite       = Bool()
-  val addr          = UInt(log2Up(regFileNumElements).W)
+  val addr          = UInt(log2Up(p(ScratchpadElements)).W)
   val peIndex       = UInt(log2Up(peTableNumEntries).W)
   val tIdx          = UInt(log2Up(transactionTableNumEntries).W)
   val data          = SInt(elementWidth.W)
@@ -93,8 +93,8 @@ class ProcessingElementState(implicit p: Parameters) extends DanaBundle()(p) {
   val inValid            = Bool()
   val tIdx               = UInt(log2Up(transactionTableNumEntries).W)
   val cIdx               = UInt(log2Up(cacheNumEntries).W)
-  val inAddr             = UInt(log2Up(regFileNumElements).W)
-  val outAddr            = UInt(log2Up(regFileNumElements).W)
+  val inAddr             = UInt(log2Up(p(ScratchpadElements)).W)
+  val outAddr            = UInt(log2Up(p(ScratchpadElements)).W)
   // [TODO] learn address may have multiple meanings: 1) this is the
   // current node in the layer and will be used to generate an
   // expected output request to the Register File
@@ -113,12 +113,12 @@ class ProcessingElementState(implicit p: Parameters) extends DanaBundle()(p) {
 
 class ProcessingElementStateLearn(implicit p: Parameters)
     extends ProcessingElementState()(p) {
-  val learnAddr          = UInt(log2Up(regFileNumElements).W)
-  val dwAddr             = UInt(log2Up(regFileNumElements).W)
-  val slopeAddr          = UInt(log2Up(regFileNumElements).W)
-  val biasAddr           = UInt(log2Up(regFileNumElements).W)
-  val auxAddr            = UInt(log2Up(regFileNumElements).W)
-  val inAddrSaved        = UInt(log2Up(regFileNumElements).W)
+  val learnAddr          = UInt(log2Up(p(ScratchpadElements)).W)
+  val dwAddr             = UInt(log2Up(p(ScratchpadElements)).W)
+  val slopeAddr          = UInt(log2Up(p(ScratchpadElements)).W)
+  val biasAddr           = UInt(log2Up(p(ScratchpadElements)).W)
+  val auxAddr            = UInt(log2Up(p(ScratchpadElements)).W)
+  val inAddrSaved        = UInt(log2Up(p(ScratchpadElements)).W)
   val weightPtrSaved     = UInt(log2Up(elementWidth * elementsPerBlock * cacheNumBlocks).W)
   val learnReg           = SInt(elementWidth.W)
   val dw_in              = SInt(elementWidth.W)
@@ -440,7 +440,7 @@ class ProcessingElementTableLearn(implicit p: Parameters)
   // This is needed to know when a a block is the first to be written
   // back. If it is not the first, then it should be accumulated.
   val regFileBlockWbTable = Reg(Vec(transactionTableNumEntries,
-    UInt(log2Up(regFileNumElements).W)))
+    UInt(log2Up(p(ScratchpadElements)).W)))
   (0 until transactionTableNumEntries).map(i =>
     regFileBlockWbTable(i) := regFileBlockWbTable(i))
 

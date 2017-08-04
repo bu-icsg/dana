@@ -39,7 +39,7 @@ class RegisterFileBase[SramIf <: SRAMElementInterface](
   val stateToggle = Reg(Vec(transactionTableNumEntries, UInt(1.W)))
   val tTableRespValid = Reg(Bool())
   val tTableRespTIdx = Reg(UInt(log2Up(transactionTableNumEntries).W))
-  val tTableRespAddr = Reg(UInt(log2Up(regFileNumElements).W))
+  val tTableRespAddr = Reg(UInt(log2Up(p(ScratchpadElements)).W))
 
   // Default values for SRAMs
   for (transaction <- 0 until transactionTableNumEntries) {
@@ -177,7 +177,7 @@ class RegisterFileBase[SramIf <: SRAMElementInterface](
   // We shouldn't be trying to write data outside of the bounds of the
   // memory
   (0 until transactionTableNumEntries).map(i =>
-    assert(!(mem(i).addr(0) >= regFileNumElements.U), printfSigil ++
+    assert(!(mem(i).addr(0) >= p(ScratchpadElements).U), printfSigil ++
       "RegFile address (read or write) is out of bounds"))
 
 }
