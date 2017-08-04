@@ -7,6 +7,8 @@ import chisel3._
 import chisel3.util._
 import cde._
 
+import dana.abi._
+
 // [TODO]
 //   * I don't think that the location bit is used at all. Remove this
 //     if it isn't
@@ -74,21 +76,6 @@ class CacheInterfaceLearn(implicit p: Parameters)
     extends CacheInterface()(p) {
   override lazy val control = Flipped(new ControlCacheInterfaceLearn)
   override lazy val pe      = Flipped(new PECacheInterfaceLearn)
-}
-
-class CompressedNeuron(implicit p: Parameters) extends DanaBundle()(p) {
-  val weightPtr          = UInt(16.W)
-  val numWeights         = UInt(8.W)
-  val activationFunction = UInt(activationFunctionWidth.W)
-  val steepness          = UInt(steepnessWidth.W)
-  val bias               = SInt(elementWidth.W)
-  def populate(data: UInt, out: CompressedNeuron) {
-    out.weightPtr := data(15, 0)
-    out.numWeights := data(23, 16)
-    out.activationFunction := data(28, 24)
-    out.steepness := data(31, 29)
-    out.bias := data(63, 32).asSInt
-  }
 }
 
 abstract class CacheBase[
@@ -174,14 +161,7 @@ abstract class CacheBase[
 
   // Default values
   controlRespPipe(0).valid := false.B
-  controlRespPipe(0).bits.fetch := false.B
-  controlRespPipe(0).bits.tableIndex := 0.U
-  controlRespPipe(0).bits.tableMask := 0.U
-  controlRespPipe(0).bits.cacheIndex := 0.U
-  controlRespPipe(0).bits.data := Vec.fill(6)(0.U)
-  controlRespPipe(0).bits.decimalPoint := 0.U
-  controlRespPipe(0).bits.field := 0.U
-  controlRespPipe(0).bits.regFileLocationBit := 0.U
+  controlRespPipe(0).bits.elements map { case (_, x) => x := 0.U }
 
   peRespPipe(0).valid := false.B
   peRespPipe(0).bits.data := 0.U
@@ -220,7 +200,6 @@ abstract class CacheBase[
   // Blind assignments
   controlRespPipe(0).bits.tableIndex := tableIndex
   controlRespPipe(0).bits.regFileLocationBit := location
-  controlRespPipe(0).bits.data(0) := layer(log2Up(elementsPerBlock) - 1, 0)
   when (hasNotify) {
     controlRespPipe(0).bits.tableIndex := table(idxNotify).notifyIndex
     controlRespPipe(0).bits.tableMask := table(idxNotify).notifyMask
@@ -229,6 +208,16 @@ abstract class CacheBase[
     controlRespPipe(0).bits.tableIndex := tableIndex
     controlRespPipe(0).bits.tableMask := UIntToOH(tableIndex)
     controlRespPipe(0).bits.cacheIndex := derefNnid
+  }
+
+  val (layerMSB, layerLSB_d) = {
+    val layersPerBlock = bitsPerBlock / (new NnConfigLayer).getWidth
+    val lsb = layersPerBlock match {
+      case 0 => throw new Exception("Layers larger than block size")
+      case 1 => 0.U
+      case _ => layer(log2Up(layersPerBlock) - 1, 0) }
+    val msb = layer(layer.getWidth - 1, log2Up(layersPerBlock))
+    (msb, RegNext(lsb))
   }
 
   io.antw.cmd.valid := false.B
@@ -269,13 +258,11 @@ abstract class CacheBase[
       is (e_CACHE_LAYER_INFO) {
         controlRespPipe(0).valid := true.B
         controlRespPipe(0).bits.field := e_CACHE_LAYER
-        // The layer sub-index is temporarily stored in data(0)
 
         // Read the layer information from the correct block. A layer
         // occupies one block, so we need to pull the block address
         // out of the layer number.
-        memIo(derefNnid).addr(0) := (1.U + // Offset from info region
-          layer(layer.getWidth-1, log2Up(elementsPerBlock)) )
+        memIo(derefNnid).addr(0) := 1.U + layerMSB
         memIo(derefNnid).re(0) := true.B
       }
       is (e_CACHE_DECREMENT_IN_USE_COUNT) {
@@ -298,32 +285,13 @@ abstract class CacheBase[
   }
 
   // Pipeline second stage (SRAM read)
-  switch (controlRespPipe(0).bits.field) {
-    is (e_CACHE_INFO) {
-      val thisCache = memIo(controlRespPipe(0).bits.cacheIndex).dout(0)
-      val dataDecode = (new NnConfigHeader).fromBits(thisCache)
-
-      controlRespPipe(1).bits.decimalPoint := dataDecode.decimalPoint
-      controlRespPipe(1).bits.data(0) := dataDecode.totalLayers
-      controlRespPipe(1).bits.data(1) := dataDecode.totalNeurons
-      // Pass back the error function in LSBs of data(2)
-      controlRespPipe(1).bits.data(2) := (0.U((16-errorFunctionWidth).W) ##
-        dataDecode.errorFunction)
-      controlRespPipe(1).bits.data(3) := dataDecode.learningRate
-      controlRespPipe(1).bits.data(4) := dataDecode.lambda
-      controlRespPipe(1).bits.data(5) := dataDecode.totalWeightBlocks
-    }
-    is (e_CACHE_LAYER_INFO) {
-      val thisCache = memIo(controlRespPipe(0).bits.cacheIndex).dout(0)
-      // [TODO] fragile
-      val dataDecode = Vec(bitsPerBlock/32, new NnConfigNeuron).fromBits(thisCache)
-      val neuronIdx = controlRespPipe(0).bits.data(0)
-
-      controlRespPipe(1).bits.data(0) := dataDecode(neuronIdx).neuronsInLayer
-      controlRespPipe(1).bits.data(1) := dataDecode(neuronIdx).neuronsInPreviousLayer
-      controlRespPipe(1).bits.data(2) := dataDecode(neuronIdx).neuronPointer
-    }
-  }
+  val thisCache = memIo(controlRespPipe(0).bits.cacheIndex).dout(0)
+  when (controlRespPipe(0).bits.field === e_CACHE_INFO) {
+    controlRespPipe(1).bits.data := thisCache }
+  when (controlRespPipe(0).bits.field === e_CACHE_LAYER_INFO) {
+    val size = (new NnConfigLayer).getWidth
+    val dataDecode = Vec(bitsPerBlock/size, UInt(size.W)).fromBits(thisCache)
+    controlRespPipe(1).bits.data := dataDecode(layerLSB_d) }
 
   // Handle requests from the Processing Element Table
   peRespPipe(0).bits.field := io.pe.req.bits.field
@@ -464,7 +432,7 @@ class CacheLearn(implicit p: Parameters) extends CacheBase[SRAMBlockIncrement,
       dataWidth = p(BitsPerBlock),
       sramDepth = p(CacheNumBlocks),
       numPorts = 1,
-      elementWidth = p(ElementWidth) )))
+      elementWidth = p(DanaDataBits) )))
   lazy val memIo = Wire(Vec(p(CacheNumEntries), mem(0).io.cloneType))
 
   def genControlReq = new ControlCacheInterfaceReqLearn
@@ -481,13 +449,9 @@ class CacheLearn(implicit p: Parameters) extends CacheBase[SRAMBlockIncrement,
   }
 
   controlRespPipe(0).bits.totalWritesMul := 0.U
-  controlRespPipe(0).bits.totalWritesMul :=
-  tTableReqQueue.deq.bits.totalWritesMul
+  controlRespPipe(0).bits.totalWritesMul := tTableReqQueue.deq.bits.totalWritesMul
 
-  // [TODO] Why is this always assigned?
-  val thisCache = memIo(controlRespPipe(0).bits.cacheIndex).dout(0)
   val dataDecode = (new NnConfigHeader).fromBits(thisCache)
-  controlRespPipe(1).bits.globalWtptr := dataDecode.weightsPointer
 
   when (io.pe.req.valid) {
     val cacheIdx = io.pe.req.bits.cacheIndex

@@ -50,15 +50,10 @@ int global_info_verify(const struct global_info_t * info,
     fprintf(stderr, "[ERROR] Decimal point (%d) is not in range [%d, %d]\n",
             ann->decimal_point, opt->decimal_point_offset,
             opt->decimal_point_offset + 7);
-    return 3;
-  }
-  if (info->weight_decay == 0) {
-    fprintf(stderr, "[ERROR] Weight decay would be zero (found 0x%x), exiting!",
-            info->weight_decay);
-    return 4;
+    return VERIFY_GLOBAL_FAILED;
   }
 
-  return 0;
+  return NO_ERROR;
 }
 
 int neuron_info_verify(const struct neuron_info_t * info,
@@ -68,10 +63,10 @@ int neuron_info_verify(const struct neuron_info_t * info,
       (info->steepness > 7)) {
     fprintf(stderr, "[ERROR] Steepness %d is not of the correct format\n",
             neuron->activation_steepness);
-    return 5;
+    return VERIFY_NEURON_FAILED;
   }
 
-  return 0;
+  return NO_ERROR;
 }
 
 void neuron_info_printf(const struct neuron_info_t * info,
@@ -175,6 +170,12 @@ int main(int argc, char *argv[])
            size_of_block, sizeof(struct layer_info_t), layers_per_block,
            size_of_node, nodes_per_block, size_of_weight, weights_per_block);
 
+  if (layers_per_block == 0 || nodes_per_block == 0 || weights_per_block == 0) {
+    fprintf(stderr, "[error] Choice of encoding results in struct > 16B");
+    exit_code = STRUCT_LARGER_THAN_16B;
+    goto bail;
+  }
+
   // Encode the block width and append this to the encoded decimal
   // point. The block width must be [16, 32, 64, 128] which is encoded
   // as [0, 1, 2, 3].
@@ -242,24 +243,16 @@ int main(int argc, char *argv[])
   if (opt.verbose)
     printf("Weights *: 0x%x (%d)\n", weights, weights);
 
-  // Write the learning rate. Use a default value if the learning rate
-  // is set to zero.
-  uint16_t learning_rate = ann->learning_rate;
-  if (learning_rate == 0)
-    learning_rate = 0.25 * pow(2, ann->decimal_point);
-
   struct global_info_t global_info = {
     .decimal_point       = ann->decimal_point - opt.decimal_point_offset,
     .error_function      = ann->train_error_function,
     .binary_format       = block_width_encoded,
-    .unused_0            = 0,
+    ._unused_0           = 0,
     .total_weight_blocks = num_weight_blocks,
     .total_neurons       = num_nodes,
     .total_layers        = num_layers,
     .ptr_first_layer     = first_layer,
-    .ptr_weights         = weights,
-    .learning_rate       = learning_rate,
-    .weight_decay        = (uint16_t)((double)0.008 * pow(2.0, ann->decimal_point))
+    .ptr_weights         = weights
   };
 
   if ((exit_code = global_info_verify(&global_info, ann, &opt)) != 0)
@@ -316,11 +309,6 @@ int main(int argc, char *argv[])
     write_count = size_of_block;
     for (neuron = layer->first_neuron; neuron != layer->last_neuron - 1; neuron++) {
       weight_count += neuron->last_con - neuron->first_con;
-      if (weight_offset > (1 << sizeof(dana_ptr_t) * 8) - 1) {
-        fprintf(stderr, "[ERROR] Unable to encode weight offset (0x%x) in dana_ptr_t (%ld bits)\n",
-                weight_offset, sizeof(dana_ptr_t) * 8);
-      }
-
       connections = neuron->last_con - neuron->first_con - 1;
       steepness = log((double)neuron->activation_steepness /
                       pow(2, ann->decimal_point)) / log(2) + 4;
@@ -330,6 +318,8 @@ int main(int argc, char *argv[])
         .num_weights         = connections,
         .activation_function = neuron->activation_function,
         .steepness           = steepness,
+        ._unused_0           = 0,
+        ._unused_1           = 0,
         .bias                = ann->weights[weight_count - 1]
       };
       neuron_info_verify(&neuron_info, neuron);
@@ -338,6 +328,11 @@ int main(int argc, char *argv[])
       write_count -= size_of_node;
       if (write_count == 0)
         write_count = size_of_block;
+      if (weight_offset + size_of_weight * (neuron->last_con - neuron->first_con - 1) <
+          weight_offset) {
+        fprintf(stderr, "[ERROR] Unable to encode weight offset (0x%x) in dana_ptr_t (%ld bits)\n",
+                weight_offset, sizeof(dana_ptr_t) * 8);
+      }
       weight_offset += size_of_weight * (neuron->last_con - neuron->first_con - 1);
       if (opt.verbose)
         neuron_info_printf(&neuron_info, ann, layer_count, node_count);

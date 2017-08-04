@@ -6,8 +6,10 @@ package dana
 import Chisel._
 import cde._
 
+import dana.abi._
+
 class ProcessingElementReq(implicit p: Parameters) extends DanaBundle()(p) {
-  val numWeights         = UInt(8.W)         // [TODO] fragile
+  val numWeights         = UInt(p(NeuronInfo).num_weights.W)
   val index              = UInt(log2Up(peTableNumEntries).W)
   val decimalPoint       = UInt(decimalPointWidth.W)
   val steepness          = UInt(steepnessWidth.W)
@@ -19,7 +21,7 @@ class ProcessingElementReq(implicit p: Parameters) extends DanaBundle()(p) {
 
 class ProcessingElementReqLearn(implicit p: Parameters)
     extends ProcessingElementReq()(p) {
-  val errorFunction      = UInt(log2Up(2).W) // [TODO] fragile
+  val errorFunction      = UInt(p(GlobalInfo).error_function.W)
   val learningRate       = UInt(elementWidth.W)
   val weightDecay        = SInt(elementWidth.W)
   val learnReg           = SInt(elementWidth.W)
@@ -68,13 +70,12 @@ class ProcessingElement(id: Int = 0)(implicit p: Parameters) extends DanaModule(
   // Activation Function module
   lazy val af = Module(new ActivationFunction(id))
 
-  val index    = Reg(UInt(8.W)) // [TODO] fragile, should match numWeights
+  val index    = Reg(UInt(p(NeuronInfo).num_weights.W))
   val acc      = Reg(SInt(elementWidth.W))
   val dataOut  = Reg(SInt(elementWidth.W))
   val reqSent  = Reg(Bool())
   val eleIndex = index(log2Up(elementsPerBlock) - 1, 0)
 
-  // [TODO] fragile on PE stateu enum (Common.scala)
   val state = Reg(UInt(log2Up(PE_states.size).W),
     init = PE_states('e_PE_UNALLOCATED))
   val nextState = Wire(UInt(log2Up(PE_states.size).W))
@@ -155,12 +156,12 @@ class ProcessingElement(id: Int = 0)(implicit p: Parameters) extends DanaModule(
       reqNoResp()
       io.req.ready := true.B
       hasBias := false.B
-      index := (0).U
+      index := 0.U
       reqSent := false.B
     }
     is (PE_states('e_PE_GET_INFO)) {
-      dataOut := (0).S
-      index := (0).U
+      dataOut := 0.S
+      index := 0.U
       nextState := PE_states('e_PE_REQUEST_INPUTS_AND_WEIGHTS)
       reqWaitForResp()
     }
@@ -175,14 +176,14 @@ class ProcessingElement(id: Int = 0)(implicit p: Parameters) extends DanaModule(
       reqWaitForResp()
     }
     is (PE_states('e_PE_RUN)) {
-      when (index === (io.req.bits.numWeights - (1).U)) {
+      when (index === (io.req.bits.numWeights - 1.U)) {
         state := PE_states('e_PE_ACTIVATION_FUNCTION)
       } .elsewhen (eleIndex === (elementsPerBlock - 1).U) {
         state := PE_states('e_PE_REQUEST_INPUTS_AND_WEIGHTS)
       }
       DSP(io.req.bits.iBlock(eleIndex), io.req.bits.wBlock(eleIndex), decimal)
       acc := acc + dsp.d
-      index := index + (1).U
+      index := index + 1.U
       printfInfo("run 0x%x + (0x%x * 0x%x) >> 0x%x = 0x%x\n",
         acc, io.req.bits.iBlock(eleIndex), io.req.bits.wBlock(eleIndex),
         decimal, acc + dsp.d)

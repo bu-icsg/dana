@@ -63,7 +63,7 @@ class AsidNnidTableWalker(implicit p: Parameters) extends DanaModule()(p)
   val state = Reg(UInt(), init = s_IDLE)
 
   // State used to read a configuration
-  val configReqCount = Reg(UInt((log2Up(cacheDataSize * 8 / xLen)).W))
+  val configReqCount = Reg(UInt((log2Up(p(CacheSizeBytes) * 8 / xLen)).W))
   val configBufSize = bitsPerBlock / xLen
 
   // Queue for cache requests. At maximum, every entry in the

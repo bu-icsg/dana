@@ -9,6 +9,8 @@ import scala.math.pow
 import xfiles.{TransactionTableNumEntries}
 import cde._
 
+import dana.abi._
+
 class RegisterFileInterface(implicit p: Parameters) extends DanaStatusIO()(p) {
   lazy val pe = Flipped(new PERegisterFileInterface)
   val control = Flipped(new ControlRegisterFileInterface)
@@ -22,8 +24,8 @@ class RegisterFileInterfaceLearn(implicit p: Parameters)
 
 class RegisterFileState(implicit p: Parameters) extends DanaBundle()(p) {
   val valid = Bool()
-  val totalWrites = UInt(16.W) // [TODO] fragile
-  val countWrites = UInt(16.W) // [TODO] fragile
+  val totalWrites = UInt(p(GlobalInfo).total_neurons.W)
+  val countWrites = UInt(p(GlobalInfo).total_neurons.W)
 }
 
 class RegisterFileBase[SramIf <: SRAMElementInterface](
@@ -37,7 +39,7 @@ class RegisterFileBase[SramIf <: SRAMElementInterface](
   val stateToggle = Reg(Vec(transactionTableNumEntries, UInt(1.W)))
   val tTableRespValid = Reg(Bool())
   val tTableRespTIdx = Reg(UInt(log2Up(transactionTableNumEntries).W))
-  val tTableRespAddr = Reg(UInt(log2Up(regFileNumElements).W))
+  val tTableRespAddr = Reg(UInt(log2Up(p(ScratchpadElements)).W))
 
   // Default values for SRAMs
   for (transaction <- 0 until transactionTableNumEntries) {
@@ -175,7 +177,7 @@ class RegisterFileBase[SramIf <: SRAMElementInterface](
   // We shouldn't be trying to write data outside of the bounds of the
   // memory
   (0 until transactionTableNumEntries).map(i =>
-    assert(!(mem(i).addr(0) >= regFileNumElements.U), printfSigil ++
+    assert(!(mem(i).addr(0) >= p(ScratchpadElements).U), printfSigil ++
       "RegFile address (read or write) is out of bounds"))
 
 }
@@ -185,14 +187,14 @@ class RegisterFile(implicit p: Parameters) extends RegisterFileBase (
     dataWidth = p(BitsPerBlock),
     sramDepth = pow(2, log2Up(p(RegFileNumBlocks))).toInt,
     numPorts = 1,
-    elementWidth = p(ElementWidth))).io))(p)
+    elementWidth = p(DanaDataBits))).io))(p)
 
 class RegisterFileLearn(implicit p: Parameters) extends RegisterFileBase (
   Vec.fill(p(TransactionTableNumEntries))(Module(new SRAMElementIncrement(
     dataWidth = p(BitsPerBlock),
     sramDepth = pow(2, log2Up(p(RegFileNumBlocks))).toInt,
     numPorts = 1,
-    elementWidth = p(ElementWidth))).io))(p) {
+    elementWidth = p(DanaDataBits))).io))(p) {
   override lazy val io = IO(new RegisterFileInterfaceLearn)
 
   val readReqType_d0 = Reg(next = io.pe.req.bits.reqType)

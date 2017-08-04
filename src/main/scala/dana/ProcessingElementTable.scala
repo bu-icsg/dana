@@ -7,6 +7,8 @@ import chisel3._
 import chisel3.util._
 import cde._
 
+import dana.abi._
+
 class PECacheInterfaceResp(implicit p: Parameters) extends DanaBundle()(p) {
   val field         = UInt(log2Up(6).W) // [TODO] fragile on Dana enum
   val data          = UInt(bitsPerBlock.W)
@@ -33,7 +35,7 @@ class PECacheInterfaceLearn(implicit p: Parameters)
 class PERegisterFileReq(implicit p: Parameters) extends DanaBundle()(p) {
   // The register index should go down to the element level
   val isWrite       = Bool()
-  val addr          = UInt(log2Up(regFileNumElements).W)
+  val addr          = UInt(log2Up(p(ScratchpadElements)).W)
   val peIndex       = UInt(log2Up(peTableNumEntries).W)
   val tIdx          = UInt(log2Up(transactionTableNumEntries).W)
   val data          = SInt(elementWidth.W)
@@ -91,40 +93,40 @@ class ProcessingElementState(implicit p: Parameters) extends DanaBundle()(p) {
   val inValid            = Bool()
   val tIdx               = UInt(log2Up(transactionTableNumEntries).W)
   val cIdx               = UInt(log2Up(cacheNumEntries).W)
-  val inAddr             = UInt(log2Up(regFileNumElements).W)
-  val outAddr            = UInt(log2Up(regFileNumElements).W)
+  val inAddr             = UInt(log2Up(p(ScratchpadElements)).W)
+  val outAddr            = UInt(log2Up(p(ScratchpadElements)).W)
   // [TODO] learn address may have multiple meanings: 1) this is the
   // current node in the layer and will be used to generate an
   // expected output request to the Register File
   val location           = UInt(1.W)
-  val neuronPtr          = UInt(log2Up(elementWidth * elementsPerBlock * cacheNumBlocks).W)
-  val weightPtr          = UInt(log2Up(elementWidth * elementsPerBlock * cacheNumBlocks).W)
+  val neuronPtr          = UInt(p(DanaPtrBits).W)
+  val weightPtr          = UInt(p(DanaPtrBits).W)
   val decimalPoint       = UInt(decimalPointWidth.W)
   val inBlock            = UInt(bitsPerBlock.W)
   val weightBlock        = UInt(bitsPerBlock.W)
-  val numWeights         = UInt(8.W)         // [TODO] fragile
+  val numWeights         = UInt(p(GlobalInfo).total_weight_blocks.W)
   val activationFunction = UInt(activationFunctionWidth.W)
   val steepness          = UInt(steepnessWidth.W)
   val bias               = SInt(elementWidth.W)
-  val weightoffset       = UInt(16.W)
+  val weightoffset       = UInt(p(NeuronInfo).ptr_weight_offset.W)
 }
 
 class ProcessingElementStateLearn(implicit p: Parameters)
     extends ProcessingElementState()(p) {
-  val learnAddr          = UInt(log2Up(regFileNumElements).W)
-  val dwAddr             = UInt(log2Up(regFileNumElements).W)
-  val slopeAddr          = UInt(log2Up(regFileNumElements).W)
-  val biasAddr           = UInt(log2Up(regFileNumElements).W)
-  val auxAddr            = UInt(log2Up(regFileNumElements).W)
-  val inAddrSaved        = UInt(log2Up(regFileNumElements).W)
-  val weightPtrSaved     = UInt(log2Up(elementWidth * elementsPerBlock * cacheNumBlocks).W)
+  val learnAddr          = UInt(log2Up(p(ScratchpadElements)).W)
+  val dwAddr             = UInt(log2Up(p(ScratchpadElements)).W)
+  val slopeAddr          = UInt(log2Up(p(ScratchpadElements)).W)
+  val biasAddr           = UInt(log2Up(p(ScratchpadElements)).W)
+  val auxAddr            = UInt(log2Up(p(ScratchpadElements)).W)
+  val inAddrSaved        = UInt(log2Up(p(ScratchpadElements)).W)
+  val weightPtrSaved     = UInt(p(DanaPtrBits).W)
   val learnReg           = SInt(elementWidth.W)
   val dw_in              = SInt(elementWidth.W)
-  val errorFunction      = UInt(log2Up(2).W) // [TODO] fragile
+  val errorFunction      = UInt(p(GlobalInfo).error_function.W)
   val learningRate       = UInt(elementWidth.W)
   val weightDecay        = SInt(elementWidth.W)
-  val globalWtptr        = UInt(16.W)        // [TODO] fragile
-  val numWeightBlocks    = UInt(16.W)
+  val globalWtptr        = UInt(p(DanaPtrBits).W)
+  val numWeightBlocks    = UInt(p(NeuronInfo).num_weights.W)
   val stateLearn         = UInt(log2Up(7).W) // [TODO] fragile
   val tType              = UInt(log2Up(3).W) // [TODO] fragile
   val inLast             = Bool()
@@ -198,7 +200,7 @@ class ProcessingElementTableBase[PeStateType <: ProcessingElementState,
   val cooldown = Reg(init = 0.U(peCooldownWidth.W))
   when (io.status.pe_governor === PeGovernor.cooldown.U) {
     when (io.control.req.fire()) { cooldown := io.status.pe_cooldown }
-    when (cooldown =/= 0.U)    { cooldown := cooldown - 1.U      }
+    when (cooldown =/= 0.U)      { cooldown := cooldown - 1.U        }
     io.control.req.ready := hasFree && cooldown === 0.U }
 
   val peRamp = Reg(init = 1.U((io.status.pes_active.getWidth + 1).W))
@@ -273,13 +275,9 @@ class ProcessingElementTableBase[PeStateType <: ProcessingElementState,
 
   // Inbound requests from the cache. I setup some helper nodes here
   // that interpret the data coming from the cache.
-  val cacheRespVec = Wire(Vec(bitsPerBlock/nnConfigNeuronWidth,
-    new CompressedNeuron))
+  val cacheRespVec = Vec(bitsPerBlock/(new NnConfigNeuron).getWidth,
+    new NnConfigNeuron).fromBits(io.cache.resp.bits.data)
   val neuronIndex = io.cache.resp.bits.neuronIndex
-  (0 until cacheRespVec.length).map(i =>
-    cacheRespVec(i).populate(io.cache.resp.bits.data((i+1) *
-      cacheRespVec(i).getWidth - 1,
-      i * cacheRespVec(i).getWidth), cacheRespVec(i)))
   // Deal with the cache response if one exists.
   when (io.cache.resp.valid) {
     val peIndex = io.cache.resp.bits.peIndex
@@ -288,14 +286,14 @@ class ProcessingElementTableBase[PeStateType <: ProcessingElementState,
         val resp = cacheRespVec(neuronIndex)
         // [TODO] Fragile on increases to widthActivationFunction or
         // widthSteepness.
-        table(peIndex).weightPtr := resp.weightPtr
-        table(peIndex).numWeights := resp.numWeights
+        table(peIndex).weightPtr := resp.weightOffset
+        table(peIndex).numWeights := resp.numberOfWeights
         table(peIndex).activationFunction := resp.activationFunction
         table(peIndex).steepness := resp.steepness
         table(peIndex).bias := resp.bias
         pe(peIndex).req.valid := true.B
         printfInfo("Bias: 0x%x\n", resp.bias)
-        printfInfo("Weight ptr: 0x%x\n", resp.weightPtr)
+        printfInfo("Weight ptr: 0x%x\n", resp.weightOffset)
       }
       is (e_CACHE_WEIGHT) {
         table(peIndex).weightPtr :=
@@ -442,7 +440,7 @@ class ProcessingElementTableLearn(implicit p: Parameters)
   // This is needed to know when a a block is the first to be written
   // back. If it is not the first, then it should be accumulated.
   val regFileBlockWbTable = Reg(Vec(transactionTableNumEntries,
-    UInt(log2Up(regFileNumElements).W)))
+    UInt(log2Up(p(ScratchpadElements)).W)))
   (0 until transactionTableNumEntries).map(i =>
     regFileBlockWbTable(i) := regFileBlockWbTable(i))
 
@@ -499,10 +497,10 @@ class ProcessingElementTableLearn(implicit p: Parameters)
     val peIndex = io.cache.resp.bits.peIndex
     switch (io.cache.resp.bits.field) {
       is (e_CACHE_NEURON) {
-        val weightOffset = (cacheRespVec(neuronIndex).weightPtr -
+        val weightOffset = (cacheRespVec(neuronIndex).weightOffset -
           table(peIndex).globalWtptr) >>
           ((log2Up(elementWidth / 8)).U) // [TODO] possibly fragile
-        table(peIndex).weightPtrSaved := cacheRespVec(neuronIndex).weightPtr
+        table(peIndex).weightPtrSaved := cacheRespVec(neuronIndex).weightOffset
         table(peIndex).weightoffset:= weightOffset
         printfInfo("weightoffset 0x%x\n", weightOffset)
       }
@@ -592,11 +590,16 @@ class ProcessingElementTableLearn(implicit p: Parameters)
     peArbiter.io.in(i).bits.resetWeightPtr := pe(i).resp.bits.resetWeightPtr
   }
 
-  val biasIndex = table(peArbiter.io.out.bits.index).neuronPtr(
-    log2Up(bitsPerBlock) - 3 - 1, log2Up(64) - 3)
-  val biasUpdateVec = Wire(Vec(elementsPerBlock, SInt(elementWidth.W)))
-  biasUpdateVec map (_ := 0.S)
-  biasUpdateVec(biasIndex * 2.U + 1.U) := peArbiter.io.out.bits.data
+  val biasIndex = bitsPerBlock compare (new NnConfigNeuron).getWidth match {
+    case 0 => 0.U
+    case 1 => table(peArbiter.io.out.bits.index).neuronPtr(
+      log2Up(bitsPerBlock) - 3 - 1, log2Up((new NnConfigNeuron).getWidth) - 3)
+    case -1 => throw new Exception("Bits per Block < sizeof(ConfigNeuron)")
+  }
+  val biasUpdateVec = Wire(Vec(bitsPerBlock/(new NnConfigNeuron).getWidth,
+    new NnConfigNeuron))
+  biasUpdateVec map (_ := (new NnConfigNeuron).fromBits(0.U))
+  biasUpdateVec(biasIndex).bias := peArbiter.io.out.bits.data
 
   val biasAddrLSBs = table(peArbiter.io.out.bits.index).biasAddr(
     log2Up(elementsPerBlock)-1,0)

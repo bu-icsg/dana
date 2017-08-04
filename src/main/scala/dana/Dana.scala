@@ -9,16 +9,16 @@ import rocket.XLen
 import xfiles._
 import cde._
 
-case object ElementWidth extends Field[Int]
+import dana.abi._
+
 case object ElementsPerBlock extends Field[Int]
 case object NnidWidth extends Field[Int]
-case object FeedbackWidth extends Field[Int]
 case object PeTableNumEntries extends Field[Int]
 case object PeCooldownWidth extends Field[Int]
 case object CacheNumEntries extends Field[Int]
-case object CacheDataSize extends Field[Int]
-case object RegisterFileNumElements extends Field[Int]
-case object RegisterFileDataSize extends Field[Int]
+case object CacheSizeBytes extends Field[Int]
+case object ScratchpadBytes extends Field[Int]
+case object ScratchpadElements extends Field[Int]
 case object LearningEnabled extends Field[Boolean]
 case object BitsPerBlock extends Field[Int]
 case object BytesPerBlock extends Field[Int]
@@ -27,61 +27,25 @@ case object CacheNumBlocks extends Field[Int]
 case object NNConfigNeuronWidth extends Field[Int]
 case object AntwRobEntries extends Field[Int]
 case object EnableCacheDump extends Field[Boolean]
-// NN Config Global Info
-case object DecimalPointOffset extends Field[Int]
-case object DecimalPointWidth extends Field[Int]
-case object ActivationFunctionWidth extends Field[Int]
-case object SteepnessWidth extends Field[Int]
-case object SteepnessOffset extends Field[Int]
-case object LambdaWidth extends Field[Int]
-case object LearningRateWidth extends Field[Int]
-case object NNConfigPointerWidth extends Field[Int]
-case object TotalLayersWidth extends Field[Int]
-case object TotalNeuronsWidth extends Field[Int]
-case object TotalWeightBlocksWidth extends Field[Int]
-case object ElementsPerBlockCodeWidth extends Field[Int]
-case object ErrorFunctionWidth extends Field[Int]
-case object NNConfigUnusedWidth extends Field[Int]
-// NN Config Layer Info
-case object NumberOfWeightsWidth extends Field[Int]
-// NN Config Neuron Info
-case object NeuronsInPrevLayerWidth extends Field[Int]
-case object NeuronsInLayerWidth extends Field[Int]
-case object NeuronPointerWidth extends Field[Int]
 
 trait DanaParameters {
   implicit val p: Parameters
-
   // Neural network configuration parameters
   val decimalPointOffset = p(DecimalPointOffset)
-  val decimalPointWidth = p(DecimalPointWidth)
-  val lambdaWidth = p(LambdaWidth)
-  val learningRateWidth = p(LearningRateWidth)
-  val nnConfigPointerWidth = p(NNConfigPointerWidth)
-  val totalLayersWidth = p(TotalLayersWidth)
-  val totalNeuronsWidth = p(TotalNeuronsWidth)
-  val totalWeightBlocksWidth = p(TotalWeightBlocksWidth)
-  val elementsPerBlockCodeWidth = p(ElementsPerBlockCodeWidth)
-  val errorFunctionWidth = p(ErrorFunctionWidth)
-  val nnConfigUnusedWidth = p(NNConfigUnusedWidth)
+  val decimalPointWidth = p(GlobalInfo).decimal_point
+  val steepnessOffset = p(SteepnessOffset)
+
   // Layer Info
   //   * Activation Function width increases will break
   //     ProcessingElementTable logic for indexing into cache data
   //   * Steepness width increases will break ProcessingElementTable
   //     logic for indexing into cache data
-  val activationFunctionWidth = p(ActivationFunctionWidth)
-  val steepnessWidth = p(SteepnessWidth)
-  val steepnessOffset = p(SteepnessOffset)
-  val numberOfWeightsWidth = p(NumberOfWeightsWidth)
-  val elementWidth = p(ElementWidth)
+  val activationFunctionWidth = p(NeuronInfo).activation_function
+  val steepnessWidth = p(NeuronInfo).steepness
+  val elementWidth = p(DanaDataBits)
   val elementsPerBlock = p(ElementsPerBlock)
-  // Neuron Info
-  val neuronsInPrevLayerWidth = p(NeuronsInPrevLayerWidth)
-  val neuronsInLayerWidth = p(NeuronsInLayerWidth)
-  val neuronPointerWidth = p(NeuronPointerWidth)
 
   val nnidWidth = p(NnidWidth)
-  val feedbackWidth = p(FeedbackWidth)
   val antwRobEntries = p(AntwRobEntries)
 
   // Processing Element Table
@@ -89,15 +53,10 @@ trait DanaParameters {
   val peCooldownWidth = p(PeCooldownWidth)
   // Configuration Cache
   val cacheNumEntries = p(CacheNumEntries)
-  val cacheDataSize = p(CacheDataSize)
-  // Register File
-  val regFileNumElements = p(RegisterFileNumElements)
 
   // Derived parameters
   val regFileNumBlocks = p(RegFileNumBlocks)
   val cacheNumBlocks = p(CacheNumBlocks)
-  // [TODO] This ioIdxWidth looks wrong?
-  val ioIdxWidth = log2Up(p(RegisterFileNumElements) * p(ElementWidth))
   val bitsPerBlock = p(BitsPerBlock)
   val bytesPerBlock = p(BytesPerBlock)
   val learningEnabled = p(LearningEnabled)
@@ -116,6 +75,9 @@ trait DanaParameters {
   val int_INVEPB      = 0x15
   val int_MISALIGNED  = 0x16
   val int_UNKNOWN     = 0x17
+
+  def largestWidth = Seq((new NnConfigHeader).getWidth,
+    (new NnConfigLayer).getWidth, (new NnConfigNeuron).getWidth).max
 }
 
 trait DanaEnums {
@@ -320,42 +282,6 @@ class Dana(implicit p: Parameters) extends XFilesBackend()(p)
   io.xfQueue <> tTable.io.arbiter.xfQueue
 
   when (io.rocc.cmd.valid) { printfInfo("io.tTable.rocc.cmd.valid asserted\n") }
-}
-
-// These must match the configuration specified in
-// doc/binary-encodings-data-structures.md.
-
-// [TODO] Create a better way for only specifying the encodings in
-// one place and pulling them in to generate this.
-class NnConfigHeader(implicit p: Parameters) extends DanaBundle()(p) {
-  // [TODO] Fragile
-  val lambda                 = UInt(lambdaWidth.W)
-  val learningRate           = UInt(learningRateWidth.W)
-  val weightsPointer         = UInt(nnConfigPointerWidth.W)
-  val firstLayerPointer      = UInt(nnConfigPointerWidth.W)
-  val totalLayers            = UInt(totalLayersWidth.W)
-  val totalNeurons           = UInt(totalNeuronsWidth.W)
-  val totalWeightBlocks      = UInt(totalWeightBlocksWidth.W)
-  val _unused                = UInt(nnConfigUnusedWidth.W)
-  val elementsPerBlockCode   = UInt(elementsPerBlockCodeWidth.W)
-  val errorFunction          = UInt(errorFunctionWidth.W)
-  val decimalPoint           = UInt(decimalPointWidth.W)
-}
-
-class NnConfigLayer(implicit p: Parameters) extends DanaBundle()(p) {
-  // [TODO] Fragile
-  val bias                   = UInt(elementWidth.W)
-  val steepness              = UInt(steepnessWidth.W)
-  val activationFunction     = UInt(activationFunctionWidth.W)
-  val numberOfWeights        = UInt(numberOfWeightsWidth.W)
-  val weightOffset           = UInt(nnConfigPointerWidth.W)
-}
-
-class NnConfigNeuron(implicit p: Parameters) extends DanaBundle()(p) {
-  // [TODO] Fragile
-  val neuronsInPreviousLayer = UInt(neuronsInPrevLayerWidth.W)
-  val neuronsInLayer         = UInt(neuronsInLayerWidth.W)
-  val neuronPointer          = UInt(neuronPointerWidth.W)
 }
 
 class DanaStatusIO(implicit p: Parameters) extends DanaBundle()(p) {

@@ -7,13 +7,14 @@ import chisel3._
 import chisel3.util._
 import cde._
 
+import dana.abi._
+
 class ControlCacheInterfaceResp(implicit p: Parameters) extends DanaBundle()(p) {
   val fetch              = Bool()
   val tableIndex         = UInt(log2Up(transactionTableNumEntries).W)
   val tableMask          = UInt(transactionTableNumEntries.W)
   val cacheIndex         = UInt(log2Up(cacheNumEntries).W)
-  val data               = Vec(6, UInt(16.W)) // [TODO] fragile
-  val decimalPoint       = UInt(decimalPointWidth.W)
+  val data               = UInt(largestWidth.W)
   val field              = UInt(log2Up(7).W) // [TODO] fragile on Constants.scala
   val regFileLocationBit = UInt(1.W)
 }
@@ -21,7 +22,6 @@ class ControlCacheInterfaceResp(implicit p: Parameters) extends DanaBundle()(p) 
 class ControlCacheInterfaceRespLearn(implicit p: Parameters)
     extends ControlCacheInterfaceResp()(p) {
   val totalWritesMul     = UInt(2.W)
-  val globalWtptr        = UInt(16.W) //[TODO] possibly fragile
 }
 
 class ControlCacheInterfaceReq(implicit p: Parameters) extends DanaBundle()(p) {
@@ -29,7 +29,7 @@ class ControlCacheInterfaceReq(implicit p: Parameters) extends DanaBundle()(p) {
   val asid               = UInt(asidWidth.W)
   val nnid               = UInt(nnidWidth.W)
   val tableIndex         = UInt(log2Up(transactionTableNumEntries).W)
-  val currentLayer       = UInt(16.W) // [TODO] fragile
+  val currentLayer       = UInt(p(GlobalInfo).total_layers.W)
   val regFileLocationBit = UInt(1.W) // [TODO] fragile
   val notDirty           = Bool()
 }
@@ -53,22 +53,21 @@ class ControlCacheInterfaceLearn(implicit p: Parameters)
 class ControlPETableInterfaceReq(implicit p: Parameters) extends DanaBundle()(p) {
   val cacheIndex      = UInt(log2Up(cacheNumEntries).W)
   val tIdx            = UInt(log2Up(transactionTableNumEntries).W)
-  // [TODO] Change ioIdxWidth to regFileNumElements?
-  val inAddr          = UInt(ioIdxWidth.W)
-  val outAddr         = UInt(ioIdxWidth.W)
+  val inAddr          = UInt(p(DanaPtrBits).W)
+  val outAddr         = UInt(p(DanaPtrBits).W)
   val location        = UInt(1.W)
-  val neuronPointer   = UInt(log2Up(elementWidth * elementsPerBlock * cacheNumBlocks).W)
+  val neuronPointer   = UInt(p(DanaPtrBits).W)
   val decimalPoint    = UInt(decimalPointWidth.W)
 }
 
 class ControlPETableInterfaceReqLearn(implicit p: Parameters)
     extends ControlPETableInterfaceReq()(p) {
-  val learnAddr       = UInt(ioIdxWidth.W)
-  val dwAddr          = UInt(ioIdxWidth.W)
-  val slopeAddr       = UInt(ioIdxWidth.W)
-  val biasAddr        = UInt(ioIdxWidth.W)
-  val auxAddr         = UInt(ioIdxWidth.W)
-  val errorFunction   = UInt(log2Up(2).W) // [TODO] fragile
+  val learnAddr       = UInt(p(DanaPtrBits).W)
+  val dwAddr          = UInt(p(DanaPtrBits).W)
+  val slopeAddr       = UInt(p(DanaPtrBits).W)
+  val biasAddr        = UInt(p(DanaPtrBits).W)
+  val auxAddr         = UInt(p(DanaPtrBits).W)
+  val errorFunction   = UInt(p(GlobalInfo).error_function.W)
   val stateLearn      = UInt(log2Up(7).W) // [TODO] fragile
   val inLast          = Bool()
   val resetWB         = Bool()
@@ -76,9 +75,9 @@ class ControlPETableInterfaceReqLearn(implicit p: Parameters)
   val batchFirst      = Bool()
   val learningRate    = UInt(elementWidth.W)
   val weightDecay     = UInt(elementWidth.W)
-  val numWeightBlocks = UInt(16.W) // [TODO] fragile
+  val numWeightBlocks = UInt(p(GlobalInfo).total_weight_blocks.W)
   val tType           = UInt(log2Up(3).W) // [TODO] fragile
-  val globalWtptr     = UInt(16.W) // [TODO] fragile
+  val globalWtptr     = UInt(p(DanaPtrBits).W)
 }
 
 class ControlPETableInterface(implicit p: Parameters) extends DanaBundle()(p) {
@@ -95,7 +94,7 @@ class ControlPETableInterfaceLearn(implicit p: Parameters)
 
 class ControlRegisterFileInterfaceReq(implicit p: Parameters) extends DanaBundle()(p) {
   val tIdx        = UInt(transactionTableNumEntries.W)
-  val totalWrites = UInt(16.W) // [TODO] fragile
+  val totalWrites = UInt(p(GlobalInfo).total_neurons.W)
   val location    = UInt(1.W)     // [TODO] fragile
 }
 
@@ -137,7 +136,6 @@ class ControlBase(implicit p: Parameters) extends DanaModule()(p) {
   io.tTable.resp.bits.data := io.cache.resp.bits.data
   io.tTable.resp.bits.tableIndex := io.cache.resp.bits.tableIndex
   io.tTable.resp.bits.tableMask := io.cache.resp.bits.tableMask
-  io.tTable.resp.bits.decimalPoint := io.cache.resp.bits.decimalPoint
   io.tTable.resp.bits.cacheValid := io.cache.resp.valid
   io.tTable.resp.bits.layerValidIndex := io.regFile.resp.bits.tIdx
   io.tTable.resp.bits.layerValid := io.regFile.resp.valid
@@ -146,7 +144,9 @@ class ControlBase(implicit p: Parameters) extends DanaModule()(p) {
   io.regFile.req.valid := false.B
   io.regFile.resp.ready := false.B // [TODO] not correct
   io.regFile.req.bits.tIdx := io.cache.resp.bits.tableIndex
-  io.regFile.req.bits.totalWrites := io.cache.resp.bits.data(0)
+
+  val infoAsLayer = (new NnConfigLayer).fromBits(io.cache.resp.bits.data)
+  io.regFile.req.bits.totalWrites := infoAsLayer.neuronsInLayer
   io.regFile.req.bits.location := io.cache.resp.bits.regFileLocationBit
 
   // Handling of Cache responses
@@ -156,8 +156,6 @@ class ControlBase(implicit p: Parameters) extends DanaModule()(p) {
     io.cache.resp.bits.field === e_CACHE_LAYER)
   when (cacheInfoResp) {
     io.tTable.resp.bits.field := e_TTABLE_CACHE_VALID
-    io.tTable.resp.bits.data(2) := io.cache.resp.bits.cacheIndex ##
-    io.cache.resp.bits.data(2)(errorFunctionWidth - 1,0)
   }
   when (cacheLayerResp) {
     io.tTable.resp.bits.field := e_TTABLE_LAYER
@@ -184,8 +182,9 @@ class ControlBase(implicit p: Parameters) extends DanaModule()(p) {
   io.peTable.req.bits.inAddr := io.tTable.req.bits.regFileAddrIn
   io.peTable.req.bits.outAddr := io.tTable.req.bits.regFileAddrOut +
     io.tTable.req.bits.currentNodeInLayer
-  io.peTable.req.bits.neuronPointer := io.tTable.req.bits.neuronPointer +
-    (io.tTable.req.bits.currentNodeInLayer << 3.U)
+  io.peTable.req.bits.neuronPointer := (io.tTable.req.bits.neuronPointer +
+    (io.tTable.req.bits.currentNodeInLayer <<
+      log2Up((new NnConfigNeuron).getWidth / 8).U))
   io.peTable.req.bits.decimalPoint := io.tTable.req.bits.decimalPoint
   io.peTable.req.bits.location := io.tTable.req.bits.regFileLocationBit
 
@@ -213,9 +212,8 @@ class ControlLearn(implicit p: Parameters)
     extends ControlBase()(p) {
   override lazy val io = IO(new ControlInterfaceLearn)
 
-  io.tTable.resp.bits.globalWtptr := io.cache.resp.bits.globalWtptr
   io.regFile.req.bits.totalWrites := io.cache.resp.bits.totalWritesMul *
-    io.cache.resp.bits.data(0)
+    infoAsLayer.neuronsInLayer
 
   io.peTable.req.bits.inAddr :=
     Mux((io.tTable.req.bits.stateLearn === e_TTABLE_STATE_LEARN_ERROR_BACKPROP) ||

@@ -14,66 +14,36 @@ RAM Organization. This is a modified layout of fann_small and its associated abb
 |         |          |     16 |   16 |             | total weight blocks       |
 |         |          |     32 |   16 |             | total neurons             |
 |         |          |     48 |   16 |             | total layers [N]          |
-|         |          |     64 |   16 |             | * first layer ptr [LF*]   |
-|         |          |     80 |   16 |             | * weights ptr [W*]        |
-|         |          |     96 |   16 |             | * learning rate           |
-|         |          |    112 |   16 |             | * lambda (weight decay)   |
+|         |          |     64 |   32 |             | * first layer ptr [LF*]   |
+|         |          |     96 |   32 |             | * weights ptr [W*]        |
 |---------+----------+--------+------+-------------+---------------------------|
-| Layers  | [LF*]    |      0 |   12 | layer 0     | first neuron ptr [L0Nf]   |
-|         |          |     12 |   10 |             | neurons in layer          |
-|         |          |     22 |   10 |             | neurons in previous layer |
-|         |          |     32 |   12 | layer 1     | first neuron ptr [L1Nf]   |
-|         |          |     44 |   10 |             | neurons in layer          |
-|         |          |     54 |   10 |             | neurons in previous layer |
-|         |          |     64 |   12 | layer 2     | first neuron ptr [L2Nf]   |
-|         |          |     76 |   10 |             | neurons in layer          |
-|         |          |     86 |   10 |             | neurons in previous layer |
-|         |          |     96 |   12 | layer 3     | last neurons ptr [L3Nl]   |
-|         |          |    108 |   10 |             | neurons in layer          |
-|         |          |    118 |   10 |             | neurons in previous layer |
+| Layers  | [LF*]    |      0 |   32 | layer 0     | first neuron ptr [L0Nf]   |
+|         |          |     32 |   16 |             | neurons in layer          |
+|         |          |     48 |   16 |             | neurons in previous layer |
+|         |          |     64 |   32 | layer 1     | first neuron ptr [L1Nf]   |
+|         |          |     96 |  112 |             | neurons in layer          |
+|         |          |    128 |   10 |             | neurons in previous layer |
 |---------+----------+--------+------+-------------+---------------------------|
 |         | ...      |    ... |  ... | ...         | ...                       |
 |---------+----------+--------+------+-------------+---------------------------|
-|         |          |      0 |   12 | layer N-2   | first neuron ptr [LpNf]   |
-|         |          |     12 |   10 |             | neurons in layer          |
-|         |          |     22 |   10 |             | neurons in previous layer |
-|         |          |     32 |   12 | layer N-1   | first neuron ptr [LlNf]   |
-|         |          |     44 |   10 |             | neurons in layer          |
-|         |          |     54 |   10 |             | *** unused ***            |
+|         |          |      0 |   32 | layer N-2   | first neuron ptr [LpNf]   |
+|         |          |     32 |   16 |             | neurons in layer          |
+|         |          |     48 |   16 |             | neurons in previous layer |
 |         |          |     64 |   64 |             | *** unused ***            |
 |---------+----------+--------+------+-------------+---------------------------|
-| Neurons | [L0Nf]   |      0 |   16 | L0 neuron 0 | weight offset [L0N0w]     |
-|         |          |     16 |    8 |             | number of weights         |
-|         |          |     24 |    5 |             | activation function       |
-|         |          |     29 |    3 |             | steepness                 |
-|         |          |     32 |   32 |             | bias                      |
-|         |          |     64 |   16 | L0 neuron 1 | weight offset [L0N1w]     |
-|         |          |     80 |    8 |             | number of weights         |
-|         |          |     88 |    5 |             | activation function       |
-|         |          |     93 |    3 |             | steepness                 |
-|         |          |     96 |   32 |             | bias                      |
+| Neurons | [L0Nf]   |      0 |   32 | L0 neuron 0 | weight offset [L0N0w]     |
+|         |          |     32 |   16 |             | number of weights         |
+|         |          |     48 |    5 |             | activation function       |
+|         |          |     53 |    3 |             | steepness                 |
+|         |          |     56 |   56 |             | *** unused ***            |
+|         |          |    112 |   32 |             | bias                      |
 |---------+----------+--------+------+-------------+---------------------------|
-|         |          |      0 |   16 | L0 neuron 2 | weight offset [L0N2w]     |
-|         |          |     16 |    8 |             | number of weights         |
-|         |          |     24 |    5 |             | activation function       |
-|         |          |     29 |    3 |             | steepness                 |
-|         |          |     32 |   32 |             | bias                      |
-|         | [L1Nf]   |     64 |   16 | L1 neuron 0 | weight offset [L1N0w]     |
-|         |          |     80 |    8 |             | number of weights         |
-|         |          |     88 |    5 |             | activation function       |
-|         |          |     93 |    3 |             | steepness                 |
-|         |          |     96 |   32 |             | bias                      |
-|---------+----------+--------+------+-------------+---------------------------|
-|         |          |      0 |   16 | L0 neuron 1 | weight offset [L1N1w]     |
-|         |          |     16 |    8 |             | number of weights         |
-|         |          |     24 |    5 |             | activation function       |
-|         |          |     29 |    3 |             | steepness                 |
-|         |          |     32 |   32 |             | bias                      |
-|         | [L2Nf]   |     64 |   16 |             | weight offset [L2N0w]     |
-|         |          |     80 |    8 |             | number of weights         |
-|         |          |     88 |    5 |             | activation function       |
-|         |          |     93 |    3 |             | steepness                 |
-|         |          |     96 |   32 |             | bias                      |
+|         |          |      0 |   32 | L0 neuron 1 | weight offset [L0N1w]     |
+|         |          |     32 |   16 |             | number of weights         |
+|         |          |     48 |    5 |             | activation function       |
+|         |          |     53 |    3 |             | steepness                 |
+|         |          |     56 |   56 |             | *** unused ***            |
+|         |          |    112 |   32 |             | bias                      |
 |---------+----------+--------+------+-------------+---------------------------|
 | ...     | ...      |    ... |  ... | ...         | ...                       |
 |---------+----------+--------+------+-------------+---------------------------|

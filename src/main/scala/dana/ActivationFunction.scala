@@ -7,6 +7,8 @@ import chisel3._
 import chisel3.util._
 import cde._
 
+import dana.abi._
+
 class ActivationFunctionReq(implicit p: Parameters) extends DanaBundle()(p) {
   val decimal            = UInt(decimalPointWidth.W)
   val steepness          = UInt(steepnessWidth.W)
@@ -19,7 +21,7 @@ class ActivationFunctionReq(implicit p: Parameters) extends DanaBundle()(p) {
 class ActivationFunctionReqLearn(implicit p: Parameters)
     extends ActivationFunctionReq()(p) {
   val afType             = UInt(log2Up(2).W) // [TODO] fragile
-  val errorFunction      = UInt(log2Up(2).W)
+  val errorFunction      = UInt(p(GlobalInfo).error_function.W)
 }
 
 class ActivationFunctionResp(implicit p: Parameters) extends DanaBundle()(p) {
