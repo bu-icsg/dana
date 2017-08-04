@@ -24,4 +24,4 @@ NETS_TOOLS = \
 	$(FANN_TRAIN)
 
 $(DIR_TOP)/tools/bin/%: $(DIR_BUILD)/fann/host/libfann.so
-	$(MAKE) -C $(DIR_TOP)/tools bin/$*
+	$(MAKE) -C $(DIR_TOP)/tools $(DIR_TOP)/tools/bin/$*
