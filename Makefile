@@ -1,5 +1,3 @@
-# Chisel/Scala configuration
-
 include Makefrag
 
 DIR_FANN        = $(DIR_TOP)/submodules/fann
@@ -53,18 +51,13 @@ include $(DIR_TOP)/tools/common/Makefrag-video
 nets: $(NETS_BIN) $(TRAIN_FIXED) $(NETS_TEST)
 tools: $(NETS_TOOLS)
 
-#--------- Generate ScalaDoc documentation
-doc: | $(DIR_BUILD)/doc
-	scaladoc src/main/scala/*.scala ../*/src/main/scala/*.scala ../src/main/scala/* -d $(DIR_BUILD)/doc
-
-$(DIR_BUILD)/doc:
-	mkdir -p $@
-
 #------------------- Miscellaneous
 TAGS_SCALA = \
 	$(rocketchip_dir)/src/main/scala \
-	$(rocketchip_dir)/chisel3 \
-	$(DIR_TOP)/src/main/scala
+	$(rocketchip_dir)/chisel3/src \
+	$(rocketchip_dir)/chisel3/chiselFrontend \
+	$(rocketchip_dir)/firrtl/src/main/scala \
+	$(rocketchip_dir)/xfiles-dana/src/main/scala
 TAGS_C = \
 	$(rocketchip_dir)/csrc \
 	$(rocketchip_dir)/xfiles-dana/tests \
@@ -81,6 +74,13 @@ tags:
 	find $(TAGS_SCALA) -name *.scala -exec ctags {} +
 	find $(TAGS_C) -exec ctags --append=yes {} +
 	find $(TAGS_V) -exec ctags --append=yes {} +
+
+#--------- Generate ScalaDoc documentation
+doc: | $(DIR_BUILD)/doc
+	scaladoc $(shell find $(TAGS_SCALA) -name *.scala) -d $(DIR_BUILD)/doc
+
+$(DIR_BUILD)/doc:
+	mkdir -p $@
 
 #------------------- Utility Targets
 clean:
