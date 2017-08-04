@@ -66,7 +66,7 @@ module top
      .io_cmd_bits_status_prv(io_cmd_bits_status_prv),
      .io_cmd_bits_status_sd(io_cmd_bits_status_sd),
      .io_cmd_bits_status_zero3(io_cmd_bits_status_zero3),
-<     .io_cmd_bits_status_sd_rv32(io_cmd_bits_status_sd_rv32),
+     .io_cmd_bits_status_sd_rv32(io_cmd_bits_status_sd_rv32),
      .io_cmd_bits_status_zero2(io_cmd_bits_status_zero2),
      .io_cmd_bits_status_vm(io_cmd_bits_status_vm),
      .io_cmd_bits_status_zero1(io_cmd_bits_status_zero1),
