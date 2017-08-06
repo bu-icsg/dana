@@ -48,7 +48,7 @@ include $(DIR_TOP)/tools/common/Makefrag-tools
 include $(DIR_TOP)/tools/common/Makefrag-nets
 include $(DIR_TOP)/tools/common/Makefrag-video
 
-nets: $(NETS_BIN) $(TRAIN_FIXED) $(NETS_TEST)
+nets: $(NETS_BIN) $(TRAIN_FIXED) $(NETS_TEST) $(NETS_ANT_H)
 tools: $(NETS_TOOLS)
 
 #------------------- Miscellaneous

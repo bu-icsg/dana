@@ -21,6 +21,7 @@ ENV_V = $(abs_top_srcdir)/../../riscv-tools/riscv-tests/env/v
 
 HEADERS_P := $(HEADERS) $(shell find $(ENV_P))
 HEADERS_V := $(HEADERS) $(shell find $(ENV_P))
+top_build_dir = $(abs_top_srcdir)/../build/nets
 
 # Compute the ID String
 ID_TTABLE ?= 1

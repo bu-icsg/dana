@@ -8,12 +8,15 @@ FANN_TRAIN		= $(DIR_TOP)/tools/bin/fann-train
 TRAIN_TO_C_HEADER	= $(DIR_TOP)/tools/bin/fann-train-to-c-header
 TRAIN_TO_C_HEADER_FIXED	= $(DIR_TOP)/tools/bin/fann-train-to-c-header-fixed
 WRITE_FANN_CONFIG	= $(DIR_TOP)/tools/bin/write-fann-config-for-accelerator
+FANN_EVAL               = $(DIR_TOP)/tools/bin/fann-eval
+FANN_EVAL_FIXED         = $(DIR_TOP)/tools/bin/fann-eval-fixed
 # Scripts
 FANN_CHANGE_FIXED_POINT	= $(DIR_TOP)/tools/scripts/fann-change-fixed-point
 FANN_TRAIN_TO_FIXED	= $(DIR_TOP)/tools/scripts/fann-data-to-fixed
 GEN_BOOLEAN_DATA	= $(DIR_TOP)/tools/scripts/gen-boolean-data
 GEN_MATH_DATA		= $(DIR_TOP)/tools/scripts/gen-math-data
 GEN_VIDEO		= $(DIR_TOP)/tools/scripts/gen-trace-video
+GEN_TEST_MEM            = $(DIR_TOP)/tools/scripts/generate_test_mem.py
 
 NETS_TOOLS = \
 	$(FLOAT_TO_FIXED) \
@@ -21,7 +24,9 @@ NETS_TOOLS = \
 	$(BIN_TO_C_HEADER) \
 	$(TRAIN_TO_C_HEADER) \
 	$(FANN_RANDOM) \
-	$(FANN_TRAIN)
+	$(FANN_TRAIN) \
+	$(FANN_EVAL) \
+	$(FANN_EVAL_FIXED)
 
 $(DIR_TOP)/tools/bin/%: $(DIR_BUILD)/fann/host/libfann.so
 	$(MAKE) -C $(DIR_TOP)/tools $(DIR_TOP)/tools/bin/$*

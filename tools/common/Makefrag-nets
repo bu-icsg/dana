@@ -65,6 +65,8 @@ TRAIN_FIXED+=$(addprefix $(DIR_BUILD)/nets/, $(addsuffix -fixed.train, $(NETS_XO
 TRAIN_FIXED+=$(addprefix $(DIR_BUILD)/nets/, $(addsuffix -fixed.train, $(TRAIN_SIN)))
 TRAIN_FIXED+=$(addprefix $(DIR_BUILD)/nets/, $(addsuffix -fixed.train, $(TRAIN_MATH)))
 
+NETS_ANT_H += $(addprefix $(DIR_BUILD)/nets/, $(addsuffix -fixed.ant.h, $(NETS_GEN) $(NETS_FANN) $(NETS_PARITY) $(NETS_XOR)))
+
 vpath %.train $(DIR_TOP)/src/main/resources
 vpath %.train $(DIR_TOP)/fann/datasets
 vpath %.test $(DIR_TOP)/fann/datasets
@@ -173,6 +175,10 @@ $(DIR_BUILD)/nets/%.128bin: $(DIR_BUILD)/nets/%.net $(WRITE_FANN_CONFIG) | $(DIR
 #--------------------------------------- Training Files
 $(DIR_BUILD)/nets/%-fixed.train: $(DIR_BUILD)/nets/%-float.train $(DIR_BUILD)/nets/%-fixed.net $(NETS_TOOLS) | $(DIR_BUILD)/nets
 	$(FANN_TRAIN_TO_FIXED) $< $@ `grep decimal_point $(word 2,$^) | sed 's/^.\+=//'`
+
+#--------------------------------------- *.ant.h bare-metal test headers
+$(DIR_BUILD)/nets/%.ant.h: $(DIR_BUILD)/nets/%.net $(DIR_BUILD)/nets/%.train $(DIR_BUILD)/nets/%.16bin $(NETS_TOOLS) | $(DIR_BUILD)/nets
+	$(GEN_TEST_MEM) -n $(DIR_BUILD)/nets/$* $@
 
 #--------------------------------------- C headers of binary files
 $(DIR_BUILD)/nets/%-16bin-32.h: $(DIR_BUILD)/nets/%.16bin $(NETS_TOOLS) | $(DIR_BUILD)/nets

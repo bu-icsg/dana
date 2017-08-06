@@ -5,21 +5,22 @@ import argparse
 import os
 import sys
 
-path_generate_ant = './generate-ant'
-path_fann_eval_fixed = '../bin/fann-eval-fixed'
-path_bits_to_asm = '../../util/hdl-tools/scripts/bits-to-asm'
+this_dir = os.path.dirname(os.path.realpath(__file__))
+path_generate_ant = this_dir + '/generate-ant'
+path_fann_eval_fixed = this_dir + '/../bin/fann-eval-fixed'
 
 def parse_arguments():
     parser = argparse.ArgumentParser(
         description='Generate ANT headers',
         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    group = parser.add_mutually_exclusive_group(required=True)
-    group.add_argument(
-        '-nd', '--nets-dir', type=str,
-        help="A nets directory to parse (e.g., build/nets)")
-    group.add_argument(
-        '-nn', '--net-name', type=str,
-        help="A specific network to parse")
+    parser.add_argument(
+        '-n', '--net', type=str,
+        required=True,
+        help="Fixed-point FANN network base name (no suffix)")
+    parser.add_argument(
+        'output', type=str,
+        nargs='?',
+        help='Output file')
     parser.add_argument(
         '--asid', type=int, help="The ASID to use", default=1)
     return parser.parse_args()
@@ -31,24 +32,28 @@ def twos_complement(val, width):
     else:
         return format_string.format(val)
 
-def write_ant_file(net_name):
-    net_file_path = os.path.join('../../build/nets/', net_name + '.net')
-    train_file_path = os.path.join('../../build/nets/', net_name + '.train')
-    ant_file_path = os.path.join('../../tests/nets/', net_name + '.ant.h')
-    data_in_file_path = os.path.join('../../build/nets/', net_name + '.train')
-    sixteen_bin_file_path = os.path.join('../../build/nets/', net_name + '.16bin')
+def write_ant_file(args):
+    net_file_path = os.path.join(args.net + '.net')
+    train_file_path = os.path.join(args.net + '.train')
+    ant_file_path = os.path.join(args.net + '.ant.h')
+    sixteen_bin_file_path = os.path.join(args.net + '.16bin')
     # If the data_in file is not available or the ant file can't be written,
     # then abort
     try:
-        data_in_file = open(data_in_file_path)
+        data_in_file = open(train_file_path)
     except FileNotFoundError:
-        print("[ERROR] Unable to open {} (for reading)".format(data_in_file_path))
+        print("[ERROR] Unable to open {} (for reading)".format(train_file_path))
         return
-    try:
-        ant_file = open(ant_file_path, 'w')
-    except FileNotFoundError:
-        print("[ERROR] Unable to open {} (for writing)".format(ant_file_path))
-        return
+
+    if (args.output):
+        try:
+            ant_file = open(args.output, 'w')
+        except FileNotFoundError:
+            print("[ERROR] Unable to open {} (for writing)".format(ant_file_path))
+            return
+    else:
+        ant_file = sys.stdout
+
     with open(train_file_path, 'rb') as train_file:
         num_datapoints, num_inputs, num_outputs = [int(s) for s in train_file.readline()[:-1].decode('utf-8').split(" ")]
 
@@ -109,12 +114,4 @@ RVTEST_DATA_BEGIN
 
 if __name__ == "__main__":
     args = parse_arguments()
-    foo = os.listdir(args.nets_dir)
-    def is_16bin(name):
-        return True if name.split('.')[-1] == '16bin' else False
-    sixteen_bin_net_names = [name.split('.')[0] for name in filter(is_16bin, foo)]
-    if args.net_name:
-        write_ant_file(args.net_name)
-    else:
-        for net_name in sixteen_bin_net_names:
-            write_ant_file(net_name)
+    write_ant_file(args)
