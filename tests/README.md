@@ -4,8 +4,8 @@ This contains a Rocket-attached suite of tests for verifying DANA's functionalit
 ### Organization
 Tests are organized into the following categories:
 
-* [Smoke Tests](smoke) -- Low-level verification of all instructions. These are not intended to be comprehensive.
-* [Neural Network Tests](nets) -- Inferences, learning, and simultaneously multi-processed (SMP) inference tests
+* [Smoke Tests](smoke) -- Bare metal verification of all instructions. These are not intended to be comprehensive.
+* [Neural Network Tests](nets) -- Bare metal inference, learning, and simultaneously multi-processed (SMP) inference tests
 
 Like with `riscv-tests`, the tests are intended to be built in varieties that use physical (`-p`) or virtual memory (`-v`). Currently, only the `-p` variants are built.
 
@@ -21,18 +21,6 @@ Build neural networks for DANA:
 ```
 cd $DANA_DIR
 make
-```
-
-Build all supplementary tools:
-```
-cd $DANA_DIR/tools
-make
-```
-
-Generate header files for neural network tests:
-```
-cd $DANA_DIR/tools/scripts
-./generate_test_mem.py -nd ../../build/nets
 ```
 
 Build all tests:
