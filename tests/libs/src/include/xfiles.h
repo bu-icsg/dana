@@ -5,8 +5,9 @@
 
 #include <stdint.h>
 #include <stddef.h>
-#include "tests/rocc-software/src/xcustom.h"
+
 #include "tests/libs/src/xfiles.S"
+#include "tests/rocc-software/src/xcustom.h"
 
 // [TODO] Any changes to these types need to occur in conjunction with
 // the Chisel code and with the TID extraction part of
