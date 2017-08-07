@@ -111,4 +111,11 @@ xlen_t xfiles_fann_run_smp_compare(
     int num_outputs,
     int num_data);
 
+xlen_t xfiles_fann_run_infer(
+    nnid_type nnid,
+    element_type * addr_i,
+    element_type * addr_o,
+    int num_inputs,
+    int num_outputs);
+
 #endif  // XFILES_DANA_LIBS_SRC_XFILES_USER_H_

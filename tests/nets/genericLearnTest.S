@@ -1,10 +1,10 @@
 # See LICENSE.IBM for license details.
 
 #*****************************************************************************
-# xorSigmoidSymmetric.S
+# genericLearnTest.S
 #-----------------------------------------------------------------------------
 #
-# Single transaction test of xorSigmoidSymmetric
+# Generic assembly test of learning using a FANN dataset
 #
 
 #include "riscv_test.h"

@@ -151,4 +151,14 @@ fann_test_top:                     \
   srli TESTNUM, a0, 32;        \
   j fail;
 
+#define FANN_TEST_INFER_CC(nnid, num_input, num_output, addr_i, addr_o) \
+  li a0, nnid;               \
+  la a1, addr_i;             \
+  la a2, addr_o;             \
+  li a3, num_input;          \
+  li a4, num_output;         \
+  jal xfiles_fann_run_infer; \
+  addi TESTNUM, a0, 0x10;    \
+  j fail;
+
 #endif  // XFILES_DANA_LIBS_SRC_XFILES_USER_S_

@@ -193,6 +193,23 @@ xlen_t xfiles_fann_run_compare(nnid_type nnid,
   return 0;
 }
 
+xlen_t xfiles_fann_run_infer(nnid_type nnid,
+                             element_type * addr_i,
+                             element_type * addr_o,
+                             int num_inputs,
+                             int num_outputs) {
+  transaction_feedforward(nnid, addr_i, addr_o, num_inputs, num_outputs);
+  element_type max = -1024;
+  int label = -1;
+  for (int i = 0; i < num_outputs; i++) {
+    if (addr_o[i] > max) {
+      label = i;
+      max = addr_o[i];
+    }
+  }
+  return label;
+}
+
 xlen_t xfiles_fann_run_smp_no_compare(nnid_type nnid,
                                    element_type * addr_i,
                                    element_type * addr_o,

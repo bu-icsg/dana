@@ -13,7 +13,7 @@ OBJDUMP ?= \
 	--section=.text.init \
 	--section=.data
 
-LFLAGS := $(LDFLAGS) \
+LFLAGS := $(LFLAGS) \
 	-L$(abs_top_srcdir)/libs/build/$(TARGET)
 
 ENV_P = $(abs_top_srcdir)/../../riscv-tools/riscv-tests/env/p
