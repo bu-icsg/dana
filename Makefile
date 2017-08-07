@@ -35,7 +35,7 @@ vpath %-float.net $(DIR_MAIN_RES)
 
 default: all
 
-all: nets rv-tests
+all: nets
 
 SBT ?= sbt
 SBT_FLAGS ?=
@@ -90,3 +90,5 @@ clean:
 
 mrproper: clean
 	$(MAKE) clean -C $(DIR_TOP)/tools
+	$(MAKE) clean -C $(DIR_TOP)/tests/libs
+	rm -rf $(DIR_TOP)/tests/build $(DIR_TOP)/tests/configure

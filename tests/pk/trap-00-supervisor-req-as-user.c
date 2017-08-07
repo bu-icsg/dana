@@ -1,6 +1,6 @@
 // See LICENSE.BU for license details.
 
-#include "src/include/xfiles-user-pk.h"
+#include "tests/libs/src/include/xfiles-user-pk.h"
 
 int main() {
   asid_type asid = 2;

@@ -5,10 +5,11 @@ ROCC            := xfiles-dana
 
 test_smoke_dir  := $(abs_top_srcdir)/smoke
 test_nets_dir   := $(abs_top_srcdir)/nets
+test_pk_dir     := $(abs_top_srcdir)/pk
 
-.PHONY: all smoke nets clean
+.PHONY: all smoke nets pk clean
 
-all: smoke nets
+all: smoke nets pk
 
 vars = \
 	abs_top_srcdir=$(abs_top_srcdir) \
@@ -24,6 +25,11 @@ nets:
 	mkdir -p $@
 	$(MAKE) -C $@ -f $(test_nets_dir)/Makefile $(vars)
 
+pk:
+	mkdir -p $@
+	$(MAKE) -C $@ -f $(abs_top_srcdir)/$@/Makefile $(vars)
+
 clean:
 	$(MAKE) -C smoke -f $(test_smoke_dir)/Makefile abs_top_srcdir=$(abs_top_srcdir) PREFIX=$(ROCC)-smoke src_dir=$(abs_top_srcdir)/smoke clean
 	$(MAKE) -C nets -f $(test_nets_dir)/Makefile abs_top_srcdir=$(abs_top_srcdir) PREFIX=$(ROCC)-nets src_dir=$(abs_top_srcdir)/nets clean
+	$(MAKE) -C pk -f $(test_pk_dir)/Makefile abs_top_srcdir=$(abs_top_srcdir) PREFIX=$(ROCC)-pk src_dir=$(abs_top_srcdir)/pk clean

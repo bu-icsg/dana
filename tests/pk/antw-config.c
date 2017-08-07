@@ -2,7 +2,7 @@
 
 #include <stdio.h>
 
-#include "src/include/xfiles-supervisor.h"
+#include "tests/libs/src/include/xfiles-supervisor.h"
 
 int main() {
   ant_entry asidEntry;

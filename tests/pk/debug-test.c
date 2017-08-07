@@ -4,7 +4,7 @@
 #include <unistd.h>
 #include <assert.h>
 
-#include "src/include/xfiles-debug.h"
+#include "tests/libs/src/include/xfiles-debug.h"
 
 int main(int argc, char **argv) {
 

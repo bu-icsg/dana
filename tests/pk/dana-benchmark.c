@@ -16,9 +16,9 @@
 #include <stdlib.h>
 #include <pthread.h>
 
-#include "src/include/xfiles-user-pk.h"
-#include "src/include/xfiles-asid-nnid-table.h"
-#include "src/test/rv/dana-benchmark.h"
+#include "tests/libs/src/include/xfiles-user-pk.h"
+#include "tests/libs/src/include/xfiles-asid-nnid-table.h"
+#include "dana-benchmark.h"
 
 #define DEBUG
 

@@ -28,7 +28,7 @@ CFLAGS += \
 	-O3 \
 	-static \
 	--std=gnu11 \
-	-I$(DIR_TOP)/../../
+	-I$(DIR_TOP)/../..
 LFLAGS = -L$(DIR_BUILD)/$(TARGET) -L$(DIR_BUILD)/fann/$(TARGET)
 
 vpath %.h $(DIR_TOP)/src/include

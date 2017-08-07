@@ -27,10 +27,10 @@ all: $(tests_p)
 
 vpath %.S $(src_dir)
 
-$(PREFIX)-p-%: %.S $(HEADERS_P) $(abs_top_srcdir)/libs/build/libxfiles-user.a $(abs_top_srcdir)/libs/build/libxfiles-debug.a
-	$(CC) $(CFLAGS) -I$(ENV_P) -T$(ENV_P)/link.ld $< $(LDFLAGS) -o $@ $(LIBS)
+$(PREFIX)-p-%: %.S $(HEADERS_P) $(abs_top_srcdir)/libs/build/$(TARGET)/libxfiles-user.a $(abs_top_srcdir)/libs/build/$(TARGET)/libxfiles-debug.a
+	$(CC) $(CFLAGS) -I$(ENV_P) -T$(ENV_P)/link.ld $< $(LFLAGS) -o $@ $(LIBS)
 
-$(PREFIX)-v-%: %.S $(HEADERS_V) $(abs_top_srcdir)/libs/build/libxfiles-user.a $(abs_top_srcdir)/libs/build/libxfiles-debug.a
-	$(CC) $(CFLAGS) -I$(ENV_V) -T$(ENV_V)/link.ld $(LDFLAGS) $< -o $@ $(LIBS)
+$(PREFIX)-v-%: %.S $(HEADERS_V) $(abs_top_srcdir)/libs/build/$(TARGET)/libxfiles-user.a $(abs_top_srcdir)/libs/build/$(TARGET)/libxfiles-debug.a
+	$(CC) $(CFLAGS) -I$(ENV_V) -T$(ENV_V)/link.ld $(LFLAGS) $< -o $@ $(LIBS)
 
 junk += $(tests_p)

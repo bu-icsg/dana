@@ -1,11 +1,11 @@
 XLEN ?= 64
 
-RISCV_PREFIX ?= riscv$(XLEN)-unknown-elf
-CC := $(RISCV_PREFIX)-gcc
+TARGET ?= riscv$(XLEN)-unknown-elf
+CC := $(TARGET)-gcc
 LD := $(CC)
 
 OBJDUMP ?= \
-	$(RISCV_PREFIX)objdump \
+	$(TARGET)objdump \
 	--disassemble-all \
 	--disassemble-zeroes \
 	--section=.text \
@@ -13,8 +13,8 @@ OBJDUMP ?= \
 	--section=.text.init \
 	--section=.data
 
-LDFLAGS := $(LDFLAGS) \
-	-L$(abs_top_srcdir)/libs/build/$(RISCV_PREFIX)
+LFLAGS := $(LDFLAGS) \
+	-L$(abs_top_srcdir)/libs/build/$(TARGET)
 
 ENV_P = $(abs_top_srcdir)/../../riscv-tools/riscv-tests/env/p
 ENV_V = $(abs_top_srcdir)/../../riscv-tools/riscv-tests/env/v
@@ -33,7 +33,7 @@ ID_STRING ?= 0x$(shell echo "obase=16; $(ID_CACHE) + ($(PES) * (2 ^ 4)) + ($(EPB
 default: all
 src_dir = .
 
-$(abs_top_srcdir)/libs/build/lib%.a:
+$(abs_top_srcdir)/libs/build/$(TARGET)/lib%.a:
 	make -C $(abs_top_srcdir)/libs
 
 clean:
