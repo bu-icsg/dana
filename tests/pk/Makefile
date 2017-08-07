@@ -4,7 +4,7 @@ tests = \
 	hello \
 	dana-benchmark \
 	debug-test \
-	read-xfiles-dana-id \
+	id \
 	trap-00-new-request-no-asid \
 	trap-00-supervisor-req-as-user \
 	trap-00-write-register-no-asid \
@@ -31,7 +31,7 @@ $(PREFIX)-trap-%: trap-%.c $(abs_top_srcdir)/libs/build/$(TARGET)/libxfiles-user
 	$(CC) $(CFLAGS) $< -o $@ $(LFLAGS) -lxfiles-user-pk
 $(PREFIX)-dana-benchmark: dana-benchmark.c $(abs_top_srcdir)/libs/build/$(TARGET)/libxfiles-user-pk.a
 	$(CC) $(CFLAGS) $< -o $@ $(LFLAGS) -lxfiles-user-pk
-$(PREFIX)-read-xfiles-dana-id: dana-benchmark.c $(abs_top_srcdir)/libs/build/$(TARGET)/libxfiles-user-pk.a $(abs_top_srcdir)/libs/build/$(TARGET)/libxfiles-supervisor.a
+$(PREFIX)-id: id.c $(abs_top_srcdir)/libs/build/$(TARGET)/libxfiles-user-pk.a $(abs_top_srcdir)/libs/build/$(TARGET)/libxfiles-supervisor.a
 	$(CC) $(CFLAGS) $< -o $@ $(LFLAGS) -lxfiles-user-pk -lxfiles-supervisor
 $(PREFIX)-%: %.c $(XFILES_LIBRARIES) $(libfann_dep) $(abs_top_srcdir)/libs/build/$(TARGET)/libxfiles-user.a
 	$(CC) $(CFLAGS) $< -o $@ $(LFLAGS) -lxfiles-user
