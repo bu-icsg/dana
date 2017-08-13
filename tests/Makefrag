@@ -33,6 +33,8 @@ ID_STRING ?= 0x$(shell echo "obase=16; $(ID_CACHE) + ($(PES) * (2 ^ 4)) + ($(EPB
 default: all
 src_dir = .
 
+.PRECIOUS: $(abs_top_srcdir)/libs/build/$(TARGET)/lib%.a
+
 $(abs_top_srcdir)/libs/build/$(TARGET)/lib%.a:
 	make -C $(abs_top_srcdir)/libs
 
