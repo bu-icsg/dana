@@ -75,40 +75,36 @@ def write_ant_file(args):
     for line in fann_eval_fixed_output.splitlines():
         expected_out_list.extend(line.split(b'->')[-1].split())
 
-    ant_file.write('''#include "riscv_test.h" // Full path defined by build flow
-#include "../riscv-tools/riscv-tests/isa/macros/scalar/test_macros.h"
-#define NUM_DATAPOINTS {}
+    ant_file.write('''#define NUM_DATAPOINTS {}
 #define NUM_INPUTS {}
 #define NUM_OUTPUTS {}
 
-  .data
-RVTEST_DATA_BEGIN
-
-  TEST_DATA
-
+#define DANA_TEST_DATA \\
 '''.format(num_datapoints, num_inputs, num_outputs))
 
     # Append data_in
-    ant_file.write('data_in:\n')
+    ant_file.write('data_in:; \\\n')
     for v in [twos_complement(i, 32) for i in data_in_list]:
-        ant_file.write(v + '\n')
+        ant_file.write(v + '; \\\n')
     # Create blank data_out region for each expected out
-    ant_file.write('data_out:\n')
+    ant_file.write('data_out:; \\\n')
     for _ in range(len(expected_out_list)):
-        ant_file.write('  .word 0x00000000\n')
+        ant_file.write('  .word 0x00000000; \\\n')
     # Append data_expected
-    ant_file.write('data_expected:\n')
+    ant_file.write('data_expected:;')
     for v in expected_out_list:
-        ant_file.write("  .word 0x" + v.decode("utf-8") + '\n')
+        ant_file.write(' \\\n  .word 0x' + v.decode('utf-8') + ";")
+    ant_file.write('\n\n')
 
     # Append ANT region
     ant_region = subprocess.Popen([path_generate_ant, '-a', str(args.asid) + ',' + sixteen_bin_file_path], stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()[0]
+    ant_file.write('#define DANA_ANT_DATA ')
     for line in ant_region.splitlines():
         if line.decode("utf-8")[0] == '.':
-            ant_file.write("  " + line.decode("utf-8") + '\n')
+            ant_file.write('; \\\n  ' + line.decode('utf-8'))
         else:
-            ant_file.write(line.decode("utf-8") + '\n')
-    ant_file.write("\nRVTEST_DATA_END\n")
+            ant_file.write('; \\\n' + line.decode('utf-8'))
+    ant_file.write('\n')
 
     ant_file.close()
 

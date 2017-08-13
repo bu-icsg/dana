@@ -16,7 +16,6 @@ TOOLS = \
 	fann-train-to-c-header-fixed \
 	fann-random \
 	fann-train \
-	generate-ant \
 	fann-eval \
 	fann-eval-fixed \
 	fann-image

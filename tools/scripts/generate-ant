@@ -31,9 +31,9 @@ class ant(object):
         header = """\
 .align 4
 antp_os:
-.dword 0x{:>016x} // size_t size
-.dword asid_0 // char * entry_p
-.dword 0x{:>016x} // ant_entry * entry_v
+.dword 0x{:>016x} /* size_t size */
+.dword asid_0 /* char * entry_p */
+.dword 0x{:>016x} /* ant_entry * entry_v */
 .align 4
 antp_dana:\
 """
@@ -68,11 +68,11 @@ class ant_entry(object):
     def emit(self):
         header = """\
 asid_{}:
-.word  0x{:>08x} // int num_configs
-.word  0x{:>08x} // int num_valid
-.dword {} // char * asid_nnid_p
-.dword 0x{:>016x} // nn_config * asid_nnid_v
-.dword 0x{:>016x} // io * transaction_io\
+.word  0x{:>08x} /* int num_configs */
+.word  0x{:>08x} /* int num_valid */
+.dword {} /* char * asid_nnid_p */
+.dword 0x{:>016x} /* nn_config * asid_nnid_v */
+.dword 0x{:>016x} /* io * transaction_io\ */\
 """
         print(header.format(
             self.asid,
@@ -104,14 +104,14 @@ class nn_config(object):
     def emit(self, asid):
         header = """\
 .align 4
-asid_{}_nnid_{}: //
-.dword 0x{:>016x} // size_t size
-.dword 0x{:>016x} // size_t elements_per_block
-.dword 0x{:>016x} // xlen_t * config_raw
-.dword asid_{}_nnid_{}_config // char * config_p
-.dword 0x{:>016x} // char * config_v
+asid_{}_nnid_{}:
+.dword 0x{:>016x} /* size_t size */
+.dword 0x{:>016x} /* size_t elements_per_block */
+.dword 0x{:>016x} /* xlen_t * config_raw */
+.dword asid_{}_nnid_{}_config /* char * config_p */
+.dword 0x{:>016x} /* char * config_v */
 .align 6
-asid_{}_nnid_{}_config: // {}\
+asid_{}_nnid_{}_config: /* {} */\
 """
         print(header.format(asid, self.nnid,
                             self.size,

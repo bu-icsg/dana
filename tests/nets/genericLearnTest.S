@@ -14,8 +14,6 @@
 #include "tests/libs/src/xfiles-supervisor.S"
 #include "tests/libs/src/xfiles-user.S"
 
-#define CUSTOM_X 0
-
 #define STACK_TOP (_end + 4096)
 
 // RVTEST_CODE_BEGIN includes the EXTRA_INIT macro before its final
@@ -42,3 +40,13 @@ RVTEST_CODE_BEGIN
   TEST_PASSFAIL
 
 RVTEST_CODE_END
+
+  .data
+RVTEST_DATA_BEGIN
+
+TEST_DATA
+
+DANA_TEST_DATA
+DANA_ANT_DATA
+
+RVTEST_DATA_END
