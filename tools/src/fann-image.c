@@ -18,7 +18,7 @@
 #endif
 
 static char * usage_message =
-    "Usage: fann-eval [OPTION]... -n[CONFIG] IMAGE...\n"
+    "Usage: fann-image [OPTION]... -n[CONFIG] IMAGE...\n"
     "Classify an input IMAGE using a specific FANN network CONFIG.\n"
     "\n"
     "Mandatory options to long options are mandatory for short options, too.\n"
