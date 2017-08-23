@@ -144,10 +144,10 @@ This is currently WIP.
 #### <a name="emulation-rocket-chip"></a> Rocket Chip Emulation
 You can build a complete version of Rocket Chip that includes DANA in a RoCC socket.
 
-You can build an emulator of Rocket + DANA using the rocket-chip make target inside the rocket-chip/emulator directory. The Makefile just needs to know what configuration we're using and that we have additional Chisel code located in the `dana` directory. Below we build a Rocket + DANA configuration with a DANA unit having 4 processing elements and using a block width of 4 32-bit elements:
+You can build an emulator of Rocket + DANA using the rocket-chip make target inside the rocket-chip/emulator directory. The Makefile just needs to know what configuration we're using and that we have additional Chisel code located in the `dana` directory:
 ```bash
 cd $ROCKETCHIP/emulator
-make CONFIG=XFilesDanaCppPe4Epb4Config ROCKETCHIP_ADDONS=xfiles-dana
+make CONFIG=DanaEmulatorConfig ROCKETCHIP_ADDONS=dana
 ```
 
 We provide bare-metal test programs inside the [tests](tests) directory.
@@ -162,7 +162,7 @@ Chisel's `printf` writes to STDERR, all `printf` statements are disabled by defa
 
 ```
 cd $ROCKETCHIP/emulator
-./emulator-Top-XFilesDanaCppPe4Epb4Config +verbose [binary] 2>&1 | tee run.log
+./emulator-Top-DanaEmulatorConfig +verbose [binary] 2>&1 | tee run.log
 ```
 
 Note: Rocket Chip dumps information every cycle and it is often useful to grep for the exact `printf` that you're looking for.
@@ -181,7 +181,7 @@ To further reduce the size of the VCD file we provide a tool that prunes a VCD f
 
 ```
 cd $ROCKETCHIP_DIR/emulator
-./emulator-Top-XFilesDanaCppPe4Epb4Config -v- [binary] 2>&1 | ../dana/util/hdl-tools/scripts/vcd-prune -m Dana > run.vcd
+./emulator-Top-DanaEmulatorConfig-debug -v- [binary] 2>&1 | ../dana/util/hdl-tools/scripts/vcd-prune -m Dana > run.vcd
 ```
 
 This waveform can then be viewed using GTKWave by building GTKWave locally and using a helper script to pre-populate the waveform window:
