@@ -210,7 +210,7 @@ While neural network configurations are loaded from the memory of the microproce
 
 ### <a name="documentation"></a> Additional Documentation
 
-Additional documentation can be found in the `xfiles-dana/doc` directory or in some of our publications.
+Additional documentation can be found in the `dana/doc` directory or in some of our publications.
 
 #### <a name="attribution"></a> Attribution
 If you use this for research, please cite the original PACT paper:
