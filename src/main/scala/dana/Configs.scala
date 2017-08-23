@@ -16,11 +16,11 @@ class DefaultHardwareConfig extends Config ( topDefinitions = {
     // Field widths
     case NnidWidth                 => 16
     // Processing Element Table
-    case PeTableNumEntries         => 1
+    case PeTableNumEntries         => 2
     case PeCooldownWidth           => 8
     // Configuration Cache
     case CacheNumEntries           => 2
-    case CacheSizeBytes            => 32 * 1024 // KiB
+    case CacheSizeBytes            => 512 * 1024 // KiB
     case CacheNumBlocks            => divUp(divUp((site(CacheSizeBytes) * 8),
       site(DanaDataBits)), site(ElementsPerBlock))
     case CacheInit                 => Nil
