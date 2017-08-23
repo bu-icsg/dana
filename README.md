@@ -1,10 +1,79 @@
 Dynamically Allocated Neural Network (DANA) Accelerator
 ========================================
 
-A [Chisel3](https://github.com/ucb-bar/chisel3) implementation of a neural network accelerator, DANA, capable of supporting simultaneous inferences or learning _transactions_ originating from the same or different contexts [[1]](#cite-pact2015).
+A [Chisel3](https://github.com/ucb-bar/chisel3) implementation of a fully connected neural network accelerator, DANA, supporting inference or learning. DANA follows a transactional model of computation supporting simultaneous multithreading of transactions [[1]](#cite-pact2015).
 DANA integrates with the [RISC-V Rocket microprocessor](https://github.com/ucb-bar/rocket-chip) as a Rocket Custom Coprocessor (RoCC).
 
 This is currently compatibile with [rocket-chip:f3299ae9](https://github.com/ucb-bar/rocket-chip/commit/f3299ae91d3f01d0349eb4746886e303e8fb1b41) -- an older rocket-chip version used by fpga-zynq.
+
+### tl;dr: Setup
+
+This is compatible with [ucb-bar/fpga-zynq:f03982e](https://github.com/ucb-bar/fpga-zynq/commit/f03982e6a155d333b3b3708185898745df5d4004). Clone this repo, add DANA, and build:
+
+```bash
+# Clone fpga-zynq
+git clone https://github.com/ucb-bar/fpga-zynq $fpga_zynq_dir
+cd $fpga_zynq_dir
+git submodule update --init rocket-chip testchipip
+
+# Add DANA to rocket-chip
+cd $fpga_zynq_dir/rocket-chip
+git submodule update --init
+git clone https://github.com/bu-icsg/dana
+cd $fpga_zynq_dir/rocket-chip/dana
+git submodule update --init
+
+# Build an emulator
+cd $fpga_zynq_dir/rocket-chip/emulator
+make ROCKETCHIP_ADDONS=dana CONFIG=XFilesDanaCPPConfig
+
+# Build example DANA networks in 'dana/build/nets'
+cd $fpga_zynq_dir/rocket-chip/dana
+make
+
+# Build bare metal tests for DANA in 'dana/tests/build'
+cd $fpga_zynq_dir/rocket-chip/riscv/tools
+git submodule update --init --recursive riscv-tests
+cd $fpga_zynq_dir/rocket-chip/dana/tests
+autoconf
+mkdir build
+cd build
+../configure
+make
+
+# Run tests on the emulator with or without printfs
+cd $fpga_zynq_dir/rocket-chip/emulator
+./emulator-rocketchip-DanaEmulatorConfig \
+  ../dana/tests/build/nets/xfiles-dana-nets-p-xorSigmoidSymmetric
+./emulator-rocketchip-DanaEmulatorConfig \
+  +verbose \
+  ../dana/tests/build/nets/xfiles-dana-nets-p-xorSigmoidSymmetric \
+  2>&1 | \
+  spike-dasm | \
+  tee xfiles-dana-nets-p-xorSigmoidSymmetric.log
+```
+
+To build Verilog suitable for Zynq FPGAs (Zedboard, ZC706):
+
+```
+# Add a Zedboard configuration to fpga-zynq
+echo "class DanaZedboardConfig extends Config (
+  new rocketchip.HasDanaRocc ++
+  new xfiles.DefaultXFilesConfig ++
+  new dana.DanaConfig(
+    numPes     = 2,
+    cache      = 1,
+    cacheSize  = 512 * 1024,
+    scratchpad =  16 * 1024) ++
+    new dana.DefaultDanaConfig ++
+    new ZynqConfig)" >> $fpga_zynq_dir/common/src/main/scala/Configs.scala
+
+# Build for the FPGA (Zedboard)
+cd $fpga_zynq_dir/zedboard
+make rocket ROCKETCHIP_ADDONS=dana CONFIG=DanaZedboardConfig
+make project ROCKETCHIP_ADDONS=dana CONFIG=DanaZedboardConfig
+make fpga-images-zedboard/boot.bin CONFIG=DanaZedboardConfig
+```
 
 ### <a name="toc"></a> Table of Contents
 - [Setup](#setup)
