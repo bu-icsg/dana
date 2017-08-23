@@ -55,7 +55,7 @@ cd $fpga_zynq_dir/rocket-chip/emulator
 
 To build Verilog suitable for Zynq FPGAs (Zedboard, ZC706):
 
-```
+```bash
 # Add a Zedboard configuration to fpga-zynq
 echo "class DanaZedboardConfig extends Config (
   new rocketchip.HasDanaRocc ++
