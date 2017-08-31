@@ -14,6 +14,7 @@ This is compatible with [ucb-bar/fpga-zynq:f03982e](https://github.com/ucb-bar/f
 # Clone fpga-zynq
 git clone https://github.com/ucb-bar/fpga-zynq $fpga_zynq_dir
 cd $fpga_zynq_dir
+git reset --hard f03982e
 git submodule update --init rocket-chip testchipip
 
 # Add DANA to rocket-chip
@@ -25,14 +26,14 @@ git submodule update --init
 
 # Build an emulator
 cd $fpga_zynq_dir/rocket-chip/emulator
-make ROCKETCHIP_ADDONS=dana CONFIG=XFilesDanaCPPConfig
+make ROCKETCHIP_ADDONS=dana CONFIG=DanaEmulatorConfig
 
 # Build example DANA networks in 'dana/build/nets'
 cd $fpga_zynq_dir/rocket-chip/dana
 make
 
 # Build bare metal tests for DANA in 'dana/tests/build'
-cd $fpga_zynq_dir/rocket-chip/riscv/tools
+cd $fpga_zynq_dir/rocket-chip/riscv-tools
 git submodule update --init --recursive riscv-tests
 cd $fpga_zynq_dir/rocket-chip/dana/tests
 autoconf
@@ -80,12 +81,10 @@ make fpga-images-zedboard/boot.bin CONFIG=DanaZedboardConfig
     - [1 - Clone the Rocket Chip Repository](#clone-the-rocket-chip-repo)
     - [2 - Build a RISC-V Toolchain](#riscv-toolchain)
 - [Software Emulation](#emulation)
-    - [Standalone Emulation](#emulation-standalone)
     - [Rocket + DANA Emulation](#emulation-rocket-chip)
     - [Debugging](#emulation-debugging)
         - [Printf Debugging](#printf-debugging)
         - [Waveform Debugging](#waveform-debugging)
-    - [Regression Testing](#regression-testing)
 - [Hardware Evaluation](#hardware)
     - [FPGA Target](#fpga-target)
         - [1 - Verilog Generation](#verilog-generation)
@@ -136,10 +135,6 @@ cd $ROCKETCHIP_DIR/riscv-tools
 
 ### <a name="emulation"></a> Emulation (Functional Verification)
 This project uses [Chisel3](https://github.com/ucb-bar/chisel3) and [FIRRTL](https://github.com/ucb-barc/firrtl) for hardware design and Verilog generation.
-The Verilog emitted by FIRRTL can then be tested either as a standalone accelerator or integrated with Rocket Chip.
-
-#### <a name="emulation-standalone"></a> Standalone Emulation
-This is currently WIP.
 
 #### <a name="emulation-rocket-chip"></a> Rocket Chip Emulation
 You can build a complete version of Rocket Chip that includes DANA in a RoCC socket.
@@ -200,7 +195,7 @@ Rocket + DANA can be evaluated on a Zynq FPGA using the Berkeley-provided [`fpga
 There are a few remaining things that we're working on closing out which limit the set of available features.
 
 #### <a name="configuration-size"></a> Configuration Size
-Currently, the neural network configuration must fit completely in one of DANA's configuration cache memories. We plan to enable the ability for weight data to be loaded as needed for large configurations that do not wholly fit in a cache memory.
+Currently, the neural network configuration must fit completely in one of DANA's configuration cache memories. DANA's neural network configuration format using 32-bit internal pointers meaning that networks up to 4GiB are theoretically supported. We've used networks up to 512KiB in size on FPGA without issue.
 
 #### <a name="linux-support"></a> Linux Support
 We're working on a full integration of the X-FILES supervisor library with the Linux kernel. Supervisor features are currently supported via system calls added to the [RISC-V Proxy Kernel](https://www.github.com/riscv/riscv-pk) via an included [patch](patches/riscv-pk-xfiles-syscalls.patch).
@@ -210,7 +205,7 @@ While neural network configurations are loaded from the memory of the microproce
 
 ### <a name="documentation"></a> Additional Documentation
 
-Additional documentation can be found in the `dana/doc` directory or in some of our publications.
+Additional documentation can be found in the [`doc`](doc) directory or in some of our publications.
 
 #### <a name="attribution"></a> Attribution
 If you use this for research, please cite the original PACT paper:

@@ -4,10 +4,10 @@ At its most basic, X-FILES/DANA enables hardware acceleration of a subset of net
 
 Requests to access neural network resources are defined using a transaction model. Each transaction needs an input (or set of inputs in the case of training) and a binary data structure describing a neural network. Tools are provided that facilitate the generation of these files. The workflow and associated tools for the common usage case are discussed below.
 
-All tools live in a subdirectory of [`xfiles-dana/tools`](https://www.github.com/bu-icsg/xfiles-dana/tree/master/tools), but have symlinks provided in [`xfiles-dana/usr/bin`](https://www.github.com/bu-icsg/xfiles-dana/tree/master/usr/bin).
+All tools live in a subdirectory of [`xfiles-dana/tools`](https://www.github.com/bu-icsg/xfiles-dana/tree/master/tools).
 
 ## Standard Workflow
-The standard workflow (most of which happens automatically for selected neural networks when you run `make rv`) is shown graphically below:
+The standard workflow (most of which happens automatically for selected neural networks when you run `make`) is shown graphically below:
 ```
 Existing                                      Existing
 Floating Point FANN--+                        Floating Point FANN---+
@@ -101,11 +101,15 @@ The program [`fann-float-to-fixed`](https://www.github.com/bu-icsg/xfiles-dana/t
 
 To manually change the fixed point for a given fixed point configuration to a specific use a specific binary point, the program [`fann-change-fixed-point`](https://www.github.com/bu-icsg/xfiles-dana/tree/master/tools/scripts/fann-change-fixed-point) is provided.
 
-The floating point training file must then be converted to a fixed point representation using the binary point determined by `fann-float-to-fixed` or after applying `fann-change-fixed-point`. You can just grep for "decimal_point" in the fixed point configuration to figure this out (or script this out like [`xfiles-dana/tools/common/Makefrag`](https://www.github.com/bu-icsg/xfiles-dana/tree/master/tools/common/Makefrag) does with: `grep decimal $FIXED_POINT_NET | sed 's/.\+=//'`).
+The floating point training file must then be converted to a fixed point representation using the binary point determined by `fann-float-to-fixed` or after applying `fann-change-fixed-point`. You can just grep for "decimal_point" in the fixed point configuration to figure this out (or script this out like [`xfiles-dana/tools/common/Makefrag-rv`](https://github.com/bu-icsg/dana/blob/master/tools/common/Makefrag-nets#L177) does with: `grep decimal $FIXED_POINT_NET | sed 's/.\+=//'`).
 
 A fixed point FANN configuration can then be converted over to a binary data structure that DANA understands with [`write-fann-config-for-accelerator`](https://www.github.com/bu-icsg/xfiles-dana/tree/master/tools/write-fann-config-for-accelerator/src/write-fann-config-for-accelerator.c). This has two additional input parameters that are dependent on the specific build of DANA:
 * Decimal Point Offset -- The decimal point is encoded using 3 bits (*cough* premature optimization *cough*). The actual decimal point is computed by adding this encoded value to the offset. See the [binary encodings documentation](https://www.github.com/bu-icsg/xfiles-dana/tree/master/doc/binary-encodings-data-structures.md#decimal-point-encoding) for more details. This is currently 7.
 * Block Width -- DANA does all processing on wide blocks of elements. The element width is currently 32 bits, but will likely be reduced in a later version. DANA configurations support 4, 8, 16, and 32 element blocks. The block width is the size in 8-bit bytes used when generating the binary configuration data structure. So, the block width is `4 * elements-per-block`. __There is currently no checking by DANA to see if a format is valid, so an incorrect configuration will just hang with high probability.__
+
+One or more DANA configurations then need to be packaged up into a program that can be run on a Rocket core. This is done for the bare metal tests by collecting multiple neural network configurations together in an ASID--NNID Table data structure along with neural network inputs, expected outputs, and space for outputs to be written. This is accomplished by [`generate_test_mem.py`](https://github.com/bu-icsg/dana/blob/master/tools/scripts/generate_test_mem.py) which relies on [`generate-ant`](https://github.com/bu-icsg/dana/blob/master/tools/scripts/generate-ant) to create the ASID--NNID Table. The output of this, `*-ant.h`, are suitable for direct inclusion in a [`riscv-tests`](https://github.com/riscv/riscv-tests)-style bare metal test like [`genericNetTest.S`](https://github.com/bu-icsg/dana/blob/master/tests/nets/genericNetTest.S).
+
+Running `make` in DANA's top level and then building the tests (`cd tests && autoconf && mkdir build && cd build && ../configure && make`) will build single threaded, multi-threaded, and learning transaction tests using example neural networks.
 
 ## Other Tools
 There are a number of other tools that are currently provided but not used in the standard workflow.
