@@ -119,9 +119,10 @@ This is not, at present, a standalone repository and must be cloned inside of an
 git clone https://github.com/ucb-bar/rocket-chip $ROCKETCHIP_DIR
 cd $ROCKETCHIP_DIR
 git reset --hard f3299ae91d3f01d0349eb4746886e303e8fb1b41
+git submodule update --init
 git clone https://github.com/bu-icsg/dana
 cd dana
-git submodule update --init --recursive
+git submodule update --init
 ```
 
 2) <a name="riscv-toolchain"></a> Build the RISC-V Toolchain
