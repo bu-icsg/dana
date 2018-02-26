@@ -41,12 +41,12 @@ class XFilesArbiter()(implicit p: Parameters)
   val asidValid = csrFile.io.status.asidValid
 
   // Types of requests
-  val badRequest = cmd.fire() & (
-    (!asidValid & !sup & (funct =/= t_USR_XFILES_DEBUG.U | funct =/= t_SUP_READ_CSR.U)) |
-      (asidValid & !sup & (funct < t_USR_READ_DATA.U & funct =/= t_SUP_READ_CSR.U)))
   val readCsr = cmd.fire() & funct === t_SUP_READ_CSR.U
   val writeCsr = cmd.fire() & funct === t_SUP_WRITE_CSR.U
   val isDebug = cmd.fire() & funct === t_USR_XFILES_DEBUG.U
+  val badRequest = cmd.fire() & (
+    (!asidValid & !sup & !(funct === t_USR_XFILES_DEBUG.U | funct === t_SUP_READ_CSR.U)) |
+      (asidValid & !sup & (funct < t_USR_READ_DATA.U & funct =/= t_SUP_READ_CSR.U)))
 
   // Anything that is a short circuit response or involves a
   // supervisor request gets squashed.
