@@ -21,11 +21,11 @@
   la x ## rs2, addr;                                                    \
   ROCC_INSTRUCTION_RAW_R_R_R(CUSTOM_X, rd, rs1, rs2, t_USR_XFILES_DEBUG);
 
-#define DEBUG_ECHO_VIA_REG(data) DEBUG_TEST(a_REG, data, tdat, 3, 1, 2)
-#define DEBUG_READ_MEM(addr) DEBUG_TEST(a_MEM_READ, 0, addr, 3, 1, 2);
-#define DEBUG_WRITE_MEM(data, addr) DEBUG_TEST(a_MEM_WRITE, data, addr, 3, 1, 2);
-#define DEBUG_VIRT_TO_PHYS(vaddr, paddr) DEBUG_TEST(a_VIRT_TO_PHYS, 0, vaddr, paddr, 1, 2);
-#define DEBUG_READ_UTL(addr) DEBUG_TEST(a_UTL_READ, 0, addr, 3, 1, 2);
-#define DEBUG_WRITE_UTL(data, addr) DEBUG_TEST(a_UTL_WRITE, data, addr, 3, 1, 2);
+#define DEBUG_ECHO_VIA_REG(data) DEBUG_TEST(a_REG, data, tdat, 10, 10, 11)
+#define DEBUG_READ_MEM(addr) DEBUG_TEST(a_MEM_READ, 0, addr, 10, 10, 11);
+#define DEBUG_WRITE_MEM(data, addr) DEBUG_TEST(a_MEM_WRITE, data, addr, 10, 10, 11);
+#define DEBUG_VIRT_TO_PHYS(vaddr, paddr) DEBUG_TEST(a_VIRT_TO_PHYS, 0, vaddr, paddr, 10, 11);
+#define DEBUG_READ_UTL(addr) DEBUG_TEST(a_UTL_READ, 0, addr, 10, 10, 11);
+#define DEBUG_WRITE_UTL(data, addr) DEBUG_TEST(a_UTL_WRITE, data, addr, 10, 10, 11);
 
 #endif  // XFILES_DANA_LIBS_SRC_XFILES_DEBUG_S_
