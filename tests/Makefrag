@@ -24,11 +24,11 @@ HEADERS_V := $(HEADERS) $(shell find $(ENV_P))
 top_build_dir = $(abs_top_srcdir)/../build/nets
 
 # Compute the ID String
-ID_TTABLE ?= 1
+TTABLE_ENTRIES ?= 2
 EPB ?= 4
-PES ?= 1
-ID_CACHE ?= 2
-ID_STRING ?= 0x$(shell echo "obase=16; $(ID_CACHE) + ($(PES) * (2 ^ 4)) + ($(EPB) * (2 ^ 10)) + ($(ID_TTABLE) * (2 ^ 48))" | bc)
+NUM_PES ?= 4
+CACHE_ENTRIES ?= 1
+ID_STRING ?= 0x$(shell echo "obase=16; $(CACHE_ENTRIES) + ($(NUM_PES) * (2 ^ 4)) + ($(EPB) * (2 ^ 10)) + ($(TTABLE_ENTRIES) * (2 ^ 48))" | bc)
 
 default: all
 src_dir = .
